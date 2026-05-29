@@ -5,9 +5,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { spawn, execSync, ChildProcess } from "child_process";
 import { unlinkSync, existsSync } from "fs";
-import { join } from "path";
 import { randomUUID } from "crypto";
 import { Provider, mapModel, resolveEffort, buildCommand } from "./effort.js";
+import { resolveExeFor } from "./platform.js";
 
 type AgentStatus = "running" | "completed" | "failed" | "stalled" | "killed";
 
@@ -41,17 +41,7 @@ function getNpmPrefix(): string {
 }
 
 function resolveExe(provider: Provider): string {
-  if (!isWindows) return provider === "claude" ? "claude" : "codex";
-
-  const prefix = getNpmPrefix();
-  if (provider === "claude") {
-    const exe = join(prefix, "node_modules", "@anthropic-ai", "claude-code", "bin", "claude.exe");
-    if (existsSync(exe)) return exe;
-  } else {
-    const exe = join(prefix, "node_modules", "@openai", "codex", "node_modules", "@openai", "codex-win32-x64", "vendor", "x86_64-pc-windows-msvc", "bin", "codex.exe");
-    if (existsSync(exe)) return exe;
-  }
-  return provider === "claude" ? "claude" : "codex";
+  return resolveExeFor(provider, process.platform, { existsSync, npmPrefix: getNpmPrefix });
 }
 
 function cleanupUcSettings(agentState: AgentState): void {

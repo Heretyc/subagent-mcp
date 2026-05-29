@@ -1,4 +1,4 @@
-# subagent-mcp v2.0.0 -- Technical Specification
+# subagent-mcp v2.1.0 -- Technical Specification
 
 **Author:** Lexi Blackburn | **License:** Apache-2.0 | **Repo:** https://github.com/Heretyc/subagent-mcp
 
@@ -30,6 +30,7 @@ MCP Host (Claude Code / Codex / Gemini CLI)
 
 - **Transport:** stdio (MCP spec 2025-06-18)
 - **SDK:** `@modelcontextprotocol/sdk` + `zod` for parameter validation
+- **Platforms:** macOS, Linux, Windows
 - **Runtime:** Node.js >= 18 (ESM module)
 - **Entry point:** `dist/index.js` (compiled from `src/index.ts`)
 - **Server name announced to MCP host:** `subagent-mcp`
@@ -134,32 +135,36 @@ The temp settings file path is stored in `AgentState.ucSettingsPath`. It is dele
 
 ---
 
-## Windows Executable Resolution
+## Executable Resolution (Cross-Platform)
 
-On Windows, npm global packages may not be on `PATH` in the environment that spawns the server. The server resolves the real executables at runtime:
+The public function `resolveExeFor(provider, platform, deps)` in `src/platform.ts` is a pure, dependency-injected function that determines the real path to the `claude` or `codex` binary. `deps` provides `existsSync` and `npmPrefix()` so the function is fully unit-testable with mocked filesystem and npm prefix.
 
-```typescript
-function resolveExe(provider: "claude" | "codex"): string {
-  if (!isWindows) return provider;  // "claude" or "codex" -- on PATH
+### win32
 
-  const prefix = execSync("npm prefix -g").trim();
+PowerShell `.ps1` / `.cmd` shims in the npm global bin directory cannot be directly spawned by `child_process.spawn`. The server locates the real `.exe` under the npm global prefix:
 
-  if (provider === "claude") {
-    const exe = join(prefix, "node_modules", "@anthropic-ai", "claude-code",
-                     "bin", "claude.exe");
-    if (existsSync(exe)) return exe;
-  } else {
-    const exe = join(prefix, "node_modules", "@openai", "codex",
-                     "node_modules", "@openai", "codex-win32-x64",
-                     "vendor", "x86_64-pc-windows-msvc", "bin", "codex.exe");
-    if (existsSync(exe)) return exe;
-  }
+- **claude:** `<npmPrefix>\node_modules\@anthropic-ai\claude-code\bin\claude.exe`
+- **codex:** `<npmPrefix>\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe`
 
-  return provider;  // fall back to PATH name
-}
-```
+If the expected path does not exist (e.g. installed differently), falls back to the bare name `"claude"` / `"codex"` and relies on PATH.
 
-The npm prefix is cached after the first call. On non-Windows, the CLI name is used directly (assumed on PATH).
+### darwin / linux
+
+On POSIX systems, the npm global bin directory contains a real symlink (not a shim) that re-execs the correct vendor binary, so the bare name on PATH works correctly in normal login shells. For non-login shell environments (common with MCP host launchers where PATH may be minimal), the server probes candidate absolute paths in order and returns the first that exists:
+
+1. `<npmPrefix>/bin/<name>` — npm global bin (most reliable if npm is configured correctly)
+2. `/opt/homebrew/bin/<name>` — Homebrew install (macOS)
+3. `/usr/local/bin/<name>` — traditional unix location
+
+If none of the above exist, returns the bare name and relies on PATH as the final arbiter.
+
+The npm prefix is obtained via `execSync("npm prefix -g")` and cached after the first call.
+
+### Kill signal
+
+On agent termination, SIGTERM is sent first. If the process is still alive after 5 seconds:
+- **Windows:** `taskkill /pid <pid> /t /f`
+- **macOS / Linux:** `process.kill(pid, "SIGKILL")`
 
 ---
 
