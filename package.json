@@ -1,0 +1,37 @@
+{
+  "name": "subagent-mcp",
+  "version": "2.0.0",
+  "description": "MCP server that launches and manages local Claude Code and Codex CLI sub-agents as child processes (no direct Anthropic/OpenAI API).",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "subagent-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prepare": "npm run build",
+    "test": "node test/effort.test.mjs"
+  },
+  "author": "Lexi Blackburn",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Heretyc/subagent-mcp.git"
+  },
+  "homepage": "https://github.com/Heretyc/subagent-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/Heretyc/subagent-mcp/issues"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
