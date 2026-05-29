@@ -1,0 +1,12 @@
+﻿# Repository ownership. CODEOWNERS is evaluated from the PR base branch.
+
+* @Heretyc
+
+AGENTS.md @Heretyc
+CLAUDE.md @Heretyc
+GEMINI.md @Heretyc
+.github/ @Heretyc
+docs/spec/ @Heretyc
+docs/CONTRIBUTING.md @Heretyc
+agents/ @Heretyc
+
