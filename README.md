@@ -1,6 +1,6 @@
 # subagent-mcp
 
-MCP server that launches and manages locally installed `claude` and `codex` CLI binaries as child sub-agent processes.
+MCP server that launches and manages locally installed `claude` and `codex` CLI binaries as child sub-agent processes. Runs on **macOS, Linux, and Windows**.
 
 **No direct API calls.** subagent-mcp does NOT use the Anthropic or OpenAI HTTP APIs and has no plans to. It invokes your locally installed and authenticated `claude` (Claude Code) and `codex` CLIs. No API keys, no SDKs beyond the CLIs themselves.
 
@@ -15,7 +15,7 @@ MCP server that launches and manages locally installed `claude` and `codex` CLI 
 - Concurrency caps: 5 concurrent Claude agents + 5 concurrent Codex agents
 - Automatic stall detection: agents with no output for 60 seconds enter `stalled` state
 - Ultracode mode for Opus 4.8 -- headless activation via `--settings {"ultracode":true}` (see below)
-- Windows-safe exe resolution via npm global prefix; cross-platform SIGTERM/taskkill kill flow
+- Cross-platform exe resolution (Windows: npm-prefix .exe paths; macOS/Linux: PATH + Homebrew/usr-local fallbacks); SIGTERM/taskkill kill flow
 - stdio MCP transport; built with `@modelcontextprotocol/sdk` + `zod`
 
 ---
@@ -25,7 +25,7 @@ MCP server that launches and manages locally installed `claude` and `codex` CLI 
 - **Node.js >= 18**
 - **`claude` CLI** (Claude Code) installed globally and authenticated (`claude login`)
 - **`codex` CLI** (OpenAI Codex CLI) installed globally and authenticated (`codex auth`)
-- Both CLIs must be on `PATH` (Windows: resolved via npm global prefix automatically)
+- Both CLIs must be installed and on `PATH` (macOS/Linux: standard npm global bin or Homebrew; Windows: resolved via npm global prefix automatically)
 
 ---
 
@@ -44,23 +44,38 @@ The server entry point after build: `dist/index.js`.
 
 ## Registering the MCP Server
 
-Replace `C:\Users\YourName\Dropbox\subagent-mcp` with the absolute path where you cloned the repo.
+Replace the path below with the absolute path where you cloned the repo.
 
 ### Claude Code CLI
 
-Run once from any directory:
+**macOS / Linux** — run once from any directory:
+
+```bash
+claude mcp add subagent-mcp -- node /abs/path/to/subagent-mcp/dist/index.js
+```
+
+**Windows:**
 
 ```bash
 claude mcp add subagent-mcp -- node "C:\Users\YourName\Dropbox\subagent-mcp\dist\index.js"
 ```
 
-To make it available across all projects (user scope):
+To make it available across all projects (user scope), add `--scope user`. Or add it to a project's `.mcp.json` for team sharing:
 
-```bash
-claude mcp add --scope user subagent-mcp -- node "C:\Users\YourName\Dropbox\subagent-mcp\dist\index.js"
+**macOS / Linux `.mcp.json`:**
+
+```json
+{
+  "mcpServers": {
+    "subagent-mcp": {
+      "command": "node",
+      "args": ["/abs/path/to/subagent-mcp/dist/index.js"]
+    }
+  }
+}
 ```
 
-Or add it to a project's `.mcp.json` for team sharing:
+**Windows `.mcp.json`:**
 
 ```json
 {
@@ -73,11 +88,24 @@ Or add it to a project's `.mcp.json` for team sharing:
 }
 ```
 
+The Claude Desktop config lives at:
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux:** `~/.config/Claude/claude_desktop_config.json`
+
 Verify with `claude mcp list` or `/mcp` inside a Claude Code session.
 
 ### Codex CLI
 
-Edit `C:\Users\YourName\.codex\config.toml` (create it if it doesn't exist):
+**macOS / Linux** — edit `~/.codex/config.toml` (create if it doesn't exist):
+
+```toml
+[mcp_servers.subagent-mcp]
+command = "node"
+args = ["/abs/path/to/subagent-mcp/dist/index.js"]
+```
+
+**Windows** — edit `C:\Users\YourName\.codex\config.toml`:
 
 ```toml
 [mcp_servers.subagent-mcp]
@@ -89,7 +117,20 @@ Forward or double-backslash paths both work in TOML. Verify with `/mcp` inside a
 
 ### Gemini CLI
 
-Edit `C:\Users\YourName\.gemini\settings.json` (merge into existing file):
+**macOS / Linux** — edit `~/.gemini/settings.json` (merge into existing file):
+
+```json
+{
+  "mcpServers": {
+    "subagent-mcp": {
+      "command": "node",
+      "args": ["/abs/path/to/subagent-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+**Windows** — edit `C:\Users\YourName\.gemini\settings.json`:
 
 ```json
 {
@@ -138,7 +179,7 @@ Returns: `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, st
 
 ### `kill_agent`
 
-Terminate a running agent. Sends SIGTERM, then `taskkill /f` (Windows) or SIGKILL (Unix) after 5 seconds if still alive.
+Terminate a running agent. Sends SIGTERM, then `taskkill /pid /t /f` (Windows) or SIGKILL (macOS/Linux) after 5 seconds if still alive.
 
 | Parameter | Type | Required |
 |-----------|------|----------|
