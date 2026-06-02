@@ -8,10 +8,10 @@
     "subagent-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-provider.mjs",
     "start": "node dist/index.js",
     "prepare": "npm run build",
-    "test": "node test/effort.test.mjs && node test/platform.test.mjs && node test/wait.test.mjs"
+    "test": "node test/effort.test.mjs && node test/platform.test.mjs && node test/wait.test.mjs && node scripts/validate_provider.mjs"
   },
   "author": "Lexi Blackburn",
   "license": "Apache-2.0",
