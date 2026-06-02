@@ -61,6 +61,12 @@ Returns `{ "agent_id": "abc-123", "status": "running", ... }`. Then poll:
 { "tool": "poll_agent", "arguments": { "agent_id": "abc-123" } }
 ```
 
+Pass `verbose: true` to also get `final_output`, the agent's final assistant turn text extracted from its captured stdout (also available per finished entry on `wait` with `verbose: true`):
+
+```json
+{ "tool": "poll_agent", "arguments": { "agent_id": "abc-123", "verbose": true } }
+```
+
 **Launch a Codex gpt-5.5 xhigh agent:**
 
 ```json

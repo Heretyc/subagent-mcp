@@ -31,10 +31,11 @@ Get current status and output tail of an agent.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `agent_id` | string | Yes | UUID returned by `launch_agent` |
+| `verbose` | boolean | No | When `true`, also return `final_output` (default: `false`) |
 
-Returns: `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds }` plus `hint` when `status` is `processing`.
+Returns: `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds }` plus `hint` when `status` is `processing`, plus `final_output` when `verbose` is `true`.
 
-`stdout_tail` is capped at the last 2000 characters; `stderr_tail` at 1000 characters. `alive` is `true` while the process is running/processing; `idle_seconds` is whole seconds since last output. Exit is reconciled synchronously on each call, so an already-exited process is reported `completed`/`failed` immediately. A `processing` agent is alive but quiet -- prefer `wait`/re-poll over killing it.
+`stdout_tail` is capped at the last 2000 characters; `stderr_tail` at 1000 characters. `alive` is `true` while the process is running/processing; `idle_seconds` is whole seconds since last output. Exit is reconciled synchronously on each call, so an already-exited process is reported `completed`/`failed` immediately. A `processing` agent is alive but quiet -- prefer `wait`/re-poll over killing it. With `verbose: true`, `final_output` holds the agent's final assistant turn text extracted from its full captured stdout (falls back to the raw stdout if it cannot be parsed).
 
 ---
 
@@ -75,7 +76,11 @@ No parameters. Returns: `{ agents: [{ id, provider, model, status, started_at, l
 
 Block until one or more sub-agents finish (completed/failed/killed) and return their exit details. Returns immediately if terminal-unreported agents already exist. Returns after a 15-minute hard timeout with a list of still-running agents if nothing finishes in time.
 
-No parameters.
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `verbose` | boolean | No | When `true`, add `final_output` to each finished entry (default: `false`) |
+
+With `verbose: true`, every entry in `finished` gains a `final_output` field carrying that agent's final assistant turn text (falls back to raw stdout if it cannot be parsed).
 
 **Happy-path return** (one or more agents just finished):
 ```json
