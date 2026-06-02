@@ -11,5 +11,6 @@
     "declaration": false,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/provider.json"]
 }

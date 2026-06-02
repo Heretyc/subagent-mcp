@@ -52,6 +52,11 @@ agentic collaboration.
   under `docs/spec`, skills, policy gates, CI/CD agent instructions, or text
   future agents/maintainers must follow. Do not read for one-off task notes,
   changelogs, or agent-state markdown unless they contain reusable rules.
+- `.spec/references/retrieval-map.md`: read when choosing which model/provider/
+  effort for a task, routing or distributing work across Claude/Codex,
+  classifying a prompt into a work-category, or wiring the subagent-mcp routing
+  feature. Entry point for the cross-provider model-routing KB; re-profile new
+  models with the `model-profiler` skill.
 
 ## Always Enforce
 
