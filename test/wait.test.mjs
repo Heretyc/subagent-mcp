@@ -105,15 +105,15 @@ test("selectUnreported: after marking waitReported=true, re-select returns []", 
   assert.equal(second.length, 0, "Expected empty after marking reported");
 });
 
-// running/stalled never selected
-test("selectUnreported: running/stalled never selected", () => {
+// running/processing never selected
+test("selectUnreported: running/processing never selected", () => {
   const agents = [
     makeAgent("p", "running", false, null),
-    makeAgent("q", "stalled", false, null),
+    makeAgent("q", "processing", false, null),
     makeAgent("r", "running", false, Date.now()),
   ];
   const result = selectUnreported(agents);
-  assert.equal(result.length, 0, "running/stalled must never be selected");
+  assert.equal(result.length, 0, "running/processing must never be selected");
 });
 
 // mixed: only those meeting all three criteria are selected
@@ -124,7 +124,7 @@ test("selectUnreported: full mixed set - only terminal+exitedAt+!reported", () =
     makeAgent("b", "completed", false, now),     // yes
     makeAgent("c", "failed",    false, now),     // yes
     makeAgent("d", "killed",    false, now),     // yes
-    makeAgent("e", "stalled",   false, null),    // no
+    makeAgent("e", "processing", false, null),   // no
     makeAgent("f", "completed", true,  now),     // no (reported)
     makeAgent("g", "failed",    true,  now),     // no (reported)
     makeAgent("h", "killed",    true,  now),     // no (reported)

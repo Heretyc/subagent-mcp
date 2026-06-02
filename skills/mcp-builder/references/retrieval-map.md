@@ -2,6 +2,10 @@
 
 First file to load. Maps every trigger type to the smallest useful file set.
 
+## Index Files Have Sub-Pages
+
+Seven referenced files are now thin **indexes** plus a same-named sub-directory of detail pages: `config-claude.md`, `implementation-patterns.md`, `install-windows.md`, `packaging-node.md`, `packaging-python.md`, `tool-resource-prompt-schemas.md`, `troubleshooting.md`. When a "Load" target below is one of these, do not stop at the index: follow its table of contents and load the relevant sub-page(s) under `references/<topic>/` for the actual detail.
+
 ## Direct Topic Index
 
 | Term | Load |
@@ -84,19 +88,19 @@ First file to load. Maps every trigger type to the smallest useful file set.
 
 | Symptom / Error | Load |
 |----------------|------|
-| `spawn ENOENT` | `troubleshooting.md` section: connection_failures |
+| `spawn ENOENT` | `troubleshooting.md` -> `troubleshooting/01-startup-and-connection.md` (connection_failures) |
 | `spawn npx ENOENT` on Windows | `install-windows.md` + `troubleshooting.md` |
 | `spawn uv ENOENT` | `install-macos.md` or `install-windows.md` + `troubleshooting.md` |
-| Tool list empty / zero tools | `troubleshooting.md` section: tool_visibility |
+| Tool list empty / zero tools | `troubleshooting.md` -> `troubleshooting/01-startup-and-connection.md` (tool_visibility) |
 | `Error -32000` | `troubleshooting.md` |
 | `Error -32602 Invalid params` | `tool-resource-prompt-schemas.md` + `troubleshooting.md` |
-| JSON parse error / garbled output | `troubleshooting.md` section: stdout_pollution |
+| JSON parse error / garbled output | `troubleshooting.md` -> `troubleshooting/01-startup-and-connection.md` (stdout_pollution) |
 | Server disconnected / connection closed | `troubleshooting.md` |
 | MCP config not found | `install-windows.md` or `install-macos.md` |
 | MSIX path wrong | `install-windows.md` |
 | Claude Desktop shows server error | `troubleshooting.md` + `config-claude.md` |
 | Codex server not connecting | `config-codex.md` + `troubleshooting.md` |
-| Tools not appearing after config change | `troubleshooting.md` section: restart_requirements |
+| Tools not appearing after config change | `troubleshooting.md` -> `troubleshooting/03-inspector-logs-restart-error-codes.md` (restart_requirements) |
 | Memory leak in server | `implementation-patterns.md` |
 | Tool output too large | `config-claude.md` (MAX_MCP_OUTPUT_TOKENS) |
 
