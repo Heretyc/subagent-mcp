@@ -8,6 +8,7 @@ import { unlinkSync, existsSync } from "fs";
 import { randomUUID } from "crypto";
 import { Provider, mapModel, resolveEffort, buildCommand } from "./effort.js";
 import { resolveExeFor } from "./platform.js";
+import { formatLocalIso, selectUnreported } from "./wait-helpers.js";
 
 type AgentStatus = "running" | "completed" | "failed" | "stalled" | "killed";
 
@@ -20,10 +21,12 @@ interface AgentState {
   stdout: string;
   stderr: string;
   exitCode: number | null;
+  exitedAt: number | null;
   startedAt: number;
   lastActivity: number;
   cwd: string;
   ucSettingsPath?: string;
+  waitReported: boolean;
 }
 
 const agents = new Map<string, AgentState>();
@@ -73,6 +76,7 @@ setInterval(() => {
       if (agent.process.exitCode !== null) {
         agent.exitCode = agent.process.exitCode;
         agent.status = agent.process.exitCode === 0 ? "completed" : "failed";
+        if (agent.exitedAt === null) agent.exitedAt = now;
       }
       continue;
     }
@@ -80,6 +84,7 @@ setInterval(() => {
     if (agent.process.exitCode !== null) {
       agent.exitCode = agent.process.exitCode;
       agent.status = agent.process.exitCode === 0 ? "completed" : "failed";
+      if (agent.exitedAt === null) agent.exitedAt = now;
       continue;
     }
     if (now - agent.lastActivity > 60000) {
@@ -201,10 +206,12 @@ server.tool(
         stdout: "",
         stderr: "",
         exitCode: null,
+        exitedAt: null,
         startedAt: now,
         lastActivity: now,
         cwd: agentCwd,
         ucSettingsPath: buildResult.ucSettingsPath,
+        waitReported: false,
       };
 
       if (childProcess.stdout) {
@@ -216,6 +223,7 @@ server.tool(
           if (agentState.provider === "codex" && chunk.includes('"type":"turn.completed"')) {
             agentState.status = "completed";
             agentState.exitCode = 0;
+            if (agentState.exitedAt === null) agentState.exitedAt = Date.now();
             childProcess.kill();
           }
         });
@@ -233,9 +241,19 @@ server.tool(
         // Always clean up ultracode settings file on close
         cleanupUcSettings(agentState);
 
-        if (agentState.status === "killed" || agentState.status === "completed") {
+        // Always record actual close time (unless already finalized)
+        if (agentState.exitedAt === null) agentState.exitedAt = Date.now();
+
+        if (agentState.status === "killed") {
+          // Record real exit code but preserve "killed" status
+          if (agentState.exitCode === null) agentState.exitCode = (code !== null ? code : -1);
           return;
         }
+        if (agentState.status === "completed") {
+          // Already finalized by turn.completed; exitedAt already stamped
+          return;
+        }
+        // Normal exit: set exit code and derive status
         agentState.exitCode = code !== null ? code : -1;
         agentState.status = code === 0 ? "completed" : "failed";
       });
@@ -517,6 +535,96 @@ server.tool(
           text: JSON.stringify({ agents: agentList }),
         },
       ],
+    };
+  }
+);
+
+// Tool 6: wait
+server.tool(
+  "wait",
+  "Blocks until one or more sub-agents exit (completed/failed/killed) and returns their exit code + local-time exit timestamp, or returns the running-job list after a 15-minute timeout",
+  {},
+  async () => {
+    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    const TIMEOUT_MS = 15 * 60 * 1000;
+    const deadline = Date.now() + TIMEOUT_MS;
+
+    const buildFinishedEntry = (a: AgentState) => ({
+      id: a.id,
+      provider: a.provider,
+      model: a.model,
+      status: a.status,
+      exit_code: a.exitCode,
+      exited_at: formatLocalIso(a.exitedAt as number),
+      elapsed_ms: (a.exitedAt as number) - a.startedAt,
+    });
+
+    const buildRunningEntry = (a: AgentState, now: number) => ({
+      id: a.id,
+      provider: a.provider,
+      model: a.model,
+      status: a.status,
+      started_at_local: formatLocalIso(a.startedAt),
+      last_activity_local: formatLocalIso(a.lastActivity),
+      elapsed_ms: now - a.startedAt,
+    });
+
+    // Step 1: collect already-terminal unreported agents
+    const allAgents = Array.from(agents.values());
+    let unreported = selectUnreported(allAgents);
+    if (unreported.length > 0) {
+      // Mark reported synchronously before building return (single-threaded JS → atomic)
+      for (const a of unreported) a.waitReported = true;
+      const payload = { finished: unreported.map(buildFinishedEntry) };
+      return {
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    }
+
+    // Step 2: nothing alive and nothing unreported (includes killed-but-not-yet-closed)
+    const TERMINAL_SET = new Set(["completed", "failed", "killed"]);
+    const hasPending = Array.from(agents.values()).some(
+      (a) =>
+        a.status === "running" ||
+        a.status === "stalled" ||
+        (TERMINAL_SET.has(a.status) && a.exitedAt === null)
+    );
+    if (!hasPending) {
+      const payload = {
+        finished: [] as ReturnType<typeof buildFinishedEntry>[],
+        message: "No agents are running or waiting to finish.",
+      };
+      return {
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    }
+
+    // Step 3: block-poll until a terminal agent appears or deadline passes
+    while (Date.now() < deadline) {
+      await sleep(250);
+      unreported = selectUnreported(Array.from(agents.values()));
+      if (unreported.length > 0) {
+        for (const a of unreported) a.waitReported = true;
+        const payload = { finished: unreported.map(buildFinishedEntry) };
+        return {
+          content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+        };
+      }
+    }
+
+    // Step 4: timeout — return still-running jobs
+    const now = Date.now();
+    const stillRunning = Array.from(agents.values()).filter(
+      (a) => a.status === "running" || a.status === "stalled"
+    );
+    const payload = {
+      timed_out: true,
+      elapsed_minutes: 15,
+      running: stillRunning.map((a) => buildRunningEntry(a, now)),
+      hint: "15 minutes elapsed with no agent finishing. Call wait again to block for another 15 minutes or until the next agent finishes.",
+    };
+    return {
+      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
     };
   }
 );
