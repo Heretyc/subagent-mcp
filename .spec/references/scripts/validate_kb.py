@@ -15,44 +15,25 @@ from urllib.parse import unquote, urlparse
 EXPECTED_CATEGORIES = [
     "math_proof",
     "security_review",
-    "architecture",
-    "quality_review",
     "debugging",
+    "quality_review",
+    "architecture",
     "agentic_execution",
-    "knowledge_synthesis",
+    "data_analysis",
     "coding",
+    "knowledge_synthesis",
     "mechanical",
-    "fallback_default",
 ]
 
-EXPECTED_PRECEDENCE = EXPECTED_CATEGORIES[:-1]
-
-EXPECTED_GATES = [
-    "G_MATH",
-    "G_CTX_200",
-    "G_CTX_272",
-    "G_CTX_400",
-    "G_CTX_1M",
-    "G_CTX_OUT",
-    "G_SEC",
-    "G_COMMIT",
-    "G_SANDBOX",
-    "G_DATA",
-    "G_OPUS_LOCK",
-]
-
-REQUIRED_CATEGORY_FIELDS = {
-    "id",
-    "definition",
-    "classify_signals",
-    "precedence",
-    "primary",
-    "fallback",
-    "gates",
-    "synergy_pattern",
-    "cost_note",
-    "risk_flags",
-}
+EXPECTED_PRECEDENCE = EXPECTED_CATEGORIES
+EXPECTED_FALLBACK = "fallback_default"
+EXPECTED_FALLBACK_PRECEDENCE = 99
+EXPECTED_PENDING_STATUS = "pending_impartial_profiling"
+EXPECTED_VERSION = "2.1.0"
+EXPECTED_GENERATED = "2026-06"
+EXPECTED_GENERATED_AT = "2026-06-03T00:00:00Z"
+EXPECTED_SOURCE = r"C:\Users\Lexi\AppData\Local\Temp\catdebate\consensus-categories.json"
+EXPECTED_SOURCE_DATE = "2026-06-03"
 
 VALID_MODELS = {
     "claude-opus-4-8",
@@ -65,10 +46,11 @@ VALID_MODELS = {
     "gpt-5.5-pro",
 }
 
-VALID_PROVIDERS = {"anthropic", "openai"}
-VALID_CONDITION_OPS = {"eq", "gt", "in", "intersects"}
-VALID_GATE_SEVERITIES = {"mandatory", "constraint", "blocker", "safety"}
 MODEL_REF_RE = re.compile(r"\b(?:claude-[a-z]+-\d+-\d+|gpt-\d+\.\d+(?:-(?:mini|pro))?)\b")
+PENDING_ROUTE_TEXT = (
+    "pending impartial profiler run "
+    "(rankings determined solely from discovered research)"
+)
 
 
 def kb_root() -> Path:
@@ -80,7 +62,7 @@ def rel(path: Path, root: Path) -> str:
 
 
 def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    return path.read_text(encoding="utf-8-sig")
 
 
 def leaf_markdown_files(root: Path) -> list[Path]:
@@ -153,76 +135,16 @@ def check_retrieval_map_coverage(root: Path) -> list[str]:
     return errors
 
 
-def extract_spine_ids(root: Path, file_name: str) -> set[str]:
-    text = read_text(root / file_name)
-    found = {token for token in re.findall(r"`([a-z][a-z0-9_]+)`", text)}
-    return found & set(EXPECTED_CATEGORIES)
-
-
-def extract_routing_table_order(root: Path) -> list[str]:
-    ids: list[str] = []
-    in_route_table = False
-    for line in read_text(root / "routing-table.md").splitlines():
-        if line.startswith("| prec | category |"):
-            in_route_table = True
-            continue
-        if in_route_table and line.startswith("## "):
-            break
-        if not in_route_table:
-            continue
-        match = re.match(r"\|\s*[^|]+\|\s*`([a-z][a-z0-9_]+)`\s*\|", line)
-        if match:
-            ids.append(match.group(1))
-    return ids
-
-
-def validate_model_ref(errors: list[str], location: str, record: dict) -> None:
-    provider = record.get("provider")
-    model = record.get("model")
-    if provider not in VALID_PROVIDERS:
-        errors.append(f"{location} invalid provider: {provider!r}")
-    if model not in VALID_MODELS:
-        errors.append(f"{location} invalid model: {model!r}")
-
-
-def validate_gate_condition(errors: list[str], location: str, condition: object) -> None:
-    if not isinstance(condition, dict):
-        errors.append(f"{location} must be an object")
-        return
-
-    groups = [key for key in ("all_of", "any_of") if key in condition]
-    has_comparison = {"field", "op", "value"} <= set(condition)
-    if has_comparison:
-        allowed = {"field", "op", "value"}
-        extra = set(condition) - allowed
-        if extra:
-            errors.append(f"{location} has unexpected fields: {', '.join(sorted(extra))}")
-        if not isinstance(condition.get("field"), str):
-            errors.append(f"{location}.field must be a string")
-        if condition.get("op") not in VALID_CONDITION_OPS:
-            errors.append(f"{location}.op invalid: {condition.get('op')!r}")
-    elif len(groups) == 1:
-        group = groups[0]
-        children = condition.get(group)
-        if not isinstance(children, list) or not children:
-            errors.append(f"{location}.{group} must be a non-empty array")
-            return
-        for idx, child in enumerate(children):
-            validate_gate_condition(errors, f"{location}.{group}[{idx}]", child)
-    else:
-        errors.append(f"{location} must be a comparison or exactly one all_of/any_of group")
-
-
-def validate_gate_action(errors: list[str], location: str, action: object) -> None:
-    if not isinstance(action, dict):
-        errors.append(f"{location} must be an object")
-        return
-    if not isinstance(action.get("type"), str):
-        errors.append(f"{location}.type must be a string")
-    if "target" not in action:
-        errors.append(f"{location}.target missing")
-    elif not isinstance(action.get("target"), dict):
-        errors.append(f"{location}.target must be an object")
+def load_json(path: Path, label: str) -> tuple[dict, list[str]]:
+    try:
+        data = json.loads(read_text(path))
+    except FileNotFoundError:
+        return {}, [f"{label} missing"]
+    except json.JSONDecodeError as exc:
+        return {}, [f"{label} JSON parse error: {exc}"]
+    if not isinstance(data, dict):
+        return {}, [f"{label} must be a JSON object"]
+    return data, []
 
 
 def iter_json_strings(value: object):
@@ -236,134 +158,191 @@ def iter_json_strings(value: object):
             yield from iter_json_strings(child)
 
 
-def check_json_model_refs(data: object) -> list[str]:
+def check_json_model_refs(data: object, label: str) -> list[str]:
     tokens: set[str] = set()
     for text in iter_json_strings(data):
         tokens.update(MODEL_REF_RE.findall(text))
     invalid = sorted(token for token in tokens if token not in VALID_MODELS)
     if invalid:
-        return ["assets/routing-table.json invalid model refs: " + ", ".join(invalid)]
+        return [f"{label} invalid model refs: " + ", ".join(invalid)]
     return []
+
+
+def expected_metadata(base: dict[str, object]) -> dict[str, object]:
+    result = {
+        "author": "Lexi Blackburn",
+        "author_url": "https://github.com/Heretyc/",
+        "version": EXPECTED_VERSION,
+        "source": EXPECTED_SOURCE,
+        "source_date": EXPECTED_SOURCE_DATE,
+        "generated": EXPECTED_GENERATED,
+        "generated_at": EXPECTED_GENERATED_AT,
+        "status": EXPECTED_PENDING_STATUS,
+        "rag_pointer": ".spec/references/retrieval-map.md",
+    }
+    result.update(base)
+    return result
+
+
+def check_metadata(errors: list[str], data: dict, label: str, expected: dict[str, object]) -> None:
+    metadata = data.get("metadata")
+    if metadata != expected:
+        errors.append(f"{label} metadata block does not match June 2026 consensus manifest")
+
+
+def check_fallback(errors: list[str], data: dict, label: str) -> None:
+    fallback = data.get(EXPECTED_FALLBACK)
+    if not isinstance(fallback, dict):
+        errors.append(f"{label} fallback_default must be an object")
+        return
+    if fallback.get("id") != EXPECTED_FALLBACK:
+        errors.append(f"{label} fallback_default id mismatch")
+    if fallback.get("precedence") != EXPECTED_FALLBACK_PRECEDENCE:
+        errors.append(f"{label} fallback_default precedence must be 99")
+    if not isinstance(fallback.get("pairings"), list):
+        errors.append(f"{label} fallback_default pairings must be an array")
+
+
+def check_category_spine(errors: list[str], data: dict, label: str) -> None:
+    categories = data.get("categories")
+    if not isinstance(categories, dict):
+        errors.append(f"{label} categories must be an object")
+        return
+    if list(categories.keys()) != EXPECTED_CATEGORIES:
+        errors.append(f"{label} categories keys/order do not match consensus spine")
+    for index, key in enumerate(EXPECTED_CATEGORIES, start=1):
+        record = categories.get(key)
+        if not isinstance(record, dict):
+            errors.append(f"{label} category {key} must be an object")
+            continue
+        if record.get("id") != key:
+            errors.append(f"{label} category {key} id field mismatch")
+        if record.get("precedence") != index:
+            errors.append(f"{label} category {key} precedence mismatch")
+        if record.get("status") != EXPECTED_PENDING_STATUS:
+            errors.append(f"{label} category {key} status must be {EXPECTED_PENDING_STATUS}")
+        if not isinstance(record.get("rag_pointer"), str):
+            errors.append(f"{label} category {key} rag_pointer must be a string")
+
+
+def check_pending_branch(errors: list[str], data: dict, label: str, branch: str, *, audit: bool) -> None:
+    records = data.get(branch)
+    if not isinstance(records, dict):
+        errors.append(f"{label} {branch} must be an object")
+        return
+    if list(records.keys()) != EXPECTED_CATEGORIES:
+        errors.append(f"{label} {branch} keys/order do not match consensus spine")
+    for index, key in enumerate(EXPECTED_CATEGORIES, start=1):
+        record = records.get(key)
+        if not isinstance(record, dict):
+            errors.append(f"{label} {branch}.{key} must be an object")
+            continue
+        if record.get("id") != key:
+            errors.append(f"{label} {branch}.{key} id field mismatch")
+        if record.get("precedence") != index:
+            errors.append(f"{label} {branch}.{key} precedence mismatch")
+        if record.get("status") != EXPECTED_PENDING_STATUS:
+            errors.append(f"{label} {branch}.{key} status must be {EXPECTED_PENDING_STATUS}")
+        if not isinstance(record.get("rag_pointer"), str):
+            errors.append(f"{label} {branch}.{key} rag_pointer must be a string")
+        if record.get("pairings") != []:
+            errors.append(f"{label} {branch}.{key} pairings must be empty until profiling")
+        if audit and record.get("citations") != []:
+            errors.append(f"{label} {branch}.{key} citations must be empty until profiling")
+
+
+def extract_routing_table_rows(root: Path) -> list[tuple[str, str, str, str]]:
+    rows: list[tuple[str, str, str, str]] = []
+    in_route_table = False
+    for line in read_text(root / "routing-table.md").splitlines():
+        if line.startswith("| prec | category |"):
+            in_route_table = True
+            continue
+        if in_route_table and line.startswith("## "):
+            break
+        if not in_route_table:
+            continue
+        parts = [part.strip() for part in line.strip().strip("|").split("|")]
+        if len(parts) < 5 or parts[0].startswith("---"):
+            continue
+        match = re.fullmatch(r"`([a-z][a-z0-9_]+)`", parts[1])
+        if match:
+            rows.append((parts[0], match.group(1), parts[2], parts[3]))
+    return rows
+
+
+def check_md_spine_mirror(root: Path, json_order: list[str]) -> list[str]:
+    errors: list[str] = []
+    rows = extract_routing_table_rows(root)
+    md_order = [row[1] for row in rows]
+    expected_order = EXPECTED_CATEGORIES + [EXPECTED_FALLBACK]
+    if md_order != expected_order:
+        errors.append(f"routing-table.md category order mismatch: {md_order}")
+    if json_order != EXPECTED_CATEGORIES:
+        errors.append(f"routing-table.json category order mismatch: {json_order}")
+    for _prec, category, performance_route, cost_route in rows:
+        if category != EXPECTED_FALLBACK:
+            if performance_route != PENDING_ROUTE_TEXT or cost_route != PENDING_ROUTE_TEXT:
+                errors.append(f"routing-table.md {category} route columns must stay pending")
+    text = read_text(root / "routing-table.md")
+    invalid_models = sorted(set(MODEL_REF_RE.findall(text)) - VALID_MODELS)
+    if invalid_models:
+        errors.append("routing-table.md invalid model refs: " + ", ".join(invalid_models))
+    return errors
 
 
 def check_routing_table(root: Path) -> list[str]:
     errors: list[str] = []
-    path = root / "assets" / "routing-table.json"
-    try:
-        data = json.loads(read_text(path))
-    except FileNotFoundError:
-        return ["assets/routing-table.json missing"]
-    except json.JSONDecodeError as exc:
-        return [f"assets/routing-table.json JSON parse error: {exc}"]
-
-    metadata = data.get("metadata")
-    expected_metadata = {
-        "author": "Lexi Blackburn",
-        "author_url": "https://github.com/Heretyc/",
-        "version": "2.0.0",
-        "generated_for": "subagent-mcp cross-provider work-category routing feature",
-        "source": "phase-2-core-synthesis/2026-05-29",
-        "generated": "2026-05",
-    }
-    if metadata != expected_metadata:
-        errors.append("assets/routing-table.json metadata block does not match manifest")
-
-    if data.get("schema_version") != "2.0.0":
-        errors.append("assets/routing-table.json schema_version must be 2.0.0")
+    label = "assets/routing-table.json"
+    data, load_errors = load_json(root / "assets" / "routing-table.json", label)
+    if load_errors:
+        return load_errors
+    expected = expected_metadata(
+        {"generated_for": "subagent-mcp cross-provider work-category routing feature"}
+    )
+    check_metadata(errors, data, label, expected)
+    if data.get("schema_version") != EXPECTED_VERSION:
+        errors.append(f"{label} schema_version must be {EXPECTED_VERSION}")
     if data.get("classification_precedence") != EXPECTED_PRECEDENCE:
-        errors.append("classification_precedence does not match manifest spine")
-    if data.get("default_category") != "fallback_default":
-        errors.append("default_category must be fallback_default")
+        errors.append(f"{label} classification_precedence does not match consensus spine")
+    if data.get("default_category") != EXPECTED_FALLBACK:
+        errors.append(f"{label} default_category must be fallback_default")
+    check_fallback(errors, data, label)
+    check_category_spine(errors, data, label)
+    check_pending_branch(errors, data, label, "performance", audit=False)
+    check_pending_branch(errors, data, label, "cost_efficiency", audit=False)
+    categories = data.get("categories") if isinstance(data.get("categories"), dict) else {}
+    errors.extend(check_md_spine_mirror(root, list(categories.keys())))
+    errors.extend(check_json_model_refs(data, label))
+    return errors
 
-    hard_gates = data.get("hard_gates")
-    if not isinstance(hard_gates, list):
-        errors.append("hard_gates must be an array")
-        hard_gate_ids: list[str] = []
-    else:
-        hard_gate_ids = [gate.get("id") for gate in hard_gates if isinstance(gate, dict)]
-        if hard_gate_ids != EXPECTED_GATES:
-            errors.append("hard_gates ids/order do not match manifest")
-        for gate in hard_gates:
-            if not isinstance(gate, dict) or set(gate) != {"id", "when", "action", "severity"}:
-                errors.append(f"invalid hard gate record: {gate!r}")
-                continue
-            validate_gate_condition(errors, f"hard_gate {gate.get('id')}.when", gate.get("when"))
-            validate_gate_action(errors, f"hard_gate {gate.get('id')}.action", gate.get("action"))
-            if gate.get("severity") not in VALID_GATE_SEVERITIES:
-                errors.append(f"hard_gate {gate.get('id')} invalid severity: {gate.get('severity')!r}")
 
-    categories = data.get("categories")
-    if not isinstance(categories, dict):
-        errors.append("categories must be an object")
-        categories = {}
-    if list(categories.keys()) != EXPECTED_CATEGORIES:
-        errors.append("categories keys/order do not match manifest spine")
-
-    work_ids = extract_spine_ids(root, "work-categories.md")
-    route_ids = extract_spine_ids(root, "routing-table.md")
-    expected_set = set(EXPECTED_CATEGORIES)
-    if work_ids != expected_set:
-        errors.append(f"work-categories.md spine mismatch: {sorted(work_ids)}")
-    if route_ids != expected_set:
-        errors.append(f"routing-table.md spine mismatch: {sorted(route_ids)}")
-
-    md_route_order = extract_routing_table_order(root)
-    json_route_order = list(categories.keys())
-    if md_route_order != json_route_order:
-        errors.append(
-            "routing-table.md/category JSON mirror drift: "
-            f"md={md_route_order}, json={json_route_order}"
-        )
-    if md_route_order[:-1] != data.get("classification_precedence") or md_route_order[-1:] != ["fallback_default"]:
-        errors.append("routing-table.md precedence order does not match classification_precedence")
-
-    errors.extend(check_json_model_refs(data))
-
-    gate_set = set(EXPECTED_GATES)
-    for key, record in categories.items():
-        if not isinstance(record, dict):
-            errors.append(f"category {key} must be an object")
-            continue
-        missing = REQUIRED_CATEGORY_FIELDS - set(record)
-        if missing:
-            errors.append(f"category {key} missing fields: {', '.join(sorted(missing))}")
-        if record.get("id") != key:
-            errors.append(f"category {key} id field mismatch")
-        if key in EXPECTED_CATEGORIES:
-            expected_prec = 99 if key == "fallback_default" else EXPECTED_CATEGORIES.index(key) + 1
-            if record.get("precedence") != expected_prec:
-                errors.append(f"category {key} precedence mismatch")
-        if not isinstance(record.get("classify_signals"), list):
-            errors.append(f"category {key} classify_signals must be an array")
-        if not isinstance(record.get("fallback"), list):
-            errors.append(f"category {key} fallback must be an array")
-        if not isinstance(record.get("risk_flags"), list):
-            errors.append(f"category {key} risk_flags must be an array")
-        gates = record.get("gates")
-        if not isinstance(gates, list):
-            errors.append(f"category {key} gates must be an array")
-        else:
-            bad_gates = [gate for gate in gates if gate not in gate_set]
-            if bad_gates:
-                errors.append(f"category {key} unknown gates: {bad_gates}")
-        primary = record.get("primary")
-        if isinstance(primary, dict):
-            validate_model_ref(errors, f"category {key}.primary", primary)
-        else:
-            errors.append(f"category {key} primary must be an object")
-        for idx, fallback in enumerate(record.get("fallback", [])):
-            if isinstance(fallback, dict):
-                validate_model_ref(errors, f"category {key}.fallback[{idx}]", fallback)
-                if "effort" not in fallback:
-                    errors.append(f"category {key}.fallback[{idx}] missing effort")
-            else:
-                errors.append(f"category {key}.fallback[{idx}] must be an object")
-        synergy = record.get("synergy_pattern")
-        if not isinstance(synergy, dict) or set(synergy) != {"id", "trigger"}:
-            errors.append(f"category {key} synergy_pattern must contain id and trigger")
-
-    if "global_invariants" not in data:
-        errors.append("global_invariants missing")
+def check_routing_table_audit(root: Path) -> list[str]:
+    errors: list[str] = []
+    label = "assets/routing-table-audit.json"
+    data, load_errors = load_json(root / "assets" / "routing-table-audit.json", label)
+    if load_errors:
+        return load_errors
+    expected = expected_metadata(
+        {
+            "schema_version": EXPECTED_VERSION,
+            "audits": ".spec/references/assets/routing-table.json",
+            "source_ledger_pointer": ".spec/references/source-ledger.md",
+            "note": (
+                "Per-category model-effort pairings and citations are empty until "
+                "an impartial profiler run populates them from discovered research."
+            ),
+        }
+    )
+    check_metadata(errors, data, label, expected)
+    if data.get("schema_version") != EXPECTED_VERSION:
+        errors.append(f"{label} schema_version must be {EXPECTED_VERSION}")
+    if data.get("classification_precedence") != EXPECTED_PRECEDENCE:
+        errors.append(f"{label} classification_precedence does not match consensus spine")
+    check_fallback(errors, data, label)
+    check_pending_branch(errors, data, label, "performance", audit=True)
+    check_pending_branch(errors, data, label, "cost_efficiency", audit=True)
+    errors.extend(check_json_model_refs(data, label))
     return errors
 
 
@@ -391,6 +370,7 @@ def main() -> int:
         ("relative cross-links", check_cross_links(root)),
         ("retrieval-map coverage", check_retrieval_map_coverage(root)),
         ("routing-table.json", check_routing_table(root)),
+        ("routing-table-audit.json", check_routing_table_audit(root)),
         ("provenance purity", check_provenance_purity(root)),
     ]
     failures = [(name, issues) for name, issues in checks if issues]

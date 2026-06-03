@@ -12,5 +12,5 @@
     "resolveJsonModule": true
   },
   "include": ["src/**/*"],
-  "exclude": ["src/provider.json"]
+  "exclude": ["src/routing-table.json"]
 }

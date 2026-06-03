@@ -1,6 +1,6 @@
-# provider-json-emission.md — provider.json Schema Contract and Validation Rules
+# provider-json-emission.md — routing-table.json Schema Contract and Validation Rules
 
-**Load when:** a run emits or validates `src/provider.json`. Encodes the required shape and the
+**Load when:** a run emits or validates `src/routing-table.json`. Encodes the required shape and the
 rules enforced by `scripts/validate_provider.mjs`. The file carries scores/ranks/metadata only —
 explanatory prose stays in the RAG, referenced via `rag_pointer` and per-pairing `basis` fields.
 
@@ -22,14 +22,14 @@ explanatory prose stays in the RAG, referenced via `rag_pointer` and per-pairing
 
 | Field | Type | Content |
 |---|---|---|
-| `version` | string | Semver of this provider.json emission (e.g. `"1.0.0"`) |
+| `version` | string | Semver of this routing-table.json emission (e.g. `"1.0.0"`) |
 | `schema_version` | string | Schema version this file conforms to (e.g. `"1"`) |
 | `generated` | string | `"YYYY-MM"` — month the run produced this file |
 | `author` | string | `"Lexi Blackburn"` |
 | `author_url` | string | `"https://github.com/Heretyc/"` |
 | `model_effort_universe` | string[] | Ordered list of all `"model@effort"` pairings the run evaluated |
 | `formula_definitions` | object | `normalization` (name + params), `composite_weights` per category, `sentiment_cap`, `calibrated_exponents` (`a`, `b` with `a > b`) |
-| `cost_blend` | object | `input_tokens: 100000`, `output_tokens: 20000`, `gpt55_cliff_side: "below"\|"above"` |
+| `cost_blend` | object | `input_tokens: 100000`, `output_tokens: 20000`, `price_cliff_side: "below"\|"above"\|"n/a"` (impartial: records whether the reference blend sits below/above any member's published input price cliff — see `tier-ranking-and-scoring.md`) |
 | `calibration_gate` | object | `k_categories_min`, `m_rank_churn_min`, actual `k_observed`, `m_observed`, `passed: true`. **Required**; the validator enforces it via a dedicated fail-closed check (`readCalibrationGate`), not via its generic required-metadata array, so its absence from that array is not a contradiction — a missing `calibration_gate` still fails. |
 | `rag_pointer` | string | `".spec/references/retrieval-map.md"` |
 
@@ -38,9 +38,10 @@ explanatory prose stays in the RAG, referenced via `rag_pointer` and per-pairing
 ## Branch Structure (`performance` and `cost_efficiency`)
 
 Each branch has the same category keys in the same order as the RAG spine
-(`work-categories.md` / `assets/routing-table.json`) — which `category-derivation.md` fixes at
-exactly 10. The validator mirrors the spine (count-agnostic): it checks key-for-key equality
-against the spine derived from `routing-table.json`, not a hardcoded count. Each category value is
+(`work-categories.md` / `assets/routing-table.json` machine mirror) — the **fixed 10-category spine**
+(immutable input; never derived here). The validator mirrors the spine (count-agnostic): it checks
+key-for-key equality against the spine derived from the machine-mirror asset
+(`assets/routing-table.json`), not a hardcoded count. Each category value is
 an array of pairing objects, ordered best→worst by score.
 
 ---
@@ -63,6 +64,19 @@ Both branches carry full pairing objects. `score` and `rank` are branch-specific
 
 ---
 
+---
+
+## Audit Sibling: `routing-table-audit.json`
+
+Every run that emits `routing-table.json` also emits `.spec/references/assets/routing-table-audit.json`.
+It mirrors `routing-table.json` exactly — same `performance`/`cost_efficiency` branches, same category
+keys and order, same per-pairing `model`/`effort`/`rank`/`score`/`cost_figure_used`/`interpolated`/
+`confidence`/`basis` — and adds, on each pairing, a required `citations` array. Each citation is
+`{url, retrieved_at(ISO8601), annotation, source_id?, label?}` where `annotation` is exactly one
+sentence explaining why that source supports this pairing's ranking. The audit's `metadata` adds
+`audits` (path of the routing-table.json audited), `generated_at` (ISO8601), and `source_ledger_pointer`.
+The audit is the citeable provenance layer for the rankings; `routing-table.json` stays lean.
+
 ## Validation Rules (`scripts/validate_provider.mjs`)
 
 The standalone checker enforces all of the following; any failure exits non-zero:
@@ -79,7 +93,7 @@ The standalone checker enforces all of the following; any failure exits non-zero
    verify same-model score monotonicity within a branch: a higher-effort variant does not score
    below a lower-effort variant of the **same** model. The structural checker does NOT re-derive
    the cross-model clamp (`M@E′.score < competitor`) — that needs per-benchmark data absent from
-   `provider.json`; see the scope note below.
+   `routing-table.json`; see the scope note below.
 7. **Calibration gate** — reads `metadata.calibration_gate {k_categories_min, m_rank_churn_min,
    k_observed, m_observed, passed}`. Recomputes observed churn from the performance vs
    cost_efficiency orderings (k = #categories whose max per-category rank-churn ≥ `m_rank_churn_min`;

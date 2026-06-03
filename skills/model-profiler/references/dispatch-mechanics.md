@@ -13,20 +13,21 @@ coordination flows back through the orchestrator (never spoke-to-spoke). Paramet
 
 | Param | Values | Notes |
 |-------|--------|-------|
-| `provider` | `claude` \| `codex` | Which CLI backs the agent |
-| `model` | `haiku` \| `sonnet` \| `opus` \| `opus-4-8` \| `gpt-5.5` | Pick by the work, dogfooding the KB's routing |
-| `effort` | `low` \| `medium` \| `high` \| `xhigh` \| `max` \| `ultracode` | `high` for research/extraction; `xhigh`/`max` for flagship synthesis |
+| `provider` | `claude` \| `codex` | Which family/CLI backs the agent (≥2 families across the run) |
+| `model` | the concrete member id within the chosen family | **Operator-selected at dispatch**, dogfooding the run's `routing-table.json`; the skill prescribes a role, never a named member |
+| `effort` | the member's reasoning-effort tier (family ladder, weakest→strongest) | Standard for research/extraction; elevated/maximal for flagship synthesis; operator-selected |
 | `prompt` | string | Begins with `<this is a request from a parent process>` |
 | `cwd` | path | Working dir for the agent (the repo or a scratch workdir) |
 
-Pick the model by the work, dogfooding the KB's own routing:
+Pick the **member by the work**, dogfooding the KB's own routing — the skill prescribes the *role*,
+the operator binds the concrete member+effort from `routing-table.json`:
 
-| `model` param | Use for |
-|---------------|---------|
-| `haiku` | Mechanical read/write — leaf edits, file moves, boilerplate, list/reformat |
-| `sonnet` | Research / review / build / repair — Phase 1 research, critics, repair passes |
-| `opus` / `opus-4-8` | Synthesis / merge / critique / architecture / tie-break — Phase 2, the merge, hard reviews |
-| `gpt-5.5` (`provider: codex`) | Deterministic extraction / structured pulls / closed-loop validator work |
+| Role (route to) | Use for |
+|---|---|
+| a low-cost mechanical-execution member | Mechanical read/write — leaf edits, file moves, boilerplate, list/reformat |
+| a mid-tier research/build member | Research / review / build / repair — Phase 1 research, critics, repair passes |
+| a flagship-synthesis member (elevated effort) | Synthesis / merge / critique / architecture / tie-break — Phase 2, the merge, hard reviews |
+| a deterministic-extraction member (cross-family) | Deterministic extraction / structured pulls / closed-loop validator work |
 
 Every prompt starts with `<this is a request from a parent process>` and demands the JSON return
 contract (`status, summary, source_locators, risks, writes_requested`).
@@ -55,11 +56,12 @@ $p = @'
 <this is a request from a parent process>
 <full prompt here — literal $ and backticks are safe inside single-quoted here-string>
 '@
-$p | codex exec -C <workdir> -m gpt-5.5 -c 'model_reasoning_effort="high"' `
+$p | codex exec -C <workdir> -m <member-id> -c 'model_reasoning_effort="<effort>"' `
   --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check *> <logfile>
 ```
 
-- Use `model_reasoning_effort="high"` for research/extraction; `"xhigh"` for flagship synthesis.
+- Bind `<member-id>` + `<effort>` from `routing-table.json` at dispatch (operator-selected). Use a
+  standard effort tier for research/extraction; an elevated tier for flagship synthesis.
 - Closing `'@` of the here-string MUST be at column 0 (no leading whitespace).
 - Run long Codex jobs in the **background**; allow generous time (≥5 min between check-ins).
 - **Verify the output FILE on disk** — introspection into the external process is limited, so the
@@ -67,14 +69,15 @@ $p | codex exec -C <workdir> -m gpt-5.5 -c 'model_reasoning_effort="high"' `
 
 ## Dogfood the route when picking tiers
 
-Select the sub-agent tier by the KB's routing rules, not by habit:
+Select the sub-agent tier by the KB's routing rules, not by habit — by **role**; the operator binds
+the concrete member+effort from `routing-table.json`:
 
-| Work in this pipeline | Route to |
-|-----------------------|----------|
-| Deterministic / extraction / JSON-schema / validator work | **Codex** (`agentic_execution`/closed-loop) |
-| Review / research / build / repair | **Sonnet** |
-| Mechanical read / write | **Haiku** |
-| Synthesis / merge / critique / architecture / tie-break | **Opus** |
+| Work in this pipeline | Route to (role) |
+|-----------------------|-----------------|
+| Deterministic / extraction / JSON-schema / validator work | a deterministic-extraction member (`agentic_execution`/closed-loop) |
+| Review / research / build / repair | a mid-tier research/build member |
+| Mechanical read / write | a low-cost mechanical-execution member |
+| Synthesis / merge / critique / architecture / tie-break | a flagship-synthesis member (elevated effort) |
 
 ## Handoff discipline
 

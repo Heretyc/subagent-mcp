@@ -26,34 +26,37 @@ routes; it does not teach. Leaves:
 | `source-ledger.md` | APA citations (original sources only) + id->claim/leaf mapping |
 | `assets/routing-table.json` | **Machine mirror** consumed at runtime by subagent-mcp |
 | `scripts/validate_kb.py` | The validator (line caps, links, coverage, json<->md mirror, purity) |
-| `scripts/validate_provider.mjs` | Standalone provider.json validator (schema, coverage, calibration gate) — created at build time |
+| `scripts/validate_provider.mjs` | Standalone routing-table.json validator (schema, coverage, calibration gate) — created at build time |
 
-All leaves <=200 lines; `routing-table.json` mirrors `routing-table.md`; the validator pins the
+All leaves <=200 lines; `routing-table.json` (machine mirror) mirrors `routing-table.md`; the validator pins the
 spine, gate set, valid `{provider, model}` values, and the metadata/version block.
 
-## The tier-rankings artifact: `provider.json`
+## The tier-rankings artifact: `routing-table.json`
 
-`src/provider.json` is the **canonical committed** build artifact; `dist/provider.json` is copied
+`src/routing-table.json` is the **canonical committed** build artifact; `dist/routing-table.json` is copied
 at build time by `scripts/copy-provider.mjs` and is gitignored. The RAG is the knowledge base;
-`provider.json` carries scores, ranks, and metadata only — prose stays in the RAG, cross-referenced
+`routing-table.json` carries scores, ranks, and metadata only — prose stays in the RAG, cross-referenced
 via `rag_pointer` + `basis` fields.
 
 | File | Owns |
 |------|------|
-| `src/provider.json` | Canonical committed rankings + metadata (written by a run; read at build) |
-| `dist/provider.json` | Build copy (gitignored); emitted by `scripts/copy-provider.mjs` |
+| `src/routing-table.json` | Canonical committed rankings + metadata (written by a run; read at build) |
+| `dist/routing-table.json` | Build copy (gitignored); emitted by `scripts/copy-provider.mjs` |
 | `scripts/copy-provider.mjs` | Build-time copy script (ESM, cross-platform, no-ops if src absent) |
 | `scripts/validate_provider.mjs` | Validator: schema, full universe coverage, calibration gate |
+| `.spec/references/assets/routing-table-audit.json` | Citeable audit mirror of routing-table.json: per-pairing URL + retrieved_at + one-sentence annotation provenance |
 
 ## New skill reference leaves
 
-Added in this build to encode derivation criteria, scoring, and schema contracts:
+Added in this build to encode the fixed-taxonomy pointer, benchmark sources, scoring, and schema
+contracts:
 
 | File | Owns |
 |------|------|
-| `references/category-derivation.md` | Derivation procedure + criteria + old->new mapping + math/security decision |
+| `references/category-derivation.md` | **Fixed-taxonomy pointer leaf** → spine in `work-categories.md`; determination methodology + rationale (incl. debate provenance) live in `docs/spec/task-taxonomy/`. The skill never derives the categories. |
+| `references/benchmark-sources.md` | Canonical benchmark source list (check FIRST for run-to-run stability) + per-category benchmark-family map onto the fixed 10 |
 | `references/tier-ranking-and-scoring.md` | Interpolation rule, cost-figure methodology, scoring-formula form + calibration gate |
-| `references/provider-json-emission.md` | `provider.json` schema contract + validation rules |
+| `references/provider-json-emission.md` | `routing-table.json` schema contract + validation rules |
 
 ## Provenance: `giga-research/`
 
@@ -67,7 +70,7 @@ template for a new run:
 | `phase-1.5-*interview*.md` | Phase 1.5 ten pivotal questions + owner answers |
 | `phase-2-synth-{1..5}.md` | Phase 2 independent flagship syntheses |
 | `phase-2-core-synthesis.md` | The merged canonical core |
-| `kb-manifest.md` | The KB manifest (spine + structure); re-architect here if categories shift |
+| `kb-manifest.md` | The KB manifest (spine + structure); the spine is **fixed** — re-architect only on an owner-ratified spine change in `docs/spec/task-taxonomy/` (out of normal scope) |
 
 > `giga-research/` is provenance, **not** citable as a source in the KB (use original external
 > sources via `source-ledger.md`). It records HOW the KB was produced, for audit and for re-runs.
@@ -77,7 +80,7 @@ template for a new run:
 - **Read (orchestrator, at start):** `AGENTS.md`, the `.spec/references/` leaves you will update
   (start at `retrieval-map.md`), prior `giga-research/` run as template.
 - **Write (via sub-agents only):** updated `.spec/references/` leaves + bumped
-  `assets/routing-table.json` + `source-ledger.md` + `decision-rationale.md`; `src/provider.json`
+  `assets/routing-table.json` + `source-ledger.md` + `decision-rationale.md`; `src/routing-table.json`
   (canonical tier rankings); new `giga-research/` files for this run; validator constants in
   `scripts/validate_kb.py` and `scripts/validate_provider.mjs` if the taxonomy or schema evolved.
 - **Do not modify** `src/index.ts` routing logic or unrelated repo files. The `AGENTS.md` backlink
