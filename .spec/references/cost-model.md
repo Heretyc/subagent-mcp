@@ -1,20 +1,21 @@
 # cost-model.md -- Pricing, Tokenizer Inflation & Cost Economics
 
 **Load when:** calculating call cost; comparing model economics; evaluating effort-tier spend;
-applying the 1.4x Opus 4.7/4.8 tokenizer inflation correction; assessing the >272K GPT-5.5 price
-cliff; ranking cost levers.
+applying the 1.35x Opus 4.7/4.8 tokenizer inflation correction (worst-case SOP-2); assessing the
+>272K GPT-5.5 price cliff; ranking cost levers.
 **Do not load when:** you need routing actions (-> [routing-table.md](./routing-table.md)); gate
 thresholds (-> [hard-gates.md](./hard-gates.md)); model benchmarks/capabilities (->
 [model-profiles.md](./model-profiles.md)).
 
 **One-screen summary:** All $ rates live here. Key surprises: (1) Opus 4.7/4.8 effective cost is
-~1.4x nominal due to tokenizer inflation -- recalibrate all 4.6->4.7/4.8 budgets. (2) GPT-5.5
->272K input is a hard price cliff (2x in / 1.5x out -- full session). (3) Three-tier discipline
+~1.35x nominal due to tokenizer inflation (worst-case SOP-2; prior 1.4x DEPRECATED) -- recalibrate
+all 4.6->4.7/4.8 budgets. (2) GPT-5.5 >272K input is a hard price cliff (2x in / 1.5x out --
+full session); price worst-case (post-cliff) whenever G_CTX_272 is in play. (3) Three-tier discipline
 cuts session cost significantly (planning estimate ~40-60% [ASSUMPTION -- source AUGMENT-2026
 unrecovered, see Section 5]). (4) Output tokens are the expensive side (5-6x input rate).
 
 Sources: `ANTH-PRICING` (Anthropic pricing); `OAI-PRICING` (OpenAI pricing, 272K cliff);
-`OPENROUTER-2026` (tokenizer inflation 1.4x); `AUGMENT-2026` [UNVERIFIED -- 404];
+`OPENROUTER-2026` (tokenizer inflation; documented max 1.35x); `AUGMENT-2026` [UNVERIFIED -- 404];
 `ANTH-HAIKU45`/`ANTH-SONNET46` (Haiku/Sonnet rates); `OAI-REASON` (hidden reasoning tokens);
 `OAI-CACHE` (cache pricing). See [source-ledger.md](./source-ledger.md).
 
@@ -41,6 +42,11 @@ US-only / data-residency inference: ~10% premium (eligible endpoints, both provi
 > When input exceeds the cliff threshold AND `cost_sensitive` is set, gate `G_CTX_272` applies.
 > Routing action and the threshold number are owned by [hard-gates.md](./hard-gates.md).
 
+> **Worst-case selection (SOP-2):** for cost figures, apply the **post-cliff** rate (`$10` in /
+> `$45` out) whenever the `context_size` / `G_CTX_272` modifier is in play. Use the base `<=272K`
+> rate **only when the route is provably sub-cliff**; when uncertain, use the cliff (worst-case).
+> See `skills/model-profiler/references/tier-ranking-and-scoring/01-sops.md`.
+
 The cliff applies to the **full session**, not just the overflow tokens. Above the cliff: input
 doubles ($5->$10/MTok), output rises 1.5x ($30->$45/MTok). At a 300K input + 20K output session
 with no cache:
@@ -58,21 +64,26 @@ or route.
 
 ## 3. Tokenizer Inflation -- Opus 4.7 / 4.8 [CRITICAL -- Silent Migration Surprise]
 
-> **[ASSUMPTION, Interview Q7; INFERRED from OpenRouter 2026 + Anthropic docs]**
-> The Opus 4.7/4.8 tokenizer produces **~32-45% more tokens** than Opus 4.6/Sonnet for equivalent
-> text. Despite identical per-token sticker pricing, **effective Opus 4.7/4.8 cost is ~1.4x
-> nominal.**
+> **[ASSUMPTION, Phase 1.5 Q6-Q7 (worst-case SOP-2); INFERRED from OpenRouter 2026 + Anthropic docs]**
+> The Opus 4.7/4.8 tokenizer produces more tokens than Opus 4.6/Sonnet for equivalent text. Under
+> SOP-2 (most-expensive **defensible** value), the modeling factor is the **vendor-documented MAXIMUM
+> = 1.35x**, so **effective Opus 4.7/4.8 cost is ~1.35x nominal.**
 
-| Sticker | Effective (1.4x applied) | Practical equivalent |
+> **DEPRECATED:** the prior **1.4x** assumption is withdrawn -- it exceeds the vendor-documented
+> ceiling, so it is not the most-expensive *defensible* value. Owner directive was "most expensive";
+> 1.35x is the documented ceiling. *(If a literal 1.4x is intended, flip this one constant.)*
+
+| Sticker | Effective (1.35x applied) | Practical equivalent |
 |---|---|---|
-| $5/MTok input | ~$7/MTok per content-MTok | 40% more tokens billed for same text |
-| $25/MTok output | ~$35/MTok per content-MTok | 40% more tokens billed for same text |
+| $5/MTok input | ~$6.75/MTok per content-MTok | 35% more tokens billed for same text |
+| $25/MTok output | ~$33.75/MTok per content-MTok | 35% more tokens billed for same text |
 
 **Consequence:** The Sonnet-vs-Opus *effective* cost gap is **~6-7x**, not the ~5x sticker prices
 imply.
 **Migration action:** Recalibrate ALL token budgets on any 4.6->4.7/4.8 migration. The inflation is
-content-dependent; 1.4x is a planning constant, not a per-text guarantee. Opus 4.6 uses the
-**old tokenizer** -- no inflation.
+content-dependent; 1.35x is a worst-case planning ceiling, not a per-text guarantee. Opus 4.6 uses the
+**old tokenizer** -- no inflation. SOP rationale:
+`skills/model-profiler/references/tier-ranking-and-scoring/01-sops.md`.
 
 ---
 
@@ -86,9 +97,15 @@ multipliers: none=0, low=0.1x, med=0.25x, high=0.75x, xhigh=1.5x, max=2.5x.
 | `claude-haiku-4-5` | **$0.20** | -- | -- | -- | -- | -- |
 | `claude-sonnet-4-6` | -- | $0.63 | $0.68 | $0.83 | -- | $1.05 |
 | `claude-opus-4-6` | -- | $1.05 | $1.13 | $1.38 | -- | $1.75 |
-| `claude-opus-4-8` / `claude-opus-4-7` (1.4x adjusted) | -- | $1.47 | $1.58 | $1.93 | $2.45 | $3.15 |
+| `claude-opus-4-8` / `claude-opus-4-7` (1.4x -- DEPRECATED) | -- | $1.47 | $1.58 | $1.93 | $2.45 | $3.15 |
 | `gpt-5.5` (<=272K) | $1.10 | $1.16 | $1.25 | $1.55 | $2.00 | -- |
 | `gpt-5.5` (>272K) | $1.90 | $1.99 | $2.13 | $2.58 | $3.25 | -- |
+
+> **STALE ROW (fail-loud):** the Opus 4.7/4.8 figures above were computed at the now-DEPRECATED 1.4x
+> factor. Under SOP-2 the factor is **1.35x**; these effective-cost figures are a **derived artifact**
+> and are regenerated deterministically by the routing-table builder from §3's 1.35x factor + the §1
+> base rates -- they are **not** hand-edited here (avoids arithmetic error in a derived table). Treat
+> the displayed values as superseded until the builder re-emits them.
 
 ---
 

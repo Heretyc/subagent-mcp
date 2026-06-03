@@ -61,7 +61,9 @@ function isObject(value) {
 
 function readJson(path, label, issues) {
   try {
-    return JSON.parse(readFileSync(path, "utf8"));
+    // Defensive UTF-8 BOM strip before parse: the frozen spine asset may or may not carry a
+    // BOM; tolerate either so buildSpine never depends on the asset being pre-stripped.
+    return JSON.parse(readFileSync(path, "utf8").replace(/^﻿/, ""));
   } catch (error) {
     issues.push(`${label} JSON parse error: ${error.message}`);
     return undefined;
@@ -142,10 +144,15 @@ function buildSpine(issues) {
     issues.push("assets/routing-table.json default_category must be a string");
     return categoryKeys;
   }
-  const spine = [...precedence, defaultCategory];
-  if (!arraysEqual(categoryKeys, spine)) {
+  // Post taxonomy-freeze (commit 1df5b93) the machine-mirror `categories` object holds
+  // exactly the canonical 10 categories (math_proof…mechanical); `default_category`
+  // (`fallback_default`) is the precedence sentinel, not a `categories` member. The
+  // provider routing-table spine is therefore the 10 canonical categories — the order
+  // recorded in `categories` — which must equal `classification_precedence`.
+  const spine = categoryKeys;
+  if (!arraysEqual(precedence, spine)) {
     issues.push(
-      `assets/routing-table.json category spine/order mismatch: categories=${categoryKeys.join(", ")}, spine=${spine.join(", ")}`
+      `assets/routing-table.json category spine/order mismatch: categories=${categoryKeys.join(", ")}, classification_precedence=${precedence.join(", ")}`
     );
   }
   return spine;
