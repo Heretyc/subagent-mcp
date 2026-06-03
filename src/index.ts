@@ -9,8 +9,11 @@ import { randomUUID } from "crypto";
 import { Provider, mapModel, resolveEffort, buildCommand } from "./effort.js";
 import { resolveExeFor } from "./platform.js";
 import { formatLocalIso, selectUnreported } from "./wait-helpers.js";
-
-type AgentStatus = "running" | "completed" | "failed" | "stalled" | "killed";
+import type { AgentStatus } from "./status-helpers.js";
+import {
+  computeStatusTransition,
+  buildLivenessFields,
+} from "./status-helpers.js";
 
 interface AgentState {
   id: string;
@@ -66,36 +69,37 @@ function countRunning(provider: Provider): number {
   return count;
 }
 
+// Synchronously reconcile a single agent's status against the pure transition
+// helper. Folds the live process exitCode into AgentState first so an already-
+// exited process is reported as completed/failed immediately (no monitor lag).
+function reconcileAgent(agent: AgentState, now: number): void {
+  if (
+    (agent.status === "running" || agent.status === "processing") &&
+    agent.process.exitCode !== null
+  ) {
+    agent.exitCode = agent.process.exitCode;
+  }
+  const next = computeStatusTransition({
+    status: agent.status,
+    exitCode: agent.exitCode,
+    lastActivity: agent.lastActivity,
+    now,
+    exitedAt: agent.exitedAt,
+  });
+  agent.status = next.status;
+  agent.exitedAt = next.exitedAt;
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const agent of agents.values()) {
-    if (agent.status === "stalled") {
-      if (now - agent.lastActivity <= 60000) {
-        agent.status = "running";
-      }
-      if (agent.process.exitCode !== null) {
-        agent.exitCode = agent.process.exitCode;
-        agent.status = agent.process.exitCode === 0 ? "completed" : "failed";
-        if (agent.exitedAt === null) agent.exitedAt = now;
-      }
-      continue;
-    }
-    if (agent.status !== "running") continue;
-    if (agent.process.exitCode !== null) {
-      agent.exitCode = agent.process.exitCode;
-      agent.status = agent.process.exitCode === 0 ? "completed" : "failed";
-      if (agent.exitedAt === null) agent.exitedAt = now;
-      continue;
-    }
-    if (now - agent.lastActivity > 60000) {
-      agent.status = "stalled";
-    }
+    reconcileAgent(agent, now);
   }
 }, 10000);
 
 const server = new McpServer({
   name: "subagent-mcp",
-  version: "2.0.0",
+  version: "2.2.0",
   description:
     "Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes. Does NOT call the Anthropic or OpenAI HTTP APIs directly (no API keys, no SDK) and there are no plans to — all model access is via the local CLIs.",
 });
@@ -103,7 +107,7 @@ const server = new McpServer({
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a new sub-agent (Claude or Codex) with a prompt. Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes. Does NOT call the Anthropic or OpenAI HTTP APIs directly (no API keys, no SDK) and there are no plans to — all model access is via the local CLIs. Note: ultracode effort is Opus-4.8+ only and is induced via a temp `--settings {\"ultracode\":true}` file (the CLI rejects `--effort ultracode`).",
+  "Spawn a new sub-agent (Claude or Codex) with a prompt. Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes. Does NOT call the Anthropic or OpenAI HTTP APIs directly (no API keys, no SDK) and there are no plans to — all model access is via the local CLIs. Note: ultracode effort is Opus-4.8+ only and is induced via a temp `--settings {\"ultracode\":true}` file (the CLI rejects `--effort ultracode`). Status `processing` means the agent is ALIVE but has been quiet for >=60s (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll rather than killing.",
   {
     provider: z.enum(["claude", "codex"]),
     model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "gpt-5.5"]),
@@ -300,7 +304,7 @@ server.tool(
 // Tool 2: poll_agent
 server.tool(
   "poll_agent",
-  "Get current status and output of a running agent",
+  "Get current status and output of an agent. Status `processing` means ALIVE but quiet for >=60s (thinking or awaiting a temp-file handoff), NOT dead; `alive` and `idle_seconds` are always returned, and a `hint` is included while processing. Prefer `wait`/re-poll over killing a processing agent.",
   {
     agent_id: z.string(),
   },
@@ -318,6 +322,11 @@ server.tool(
       };
     }
 
+    // Reconcile exit synchronously so an already-exited process is reported as
+    // completed/failed immediately (no up-to-10s health-monitor lag).
+    const now = Date.now();
+    reconcileAgent(agent, now);
+
     const stdoutTail =
       agent.stdout.length > 2000
         ? agent.stdout.slice(-2000)
@@ -326,6 +335,13 @@ server.tool(
       agent.stderr.length > 1000
         ? agent.stderr.slice(-1000)
         : agent.stderr;
+
+    const liveness = buildLivenessFields(
+      agent.status,
+      agent.exitCode,
+      agent.lastActivity,
+      now
+    );
 
     return {
       content: [
@@ -342,6 +358,7 @@ server.tool(
             started_at: agent.startedAt,
             last_activity: agent.lastActivity,
             cwd: agent.cwd,
+            ...liveness,
           }),
         },
       ],
@@ -515,18 +532,30 @@ server.tool(
 // Tool 5: list_agents
 server.tool(
   "list_agents",
-  "List all agents with their current status",
+  "List all agents with their current status. Status `processing` means ALIVE but quiet for >=60s, NOT dead; each agent includes `alive` and `idle_seconds` (and a `hint` while processing). Prefer `wait`/re-poll over killing a processing agent.",
   {},
   async () => {
-    const agentList = Array.from(agents.values()).map((agent) => ({
-      id: agent.id,
-      provider: agent.provider,
-      model: agent.model,
-      status: agent.status,
-      started_at: agent.startedAt,
-      last_activity: agent.lastActivity,
-      cwd: agent.cwd,
-    }));
+    const now = Date.now();
+    const agentList = Array.from(agents.values()).map((agent) => {
+      // Reconcile exit synchronously so already-exited processes are reported
+      // as completed/failed immediately (no health-monitor lag).
+      reconcileAgent(agent, now);
+      return {
+        id: agent.id,
+        provider: agent.provider,
+        model: agent.model,
+        status: agent.status,
+        started_at: agent.startedAt,
+        last_activity: agent.lastActivity,
+        cwd: agent.cwd,
+        ...buildLivenessFields(
+          agent.status,
+          agent.exitCode,
+          agent.lastActivity,
+          now
+        ),
+      };
+    });
 
     return {
       content: [
@@ -586,7 +615,7 @@ server.tool(
     const hasPending = Array.from(agents.values()).some(
       (a) =>
         a.status === "running" ||
-        a.status === "stalled" ||
+        a.status === "processing" ||
         (TERMINAL_SET.has(a.status) && a.exitedAt === null)
     );
     if (!hasPending) {
@@ -615,7 +644,7 @@ server.tool(
     // Step 4: timeout — return still-running jobs
     const now = Date.now();
     const stillRunning = Array.from(agents.values()).filter(
-      (a) => a.status === "running" || a.status === "stalled"
+      (a) => a.status === "running" || a.status === "processing"
     );
     const payload = {
       timed_out: true,
