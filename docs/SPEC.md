@@ -1,4 +1,4 @@
-# subagent-mcp v2.1.0 -- Technical Specification
+# subagent-mcp v2.2.0 -- Technical Specification
 
 **Author:** Lexi Blackburn | **License:** Apache-2.0 | **Repo:** https://github.com/Heretyc/subagent-mcp
 
@@ -44,82 +44,20 @@ All logs go to stderr. stdout carries only JSON-RPC messages.
 | Tool | Key params (zod) | Success return shape |
 |------|-----------------|----------------------|
 | `launch_agent` | `provider` enum, `model` enum, `effort` enum (default `"high"`), `prompt` string, `cwd?` string | `{ agent_id, status, provider, model }` |
-| `poll_agent` | `agent_id` string | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd }` |
+| `poll_agent` | `agent_id` string | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds }` (+ `hint` when status is `processing`) |
 | `kill_agent` | `agent_id` string | `{ agent_id, status, message }` (not-running is not an error) |
 | `send_message` | `agent_id` string, `message` string | `{ agent_id, status: "sent", message }` |
-| `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd }] }` |
+| `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd, alive, idle_seconds }] }` (each + `hint` when status is `processing`) |
 
-stdout_tail: last 2000 chars. stderr_tail: last 1000 chars. Errors set `isError: true`; text begins with `"Error: "`.
-
----
-
-## Effort-Resolution Decision Logic
-
-```
-function resolveEffort(provider, model, effort):
-
-  if effort == "ultracode":
-    if NOT (provider == "claude" AND model IN ["opus", "opus-4-8"]):
-      THROW: "ultracode effort is only available on Opus 4.8+ (got <provider>/<model>). Use xhigh for other models."
-    RETURN { kind: "settings" }   # --> write temp JSON file, pass --settings
-
-  if provider == "claude" AND model == "haiku":
-    RETURN { kind: "none" }       # --> no --effort flag at all
-
-  if provider == "claude" AND model IN ["sonnet", "opus", "opus-4-8"]:
-    if effort IN ["low", "medium", "high", "xhigh", "max"]:
-      RETURN { kind: "flag", value: effort }
-
-  if provider == "codex":
-    if effort == "max":
-      THROW: "max effort is not valid for gpt-5.5 (Codex). Valid: low, medium, high, xhigh."
-    if effort IN ["low", "medium", "high", "xhigh"]:
-      RETURN { kind: "flag", value: effort }
-
-  # Fallback (should not reach in practice given zod validation)
-  RETURN { kind: "flag", value: "high" }
-```
-
-Decision table:
-
-| provider | model | effort | Result |
-|----------|-------|--------|--------|
-| claude | haiku | any | `{ kind: "none" }` -- no `--effort` passed |
-| claude | sonnet | low/medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
-| claude | opus / opus-4-8 | low/medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
-| claude | opus / opus-4-8 | ultracode | `{ kind: "settings" }` -- temp file path |
-| claude | any | ultracode (non-4.8) | THROW error |
-| codex | gpt-5.5 | low/medium/high/xhigh | `{ kind: "flag", value: effort }` |
-| codex | gpt-5.5 | max | THROW error |
-| codex | gpt-5.5 | ultracode | THROW error (Opus-4.8+ only) |
+stdout_tail: last 2000 chars. stderr_tail: last 1000 chars. `alive`: boolean, true while running/processing (exitCode === null). `idle_seconds`: `Math.floor((now - lastActivity) / 1000)`. `poll_agent` and `list_agents` reconcile process exit synchronously before building their return value, so an already-exited process is reported `completed`/`failed` immediately rather than after the next health-monitor tick. Errors set `isError: true`; text begins with `"Error: "`.
 
 ---
 
-## Ultracode `--settings` Mechanism
+## Effort Resolution and Ultracode Mechanism
 
-### What ultracode is
-
-Ultracode is a Claude Code interactive mode that sets reasoning effort to `xhigh` AND grants standing `dynamic-workflow` permission. It is not an `--effort` flag value.
-
-### Why `--effort ultracode` does not work
-
-The Claude CLI validates the `--effort` argument against a known enum. `ultracode` is not in that enum. The CLI exits with an error when passed `--effort ultracode`. This was verified against `claude-opus-4-8`.
-
-### How the server activates it headlessly
-
-1. Write `{"ultracode":true}` to a temp file: `<os.tmpdir()>/subagent-uc-<uuid>.json`
-2. Pass `--settings <path>` to the `claude` CLI instead of `--effort`
-3. The Claude CLI reads the settings file and activates ultracode mode
-4. On agent exit (any path: `close` event, `kill_agent`, spawn error), delete the temp file
-
-This behavior is verified working on `claude-opus-4-8`. `--effort xhigh` alone does NOT activate ultracode.
-
-### Cleanup
-
-The temp settings file path is stored in `AgentState.ucSettingsPath`. It is deleted in:
-- The `close` event handler (normal exit and `kill_agent` path)
-- The `kill_agent` tool's `close` listener
-- The spawn error handler in `launch_agent`
+The `resolveEffort` decision logic (pseudocode + full decision table) and the
+ultracode `--settings` activation/cleanup mechanism are documented in
+[reference/effort-resolution.md](reference/effort-resolution.md).
 
 ---
 
@@ -175,7 +113,7 @@ const MAX_CLAUDE = 5;
 const MAX_CODEX  = 5;
 ```
 
-`countRunning(provider)` counts agents in `status === "running"` for that provider. If the count meets or exceeds the cap, `launch_agent` returns an error without spawning. Completed, failed, killed, and stalled agents do not count toward the cap.
+`countRunning(provider)` counts agents in `status === "running"` for that provider. If the count meets or exceeds the cap, `launch_agent` returns an error without spawning. Completed, failed, killed, and processing agents do not count toward the cap. The cap exists to limit API rate-limit pressure, and only actively-producing (`running`) agents add that load; a `processing` agent is quiet by definition (no output for >= 60s) so it costs no rate-limit budget and intentionally does not reserve a slot. More than 5 live processes per provider can therefore coexist when some are `processing`.
 
 Agents are stored in a module-level `Map<string, AgentState>` keyed by UUID. There is no persistence -- the map is cleared on server restart.
 
@@ -203,9 +141,14 @@ Agents are stored in a module-level `Map<string, AgentState>` keyed by UUID. The
 
 ---
 
-## Health Monitor
+## Status Lifecycle and Health Monitor
 
-`setInterval` every 10,000 ms. For each agent: if `running` and `now - lastActivity > 60s` -> `stalled`. If `stalled` and activity resumed -> `running`. If process exited -> `completed` (code 0) or `failed`. Stalled agents are not auto-killed; use `kill_agent`.
+The full status table (`running`, `processing`, `completed`, `failed`,
+`killed`), the `alive`/`idle_seconds`/`hint` fields, the
+`computeStatusTransition` ordering, the `STALL_THRESHOLD = 60000` boundary, and
+synchronous exit reconciliation are documented in
+[reference/status-lifecycle.md](reference/status-lifecycle.md). `processing`
+(renamed from `stalled`) is a live, non-failure state.
 
 ---
 
