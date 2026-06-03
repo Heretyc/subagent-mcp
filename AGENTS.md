@@ -59,6 +59,7 @@ agentic collaboration.
   the fixed 10-category task taxonomy (immutable; never re-derived by a
   profiler run) or how/why it was determined — spec and provenance, not
   operational routing; see `.spec/references/retrieval-map.md` for that.
+- `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior.
 
 ## Always Enforce
 

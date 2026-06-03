@@ -30,7 +30,7 @@ If unsure which category fits, do NOT pass one big amorphous task: break the wor
 | valid | yes | yes | – | `provider_model` mode; candidate list, attempt loop |
 | valid | yes | yes | yes | `explicit` mode; single direct attempt, no fallback |
 | valid | – | yes | – | **ERR_MODEL_NEEDS_PROVIDER** |
-| valid | – | yes | yes | **ERR_MODEL_NEEDS_PROVIDER** (model w/o provider caught first) |
+| valid | – | yes | yes | **ERR_EFFORT_NEEDS_BOTH** (effort rule checked first; see Validation order) |
 | valid | – | – | yes | **ERR_EFFORT_NEEDS_BOTH** |
 | valid | yes | – | yes | **ERR_EFFORT_NEEDS_BOTH** |
 | absent/invalid | * | * | * | **ERR_BAD_CATEGORY** (validate category FIRST, before P/M/E rules) |
