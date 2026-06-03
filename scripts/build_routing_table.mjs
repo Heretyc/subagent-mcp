@@ -394,9 +394,9 @@ function enforceEffortMonotonicity(scores) {
   return scores;
 }
 
-// ---- build the two branches -------------------------------------------------------
-// Performance branch score = the composite (or promoted) performance value.
-// Cost-efficiency score = perf^a / cost^b.
+// ---- per-category capability composites (drive both branch power-law scores) -------
+// Both branches score by perf_norm^a / cost_norm^b; the perf_norm composite is built once
+// here (benchmark normalization + §A effort-interpolation + SOP-1 + monotonicity clamp).
 const perfScores = new Map(); // category -> Map(pairingId -> detail)
 for (const category of SPINE) {
   let scores;
@@ -415,20 +415,44 @@ for (const category of SPINE) {
   perfScores.set(category, scores);
 }
 
-function buildPairingObject(category, item, branch, exponents) {
-  const { p, s } = item;
+// ---- provider derivation (owner schema A) -----------------------------------------
+// claude-* model ids -> "claude"; gpt-* -> "codex". The universe contains only these two
+// families, so the prefix test is total.
+function providerOf(model) {
+  return model.startsWith("claude") ? "claude" : "codex";
+}
+
+// ---- cost normalization: cost_norm in (0,1] (owner schema C) -----------------------
+// Power-law scoring uses a normalized worst-case $/token in (0,1]: divide each pairing's
+// SOP-2 $/token by the universe max so the most-expensive pairing = 1.0. This is a global
+// constant rescale -> rank-preserving within a branch; it only keeps the denominator sane
+// and honors the (0,1] contract.
+const MAX_COST = Math.max(...[...COST.values()].map((c) => c.perToken));
+const COST_NORM = new Map();
+for (const p of UNIVERSE) COST_NORM.set(p.id, COST.get(p.id).perToken / MAX_COST);
+
+// ---- two-branch power-law weights (owner schema C) --------------------------------
+// score = perf_norm^a / cost_norm^b. The a:b ratio sets perf-vs-cost influence (log-space):
+//   performance     a=0.8 b=0.2  -> 80:20 capability:cost (cost a light nudge)
+//   cost_efficiency a=0.4 b=0.6  -> 40:60 perf:cost (cost-dominant)
+const PERF_EXP = { a: 0.8, b: 0.2 };
+const COST_EXP = { a: 0.4, b: 0.6 };
+
+// Power-law branch score. Sentinels (perf=null) collapse to 0 here but are placed strictly
+// last by rankBranch's SENTINEL value, not by this 0.
+function powerScore(p, s, exponents) {
+  const perf = s.score === null ? 0 : Math.max(s.score, 0);
+  const costNorm = COST_NORM.get(p.id);
+  return Math.pow(perf, exponents.a) / Math.pow(costNorm, exponents.b);
+}
+
+// Full per-pairing object (AUDIT shape). The lean canonical table keeps only
+// {provider, model, effort, rank}; every other field here lives ONLY in the audit sibling.
+function buildFullPairingObject(item) {
+  const { p, s, branchScore } = item;
   const cost = COST.get(p.id).perToken;
   const interpolated = Boolean(s.interpolated) || s.score === null;
   const confidence = s.score === null ? "low" : s.confidence;
-
-  let branchScore;
-  if (branch === "performance") {
-    branchScore = item.branchScore;
-  } else {
-    // cost_efficiency = perf^a / cost^b ; sentinels keep their sentinel ordering via perf=0
-    const perf = s.score === null ? 0 : s.score;
-    branchScore = Math.pow(Math.max(perf, 0), exponents.a) / Math.pow(cost, exponents.b);
-  }
 
   const basis = [...s.basis];
   // record cost assumptions on basis
@@ -442,6 +466,7 @@ function buildPairingObject(category, item, branch, exponents) {
   if (basis.length === 0) basis.push("[UNVERIFIED] vendor-only");
 
   return {
+    provider: providerOf(p.model),
     model: p.model,
     effort: p.effort,
     rank: 0, // filled after sort positions assigned
@@ -454,30 +479,28 @@ function buildPairingObject(category, item, branch, exponents) {
   };
 }
 
-function buildBranch(branch, exponents) {
+function buildFullBranch(branch, exponents) {
   const out = {};
   for (const category of SPINE) {
     const scores = perfScores.get(category);
     const { items } = rankBranch(branch, scores, exponents);
-    const arr = items.map((item, idx) => {
-      const obj = buildPairingObject(category, item, branch, exponents);
+    out[category] = items.map((item, idx) => {
+      const obj = buildFullPairingObject(item);
       obj.rank = idx + 1;
-      delete obj._detail;
       return obj;
     });
-    out[category] = arr;
   }
   return out;
 }
 
-// Rank for a given branch using the proper branch score per pairing.
+// Rank a branch by power-law score (desc), dense 1..N. Both branches use the same
+// score = perf_norm^a / cost_norm^b form; only the exponents differ.
 function rankBranch(branch, scores, exponents) {
   const observed = [];
   for (const p of UNIVERSE) {
     const s = scores.get(p.id);
     if (s.score === null) continue;
-    if (branch === "performance") observed.push(s.score);
-    else observed.push(Math.pow(Math.max(s.score, 0), exponents.a) / Math.pow(COST.get(p.id).perToken, exponents.b));
+    observed.push(powerScore(p, s, exponents));
   }
   const minObs = observed.length ? Math.min(...observed) : 0;
   const SENTINEL = observed.length ? minObs - 1e-6 : 0;
@@ -485,10 +508,7 @@ function rankBranch(branch, scores, exponents) {
   const items = UNIVERSE.map((p) => {
     const s = scores.get(p.id);
     const hasScore = s.score !== null;
-    let branchScore;
-    if (!hasScore) branchScore = SENTINEL;
-    else if (branch === "performance") branchScore = s.score;
-    else branchScore = Math.pow(Math.max(s.score, 0), exponents.a) / Math.pow(COST.get(p.id).perToken, exponents.b);
+    const branchScore = hasScore ? powerScore(p, s, exponents) : SENTINEL;
     return {
       p,
       s,
@@ -538,106 +558,11 @@ function spliceVersionPromotions(items) {
   }
 }
 
-// ---- calibration gate search (design §4/§5) ---------------------------------------
-// Find smallest a>b (perf-bias) such that gate passes: k_observed >= k_categories_min
-// AND m_observed >= m_rank_churn_min, and cheapest-AND-weakest is never rank-1 in
-// cost_efficiency. Deterministic grid (no RNG).
-const K_MIN = 3;
-const M_MIN = 3;
-
-function computeChurn(performance, costEff) {
-  let k = 0;
-  let mMax = 0;
-  for (const category of SPINE) {
-    const perfRank = new Map(performance[category].map((e) => [pairingId(e.model, effortKey(e.effort)), e.rank]));
-    const costRank = new Map(costEff[category].map((e) => [pairingId(e.model, effortKey(e.effort)), e.rank]));
-    let maxDelta = 0;
-    for (const id of UNIVERSE_IDS) {
-      if (perfRank.has(id) && costRank.has(id)) {
-        maxDelta = Math.max(maxDelta, Math.abs(perfRank.get(id) - costRank.get(id)));
-      }
-    }
-    mMax = Math.max(mMax, maxDelta);
-    if (maxDelta >= M_MIN) k += 1;
-  }
-  return { k, mMax };
-}
-
-// Globally cheapest-AND-weakest (validator logic) for the ban check.
-function cheapestWeakest(performance) {
-  const costs = new Map();
-  const perfRanks = new Map();
-  for (const id of UNIVERSE_IDS) costs.set(id, COST.get(id).perToken); // shared scalar
-  for (const category of SPINE) {
-    for (const e of performance[category]) {
-      const id = pairingId(e.model, effortKey(e.effort));
-      const arr = perfRanks.get(id) || [];
-      arr.push(e.rank);
-      perfRanks.set(id, arr);
-    }
-  }
-  const avgRanks = [...perfRanks].map(([id, arr]) => [id, arr.reduce((a, b) => a + b, 0) / arr.length]);
-  const minCost = Math.min(...[...costs.values()]);
-  const maxRank = Math.max(...avgRanks.map(([, v]) => v));
-  const eps = 1e-12;
-  const cheapest = new Set([...costs].filter(([, v]) => Math.abs(v - minCost) <= eps).map(([id]) => id));
-  const weakest = new Set(avgRanks.filter(([, v]) => Math.abs(v - maxRank) <= eps).map(([id]) => id));
-  return new Set([...cheapest].filter((id) => weakest.has(id)));
-}
-
-function banViolated(costEff, banned) {
-  if (banned.size === 0) return false;
-  for (const category of SPINE) {
-    const top = costEff[category].find((e) => e.rank === 1);
-    if (top && banned.has(pairingId(top.model, effortKey(top.effort)))) return true;
-  }
-  return false;
-}
-
-// performance branch is exponent-independent; build it once.
-const performance = buildBranchPerf();
-function buildBranchPerf() {
-  const out = {};
-  for (const category of SPINE) {
-    const scores = perfScores.get(category);
-    const { items } = rankBranch("performance", scores, { a: 1, b: 0 });
-    out[category] = items.map((item, idx) => {
-      const obj = buildPairingObject(category, item, "performance", { a: 1, b: 0 });
-      obj.rank = idx + 1;
-      delete obj._detail;
-      return obj;
-    });
-  }
-  return out;
-}
-
-// Deterministic exponent grid: widen a-b spread until gate passes.
-function searchExponents() {
-  const grid = [];
-  for (let a = 1.0; a <= 3.0 + 1e-9; a += 0.25) {
-    for (let b = 0.5; b >= 0.05 - 1e-9; b -= 0.05) {
-      if (a > b) grid.push({ a: Number(a.toFixed(4)), b: Number(b.toFixed(4)) });
-    }
-  }
-  // prefer smallest spread first (least-opinionated), then smallest a
-  grid.sort((x, y) => x.a - x.b - (y.a - y.b) || x.a - y.a || y.b - x.b);
-  for (const exp of grid) {
-    const costEff = buildBranch("cost_efficiency", exp);
-    const { k, mMax } = computeChurn(performance, costEff);
-    const banned = cheapestWeakest(performance);
-    const passed = k >= K_MIN && mMax >= M_MIN && !banViolated(costEff, banned);
-    if (passed) {
-      return { exp, costEff, k, mMax };
-    }
-  }
-  // fall back to widest spread (record failure honestly)
-  const exp = grid[grid.length - 1];
-  const costEff = buildBranch("cost_efficiency", exp);
-  const { k, mMax } = computeChurn(performance, costEff);
-  return { exp, costEff, k, mMax, failed: true };
-}
-
-const { exp: EXPONENTS, costEff: costEfficiency, k: K_OBS, mMax: M_OBS, failed } = searchExponents();
+// ---- build both branches at fixed owner-spec exponents (no calibration search) ----
+// calibration_gate + cheapest-AND-weakest ban are RETIRED (owner schema D): both branches
+// now rank by the same power law at fixed a:b ratios, so there is no exponent to search.
+const performanceFull = buildFullBranch("performance", PERF_EXP);
+const costEfficiencyFull = buildFullBranch("cost_efficiency", COST_EXP);
 
 // ---- citations for audit ----------------------------------------------------------
 function citationsFor(detail) {
@@ -694,57 +619,47 @@ for (const category of SPINE) {
   compositeWeights[category] = w;
 }
 
+// ---- lean canonical table (owner schema A/B) --------------------------------------
+// Pairings carry EXACTLY {provider, model, effort, rank}; metadata EXACTLY the 5 keys.
+// All removed detail (score, cost_figure_used, basis, interpolated, confidence, formula
+// definitions, universe, exponents, citations) lives ONLY in the audit sibling below.
+function leanBranch(fullBranch) {
+  const out = {};
+  for (const category of SPINE) {
+    out[category] = fullBranch[category].map((e) => ({
+      provider: e.provider,
+      model: e.model,
+      effort: e.effort,
+      rank: e.rank,
+    }));
+  }
+  return out;
+}
+
 const metadata = {
-  version: "1.0.0",
-  schema_version: "1",
-  generated: GENERATED_MONTH,
   author: "Lexi Blackburn",
   author_url: "https://github.com/Heretyc/",
-  model_effort_universe: UNIVERSE_IDS,
-  formula_definitions: {
-    normalization: NORMALIZATION,
-    composite_weights: compositeWeights,
-    sentiment_cap: SENTIMENT_CAP,
-    calibrated_exponents: { a: EXPONENTS.a, b: EXPONENTS.b },
-  },
-  cost_blend: {
-    input_tokens: COST_BLEND.input_tokens,
-    output_tokens: COST_BLEND.output_tokens,
-    price_cliff_side: PRICE_CLIFF_SIDE,
-  },
-  rag_pointer: ".spec/references/retrieval-map.md",
-  calibration_gate: {
-    k_categories_min: K_MIN,
-    m_rank_churn_min: M_MIN,
-    k_observed: K_OBS,
-    m_observed: M_OBS,
-    passed: K_OBS >= K_MIN && M_OBS >= M_MIN,
-  },
+  generated: GENERATED_MONTH,
+  schema_version: "2",
+  version: "2.0.0",
 };
 
 const providerTable = {
   metadata,
-  performance,
-  cost_efficiency: costEfficiency,
+  performance: leanBranch(performanceFull),
+  cost_efficiency: leanBranch(costEfficiencyFull),
 };
 
-// strip any leftover _detail just in case
-function stripInternal(branch) {
-  for (const cat of Object.keys(branch)) {
-    for (const e of branch[cat]) delete e._detail;
-  }
-}
-stripInternal(providerTable.performance);
-stripInternal(providerTable.cost_efficiency);
-
-// ---- audit sibling (populated; src/routing-table-audit.json) ----------------------
-function auditBranch(branch) {
+// ---- audit sibling (full per-pairing detail + citations; src/routing-table-audit.json)
+// The audit is the ONLY place the removed detail is retained. Its metadata MAY carry the
+// richer fields and records the realized exponents + cost-figure methodology.
+function auditBranch(fullBranch) {
   const out = {};
   for (const category of SPINE) {
-    out[category] = providerTable[branch][category].map((e) => {
-      const scores = perfScores.get(category);
-      const detail = scores.get(pairingId(e.model, effortKey(e.effort)));
-      return { ...e, citations: citationsFor(detail) };
+    out[category] = fullBranch[category].map((e) => {
+      const detail = perfScores.get(category).get(pairingId(e.model, effortKey(e.effort)));
+      const { _detail, ...rest } = e;
+      return { ...rest, citations: citationsFor(detail) };
     });
   }
   return out;
@@ -752,13 +667,38 @@ function auditBranch(branch) {
 
 const auditTable = {
   metadata: {
-    ...metadata,
-    audits: "src/routing-table.json",
+    author: "Lexi Blackburn",
+    author_url: "https://github.com/Heretyc/",
+    generated: GENERATED_MONTH,
     generated_at: GENERATED_AT,
+    schema_version: "2",
+    version: "2.0.0",
+    audits: "src/routing-table.json",
     source_ledger_pointer: ".spec/references/source-ledger.md",
+    rag_pointer: ".spec/references/retrieval-map.md",
+    model_effort_universe: UNIVERSE_IDS,
+    realized_exponents: {
+      performance: { a: PERF_EXP.a, b: PERF_EXP.b },
+      cost_efficiency: { a: COST_EXP.a, b: COST_EXP.b },
+    },
+    cost_figure_methodology:
+      "SOP-2 worst-case $/token: fixed 100K-in / 20K-visible-out blend, opus tokenizer " +
+      "inflation 1.35x (1.4x deprecated), effort hidden-output multiplier ladder, gpt-5.5 " +
+      "272K cliff sub-cliff at this blend. cost_norm = $/token / universe-max in (0,1]. " +
+      "Branch score = perf_norm^a / cost_norm^b.",
+    formula_definitions: {
+      normalization: NORMALIZATION,
+      composite_weights: compositeWeights,
+      sentiment_cap: SENTIMENT_CAP,
+    },
+    cost_blend: {
+      input_tokens: COST_BLEND.input_tokens,
+      output_tokens: COST_BLEND.output_tokens,
+      price_cliff_side: PRICE_CLIFF_SIDE,
+    },
   },
-  performance: auditBranch("performance"),
-  cost_efficiency: auditBranch("cost_efficiency"),
+  performance: auditBranch(performanceFull),
+  cost_efficiency: auditBranch(costEfficiencyFull),
 };
 
 // ---- write ------------------------------------------------------------------------
@@ -767,12 +707,8 @@ writeFileSync(OUT_AUDIT, JSON.stringify(auditTable, null, 2) + "\n", "utf8");
 
 // ---- report -----------------------------------------------------------------------
 console.log("build_routing_table: emitted");
-console.log("  - src/routing-table.json");
-console.log("  - src/routing-table-audit.json");
-console.log(`  exponents a=${EXPONENTS.a} b=${EXPONENTS.b}`);
-console.log(`  calibration k_observed=${K_OBS} (>=${K_MIN}) m_observed=${M_OBS} (>=${M_MIN}) passed=${metadata.calibration_gate.passed}`);
+console.log("  - src/routing-table.json (lean canonical)");
+console.log("  - src/routing-table-audit.json (full audit + citations)");
+console.log(`  performance exponents a=${PERF_EXP.a} b=${PERF_EXP.b}`);
+console.log(`  cost_efficiency exponents a=${COST_EXP.a} b=${COST_EXP.b}`);
 console.log(`  price_cliff_side=${PRICE_CLIFF_SIDE}`);
-if (failed) {
-  console.error("WARNING: calibration gate did NOT pass with any exponent in the grid.");
-  process.exit(2);
-}

@@ -74,8 +74,9 @@ never the numbers.
   `context_size` / the `G_CTX_272` modifier is in play. Use the base ≤272K rate **only when the route is
   provably sub-cliff**. When uncertain, use the cliff (worst-case) rate.
 
-Records: a pairing priced at the cliff carries `cost_blend.price_cliff_side: "above"` in
-`routing-table.json` metadata (see `provider-json-emission.md`); sub-cliff records `"below"`.
+Records: the blend's cliff side is recorded as `cost_blend.price_cliff_side` (`"above"`/`"below"`/
+`"n/a"`) in the **audit** metadata (`routing-table-audit.json`) — the lean canonical table
+(`schema_version` 2) no longer carries `cost_blend` (see `../provider-json-emission.md`).
 
 ---
 
