@@ -14,6 +14,7 @@ import {
   computeStatusTransition,
   buildLivenessFields,
 } from "./status-helpers.js";
+import { extractFinalTurn } from "./output-helpers.js";
 
 interface AgentState {
   id: string;
@@ -304,9 +305,10 @@ server.tool(
 // Tool 2: poll_agent
 server.tool(
   "poll_agent",
-  "Get current status and output of an agent. Status `processing` means ALIVE but quiet for >=60s (thinking or awaiting a temp-file handoff), NOT dead; `alive` and `idle_seconds` are always returned, and a `hint` is included while processing. Prefer `wait`/re-poll over killing a processing agent.",
+  "Get current status and output of an agent. Status `processing` means ALIVE but quiet for >=60s (thinking or awaiting a temp-file handoff), NOT dead; `alive` and `idle_seconds` are always returned, and a `hint` is included while processing. Prefer `wait`/re-poll over killing a processing agent. Pass `verbose: true` to also return `final_output`, the agent's final assistant turn text extracted from its captured stdout.",
   {
     agent_id: z.string(),
+    verbose: z.boolean().optional().default(false),
   },
   async (params) => {
     const agent = agents.get(params.agent_id);
@@ -359,6 +361,9 @@ server.tool(
             last_activity: agent.lastActivity,
             cwd: agent.cwd,
             ...liveness,
+            ...(params.verbose
+              ? { final_output: extractFinalTurn(agent.provider, agent.stdout) }
+              : {}),
           }),
         },
       ],
@@ -571,9 +576,12 @@ server.tool(
 // Tool 6: wait
 server.tool(
   "wait",
-  "Blocks until one or more sub-agents exit (completed/failed/killed) and returns their exit code + local-time exit timestamp, or returns the running-job list after a 15-minute timeout",
-  {},
-  async () => {
+  "Blocks until one or more sub-agents exit (completed/failed/killed) and returns their exit code + local-time exit timestamp, or returns the running-job list after a 15-minute timeout. Pass `verbose: true` to add `final_output` (each finished agent's final assistant turn text extracted from its captured stdout) to every finished entry.",
+  {
+    verbose: z.boolean().optional().default(false),
+  },
+  async (params) => {
+    const { verbose } = params;
     const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
     const TIMEOUT_MS = 15 * 60 * 1000;
     const deadline = Date.now() + TIMEOUT_MS;
@@ -586,6 +594,9 @@ server.tool(
       exit_code: a.exitCode,
       exited_at: formatLocalIso(a.exitedAt as number),
       elapsed_ms: (a.exitedAt as number) - a.startedAt,
+      ...(verbose
+        ? { final_output: extractFinalTurn(a.provider, a.stdout) }
+        : {}),
     });
 
     const buildRunningEntry = (a: AgentState, now: number) => ({

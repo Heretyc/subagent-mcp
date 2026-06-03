@@ -44,7 +44,7 @@ All logs go to stderr. stdout carries only JSON-RPC messages.
 | Tool | Key params (zod) | Success return shape |
 |------|-----------------|----------------------|
 | `launch_agent` | `provider` enum, `model` enum, `effort` enum (default `"high"`), `prompt` string, `cwd?` string | `{ agent_id, status, provider, model }` |
-| `poll_agent` | `agent_id` string | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds }` (+ `hint` when status is `processing`) |
+| `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds }` (+ `hint` when status is `processing`; + `final_output` string when `verbose` is `true`) |
 | `kill_agent` | `agent_id` string | `{ agent_id, status, message }` (not-running is not an error) |
 | `send_message` | `agent_id` string, `message` string | `{ agent_id, status: "sent", message }` |
 | `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd, alive, idle_seconds }] }` (each + `hint` when status is `processing`) |
