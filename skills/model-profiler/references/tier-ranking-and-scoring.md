@@ -2,7 +2,7 @@
 
 **Load when:** a run builds tier rankings, assigns scores, computes cost figures, or validates
 the calibration gate. Encodes the rules and formula forms — NOT the calibrated values (those are
-produced at run time and recorded to `provider.json` metadata).
+produced at run time and recorded to `routing-table.json` metadata).
 
 ---
 
@@ -39,10 +39,10 @@ One provider-neutral `$/token` scalar per model+effort pairing. Construction:
 | Factor | Rule |
 |---|---|
 | **Blend** | Fixed 100K input / 20K visible output reference (matches `cost-model.md` §4 reference blend) |
-| **Opus 4.7/4.8 inflation** | Apply 1.4× tokenizer inflation to all `claude-opus-4-7` and `claude-opus-4-8` pairings (`cost-model.md` §3). Opus 4.6 uses old tokenizer — no adjustment. |
-| **Hidden-reasoning multipliers** | Apply effort-tier hidden-output multipliers from `cost-model.md` §4 (none=0×, low=0.1×, med=0.25×, high=0.75×, xhigh=1.5×, max=2.5×). |
+| **Tokenizer inflation** | Apply each member's tokenizer-inflation factor from `cost-model.md` §3 to every pairing of any family whose tokenizer inflates token counts; members on a legacy/non-inflating tokenizer get no adjustment. The factor is a per-member datum in `cost-model.md`, never named here. |
+| **Hidden-reasoning multipliers** | Apply the effort-tier hidden-output multipliers from `cost-model.md` §4 (the effort-ladder definition: none=0×, low=0.1×, med=0.25×, high=0.75×, xhigh=1.5×, max=2.5×). |
 | **Efforts without a published multiplier** | Every effort in the validator ladder (`null, none, min, light, low, medium, high, xhigh, max, pro, ultracode`) must resolve to a multiplier so no pairing has undefined cost. Any effort lacking a published §4 value uses the **nearest lower documented tier** as its default: `null`→`none` (0×), `min`/`light`→`low` (0.1×), `pro`/`ultracode`→`max` (2.5×). State the default applied and label the pairing `[ASSUMPTION]`. |
-| **GPT-5.5 cliff** | Determine whether the 100K-in/20K-out blend sits below or above the 272K input cliff. Record which side in `provider.json` metadata (`cost_blend.gpt55_cliff_side`). Below cliff: use ≤272K rates; above: use >272K rates (see `cost-model.md` §2). At 100K input the blend sits **below** the cliff — record as `"below"`. |
+| **Input price-cliff** | For any member with a published input price cliff (`cost-model.md` §2), determine whether the 100K-in/20K-out reference blend sits below or above that member's cliff; record the side in `routing-table.json` metadata (`cost_blend.price_cliff_side`), and use the below- or above-cliff rates accordingly. A member with no cliff records `"n/a"`. Threshold values are per-member data in `cost-model.md`, never named here. |
 | **Gaps** | Any rate not in `cost-model.md` → label `[ASSUMPTION]` or `[UNVERIFIED]` on the pairing's `basis` field. |
 
 ---
@@ -53,7 +53,7 @@ One provider-neutral `$/token` scalar per model+effort pairing. Construction:
 
 `performance = composite(normalized_benchmarks) + sentiment_adjustment`
 
-- **Normalization:** the run picks ONE method and records it in `provider.json` `formula_definitions`:
+- **Normalization:** the run picks ONE method and records it in `routing-table.json` `formula_definitions`:
   - `min-max` — rescale each benchmark to [0, 1] within the measured set, OR
   - `z-score-then-squash` — z-score then apply a sigmoid/tanh to bound to (0, 1).
 - **Composite:** weighted mean of the normalized benchmark scores for the benchmarks relevant to
@@ -71,7 +71,7 @@ One provider-neutral `$/token` scalar per model+effort pairing. Construction:
 
 - `perf` = the performance score from the performance branch (interpolated or measured).
 - `cost` = the `cost_figure_used` scalar for that pairing.
-- `a`, `b` are calibrated by the run and recorded to `provider.json` `metadata.formula_definitions.calibrated_exponents`.
+- `a`, `b` are calibrated by the run and recorded to `routing-table.json` `metadata.formula_definitions.calibrated_exponents`.
 - The constraint `a > b` encodes a slight performance bias: a model that scores higher on
   performance is favored over a marginally cheaper but weaker one.
 
@@ -90,13 +90,13 @@ The run records the gate to the canonical `metadata.calibration_gate` block:
 `k_categories_min`/`m_rank_churn_min`; `k_observed`/`m_observed` are the run's measured effect
 size; `passed` is the verdict). The exponents `a`, `b` go to
 `metadata.formula_definitions.calibrated_exponents` (`a > b`). If either gate condition fails, the
-run must recalibrate `a`/`b` and re-rank before emitting `provider.json`.
+run must recalibrate `a`/`b` and re-rank before emitting `routing-table.json`.
 
 > `scripts/validate_provider.mjs` re-checks this gate **structurally**: it recomputes observed
 > churn from the two branch orderings, asserts `k_observed ≥ k_categories_min`, asserts the recorded
 > `k_observed`/`m_observed`/`passed` match the recomputation, and applies the cheapest-weakest ban.
 > It does NOT re-derive the cross-model interpolation clamp (no per-benchmark data in
-> `provider.json`) — that correctness is owned by this file's generation rules + the adversarial loop.
+> `routing-table.json`) — that correctness is owned by this file's generation rules + the adversarial loop.
 
 ---
 

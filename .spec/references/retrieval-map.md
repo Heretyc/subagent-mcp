@@ -14,6 +14,7 @@ It routes; it does not teach — follow every pointer to its leaf.**
 | **Classify / route a task** | `routing-contract.md` → `work-categories.md` → `routing-table.md` |
 | **Gate check** (ctx size, output size, math, security, commit, sandbox, data) | `hard-gates.md` |
 | **Model selection / capabilities / benchmarks** | `model-profiles.md` |
+| **Benchmark source list / eval citations** | `skills/model-profiler/references/benchmark-sources.md` |
 | **Cost / pricing / token budget / inflation** | `cost-model.md` |
 | **Multi-agent pattern / topology / anti-pattern** | `synergy-patterns.md` |
 | **Failure / symptom / error / stall / hallucination / 429** | `failure-modes.md` |
@@ -33,6 +34,7 @@ It routes; it does not teach — follow every pointer to its leaf.**
 | `routing-table.md` | Choosing provider/model/effort/fallback for a classified task | Only need category definitions |
 | `hard-gates.md` | Any gate (G_MATH, G_CTX*, G_SEC, G_COMMIT, G_SANDBOX, G_DATA, G_OPUS_LOCK) fires | No gate in play |
 | `model-profiles.md` | Comparing models; capability/risk/ctx/effort; benchmark numbers | Gate or routing decision only |
+| `skills/model-profiler/references/benchmark-sources.md` | Looking up the canonical external benchmark source list (leaderboard URLs, eval datasets, source tiers) | Routing; model selection; claim citation |
 | `cost-model.md` | Pricing; token budgets; tokenizer inflation; price cliff; effort cost | No cost tradeoff |
 | `source-ledger.md` | Verifying claim lineage; citation source ID; provenance audit | Operational routing |
 | `synergy-patterns.md` | Multi-agent setup; Patterns 1/2/4a/4b/5/7; anti-patterns A–E; topology | Single-model, no orchestration |
@@ -51,6 +53,7 @@ It routes; it does not teach — follow every pointer to its leaf.**
 | Routing contract | 3-step contract, routing logic, dispatch, router, route logic | `routing-contract.md` |
 | Precedence order | first-match, tie-break, classification order, precendence | `routing-contract.md`, `work-categories.md` |
 | Hard gates | gates, preconditions, overrides, G_MATH, G_CTX, G_SEC, G_COMMIT, G_SANDBOX, G_DATA, G_OPUS_LOCK | `hard-gates.md` |
+| Cross-cutting modifiers (7) | perception_required, architecture_complexity, context_size, output_size, long_horizon, data_sensitivity, execution_sandbox; multimodal → perception_required modifier | `work-categories.md`, `hard-gates.md` |
 | Model capabilities | model comparison, which model, AI selection, provider choice, LLM selection | `model-profiles.md` |
 | Opus 4.8/4.7/4.6, Sonnet 4.6, Haiku 4.5 | claude-opus-4-8, sonet, oppus, haiku, claude | `model-profiles.md` |
 | GPT-5.5, GPT-5.4-mini, GPT-5.5-pro | gpt5.5, gpt-5, codex model, openai model, GPT55 | `model-profiles.md` |
@@ -65,10 +68,11 @@ It routes; it does not teach — follow every pointer to its leaf.**
 | Math / proof | math_proof, theorem, derivation, formal proof, G_MATH, FrontierMath, maths | `work-categories.md`, `hard-gates.md` |
 | Architecture | design, refactor, decompose, ADR, orchestration, cross-cutting, architecure | `work-categories.md`, `routing-table.md` |
 | Debugging | bug fix, failure, crash, flaky test, regression, root cause, CI failure | `work-categories.md`, `failure-modes.md` |
-| Agentic execution | codex loop, terminal work, closed-loop, extraction, CLI, parse logs, agentic_execution | `work-categories.md`, `routing-table.md` |
-| Knowledge synthesis | long-context synthesis, multi-source, gray-area, policy judgment, knowledge_synthesis | `work-categories.md`, `routing-table.md` |
+| Agentic execution | codex loop, terminal work, closed-loop, iterate-to-end-state, function call, tool invocation, CLI, agentic_execution | `work-categories.md`, `routing-table.md` |
+| Data analysis | data_analysis, SQL query, dataframe, table reasoning, dataset finding, analyze data, statistical analysis, data_analysis_query | `work-categories.md`, `routing-table.md` |
+| Knowledge synthesis | long-context synthesis, multi-source, gray-area, policy judgment, knowledge_synthesis, summarize, translate, draft (prose), rewrite | `work-categories.md`, `routing-table.md` |
 | Coding | implement, write code, add feature, make test pass, coding | `work-categories.md`, `routing-table.md` |
-| Mechanical | grep, find, list, reformat, classify, leaf work, boilerplate | `work-categories.md`, `routing-table.md` |
+| Mechanical | grep, find, list, reformat, classify, leaf work, boilerplate, extract to schema, structured extraction, deterministic transform | `work-categories.md`, `routing-table.md` |
 | Multi-agent patterns / anti-patterns | hub-and-spoke, fan-out, map-reduce, Pattern 1/2/4a/4b/5/7, synergy; A–E, duplicate task, average outputs, self-review, peer mesh, peer-to-peer, skip coordinator | `synergy-patterns.md` |
 | Failure modes | hallucination, stall, truncation, concurrency bug, 429, rate-limit, quota, retry-after, wrong file, injection | `failure-modes.md` |
 | Latency / wall-clock sensitivity | speed, fast mode, priority tier, blocking, real-time, latency-sensitive | `cost-model.md` |
@@ -112,7 +116,7 @@ It routes; it does not teach — follow every pointer to its leaf.**
 | "Two models gave me different answers" | `governance-halts.md` + `synergy-patterns.md` | Anti-Pattern B |
 | "The agent checked its own work" | `governance-halts.md` + `synergy-patterns.md` | Anti-Pattern D |
 | "How do I do the pre-commit check?" | `hard-gates.md` + `governance-halts.md` | G_COMMIT |
-| "When should I escalate to Opus?" | `routing-table.md` + `work-categories.md` | precedence |
+| "When should I escalate to a higher-capability tier?" | `routing-table.md` + `work-categories.md` | precedence |
 | "Proof / math derivation route?" | `work-categories.md` + `hard-gates.md` | G_MATH |
 | "Auth/permissions code was written by GPT-5.5" | `hard-gates.md` | G_SEC mandatory |
 | "My input is 300K tokens and I'm using GPT" | `hard-gates.md` | G_CTX_272 |

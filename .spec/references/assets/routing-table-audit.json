@@ -1,18 +1,20 @@
 ﻿{
     "metadata":  {
-                     "author":  "Lexi Blackburn",
-                     "author_url":  "https://github.com/Heretyc/",
                      "version":  "2.1.0",
-                     "generated_for":  "subagent-mcp cross-provider work-category routing feature",
-                     "source":  "C:\\Users\\Lexi\\AppData\\Local\\Temp\\catdebate\\consensus-categories.json",
-                     "source_date":  "2026-06-03",
+                     "schema_version":  "2.1.0",
+                     "audits":  ".spec/references/assets/routing-table.json",
                      "generated":  "2026-06",
                      "generated_at":  "2026-06-03T00:00:00Z",
+                     "source":  "C:\\Users\\Lexi\\AppData\\Local\\Temp\\catdebate\\consensus-categories.json",
+                     "source_date":  "2026-06-03",
+                     "author":  "Lexi Blackburn",
+                     "author_url":  "https://github.com/Heretyc/",
+                     "rag_pointer":  ".spec/references/retrieval-map.md",
+                     "source_ledger_pointer":  ".spec/references/source-ledger.md",
                      "status":  "pending_impartial_profiling",
-                     "rag_pointer":  ".spec/references/retrieval-map.md"
+                     "note":  "Per-category model-effort pairings and citations are empty until an impartial profiler run populates them from discovered research."
                  },
     "schema_version":  "2.1.0",
-    "default_category":  "fallback_default",
     "classification_precedence":  [
                                       "math_proof",
                                       "security_review",
@@ -25,7 +27,6 @@
                                       "knowledge_synthesis",
                                       "mechanical"
                                   ],
-    "classification_rule":  "walk_precedence_first_match_wins; on_adjacent_tie_escalate_one_tier_up; if_no_match -\u003e fallback_default",
     "fallback_default":  {
                              "id":  "fallback_default",
                              "precedence":  99,
@@ -33,70 +34,11 @@
                              "rag_pointer":  ".spec/references/routing-table.md",
                              "pairings":  [
 
-                                          ]
+                                          ],
+                             "citations":  [
+
+                                           ]
                          },
-    "categories":  {
-                       "math_proof":  {
-                                          "id":  "math_proof",
-                                          "precedence":  1,
-                                          "status":  "pending_impartial_profiling",
-                                          "rag_pointer":  ".spec/references/work-categories.md"
-                                      },
-                       "security_review":  {
-                                               "id":  "security_review",
-                                               "precedence":  2,
-                                               "status":  "pending_impartial_profiling",
-                                               "rag_pointer":  ".spec/references/work-categories.md"
-                                           },
-                       "debugging":  {
-                                         "id":  "debugging",
-                                         "precedence":  3,
-                                         "status":  "pending_impartial_profiling",
-                                         "rag_pointer":  ".spec/references/work-categories.md"
-                                     },
-                       "quality_review":  {
-                                              "id":  "quality_review",
-                                              "precedence":  4,
-                                              "status":  "pending_impartial_profiling",
-                                              "rag_pointer":  ".spec/references/work-categories.md"
-                                          },
-                       "architecture":  {
-                                            "id":  "architecture",
-                                            "precedence":  5,
-                                            "status":  "pending_impartial_profiling",
-                                            "rag_pointer":  ".spec/references/work-categories.md"
-                                        },
-                       "agentic_execution":  {
-                                                 "id":  "agentic_execution",
-                                                 "precedence":  6,
-                                                 "status":  "pending_impartial_profiling",
-                                                 "rag_pointer":  ".spec/references/work-categories.md"
-                                             },
-                       "data_analysis":  {
-                                             "id":  "data_analysis",
-                                             "precedence":  7,
-                                             "status":  "pending_impartial_profiling",
-                                             "rag_pointer":  ".spec/references/work-categories.md"
-                                         },
-                       "coding":  {
-                                      "id":  "coding",
-                                      "precedence":  8,
-                                      "status":  "pending_impartial_profiling",
-                                      "rag_pointer":  ".spec/references/work-categories.md"
-                                  },
-                       "knowledge_synthesis":  {
-                                                   "id":  "knowledge_synthesis",
-                                                   "precedence":  9,
-                                                   "status":  "pending_impartial_profiling",
-                                                   "rag_pointer":  ".spec/references/work-categories.md"
-                                               },
-                       "mechanical":  {
-                                          "id":  "mechanical",
-                                          "precedence":  10,
-                                          "status":  "pending_impartial_profiling",
-                                          "rag_pointer":  ".spec/references/work-categories.md"
-                                      }
-                   },
     "performance":  {
                         "math_proof":  {
                                            "id":  "math_proof",
@@ -105,7 +47,10 @@
                                            "rag_pointer":  ".spec/references/retrieval-map.md",
                                            "pairings":  [
 
-                                                        ]
+                                                        ],
+                                           "citations":  [
+
+                                                         ]
                                        },
                         "security_review":  {
                                                 "id":  "security_review",
@@ -114,7 +59,10 @@
                                                 "rag_pointer":  ".spec/references/retrieval-map.md",
                                                 "pairings":  [
 
-                                                             ]
+                                                             ],
+                                                "citations":  [
+
+                                                              ]
                                             },
                         "debugging":  {
                                           "id":  "debugging",
@@ -123,7 +71,10 @@
                                           "rag_pointer":  ".spec/references/retrieval-map.md",
                                           "pairings":  [
 
-                                                       ]
+                                                       ],
+                                          "citations":  [
+
+                                                        ]
                                       },
                         "quality_review":  {
                                                "id":  "quality_review",
@@ -132,7 +83,10 @@
                                                "rag_pointer":  ".spec/references/retrieval-map.md",
                                                "pairings":  [
 
-                                                            ]
+                                                            ],
+                                               "citations":  [
+
+                                                             ]
                                            },
                         "architecture":  {
                                              "id":  "architecture",
@@ -141,7 +95,10 @@
                                              "rag_pointer":  ".spec/references/retrieval-map.md",
                                              "pairings":  [
 
-                                                          ]
+                                                          ],
+                                             "citations":  [
+
+                                                           ]
                                          },
                         "agentic_execution":  {
                                                   "id":  "agentic_execution",
@@ -150,7 +107,10 @@
                                                   "rag_pointer":  ".spec/references/retrieval-map.md",
                                                   "pairings":  [
 
-                                                               ]
+                                                               ],
+                                                  "citations":  [
+
+                                                                ]
                                               },
                         "data_analysis":  {
                                               "id":  "data_analysis",
@@ -159,7 +119,10 @@
                                               "rag_pointer":  ".spec/references/retrieval-map.md",
                                               "pairings":  [
 
-                                                           ]
+                                                           ],
+                                              "citations":  [
+
+                                                            ]
                                           },
                         "coding":  {
                                        "id":  "coding",
@@ -168,7 +131,10 @@
                                        "rag_pointer":  ".spec/references/retrieval-map.md",
                                        "pairings":  [
 
-                                                    ]
+                                                    ],
+                                       "citations":  [
+
+                                                     ]
                                    },
                         "knowledge_synthesis":  {
                                                     "id":  "knowledge_synthesis",
@@ -177,7 +143,10 @@
                                                     "rag_pointer":  ".spec/references/retrieval-map.md",
                                                     "pairings":  [
 
-                                                                 ]
+                                                                 ],
+                                                    "citations":  [
+
+                                                                  ]
                                                 },
                         "mechanical":  {
                                            "id":  "mechanical",
@@ -186,7 +155,10 @@
                                            "rag_pointer":  ".spec/references/retrieval-map.md",
                                            "pairings":  [
 
-                                                        ]
+                                                        ],
+                                           "citations":  [
+
+                                                         ]
                                        }
                     },
     "cost_efficiency":  {
@@ -197,7 +169,10 @@
                                                "rag_pointer":  ".spec/references/retrieval-map.md",
                                                "pairings":  [
 
-                                                            ]
+                                                            ],
+                                               "citations":  [
+
+                                                             ]
                                            },
                             "security_review":  {
                                                     "id":  "security_review",
@@ -206,7 +181,10 @@
                                                     "rag_pointer":  ".spec/references/retrieval-map.md",
                                                     "pairings":  [
 
-                                                                 ]
+                                                                 ],
+                                                    "citations":  [
+
+                                                                  ]
                                                 },
                             "debugging":  {
                                               "id":  "debugging",
@@ -215,7 +193,10 @@
                                               "rag_pointer":  ".spec/references/retrieval-map.md",
                                               "pairings":  [
 
-                                                           ]
+                                                           ],
+                                              "citations":  [
+
+                                                            ]
                                           },
                             "quality_review":  {
                                                    "id":  "quality_review",
@@ -224,7 +205,10 @@
                                                    "rag_pointer":  ".spec/references/retrieval-map.md",
                                                    "pairings":  [
 
-                                                                ]
+                                                                ],
+                                                   "citations":  [
+
+                                                                 ]
                                                },
                             "architecture":  {
                                                  "id":  "architecture",
@@ -233,7 +217,10 @@
                                                  "rag_pointer":  ".spec/references/retrieval-map.md",
                                                  "pairings":  [
 
-                                                              ]
+                                                              ],
+                                                 "citations":  [
+
+                                                               ]
                                              },
                             "agentic_execution":  {
                                                       "id":  "agentic_execution",
@@ -242,7 +229,10 @@
                                                       "rag_pointer":  ".spec/references/retrieval-map.md",
                                                       "pairings":  [
 
-                                                                   ]
+                                                                   ],
+                                                      "citations":  [
+
+                                                                    ]
                                                   },
                             "data_analysis":  {
                                                   "id":  "data_analysis",
@@ -251,7 +241,10 @@
                                                   "rag_pointer":  ".spec/references/retrieval-map.md",
                                                   "pairings":  [
 
-                                                               ]
+                                                               ],
+                                                  "citations":  [
+
+                                                                ]
                                               },
                             "coding":  {
                                            "id":  "coding",
@@ -260,7 +253,10 @@
                                            "rag_pointer":  ".spec/references/retrieval-map.md",
                                            "pairings":  [
 
-                                                        ]
+                                                        ],
+                                           "citations":  [
+
+                                                         ]
                                        },
                             "knowledge_synthesis":  {
                                                         "id":  "knowledge_synthesis",
@@ -269,7 +265,10 @@
                                                         "rag_pointer":  ".spec/references/retrieval-map.md",
                                                         "pairings":  [
 
-                                                                     ]
+                                                                     ],
+                                                        "citations":  [
+
+                                                                      ]
                                                     },
                             "mechanical":  {
                                                "id":  "mechanical",
@@ -278,13 +277,10 @@
                                                "rag_pointer":  ".spec/references/retrieval-map.md",
                                                "pairings":  [
 
-                                                            ]
+                                                            ],
+                                               "citations":  [
+
+                                                             ]
                                            }
-                        },
-    "global_invariants":  {
-                              "no_fabricated_rankings":  true,
-                              "rankings_require_impartial_profiler":  true,
-                              "fallback_default_precedence":  99,
-                              "subagent_output_contract":  "{status,summary,source_locators,risks,writes_requested}"
-                          }
+                        }
 }

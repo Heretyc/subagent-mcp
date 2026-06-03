@@ -5,16 +5,14 @@ agentic collaboration.
 
 ## Line Limit
 
-- `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` must stay <=100 lines each.
-- Other markdown and RAG files must stay <=200 lines each.
+- `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` <=100 lines; other markdown/RAG <=200.
 - If a file would exceed its limit, keep it as an index and move detail into a
   same-named subdirectory or an appropriate `docs/spec/**` file.
 
 ## Provider Entry Points
 
 - Read this file first.
-- `CLAUDE.md` and `GEMINI.md` are redirects to this file.
-- Do not add durable operating rules to `CLAUDE.md` or `GEMINI.md`.
+- `CLAUDE.md`/`GEMINI.md` redirect here; add no durable operating rules.
 
 ## Context Routing
 
@@ -57,11 +55,14 @@ agentic collaboration.
   classifying a prompt into a work-category, or wiring the subagent-mcp routing
   feature. Entry point for the cross-provider model-routing KB; re-profile new
   models with the `model-profiler` skill.
+- `docs/spec/task-taxonomy/_INDEX.md`: read when defining, citing, or changing
+  the fixed 10-category task taxonomy (immutable; never re-derived by a
+  profiler run) or how/why it was determined — spec and provenance, not
+  operational routing; see `.spec/references/retrieval-map.md` for that.
 
 ## Always Enforce
 
-- Before any file edit or git write action, inspect
-  `git status --short --branch`.
+- Before file edits or git writes, inspect `git status --short --branch`.
 - Before any repository commit that changes executable/source code, dispatch a separate contradiction-checker
   sub-agent using the strongest explicitly selectable model and reasoning
   settings available to check against relevant specs/docs. If unavailable, halt and tell the owner. If it reports
@@ -95,5 +96,4 @@ python -m py_compile <repo-python-files-used-by-policy-or-ci>
 git status --short --branch
 ```
 
-Verify `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are <=100 lines, and other
-markdown/RAG files are <=200 lines.
+Verify files meet the line limits in the Line Limit section above.

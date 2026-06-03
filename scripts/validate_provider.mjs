@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 
-const providerPath = new URL("../src/provider.json", import.meta.url);
+const providerPath = new URL("../src/routing-table.json", import.meta.url);
 const routingTablePath = new URL("../.spec/references/assets/routing-table.json", import.meta.url);
 const branches = ["performance", "cost_efficiency"];
 const requiredMetadata = [
@@ -249,7 +249,7 @@ function readCalibrationGate(metadata, issues) {
 
 function validateRoot(provider, issues) {
   if (!isObject(provider)) {
-    issues.push("provider.json root must be an object");
+    issues.push("routing-table.json root must be an object");
     return;
   }
   const rootKeys = Object.keys(provider);
@@ -383,7 +383,7 @@ function validatePairingArray(label, entries, universeKeys, universeSet, branch,
 }
 
 function validateInterpolationFlags(label, entries, branch, issues) {
-  // Deep cross-model interpolation-clamp correctness needs per-benchmark data NOT present in provider.json,
+  // Deep cross-model interpolation-clamp correctness needs per-benchmark data NOT present in routing-table.json,
   // so this validator checks structure + monotonicity + flags only.
   const byModel = new Map();
   for (const entry of entries) {
@@ -556,7 +556,7 @@ function globallyCheapestWeakestPairings(provider, spine) {
 
 function main() {
   if (!existsSync(providerPath)) {
-    console.log("NOTICE src/provider.json is absent; provider validation skipped");
+    console.log("NOTICE src/routing-table.json is absent; provider validation skipped");
     return 0;
   }
 
@@ -570,7 +570,7 @@ function main() {
   ];
   const issuesFor = Object.fromEntries(checks);
   const spine = buildSpine(issuesFor["routing-table spine"]);
-  const provider = readJson(providerPath, "src/provider.json", issuesFor["provider root"]);
+  const provider = readJson(providerPath, "src/routing-table.json", issuesFor["provider root"]);
   if (provider) {
     validateRoot(provider, issuesFor["provider root"]);
     const { universeKeys } = validateMetadata(provider, issuesFor.metadata);
@@ -581,7 +581,7 @@ function main() {
 
   const failures = checks.filter(([, issues]) => issues.length > 0);
   if (failures.length > 0) {
-    console.log("FAIL src/provider.json validation");
+    console.log("FAIL src/routing-table.json validation");
     for (const [name, issues] of failures) {
       console.log(`- ${name}:`);
       for (const issue of issues) {
@@ -591,7 +591,7 @@ function main() {
     return 1;
   }
 
-  console.log("PASS src/provider.json validation");
+  console.log("PASS src/routing-table.json validation");
   for (const [name] of checks) {
     console.log(`- ${name}: ok`);
   }

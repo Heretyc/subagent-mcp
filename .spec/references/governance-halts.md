@@ -1,4 +1,4 @@
-# governance-halts.md — Governance Rules, Halt Conditions & Subagent Contract
+# governance-halts.md -- Governance Rules, Halt Conditions & Subagent Contract
 
 **One-screen summary:** The 5 halt-and-surface conditions (full form), write-scoping policy,
 data-retention windows, telemetry field list, and the machine-parseable subagent output contract.
@@ -18,8 +18,8 @@ request from a parent process>` subagent context.
 
 1. **No model output commits itself.** The orchestrator / checker audits scope, evidence, and
    contradictions before any commit. G_COMMIT is mandatory and non-bypassable (see `./hard-gates.md`).
-2. **Cross-provider validation, never same-family self-validation.** Anti-Pattern D from
-   `./synergy-patterns.md` — shared training distribution hides shared blind spots.
+2. **Cross-family validation, never same-family self-validation.** Anti-Pattern D from
+   `./synergy-patterns.md` -- shared training distribution hides shared blind spots.
 3. **Surface conflicts, never average them.** On code/spec correctness one output is right;
    escalate to the contradiction-checker and pick per the authoritative spec (Sanity Rule 7).
 4. **Hub-and-spoke topology only.** No peer-to-peer worker mesh. (Full topology rules in
@@ -33,13 +33,13 @@ Stop execution, emit no writes, and surface the condition to the owner:
 
 | # | Trigger | Emit |
 |---|---------|------|
-| **H1** | Mandated contradiction/security checker is unavailable, OR a mandated provider/route (e.g., GPT-5.5 for `math_proof`) is unavailable | `status: blocked` — never degrade to a weaker checker; never proceed |
-| **H2** | Secret / credential exposure detected, OR destructive / irreversible / external-side-effect action is ambiguous in scope | `status: blocked` — no writes; surface exact exposure or ambiguity |
-| **H3** | Identity / authorization uncertainty, OR instructions conflict (spec vs prompt vs policy), OR conflicting hard gates | `status: needs_user` — name the conflict specifically; do not guess |
-| **H4** | Sandbox-bypass (`danger-full-access` / `--dangerously-bypass-approvals-and-sandbox`) requested in a non-hardened (mixed-trust) workspace | `status: blocked` — only valid inside an externally hardened, disposable, secret-free runner |
-| **H5** | Evidence the pipeline is compounding errors (retries obscuring state; each retry re-introduces a prior mistake; output contradicts prior-confirmed output) | `status: blocked` — stop retrying; surface compounding error trace |
+| **H1** | Mandated contradiction/security checker is unavailable, OR a mandated capability class cannot be satisfied | `status: blocked` -- never degrade to an unqualified checker; never proceed |
+| **H2** | Secret / credential exposure detected, OR destructive / irreversible / external-side-effect action is ambiguous in scope | `status: blocked` -- no writes; surface exact exposure or ambiguity |
+| **H3** | Identity / authorization uncertainty, OR instructions conflict (spec vs prompt vs policy), OR conflicting hard gates | `status: needs_user` -- name the conflict specifically; do not guess |
+| **H4** | Sandbox-bypass (`danger-full-access` / `--dangerously-bypass-approvals-and-sandbox`) requested in a non-hardened (mixed-trust) workspace | `status: blocked` -- only valid inside an externally hardened, disposable, secret-free runner |
+| **H5** | Evidence the pipeline is compounding errors (retries obscuring state; each retry re-introduces a prior mistake; output contradicts prior-confirmed output) | `status: blocked` -- stop retrying; surface compounding error trace |
 
-> The 3-step routing contract (gates → classify → emit) with halt summaries lives in
+> The 3-step routing contract (gates -> classify -> emit) with halt summaries lives in
 > `./routing-contract.md`. The gate definitions that trigger H1 live in `./hard-gates.md` (G_COMMIT,
 > G_SEC, G_SANDBOX, G_DATA).
 
@@ -60,23 +60,23 @@ Agents must declare writes in `writes_requested` before executing them.
 
 ## Data Boundary (G_DATA)
 
-Classify data before routing. Cross-provider freely: `public`, `internal-low-risk`.
+Classify data before routing. Cross-boundary freely: `public`, `internal-low-risk`.
 Halt on: `secret`, `regulated`, `owner-private`.
 
 | Rule | Detail |
 |------|--------|
-| Keys in CI | Never set `OPENAI_API_KEY` / `CODEX_API_KEY` as job-level env in workflows that run repo-controlled code |
+| Keys in CI | Never set cross-provider API credentials as job-level env in workflows that run repo-controlled code |
 | Retention | Retention is feature-path-specific; route on the exact feature path, not provider-wide |
-| OpenAI abuse logs | ≤30 days |
-| Anthropic auto-delete | ≤30 days default |
-| ZDR | Not universal — confirm per endpoint before routing confidential data |
+| OpenAI abuse logs | <=30 days |
+| Anthropic auto-delete | <=30 days default |
+| ZDR | Not universal -- confirm per endpoint before routing confidential data |
 
 ---
 
 ## Subagent Output Contract
 
 **All operational subagents** (including `<this is a request from a parent process>` calls) MUST
-return machine-parseable JSON only — **no bare prose**:
+return machine-parseable JSON only -- **no bare prose**:
 
 ```json
 {
@@ -89,9 +89,9 @@ return machine-parseable JSON only — **no bare prose**:
 ```
 
 - Large payloads go to temp files; subagents return only the compact status JSON.
-- `status: done` — task completed; writes_requested fulfilled.
-- `status: blocked` — halt condition H1, H2, or H4 triggered; no writes executed.
-- `status: needs_user` — halt condition H3 triggered; waiting on disambiguation.
+- `status: done` -- task completed; writes_requested fulfilled.
+- `status: blocked` -- halt condition H1, H2, or H4 triggered; no writes executed.
+- `status: needs_user` -- halt condition H3 triggered; waiting on disambiguation.
 
 ---
 
@@ -99,11 +99,11 @@ return machine-parseable JSON only — **no bare prose**:
 
 Meter every agent run. Without this, routing drifts toward premium-model overuse.
 
-`run_id` · `parent_task_id` · `provider` · `model` · `effort` · `prompt_hash` · `policy_version` ·
-`category` · `gates_fired` · `classification_reason` · `files_read` · `files_written` · `commands` ·
-`urls` · `input_tokens` · `output_tokens` · `cached_tokens` · `reasoning_tokens` · `wall_time_ms` ·
-`retries` · `failure_class` · `validation_result` · `skipped_work` · `unresolved_risks`
+`run_id` | `parent_task_id` | `provider` | `model` | `effort` | `prompt_hash` | `policy_version` |
+`category` | `gates_fired` | `classification_reason` | `files_read` | `files_written` | `commands` |
+`urls` | `input_tokens` | `output_tokens` | `cached_tokens` | `reasoning_tokens` | `wall_time_ms` |
+`retries` | `failure_class` | `validation_result` | `skipped_work` | `unresolved_risks`
 
 ---
 
-*Author: Lexi Blackburn — https://github.com/Heretyc/ — May 2026*
+*Author: Lexi Blackburn -- https://github.com/Heretyc/ -- May 2026*

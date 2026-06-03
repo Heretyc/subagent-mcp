@@ -17,7 +17,7 @@ It must print `PASS`. The validator enforces (pure stdlib, path-relative):
 - **Relative cross-links** — no broken `.md`/`.json` links; nothing links outside the KB.
 - **retrieval-map coverage** — every leaf and `assets/routing-table.json` is referenced in
   `retrieval-map.md`.
-- **routing-table.json mirror + precedence** — metadata block, `schema_version`, version,
+- **routing-table.json (machine mirror) mirror + precedence** — metadata block, `schema_version`, version,
   `classification_precedence`, `default_category`, `hard_gates` (ids + order), and `categories`
   (keys + order) all match the manifest spine; each category record has all required fields with
   valid `{provider, model}` and correct integer `precedence`; the markdown route-table order equals
@@ -27,7 +27,7 @@ It must print `PASS`. The validator enforces (pure stdlib, path-relative):
 > If you bumped `version`/`schema_version` in `decompose-update.md`, the validator's pinned
 > constants must already match (you updated them in the same change). A version mismatch fails here.
 
-## 1a. Run the provider.json validator
+## 1a. Run the routing-table.json validator
 
 ```powershell
 node scripts/validate_provider.mjs
@@ -35,7 +35,7 @@ node scripts/validate_provider.mjs
 
 It must print `PASS`. Its enforcement scope is **structural** (the schema contract in
 `provider-json-emission.md`) — it does NOT re-derive the full cross-model interpolation clamp from
-benchmarks (that needs per-benchmark data not present in `provider.json`; see the disclaimer
+benchmarks (that needs per-benchmark data not present in `routing-table.json`; see the disclaimer
 below). It checks:
 
 - **Exactly two root branches** (`performance`, `cost_efficiency`); each has the same category keys
@@ -61,11 +61,20 @@ below). It checks:
 
 > **Scope disclaimer (no over-claiming):** the structural validator does NOT re-derive the full
 > cross-model interpolation clamp — that requires the per-benchmark data, which lives in the RAG,
-> not in `provider.json`. Deep clamp correctness is enforced by generation (`tier-ranking-and-scoring.md`)
+> not in `routing-table.json`. Deep clamp correctness is enforced by generation (`tier-ranking-and-scoring.md`)
 > and the adversarial loop, not by this checker.
 
 > `validate_provider.mjs` is wired into `npm test`. If you bumped the schema, the validator's
 > constants must already match (updated in the same lockstep change).
+
+## 1b. Audit-mirror check (routing-table-audit.json)
+
+Confirm `.spec/references/assets/routing-table-audit.json` exists and structurally mirrors
+`routing-table.json`: identical branch keys, identical category keys/order, identical per-pairing
+`model`/`effort` set per category. Every pairing carries a non-empty `citations` array; each
+citation has a non-empty `url`, an ISO8601 `retrieved_at`, and a single-sentence `annotation`.
+A missing audit file, a structural drift from routing-table.json, or any pairing with zero citations
+FAILS validation (no silent default).
 
 ## 2. Spec checklist
 
@@ -78,26 +87,25 @@ Confirm the AGENTS.md / spec obligations for a structural + policy change:
 
 ## 3. Six scenario routing tests + gate-preservation
 
-Dispatch a fresh critic to route these and assert the **behavior** below. Express each assertion as
-the required behavior keyed to a gate ID and the task description — **not** by naming a specific new
-category or pinning a fixed category→route mapping (the run's 10 categories are not known until the
-run produces them; presuming them here would freeze future taxonomy output). Cover at least one
-route the new model just changed.
+Dispatch a fresh critic to route these and assert the **behavior** below. Categories are **FIXED**, so
+an assertion may name the category a task lands in; what a run produces is the per-category
+**member+effort route**, so assert against the run-produced route **without naming a specific
+member/effort**. Key gate behavior to the gate ID. Cover at least one route the newly profiled
+members just changed.
 
 | # | Scenario task description | Required behavior (asserts) |
 |---|--------------------------|-----------------------------|
-| 1 | A formal-proof / derivation task ("prove this theorem / formal derivation") | Routes per `G_MATH` to its forced target — regardless of whether math is a first-class category or an orthogonal modifier |
-| 2 | A GPT-5.5-authored security change ("audit this GPT-5.5-authored auth code for vulns") | Triggers the `G_SEC` cross-review (reviewer family ≠ generator; no self-review) — regardless of whether security is a category or a modifier |
-| 3 | A cross-cutting design / decomposition task (illustrative, not the deliverable) | Resolves to whichever category the run assigned design/decomposition work, at that category's recorded primary route |
-| 4 | A closed-loop terminal / "iterate until tests pass" task (illustrative, not the deliverable) | Resolves to whichever category the run assigned closed-loop execution, and fires its mandatory-before-commit synergy pattern |
-| 5 | A leaf file read / search / reformat task (illustrative, not the deliverable) | Resolves to whichever category the run assigned cheap leaf work, subject to its context-cap gate |
-| 6 | A "which model for X now?" question (post-launch) | Resolves via `retrieval-map.md` to the new route the reshuffle produced |
+| 1 | A formal-proof / derivation task ("prove this theorem / formal derivation") | Classified `math_proof`; routes per `G_MATH` to its forced verification target (run-produced member, unnamed here) |
+| 2 | A security change authored by one provider family ("audit this auth code for vulns") | Classified `security_review`; triggers `G_SEC` cross-review rendered by a member of a **different** family than the author (no self-review) |
+| 3 | A cross-cutting design / decomposition task | Classified `architecture`; the `architecture_complexity` modifier fires plan-before-build + independent cross-review; routes to that category's run-produced primary |
+| 4 | A closed-loop terminal / "iterate until tests pass" task | Classified `agentic_execution`; routes to its run-produced primary and fires its mandatory-before-commit synergy pattern |
+| 5 | A leaf file read / search / reformat task | Classified `mechanical`; routes to its run-produced low-cost primary, subject to its context-cap gate |
+| 6 | A "which member for X now?" question (post-launch) | Resolves via `retrieval-map.md` to the run-produced route for the matched category |
 
-Scenarios 1 and 2 are **gate-preservation tests** — they must produce correct gate behavior keyed to
-the gate ID, whether math and security ended up as categories or orthogonal modifiers in the new
-taxonomy. Scenarios 3–6 are **illustrative task shapes** (not the deliverable taxonomy): tune them to
-exercise exactly the routes the new model contested, and assert behavior against whatever categories
-the run actually produced — do not hard-code a category name or route here.
+Scenarios 1 and 2 are **gate-preservation tests** — `G_MATH` and `G_SEC` must fire correctly against
+the fixed spine. Scenarios 3–6 exercise fixed categories whose **routes** the new profiling may have
+changed: name the fixed category, but assert against the run-produced member+effort route — do **not**
+hard-code which member/effort serves a category here.
 
 ## 4. Sign-off → deliver
 

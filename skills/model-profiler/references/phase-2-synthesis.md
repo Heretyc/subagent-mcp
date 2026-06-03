@@ -1,90 +1,100 @@
-# phase-2-synthesis.md — Flagship Synthesis + Canonical Merge
+# phase-2-synthesis.md — Flagship Judging + Canonical Merge
 
-**Load when:** running Phase 2. Prereq: 5 research files + persisted interview answers.
+**Load when:** running Phase 2. Prereq: the Phase-1 discovery roster + benchmark files + persisted
+interview answers exist on disk.
 
 ---
 
-## Phase 2 — 5 independent flagship syntheses
+## Phase 2 — independent flagship judges
 
-Dispatch **5 max-effort flagship synthesizers**, **mixed provider**: Opus at max/xhigh effort +
-Codex GPT at `xhigh`, all launched via `mcp__subagent-mcp__launch_agent`
-(`provider: claude|codex`; see `dispatch-mechanics.md`). Each synthesizer **independently** produces a
-full synthesis organized around the **work-category taxonomy** (see `category-derivation.md` for
-the exact count and criteria; do NOT hardcode a category count here) — i.e., for each category it
-states the recommended `{provider, model, effort}`, the gates that fire, the synergy pattern, cost
-note, and risk flags, **with the new model reconciled in**. Each reads:
+Dispatch **several flagship-judging members at elevated/maximal effort**, **cross-family**, all
+launched via `mcp__subagent-mcp__launch_agent` (the `provider:` field is set per
+`dispatch-mechanics.md`; the operator binds the concrete family — the skill names none). Scale the
+count with the Phase-0 mode.
 
-- all five `giga-research/phase-1-agent-*.md`,
+Each judge **independently** ARBITRATES the Phase-1 discovered research into rankings organized around
+the **FIXED 10 categories** (`.spec/references/work-categories.md`; the count is fixed at 10 +
+`fallback_default`@99 — do not derive, add, drop, rename, or reorder it). For each fixed category the
+judge states the recommended `{provider, model, effort}`, the gates that fire, the synergy pattern,
+cost note, and risk flags — with every newly discovered pairing placed. Each reads:
+
+- all `giga-research/phase-1-agent-*.md` (discovery roster + benchmarks),
 - the persisted interview answers (binding),
-- the current `.spec/references/` routes (so output is a delta, not a rewrite).
+- the current `.spec/references/` rankings — **to diff and flag what changed, never to inherit**. The
+  ranking is re-derived **solely** from the discovered research (Invariant: impartial judging).
 
-Each writes to `giga-research/phase-2-synth-{1..5}.md` and returns JSON only.
+Each writes to `giga-research/phase-2-synth-{K}.md` and returns JSON only.
 
-> Independence matters: do **not** have synthesizers read each other's drafts. Divergence between
-> the five is the signal the merge step reconciles. Never average conflicting outputs
-> (Anti-Pattern B) — the merge picks the best-sourced position and records why.
+> Independence matters: do **not** have judges read each other's drafts. Divergence between them is
+> the signal the merge step reconciles. Never average conflicting outputs (Anti-Pattern B) — the
+> merge picks the best-sourced position and records why.
 
 ### Dual output requirement
 
-Each synthesizer must emit **both**:
+Each judge must emit **both**:
 
-1. **Routing synthesis** — per-category `{provider, model, effort}` recommendations, gates, synergy
-   patterns (as before).
-2. **Tier-ordering inputs for provider.json** — for each category: the ordered list of model+effort
-   pairings (best→worst) with the raw normalized-benchmark composite that supports the ordering, plus
-   the cost figure per pairing (sourced from `cost-model.md` methodology). These inputs feed the
-   merge step's `provider.json` emission path.
+1. **Routing judgment** — per-category recommended `{provider, model, effort}`, gates, synergy
+   patterns.
+2. **Tier-ordering inputs for routing-table.json** — for each fixed category: the ordered list of
+   model+effort pairings (best→worst) with the normalized-benchmark composite that supports the
+   ordering, the cost figure per pairing (sourced from `cost-model.md` methodology), **and a
+   one-line rationale per tier placement** citing the backing benchmark(s). These feed the merge
+   step's emission path.
+   Each pairing's tier input must carry its **audit citations**: the `{url, retrieved_at, annotation}`
+   records (from Phase 1 `source_locators`) for every source backing that pairing's ordering. These
+   propagate unchanged into `routing-table-audit.json`; a pairing with no audit citation blocks emission.
 
-If a synthesizer cannot produce tier-ordering inputs (e.g., insufficient benchmark coverage), it must
+If a judge cannot produce tier-ordering inputs (e.g., insufficient benchmark coverage), it must
 surface that as a gap in its JSON `risks` field — not silently omit the section.
 
-### Synthesizer prompt skeleton
+### Judge prompt skeleton
 
 ```
 <this is a request from a parent process>
-ROLE: Phase-2 flagship synthesizer K (independent).
-INPUT: giga-research/phase-1-agent-1..5.md + interview answers (binding) + current
-  .spec/references routes + category-derivation.md (taxonomy criteria).
-TASK: produce (a) a complete routing synthesis around the taxonomy categories, reconciling new
-  model <names>; state per-category {provider, model, effort}, gates, synergy pattern, cost note,
-  risks; AND (b) for each category, the ordered model+effort pairings (best→worst) with raw
-  normalized-benchmark composites + cost figures per pairing. Cite ORIGINAL sources; label claims.
-  Flag every place the new model changes the current route and WHY.
-WRITE full synthesis to %TEMP% then giga-research/phase-2-synth-K.md.
+ROLE: Phase-2 flagship judge K (independent). Impartial — rank SOLELY from the discovered research.
+INPUT: giga-research/phase-1-agent-*.md (discovery roster + benchmarks) + interview answers (binding)
+  + FIXED taxonomy (.spec/references/work-categories.md) + current .spec/references rankings (DIFF only).
+TASK: produce (a) a per-category routing judgment over the FIXED 10 categories, placing every
+  discovered pairing; state per-category {provider, model, effort}, gates, synergy, cost, risks; AND
+  (b) for each category, the ordered model+effort pairings (best→worst) with normalized-benchmark
+  composites, cost figures, a one-line rationale per tier placement, and the audit citations per
+  pairing. Cite ORIGINAL sources; label claims. Flag every place a newly discovered pairing changes
+  the current ranking and WHY. Do NOT alter the taxonomy.
+WRITE full judgment to %TEMP% then giga-research/phase-2-synth-K.md.
 RETURN ONLY JSON {status, summary, source_locators, risks, writes_requested}.
 ```
 
 ## Canonical merge
 
-Dispatch **one** flagship (Opus, max effort) to **MERGE** the five syntheses into a single
-canonical core, written to `giga-research/phase-2-core-synthesis.md`. The merger:
+Dispatch **one fresh flagship judge-merger at maximal effort** (distinct from the producers —
+self-review ban) to **MERGE** the independent judgments into a single canonical core, written to
+`giga-research/phase-2-core-synthesis.md`. The merger:
 
 - Reconciles divergences using the **authority chain** (interview decisions > vendor docs/verified
   benchmarks > seed hypotheses), never by averaging.
 - Produces, for each conflict, a numbered reconciliation (CR-style) with the resolution and any
   residual uncertainty — these become entries in `decision-rationale.md`.
-- Emits the canonical per-category routing decisions that DECOMPOSE/UPDATE will write into the KB.
-- Decides whether the **category taxonomy itself shifts** (new category, merge, rename) because of
-  the new model. If so, it flags a manifest re-architecture for the next phase.
-- **Emits the following merger outputs explicitly** (required for the provider.json path):
-  1. The canonical N-category spine (category names + ordering), derived per `category-derivation.md`.
-  2. The **total old→new category mapping** — every current category + `fallback_default` explicitly
-     mapped to a new category, recorded as merged/renamed/dropped with rationale (CR-style). None
-     dropped silently.
-  3. The **math/security decision**: whether math and security are first-class categories or
-     orthogonal gate-modifiers, with rationale recorded in `decision-rationale.md`.
-  4. The **per-category ordered model+effort pairings** (performance branch input) — the composite
-     ordering for each category, resolved from the five synthesizers' tier-ordering inputs.
-  5. The **cost figures per pairing** (cost_efficiency branch input) — sourced from `cost-model.md`,
+- Emits the canonical per-category rankings that DECOMPOSE/UPDATE will write into the KB.
+- **Confirms taxonomy integrity:** every pairing maps onto exactly one of the FIXED 10 (or
+  `fallback_default`@99); no category is invented, dropped, renamed, or reordered. If a score fits no
+  fixed category, it is recorded as out-of-spine context and surfaced — the spine is never changed
+  here.
+- **Emits the following merger outputs explicitly** (required for the routing-table.json path):
+  1. The **per-category ordered model+effort pairings** (performance branch input) — the composite
+     ordering for each FIXED category, resolved from the judges' tier-ordering inputs, each placement
+     carrying its one-line rationale.
+  2. The **cost figures per pairing** (cost_efficiency branch input) — sourced from `cost-model.md`,
      with gaps labelled `[ASSUMPTION]`/`[UNVERIFIED]`.
-
-The merger is a **fresh** flagship distinct from the five producers (self-review ban).
+  3. The **per-pairing audit citation set** — for every pairing in both branches, the list of
+     `{url, retrieved_at(ISO8601), annotation(one sentence), source_id?, label?}` records that
+     support its ranking. This is the source-of-truth for `routing-table-audit.json`.
 
 ### Checkpoint before DECOMPOSE/UPDATE
 
-Confirm: 5 synthesis files + 1 core synthesis on disk; the core lists per-category routes and an
-explicit "taxonomy stable" or "taxonomy shifts: …" verdict; all five merger outputs above are
-present; conflicts are reconciled (not averaged). Then load `decompose-update.md`.
+Confirm: the independent judgment files + 1 core synthesis on disk; the core lists per-category
+rankings over the FIXED 10 with a rationale per tier placement; all three merger outputs above are
+present; the taxonomy-integrity check passed (spine unchanged); conflicts are reconciled (not
+averaged). Then load `decompose-update.md`.
 
 ---
 
