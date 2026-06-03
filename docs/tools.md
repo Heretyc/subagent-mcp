@@ -12,15 +12,22 @@ Spawn a new sub-agent process.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `provider` | `"claude" \| "codex"` | Yes | Which CLI to use |
-| `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "gpt-5.5"` | Yes | Model alias |
-| `effort` | `"low" \| "medium" \| "high" \| "xhigh" \| "max" \| "ultracode"` | No | Reasoning effort (default: `"high"`) |
+| `task_category` | one of `math_proof`, `security_review`, `debugging`, `quality_review`, `architecture`, `agentic_execution`, `data_analysis`, `coding`, `knowledge_synthesis`, `mechanical`, `fallback_default` | Yes | Task shape; routes to the best provider/model/effort for that category |
 | `prompt` | string | Yes | Initial prompt text |
+| `provider` | `"claude" \| "codex"` | No | Override; omit to auto-select |
+| `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "gpt-5.5"` | No | Override; omit to auto-select |
+| `effort` | `"low" \| "medium" \| "high" \| "xhigh" \| "max" \| "ultracode"` | No | Override; omit to auto-select |
 | `cwd` | string | No | Working directory for the agent process |
 
-Returns: `{ agent_id, status, provider, model }`
+Returns: `{ agent_id, status, provider, model, effort, task_category, selection_mode, candidates_skipped }`
+
+**Auto mode (recommended):** pass only `prompt` + `task_category`. The server reads its routing table, builds a best→worst candidate list for that category, launches the first candidate that spawns, and silently falls back to the next-best on a launch-time failure.
+
+**Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. Rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`. Passing all three is `explicit` mode — a single direct attempt with no fallback. Omitting or partially supplying them on a bad combination is a hard error (see the spec).
 
 Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`. Codex accepts only `gpt-5.5`.
+
+Spec: [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_INDEX.md) (param contract, presence→behavior matrix, exact error text).
 
 ---
 

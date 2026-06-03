@@ -41,6 +41,8 @@ It routes; it does not teach — follow every pointer to its leaf.**
 | `failure-modes.md` | Debugging agent behavior; symptom/error; stall; hallucination; 429 | No observed failure |
 | `governance-halts.md` | Commit gate; halt conditions; write scoping; data retention; telemetry | No commit or destructive action |
 | `decision-rationale.md` | Auditing WHY a route exists; conflict reconciliation; label provenance | Operational routing |
+| `decision-rationale/01-sop-provenance.md` | WHY behind the 3 owner SOPs (version-promotion, worst-case cost, sourcing); their label provenance | Not auditing the SOPs |
+| `decision-rationale/02-2026-06-03-reprofile.md` | Auditing the 2026-06-03 Full-mode re-profile: builder approach, calibration gate, verbatim residual risks behind the emitted `src/routing-table.json` | Not auditing that reprofile run |
 | `assets/routing-table.json` | Runtime machine consumption by subagent-mcp feature code | Human routing/advisory only |
 
 ---
