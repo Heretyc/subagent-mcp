@@ -1,8 +1,8 @@
 # tier-ranking-and-scoring.md — Interpolation, Cost Figure, and Scoring Methodology
 
-**Load when:** a run builds tier rankings, assigns scores, computes cost figures, or validates
-the calibration gate. Encodes the rules and formula forms — NOT the calibrated values (those are
-produced at run time and recorded to `routing-table.json` metadata).
+**Load when:** a run builds tier rankings, assigns scores, or computes cost figures. Encodes the
+rules and formula forms — NOT the run-time values (composite weights, sentiment cap, and cost
+figures are produced at run time and recorded to the **audit** metadata).
 
 ---
 
@@ -49,54 +49,57 @@ One provider-neutral `$/token` scalar per model+effort pairing. Construction:
 
 ## C. Scoring-Formula Methodology (form only; run calibrates values)
 
-### Performance score
+### Capability composite (the `perf_norm` input to both branches)
 
-`performance = composite(normalized_benchmarks) + sentiment_adjustment`
+`perf_norm = composite(normalized_benchmarks) + sentiment_adjustment`  (in `(0, 1]`)
 
-- **Normalization:** the run picks ONE method and records it in `routing-table.json` `formula_definitions`:
+- **Normalization:** the run picks ONE method and records it in the **audit** `formula_definitions`:
   - `min-max` — rescale each benchmark to [0, 1] within the measured set, OR
   - `z-score-then-squash` — z-score then apply a sigmoid/tanh to bound to (0, 1).
 - **Composite:** weighted mean of the normalized benchmark scores for the benchmarks relevant to
-  that category. Weights are chosen and recorded by the run.
+  that category. Weights are chosen and recorded by the run. SOP-1 version-promotion and SOP-3
+  sourcing apply to this capability component.
 - **Sentiment adjustment:** anecdotal/qualitative evidence enters as a bounded, capped, labelled
-  additive term only:
-  - Cap form: `sentiment_adjustment ∈ [−cap, +cap]` where `cap < min(individual benchmark weight)`.
-  - The cap magnitude is calibrated at run so no single sentiment signal can outweigh any
-    individual measured benchmark. Record the cap value in `formula_definitions`.
-  - Label each adjustment with its source in the pairing's `basis` field.
+  additive term only: `sentiment_adjustment ∈ [−cap, +cap]` where `cap < min(benchmark weight)`.
+  Label each adjustment with its source on the audit pairing's `basis` field.
 
-### Cost-efficiency score
+### Two-branch power-law scoring
 
-`cost_efficiency = perf^a / cost^b`  where `a > b`
+Both branches rank by the **same** power law; only the exponents differ:
 
-- `perf` = the performance score from the performance branch (interpolated or measured).
-- `cost` = the `cost_figure_used` scalar for that pairing.
-- `a`, `b` are calibrated by the run and recorded to `routing-table.json` `metadata.formula_definitions.calibrated_exponents`.
-- The constraint `a > b` encodes a slight performance bias: a model that scores higher on
-  performance is favored over a marginally cheaper but weaker one.
+`score = perf_norm^a / cost_norm^b`
 
-### Calibration gate (MUST pass before finalizing rankings)
+- `perf_norm` = the capability composite above, in `(0, 1]`.
+- `cost_norm` = the normalized worst-case `$/token` in `(0, 1]` (SOP-2; each pairing's `$/token`
+  divided by the universe max — rank-preserving, keeps the denominator bounded).
+- The `a:b` ratio sets the relative influence of performance vs cost (log-space weights):
 
-The run must verify BOTH conditions before locking the rankings:
+| Branch | `a` | `b` | `a:b` | Intent |
+|---|---|---|---|---|
+| `performance` | 0.8 | 0.2 | 80:20 | capability-dominant; cost a light nudge |
+| `cost_efficiency` | 0.4 | 0.6 | 40:60 | cost-dominant |
 
-1. **Minimum effect size:** the `performance` and `cost_efficiency` rank orderings differ on at
-   least **K** categories, each with rank-churn ≥ **M** positions between the two branches.
-2. **Non-trivial winner:** the top `cost_efficiency` pick per category must NOT be the globally
-   cheapest-AND-weakest pairing in the universe — trivial exponents that rubber-stamp the cheapest
-   option fail this check.
+Each branch is re-ranked dense 1..N by its composite (higher score = rank 1). On the
+**performance** branch, SOP-1 version-promotion adjacency still holds (the promoted version is
+positionally spliced immediately above its same-effort predecessor). `cost_efficiency` keeps pure
+composite order (a pricier newer version is legitimately less cost-efficient than its predecessor).
 
-The run records the gate to the canonical `metadata.calibration_gate` block:
-`{ k_categories_min, m_rank_churn_min, k_observed, m_observed, passed }` (the floors are
-`k_categories_min`/`m_rank_churn_min`; `k_observed`/`m_observed` are the run's measured effect
-size; `passed` is the verdict). The exponents `a`, `b` go to
-`metadata.formula_definitions.calibrated_exponents` (`a > b`). If either gate condition fails, the
-run must recalibrate `a`/`b` and re-rank before emitting `routing-table.json`.
+The realized exponents (`performance` 0.8/0.2; `cost_efficiency` 0.4/0.6) and the cost-figure
+methodology are recorded in the **audit** metadata (`realized_exponents`, `cost_figure_methodology`),
+not on the lean canonical table.
 
-> `scripts/validate_provider.mjs` re-checks this gate **structurally**: it recomputes observed
-> churn from the two branch orderings, asserts `k_observed ≥ k_categories_min`, asserts the recorded
-> `k_observed`/`m_observed`/`passed` match the recomputation, and applies the cheapest-weakest ban.
-> It does NOT re-derive the cross-model interpolation clamp (no per-benchmark data in
-> `routing-table.json`) — that correctness is owned by this file's generation rules + the adversarial loop.
+### Retired (lean schema, `schema_version` 2)
+
+- The **calibration_gate** (it required a perf-vs-cost divergence floor) is **retired** — the two
+  fixed `a:b` ratios already guarantee the branches differ, and the gate metadata is gone.
+- The **cheapest-AND-weakest ban** is **retired** — it fought the now cost-dominant
+  `cost_efficiency` intent.
+- The `a > b` constraint no longer applies as a validator check.
+
+> `scripts/validate_provider.mjs` now checks only structure (two branches, spine-mirror,
+> table-derived universe set-equality, dense ranks, lean key sets, provider/model/effort enums,
+> lean metadata). Cross-model interpolation-clamp correctness remains owned by this file's
+> generation rules + the adversarial loop.
 
 ---
 
