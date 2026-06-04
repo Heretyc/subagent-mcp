@@ -31,11 +31,9 @@ blind averaging.
 
 ## Seed Corpus Corroboration Status
 
-> **Routes pending — no winners here.** This table records seed *hypotheses* and their benchmark
-> corroboration only. No preferred per-category model/effort is asserted; concrete
-> `{provider, model, effort}` rankings are **pending the next impartial model-profiler run**
-> (empty `assets/routing-table.json`). Model names in the Outcome column are benchmark/evidence
-> facts (owned by `./model-profiles.md` / `./cost-model.md`), not routes.
+> **Seed hypotheses only — not routes.** Seed *hypotheses* + benchmark corroboration. Concrete
+> `{provider, model, effort}` rankings now live in `src/routing-table.json` (2026-06-03 emit; `assets/`
+> stays frozen spine). "pending" cells below are historical seed status; Outcome model names are benchmark facts (owned by `./model-profiles.md` / `./cost-model.md`), not routes.
 
 | [SEED] claim (Blackburn 2026, task-shape) | Outcome (benchmark evidence) | Routing consequence | Source id(s) |
 |---|---|---|---|
@@ -112,8 +110,10 @@ well-corroborated.
 
 ### CR-8 — Tokenizer inflation magnitude (32–45% vs ~35%)
 **Resolution:** Anthropic states up to ~35%; third-party (OpenRouter/findskill) estimates
-32–45%. Mandated modeling figure: **~1.4× effective cost** (Interview Q7). [ASSUMPTION — 1.4×
-is the planning constant, not a per-text guarantee.]
+32–45%. **SUPERSEDED by SOP-2 (worst-case cost):** modeling figure is now the documented MAX **1.35×**;
+the prior **1.4× is DEPRECATED** (exceeds the vendor-documented ceiling) — see
+`decision-rationale/01-sop-provenance.md` and `./cost-model.md` §3. [ASSUMPTION — Interview Q7 / Phase
+1.5 Q6-Q7; planning constant, not a per-text guarantee.]
 *Residual uncertainty:* exact inflation is content-dependent.
 
 ---
@@ -174,6 +174,16 @@ are benchmark/evidence facts owned by `./model-profiles.md` / `./cost-model.md`,
 - **Ratification:** unanimous 3-0; dissent none.
 *Residual: `architecture` first-to-displace; `knowledge_synthesis` proxy-leaning;
 `mechanical` transform-leaf proxy-only.*
+
+---
+
+## Owner SOP Rationale (version-promotion · worst-case cost · sourcing)
+
+Three Phase-1.5 owner SOPs steer the deterministic builder; rationale + label provenance:
+[`decision-rationale/01-sop-provenance.md`](decision-rationale/01-sop-provenance.md). SOP-1 fills missing
+lineage versions; SOP-2 sets tokenizer inflation to the **1.35×** documented max (1.4× deprecated, §CR-8)
+and prices the gpt-5.5 cliff worst-case; SOP-3 caps thin-sourced moves at ±1 tier and discards withdrawn
+vendor self-reports. Builder encoding: `tier-ranking-and-scoring/01-sops.md`. The **2026-06-03 Full-mode re-profile** applied these + the calibration gate (a=1, b=0.5, k=8, m=9, passed) to emit rankings → `src/routing-table.json`; builder approach + **verbatim residual risks** (sparsity, polarity, effort='any' ties, gpt-5.5/-pro shared version_rank) → [`decision-rationale/02-2026-06-03-reprofile.md`](decision-rationale/02-2026-06-03-reprofile.md).
 
 ---
 

@@ -57,4 +57,27 @@ cited as provenance. Each source id maps to the claims it supports and the leaf(
 
 ---
 
+## Sources cited in `src/routing-table-audit.json` (2026-06-03 re-profile)
+
+New primary/leaderboard sources feeding the emitted rankings. Deduped against the table above (AISI-2026,
+SONAR-2026, OAI-GPT55 already listed). Retrieved 2026-06-03.
+
+| id | APA Reference | Supports (claims / leaf-topics) |
+|----|---------------|----------------------------------|
+| ANTH-OPUS47 | Anthropic. (2026). *Introducing Claude Opus 4.7*. https://anthropic.com/news/claude-opus-4-7 | Opus 4.7 launch benchmark rows (debugging/architecture/coding seeds) → `routing-table.json` performance |
+| ANTH-S46-CARD | Anthropic. (2026). *Claude Sonnet 4.6 system card*. https://anthropic.com/claude-sonnet-4-6-system-card | Sonnet 4.6 benchmark rows (security_review/coding) → `routing-table.json` |
+| MATHARENA-2026 | MathArena. (2026). *Model leaderboards* (Opus 4.7, Opus 4.8 Max, GPT-5.5). https://matharena.ai/ | AIME/HMMT/USAMO/Apex/ArXivMath rows → `math_proof` |
+| AA-GDPVAL | Artificial Analysis. (2026). *GDPval-AA evaluation*. https://artificialanalysis.ai/evaluations/gdpval-aa | GDPval-AA rows → `agentic_execution` |
+| TBENCH-2026 | Terminal-Bench. (2026). *Terminal-Bench 2.1 leaderboard*. https://www.tbench.ai/leaderboard/terminal-bench/2.1 | Terminal-Bench 2.1 rows → `agentic_execution` |
+| BIRDSQL-2026 | BIRD-SQL. (2026). *BIRD-SQL benchmark*. https://bird-bench.github.io/ | BIRD-SQL exec-acc rows → `data_analysis` |
+| DEEPSWE-2026 | DataCurve. (2026). *DeepSWE leaderboard*. https://deepswe.datacurve.ai/blog | DeepSWE rows → `coding` |
+| PROGRAMBENCH-2026 | ProgramBench. (2026). *ProgramBench*. https://programbench.com/ | ProgramBench resolved/almost-resolved rows → `coding` |
+| VORATIQ-2026 | Voratiq. (2026). *Agent leaderboard*. https://voratiq.com/leaderboard/ | Voratiq rating/$ rows [some [SEED]-extracted] → `coding` |
+| OAI-DEPLOY55 | OpenAI. (2026). *GPT-5.5 deployment safety / system card*. https://deploymentsafety.openai.com/gpt-5-5 (+ /gpt-5-5.pdf) | CTF cyber-range 93% → `security_review`; CoT monitorability 96%, factual-correctness lift → `quality_review` |
+| LLMSTATS-OPUS47 | LLM-Stats. (2026). *Claude Opus 4.7 launch*. https://llm-stats.com/blog/research/claude-opus-4-7-launch | Opus 4.7 corroboration [INFERRED] → `debugging` |
+| VELLUM-OPUS47 | Vellum. (2026). *Claude Opus 4.7 benchmarks explained*. https://vellum.ai/blog/claude-opus-4-7-benchmarks-explained | Opus 4.7 benchmark detail → `model-profiles.md`, `routing-table.json` |
+| SANITY-CARDS | Vendor system-card PDF artifacts (3 hashed URLs under `https://cdn.sanity.io/files/4zrzovbb/website/…pdf`). [UNVERIFIED — opaque CDN hash URLs; identify canonical host/title before citing externally] | Misc vendor system-card benchmark rows → `routing-table.json` |
+
+---
+
 *Author: Lexi Blackburn — https://github.com/Heretyc/ — May 2026*

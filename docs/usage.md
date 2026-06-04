@@ -5,6 +5,9 @@ and example calls. See [README.md](../README.md) for the overview,
 [docs/tools.md](tools.md) for the tool reference, and
 [docs/SPEC.md](SPEC.md) for the full effort-resolution decision logic.
 
+Auto mode (pass just `prompt` + `task_category`, omit provider/model/effort and
+the server auto-selects): see [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_INDEX.md).
+
 ---
 
 ## Model and Effort Matrix
