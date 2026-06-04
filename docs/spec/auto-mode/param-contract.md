@@ -58,7 +58,7 @@ JSON (string in the MCP text content), superset of the current payload:
 ```json
 {
   "agent_id": "<uuid>",
-  "status": "running",
+  "status": "processing",
   "provider": "claude",
   "model": "opus-4-8",
   "effort": "high",

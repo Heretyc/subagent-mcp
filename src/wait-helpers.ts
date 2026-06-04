@@ -16,7 +16,7 @@ export function formatLocalIso(ms: number): string {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${offH}:${offM} (${zone})`;
 }
 
-const TERMINAL_STATUSES = new Set(["completed", "failed", "killed"]);
+const TERMINAL_STATUSES = new Set(["finished", "errored", "stopped"]);
 
 export function selectUnreported<T extends { status: string; waitReported: boolean; exitedAt: number | null }>(
   list: T[]
