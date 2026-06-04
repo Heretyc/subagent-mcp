@@ -144,6 +144,28 @@
       }
     ],
     "debugging": [],
+    "math_proof": [
+      {
+        "model": "gpt-5.5",
+        "effort": "none",
+        "rank": 1,
+        "score": 0.85,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 2,
+        "score": 0.80,
+        "cost_figure_used": 0.000015,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
     "only_nonlaunchable": [
       {
         "model": "gpt-5.5-pro",
@@ -176,7 +198,6 @@
         "basis": ["[ASSUMPTION]"]
       }
     ],
-    "math_proof": [],
     "security_review": [],
     "quality_review": [],
     "agentic_execution": [],
@@ -292,6 +313,28 @@
       }
     ],
     "debugging": [],
+    "math_proof": [
+      {
+        "model": "gpt-5.5",
+        "effort": "none",
+        "rank": 1,
+        "score": 0.88,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 2,
+        "score": 0.75,
+        "cost_figure_used": 0.000015,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
     "only_nonlaunchable": [
       {
         "model": "gpt-5.5-pro",
@@ -324,7 +367,6 @@
         "basis": ["[ASSUMPTION]"]
       }
     ],
-    "math_proof": [],
     "security_review": [],
     "quality_review": [],
     "agentic_execution": [],

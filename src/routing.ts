@@ -30,9 +30,11 @@ const HAIKU_EFFORT = "none";
  * FULL table model id -> SHORT launch id. Only launchable models appear here.
  * Non-launchable ids (gpt-5.5-pro, gpt-5.4-mini, claude-opus-4-7, unknown) are
  * intentionally absent so buildCandidates skips them rather than coercing.
+ * For models with aliases (e.g., opus and opus-4-8 both refer to claude-opus-4-8),
+ * map to a Set of valid short ids to check membership during filtering.
  */
-const FULL_TO_SHORT: Record<string, LaunchModel> = {
-  "claude-opus-4-8": "opus-4-8",
+const FULL_TO_SHORT: Record<string, LaunchModel | Set<LaunchModel>> = {
+  "claude-opus-4-8": new Set(["opus", "opus-4-8"]),
   "claude-sonnet-4-6": "sonnet",
   "claude-haiku-4-5": "haiku",
   "gpt-5.5": "gpt-5.5",
@@ -134,6 +136,7 @@ export function mapModelToProvider(model: string): Provider | null {
  * the resolver never feeds an invalid combo into buildCommand.
  *
  * - haiku -> "none" sentinel (effort ignored by buildCommand; reported as-is).
+ * - codex@none -> "none" sentinel (resolveEffort defaults to high; reported as-is).
  * - ultracode is opus/opus-4-8 only; any other model clamps to "xhigh".
  * - codex has no max/ultracode; both clamp to "xhigh".
  * - unknown tier (not in the launch enum, not "none") -> null (skip candidate).
@@ -147,6 +150,11 @@ export function normalizeEffort(
 ): string | null {
   // haiku ignores effort entirely; report the sentinel.
   if (provider === "claude" && model === "haiku") {
+    return HAIKU_EFFORT;
+  }
+
+  // codex@none: resolveEffort already defaults to high; return sentinel.
+  if (provider === "codex" && effort === "none") {
     return HAIKU_EFFORT;
   }
 
@@ -203,12 +211,29 @@ export function buildCandidates(
     const mappedProvider = mapModelToProvider(entry.model);
     if (mappedProvider === null) continue; // unknown id — skip, never coerce.
 
-    const shortModel = FULL_TO_SHORT[entry.model];
-    if (shortModel === undefined) continue; // not in the launch enum — skip.
+    const shortModelOrSet = FULL_TO_SHORT[entry.model];
+    if (shortModelOrSet === undefined) continue; // not in the launch enum — skip.
+
+    // Unwrap shortModel: handle both string and Set of aliases.
+    // For the returned candidate, use the canonical short id (opus-4-8 not opus).
+    // For matching user's model filter: check membership in the Set.
+    let shortModel: LaunchModel;
+    if (shortModelOrSet instanceof Set) {
+      // Canonical form: "opus-4-8" for Opus models (prefer versioned).
+      shortModel = shortModelOrSet.has("opus-4-8") ? "opus-4-8" : Array.from(shortModelOrSet)[0];
+    } else {
+      shortModel = shortModelOrSet as LaunchModel;
+    }
 
     // provider / provider_model filters operate on the mapped provider + short id.
     if (provider && mappedProvider !== provider) continue;
-    if (model && shortModel !== model) continue;
+    if (model) {
+      // Check membership: if shortModelOrSet is a Set, check if model is in it.
+      const modelMatches = shortModelOrSet instanceof Set
+        ? shortModelOrSet.has(model as LaunchModel)
+        : shortModel === model;
+      if (!modelMatches) continue;
+    }
 
     const normEffort = normalizeEffort(mappedProvider, shortModel, entry.effort);
     if (normEffort === null) continue; // unknown effort tier — skip.

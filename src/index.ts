@@ -4,8 +4,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { spawn, execSync, ChildProcess } from "child_process";
-import { unlinkSync, existsSync } from "fs";
+import { unlinkSync, existsSync, realpathSync } from "node:fs";
 import { randomUUID } from "crypto";
+import { isAbsolute } from "node:path";
 import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
 import { resolveExeFor } from "./platform.js";
@@ -186,8 +187,9 @@ async function tryLaunchCandidate(
     return { reason: e instanceof Error ? e.message : String(e) };
   }
 
-  // Fast-fail: a missing exe would otherwise surface as an async 'error' event.
-  if (!existsSync(cmd)) {
+  // Fast-fail absolute paths only. Bare names intentionally rely on PATH; spawn
+  // below resolves them and reports ENOENT/EACCES through the same failure path.
+  if (isAbsolute(cmd) && !existsSync(cmd)) {
     cleanupUcSettingsPath(buildResult.ucSettingsPath);
     return { reason: `CLI executable not found: ${cmd}` };
   }
@@ -336,6 +338,12 @@ server.tool(
     // 5. Build the candidate list per mode.
     const overrides = { provider, model, effort };
     const isExplicit = !!(provider && model && effort);
+
+    if (!isExplicit && task_category === "fallback_default") {
+      return errorResult(
+        `Error: fallback_default is a split hint sentinel, not a launchable routing-table category.\n${SPLIT_HINT}\n${AUTO_HINT}`
+      );
+    }
 
     // explicit mode never reads the table; all other modes do.
     const table = isExplicit ? null : loadRoutingTable();
@@ -778,7 +786,7 @@ server.tool(
 // an open stdio transport. argv[1] is the invoked script; compare to this URL.
 const isMain =
   process.argv[1] !== undefined &&
-  import.meta.url === pathToFileURL(process.argv[1]).href;
+  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
 if (isMain) {
   const transport = new StdioServerTransport();
   await server.connect(transport);
