@@ -17,8 +17,8 @@ function test(name, fn) {
 }
 
 // --- claude: object with string `result` field ---
-// WHY: `claude -p --output-format json` emits a single JSON object whose
-// `result` field is the final assistant message; that is what callers want.
+// WHY: `claude -p --output-format stream-json --verbose` emits one JSON event
+// per line; the final `result` event carries the assistant message text.
 
 test("claude object-with-result returns the result string", () => {
   const stdout = JSON.stringify({
@@ -41,6 +41,28 @@ test("claude array form returns last result element", () => {
     { type: "result", result: "final result" },
   ]);
   assert.equal(extractFinalTurn("claude", stdout), "final result");
+});
+
+// --- claude: stream-json (multi-line) returns the final result event ---
+// WHY: `claude -p --output-format stream-json --verbose` emits one JSON event
+// per line (system/assistant/result); whole-string JSON.parse fails, so the
+// extractor must scan lines and return the `result` event's text.
+
+test("claude stream-json returns the final result event text", () => {
+  const stdout = [
+    JSON.stringify({ type: "system", subtype: "init" }),
+    JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "working" }] } }),
+    JSON.stringify({ type: "result", subtype: "success", result: "stream final answer" }),
+  ].join("\n");
+  assert.equal(extractFinalTurn("claude", stdout), "stream final answer");
+});
+
+test("claude stream-json with no result event falls back to last assistant text", () => {
+  const stdout = [
+    JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "first" }] } }),
+    JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "second" }] } }),
+  ].join("\n");
+  assert.equal(extractFinalTurn("claude", stdout), "second");
 });
 
 // --- codex: event stream, last assistant message wins ---

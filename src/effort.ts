@@ -81,7 +81,8 @@ export function buildCommand(
         "--max-turns",
         "50",
         "--output-format",
-        "json"
+        "stream-json",
+        "--verbose"
       );
       return { args, ucSettingsPath };
     }
@@ -94,7 +95,8 @@ export function buildCommand(
       "--max-turns",
       "50",
       "--output-format",
-      "json"
+      "stream-json",
+      "--verbose"
     );
     return { args };
   } else {
