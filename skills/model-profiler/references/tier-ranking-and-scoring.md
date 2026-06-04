@@ -100,4 +100,20 @@ run must recalibrate `a`/`b` and re-rank before emitting `routing-table.json`.
 
 ---
 
+## D. Owner SOPs (BINDING — applied by the deterministic builder)
+
+Three owner-mandated SOPs gate how the builder fills versions, prices cost, and weighs sources. They
+are deterministic and example-backed; see the leaf:
+
+| SOP | Rule (one line) | Leaf |
+|---|---|---|
+| **SOP-1 Version-promotion** | A missing lineage version is inserted immediately above its nearest-older listed predecessor (never above a different model); guard: no older version listed → no insert | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) |
+| **SOP-2 Worst-case cost** | Most-expensive defensible value: tokenizer inflation = **1.35×** max (1.4× DEPRECATED); gpt-5.5 cliff → post-cliff rate when `G_CTX_272` in play | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) · `.spec/references/cost-model.md` |
+| **SOP-3 Sourcing policy** | Thin-sourced (vendor-only/single-press) moves a pairing ≤±1 tier and only if the gap clears ~10pp; withdrawn vendor self-reports discarded; tier-2/3 corroboration lifts the cap | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) |
+
+This is distinct from §A: §A interpolates a missing **effort** of the same model; SOP-1 fills a missing
+**version** of a lineage. Both set `interpolated: true`.
+
+---
+
 *Author: Lexi Blackburn — https://github.com/Heretyc/ — June 2026*
