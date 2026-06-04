@@ -19,6 +19,9 @@ coordination flows back through the orchestrator (never spoke-to-spoke). Paramet
 | `prompt` | string | Begins with `<this is a request from a parent process>` |
 | `cwd` | path | Working dir for the agent (the repo or a scratch workdir) |
 
+When binding effort, use a concrete selectable tier for any model that supports effort settings.
+`none`/no-effort sentinels are only for members with no selectable effort setting.
+
 Pick the **member by the work**, dogfooding the KB's own routing — the skill prescribes the *role*,
 the operator binds the concrete member+effort from `routing-table.json`:
 
@@ -35,8 +38,23 @@ contract (`status, summary, source_locators, risks, writes_requested`).
 - **Give Codex agents ample time.** Codex runs are slow; allow generous wall-clock and leave **≥5
   minutes between check-ins** (poll via `mcp__subagent-mcp__poll_agent`, or block on
   `mcp__subagent-mcp__wait`). Do not busy-poll.
-- **Verify the output FILE on disk** — the scratch/output file under `%TEMP%` (and the durable copy
-  in `giga-research/`) is the source of truth, not the agent's returned stream.
+- **Verify the output FILE on disk** — the scratch/output file under `%TEMP%\model-profiler\<run-id>\`
+  is the source of truth, not the agent's returned stream.
+
+## Claude-only web-research dispatch — a first-class LOGGED path
+
+Cross-family (≥2 provider families) is the **preferred** path when ≥2 families are reachable. But when
+the cross-family Subagent-MCP path is unavailable, dispatch ALL research/judging via Claude
+web-research subagents (the native Agent tool, or `mcp__subagent-mcp__launch_agent` with
+`provider: claude`). This is a **supported, first-class degrade for this run** (owner decision #6):
+
+- Record `single-family: claude` in the run's `risks`. The degrade is LOGGED, not silent.
+- It does **NOT** block emission and does **NOT** halt the run.
+- Critics remain FRESH within-family agents distinct from producers — never the producing agent itself
+  (self-review ban / Anti-Pattern D; per amended Hard Invariant #4). The cross-family self-review
+  separation weakens to within-family fresh-critic separation; this is the accepted, written degrade.
+
+Silent (un-logged) single-family is still forbidden.
 
 ## Fallback — if `subagent-mcp` is unavailable
 
@@ -61,11 +79,43 @@ $p | codex exec -C <workdir> -m <member-id> -c 'model_reasoning_effort="<effort>
 ```
 
 - Bind `<member-id>` + `<effort>` from `routing-table.json` at dispatch (operator-selected). Use a
-  standard effort tier for research/extraction; an elevated tier for flagship synthesis.
+  standard effort tier for research/extraction; an elevated tier for flagship synthesis. Never bind
+  `none` for a model that has selectable effort settings.
 - Closing `'@` of the here-string MUST be at column 0 (no leading whitespace).
 - Run long Codex jobs in the **background**; allow generous time (≥5 min between check-ins).
 - **Verify the output FILE on disk** — introspection into the external process is limited, so the
   scratch/output file is the source of truth, not the process stream.
+
+## Finite wait, fallback, and GAP-stub policy
+
+**Maximum wait.** After launching an agent, poll (`mcp__subagent-mcp__poll_agent`) at most
+**5 times** (≥5 min between polls, ≤25 min wall-clock). If no terminal status after 5 polls,
+treat the agent as **STALLED**.
+
+**Fallback dispatch.** On STALLED or terminal `blocked`/error:
+1. Relaunch via an **alternate provider/model** from `routing-table.json`.
+   - Bare standing-profile runs: prefer Claude-backed research fallback when Codex is
+     usage-limited or unavailable, even if this makes the fallback single-family. Record
+     single-family fallback in the run's `risks`.
+2. Poll the fallback up to **5 times** (≥5 min each).
+3. If fallback also stalls or errors: write a **GAP stub** at the expected output path and
+   continue. Do not halt the run for a single domain's GAP.
+
+**GAP stub** — minimal markdown at the agent's expected output path:
+
+```markdown
+# [GAP] Phase-1 Agent N — <domain>
+Agent N did not complete. Reason: STALLED | FAILED | PROVIDER_LIMITED | BUDGET_EXCEEDED.
+Fallback: <provider/model> — also failed or unavailable.
+All pairings in domain "<domain>" are [DATA_MISSING] for this run.
+Phase 2 judges must treat this domain as [GAP] and flag it in risks.
+Remediation: [future run may re-profile this domain with expanded budget]
+```
+
+For **bounded-continuation mode** (exact bare prompt), `BUDGET_EXCEEDED` is a legitimate stub reason.
+Phase 2 judges record it in the run's `risks` (carried into the audit metadata); no halt. The run continues.
+
+Do **not** hang indefinitely. A run with GAP stubs continues; a stalled run blocks.
 
 ## Dogfood the route when picking tiers
 
@@ -81,9 +131,10 @@ the concrete member+effort from `routing-table.json`:
 
 ## Handoff discipline
 
-Sub-agents write full content to `%TEMP%` scratch files (and to `giga-research/` where it is durable
-provenance); only compact JSON status returns to the orchestrator. The orchestrator reads scratch
-files on demand. This keeps orchestrator context lean across the whole multi-phase run.
+Sub-agents write full content to `%TEMP%\model-profiler\<run-id>\` scratch files (ephemeral — consumed
+by the builder, never persisted to the repo); only compact JSON status returns to the orchestrator. The
+orchestrator reads scratch files on demand. This keeps orchestrator context lean across the whole
+multi-phase run.
 
 ---
 

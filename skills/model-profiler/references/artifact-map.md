@@ -5,46 +5,30 @@ as the template for a new run.
 
 ---
 
-## The artifact being updated: `.spec/references/` routing KB
+## The 3 persisted artifacts (everything a run emits)
 
-Entry point is `.spec/references/retrieval-map.md` — **load it first** to find the right leaf. It
-routes; it does not teach. Leaves:
-
-| File | Owns |
-|------|------|
-| `retrieval-map.md` | First-load router: trigger/alias/symptom -> leaf |
-| `routing-contract.md` | The 3-step contract; precedence; gate-first/first-match rules |
-| `work-categories.md` | Category definitions, classify signals, boundaries (the spine) |
-| `routing-table.md` | Per-category `{provider, model, effort}` + fallback (md side of mirror) |
-| `hard-gates.md` | G_MATH, G_CTX_*, G_SEC, G_COMMIT, G_SANDBOX, G_DATA, G_OPUS_LOCK |
-| `model-profiles.md` | Per-model capabilities, ctx, effort ladder, benchmarks, cutoff, locks |
-| `cost-model.md` | Pricing, priority tiers, tokenizer inflation / effective-cost constants |
-| `synergy-patterns.md` | Multi-agent patterns/anti-patterns; topology; fan-out capacity |
-| `failure-modes.md` | Symptoms: hallucination, stall, truncation, 429, wrong-file, injection |
-| `governance-halts.md` | Commit gate, halt conditions, write scoping, data/telemetry |
-| `decision-rationale.md` | WHY each route exists; conflict reconciliations; label key; residuals |
-| `source-ledger.md` | APA citations (original sources only) + id->claim/leaf mapping |
-| `assets/routing-table.json` | **Machine mirror** consumed at runtime by subagent-mcp |
-| `scripts/validate_kb.py` | The validator (line caps, links, coverage, json<->md mirror, purity) |
-| `scripts/validate_provider.mjs` | Standalone routing-table.json validator (schema, coverage, calibration gate) — created at build time |
-
-All leaves <=200 lines; `routing-table.json` (machine mirror) mirrors `routing-table.md`; the validator pins the
-spine, gate set, valid `{provider, model}` values, and the metadata/version block.
-
-## The tier-rankings artifact: `routing-table.json`
-
-`src/routing-table.json` is the **canonical committed** build artifact; `dist/routing-table.json` is copied
-at build time by `scripts/copy-provider.mjs` and is gitignored. The RAG is the knowledge base;
-`routing-table.json` carries scores, ranks, and metadata only — prose stays in the RAG, cross-referenced
-via `rag_pointer` + `basis` fields.
+A run persists EXACTLY 3 artifacts to the repo and nothing else:
 
 | File | Owns |
 |------|------|
-| `src/routing-table.json` | Canonical committed rankings + metadata (written by a run; read at build) |
-| `dist/routing-table.json` | Build copy (gitignored); emitted by `scripts/copy-provider.mjs` |
-| `scripts/copy-provider.mjs` | Build-time copy script (ESM, cross-platform, no-ops if src absent) |
-| `scripts/validate_provider.mjs` | Validator: schema, full universe coverage, calibration gate |
-| `.spec/references/assets/routing-table-audit.json` | Citeable audit mirror of routing-table.json: per-pairing URL + retrieved_at + one-sentence annotation provenance |
+| `src/routing-table.json` | **Lean canonical** tier rankings + lean metadata (written by a run; read at build → `dist/`) |
+| `src/routing-table-audit.json` | **Full provenance** — per-pairing `citations[]` (url, retrieved_at, one-sentence annotation, label) + scoring/cost metadata. The **SOLE provenance store**. |
+| `research-seed-sites.json` (repo root) | **Accumulating learned source registry** — harvested from the audit's citations each run; merge/dedupe by url, monotonic growth |
+
+`dist/routing-table.json` is copied at build time by `scripts/copy-provider.mjs` and is gitignored
+(not a 4th persisted artifact). `research-seed-sites.json` must NEVER reach `dist/` — `copy-provider.mjs`
+copies only `src/routing-table.json`.
+
+| Script | Owns |
+|------|------|
+| `scripts/build_routing_table.mjs` | Deterministic builder: reads ephemeral `DATASET_PATH` (%TEMP%) + the committed spine; emits `src/routing-table.json` + `src/routing-table-audit.json` |
+| `scripts/update_seed_sites.mjs` | Merges this run's audit citations into `research-seed-sites.json` (accumulate; dedupe by url) |
+| `scripts/copy-provider.mjs` | Build-time copy `src/routing-table.json` → `dist/` (ESM, cross-platform, no-ops if src absent) |
+| `scripts/validate_provider.mjs` | Validator: schema, full universe coverage, dense ranks, lean shape, provider/model/effort enums |
+| `scripts/validate_seed_sites.mjs` | Schema gate for `research-seed-sites.json` (NOTICE-skips when absent on a fresh clone) |
+
+The builder reads the FIXED category spine from `.spec/references/assets/routing-table.json` (a READ
+input, never rewritten); `validate_provider.mjs` checks category keys/order against it.
 
 ## New skill reference leaves
 
@@ -58,31 +42,26 @@ contracts:
 | `references/tier-ranking-and-scoring.md` | Interpolation rule, cost-figure methodology, scoring-formula form + calibration gate |
 | `references/provider-json-emission.md` | `routing-table.json` schema contract + validation rules |
 
-## Provenance: `giga-research/`
+## Provenance: ephemeral `%TEMP%` scratch + the durable audit
 
-Holds the per-run research, interview, and synthesis outputs that back the KB. A prior run is the
-template for a new run:
+Phase research is **ephemeral**: written under `%TEMP%\model-profiler\<run-id>\` (phase-0 consent,
+phase-1 research, phase-1.5 interview, phase-2 syntheses + the merged core + the assembled
+`structured-dataset.json`), consumed by the builder, and **discarded** — never persisted to the repo.
 
-| File(s) | Phase |
-|---------|-------|
-| `phase-0-consent.md` | Phase 0 consent record |
-| `phase-1-agent-{1..5}.md` | Phase 1 domain-partitioned research |
-| `phase-1.5-*interview*.md` | Phase 1.5 ten pivotal questions + owner answers |
-| `phase-2-synth-{1..5}.md` | Phase 2 independent flagship syntheses |
-| `phase-2-core-synthesis.md` | The merged canonical core |
-| `kb-manifest.md` | The KB manifest (spine + structure); the spine is **fixed** — re-architect only on an owner-ratified spine change in `docs/spec/task-taxonomy/` (out of normal scope) |
+Durable provenance is the **audit file's `citations[]`** plus the **seed registry**:
 
-> `giga-research/` is provenance, **not** citable as a source in the KB (use original external
-> sources via `source-ledger.md`). It records HOW the KB was produced, for audit and for re-runs.
+- `src/routing-table-audit.json` `citations[]` records HOW each pairing was sourced (original external
+  sources only — APA, never an internal `.spec/references/*.md` path).
+- `research-seed-sites.json` accumulates the learned source URLs across runs (harvested from those
+  citations) so a prior run seeds the next.
 
 ## Read vs write
 
-- **Read (orchestrator, at start):** `AGENTS.md`, the `.spec/references/` leaves you will update
-  (start at `retrieval-map.md`), prior `giga-research/` run as template.
-- **Write (via sub-agents only):** updated `.spec/references/` leaves + bumped
-  `assets/routing-table.json` + `source-ledger.md` + `decision-rationale.md`; `src/routing-table.json`
-  (canonical tier rankings); new `giga-research/` files for this run; validator constants in
-  `scripts/validate_kb.py` and `scripts/validate_provider.mjs` if the taxonomy or schema evolved.
+- **Read (orchestrator, at start):** `AGENTS.md`, `work-categories.md` (the fixed taxonomy), prior
+  `src/routing-table.json` + `research-seed-sites.json` (the diff template for a new run).
+- **Write (via sub-agents only):** the 3 persisted artifacts — `src/routing-table.json`,
+  `src/routing-table-audit.json`, `research-seed-sites.json`; ephemeral phase files under `%TEMP%`;
+  validator/builder scripts only if the `provider-json-emission.md` schema evolved.
 - **Do not modify** `src/index.ts` routing logic or unrelated repo files. The `AGENTS.md` backlink
   to this skill is handled separately.
 

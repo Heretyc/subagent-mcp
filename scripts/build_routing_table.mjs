@@ -1,33 +1,59 @@
 // build_routing_table.mjs — Deterministic routing-table builder.
 //
-// Authority: giga-research/2026-06-03-profiling/builder-design.md (authoritative),
-// skills/model-profiler/references/tier-ranking-and-scoring.md (SOP form),
-// .spec/references/cost-model.md (rates). Reads the structured dataset, encodes the
-// SOP constants/formula, and emits:
+// Authority: skills/model-profiler/references/tier-ranking-and-scoring.md +
+//   .../tier-ranking-and-scoring/01-sops.md (SOP form). Cost rates come from the dataset's
+//   per-model `pricing` block (the ephemeral research dataset), not a committed KB file.
+// DATASET is ephemeral (%TEMP%); DATASET_PATH env overrides the default temp location.
+// Reads the structured dataset, encodes the SOP constants/formula, and emits:
 //   - src/routing-table.json                         (validate_provider.mjs shape)
 //   - .spec/references/assets/routing-table.json     (NOT touched — frozen spine source)
-//   - .spec/references/assets/routing-table-audit.json (NOT touched — frozen KB manifest)
 //   - src/routing-table-audit.json                   (populated audit + per-pairing citations)
 //
 // DETERMINISM: stable sort with explicit tie-breakers; no wall-clock / RNG in ranking.
-// Timestamps come from env (BUILD_TS / RETRIEVED_AT) or the dataset date '2026-06-03'.
+// Timestamps come from env (BUILD_TS / RETRIEVED_AT) or the dataset date (DATASET_DATE,
+// env-overridable; default '2026-06-03').
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, isAbsolute } from "node:path";
+import { tmpdir } from "node:os";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const DATASET_PATH = resolve(ROOT, "giga-research/2026-06-03-profiling/structured-dataset.json");
+// Dataset is EPHEMERAL research scratch (never committed). Resolution order:
+//   1. process.env.DATASET_PATH  (absolute or repo-relative) — set by the skill run.
+//   2. <os.tmpdir()>/model-profiler/structured-dataset.json  — default %TEMP% scratch.
+// The builder MUST NOT depend on any committed giga-research/** path.
+const DATASET_PATH = process.env.DATASET_PATH
+  ? (isAbsolute(process.env.DATASET_PATH)
+      ? process.env.DATASET_PATH
+      : resolve(ROOT, process.env.DATASET_PATH))
+  : resolve(tmpdir(), "model-profiler", "structured-dataset.json");
 const SPINE_PATH = resolve(ROOT, ".spec/references/assets/routing-table.json");
 const OUT_PROVIDER = resolve(ROOT, "src/routing-table.json");
 const OUT_AUDIT = resolve(ROOT, "src/routing-table-audit.json");
 
-// ---- fixed values (no wall-clock) -------------------------------------------------
-const DATASET_DATE = "2026-06-03";
-const GENERATED_MONTH = "2026-06"; // metadata.generated (YYYY-MM)
-const GENERATED_AT = process.env.BUILD_TS || `${DATASET_DATE}T00:00:00Z`; // ISO8601
+// ---- fail-loud guards (run BEFORE deriving GENERATED_MONTH) ------------------------
+const _DATASET_DATE = process.env.DATASET_DATE || "2026-06-03";
+if (!/^\d{4}-\d{2}-\d{2}$/.test(_DATASET_DATE)) {
+  throw new Error(`DATASET_DATE must be YYYY-MM-DD; got '${_DATASET_DATE}'`);
+}
+const _GENERATED_MONTH = process.env.GENERATED_MONTH || _DATASET_DATE.slice(0, 7);
+if (!/^\d{4}-\d{2}$/.test(_GENERATED_MONTH)) {
+  throw new Error(`GENERATED_MONTH must be YYYY-MM; got '${_GENERATED_MONTH}'`);
+}
+if (!existsSync(DATASET_PATH)) {
+  throw new Error(
+    `Dataset not found at ${DATASET_PATH}. Set DATASET_PATH to the run's ephemeral ` +
+    `structured-dataset.json (skill writes it under %TEMP%).`
+  );
+}
+
+// ---- run-stamped values (env-overridable; deterministic given env) ----------------
+const DATASET_DATE = _DATASET_DATE;                                   // "YYYY-MM-DD"
+const GENERATED_MONTH = _GENERATED_MONTH;                              // "YYYY-MM"
+const GENERATED_AT = process.env.BUILD_TS || `${DATASET_DATE}T00:00:00Z`;       // ISO8601
 const DEFAULT_RETRIEVED_AT = process.env.RETRIEVED_AT || `${DATASET_DATE}T00:00:00Z`;
 
 // ---- SOP / cost constants (cost-model.md §1/§3/§4) --------------------------------
@@ -69,6 +95,7 @@ const EFFORT_LADDER = [
   "ultracode",
 ];
 const EFFORT_INDEX = new Map(EFFORT_LADDER.map((e, i) => [e, i]));
+const NO_EFFORT_SENTINELS = new Set(["n/a", "null", "none"]);
 
 // Lower-is-better benchmarks (invert during normalization). Dataset gives no polarity
 // flag; per design these two bug/false-report density benchmarks are lower-is-better.
@@ -115,6 +142,52 @@ const SPINE = Object.keys(spineRoot.categories); // 10 keys
 
 const MODELS = dataset.models;
 const UNIVERSE_MODELS = new Set(Object.keys(MODELS));
+
+function modelSupportsSelectableEffort(model) {
+  const ladder = MODELS[model]?.effort_ladder;
+  return Array.isArray(ladder) && ladder.some((effort) => !NO_EFFORT_SENTINELS.has(effortKey(effort)));
+}
+
+function validateNoEffortSentinel(label, model, rawEffort, issues) {
+  const effortK = effortKey(rawEffort);
+  if (NO_EFFORT_SENTINELS.has(effortK) && modelSupportsSelectableEffort(model)) {
+    issues.push(`${label}: ${model}@${effortK} uses a no-effort sentinel, but ${model} has selectable effort settings`);
+  }
+}
+
+function validateEffortCapabilityInput() {
+  const issues = [];
+
+  for (const [model, spec] of Object.entries(MODELS)) {
+    if (!modelSupportsSelectableEffort(model)) continue;
+    for (const effort of spec.effort_ladder || []) {
+      validateNoEffortSentinel(`models.${model}.effort_ladder`, model, effort, issues);
+    }
+  }
+
+  for (const entry of dataset.model_effort_universe || []) {
+    const at = entry.lastIndexOf("@");
+    const model = entry.slice(0, at);
+    const rawEffort = entry.slice(at + 1);
+    validateNoEffortSentinel(`model_effort_universe.${entry}`, model, rawEffort, issues);
+  }
+
+  for (const [category, rows] of Object.entries(dataset.category_benchmarks || {})) {
+    for (const [index, row] of rows.entries()) {
+      validateNoEffortSentinel(`category_benchmarks.${category}[${index}]`, row.model, row.effort, issues);
+    }
+  }
+
+  for (const [index, gap] of (dataset.gaps || []).entries()) {
+    validateNoEffortSentinel(`gaps[${index}]`, gap.model, gap.effort, issues);
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`Invalid effort-capability data:\n- ${issues.join("\n- ")}`);
+  }
+}
+
+validateEffortCapabilityInput();
 
 // Normalize dataset universe ("@n/a" -> "@null") into the canonical pairing list.
 const UNIVERSE = dataset.model_effort_universe.map((entry) => {
@@ -674,8 +747,7 @@ const auditTable = {
     schema_version: "2",
     version: "2.0.0",
     audits: "src/routing-table.json",
-    source_ledger_pointer: ".spec/references/source-ledger.md",
-    rag_pointer: ".spec/references/retrieval-map.md",
+    seed_sites_pointer: "research-seed-sites.json",
     model_effort_universe: UNIVERSE_IDS,
     realized_exponents: {
       performance: { a: PERF_EXP.a, b: PERF_EXP.b },

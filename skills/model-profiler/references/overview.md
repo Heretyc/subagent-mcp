@@ -18,16 +18,21 @@ It does two things, and only these two:
    trail + routing JSON.
 
 - **Input:** the consented profiling scope (in-scope provider families + recent window), mode,
-  runtime/budget, and provider mix from Phase 0.
-- **Output (audit trail):** `assets/routing-table-audit.json` — the citeable mirror of the rankings
-  (per-pairing source URLs, ISO8601 retrieval times, one-sentence annotations, tier rationale).
-- **Output (routing):** updated `.spec/references/` leaves + bumped `assets/routing-table.json` +
-  canonical `src/routing-table.json` (copied to `dist/routing-table.json` at build), each carrying
-  `performance` and `cost_efficiency` branches → 10 fixed categories → ordered model+effort pairings;
-  plus updated `source-ledger.md`, `decision-rationale.md`, new `giga-research/` provenance, a change note.
+  runtime/budget, and provider mix from Phase 0, including the standing repository profile when its
+  exact trigger matches.
+- **Output — EXACTLY 3 persisted artifacts** (nothing else persists to the repo):
+  1. `src/routing-table.json` — lean canonical routing table, `performance` + `cost_efficiency`
+     branches → 10 fixed categories → ordered model+effort pairings (copied to `dist/routing-table.json`
+     at build by `copy-provider.mjs`).
+  2. `src/routing-table-audit.json` — full-provenance audit trail of the rankings (per-pairing source
+     URLs, ISO8601 retrieval times, one-sentence annotations, tier rationale). The SOLE provenance
+     store; the change note lives in its metadata.
+  3. `research-seed-sites.json` (repo root) — accumulating learned source registry, merged from this
+     run's audit citations by `update_seed_sites.mjs`.
 
-The RAG carries prose; `routing-table.json` carries scores/ranks/metadata only. Both share the one
-fixed taxonomy (`rag_pointer` in `routing-table.json` metadata links back).
+Phase research is EPHEMERAL — written to `%TEMP%\model-profiler\<run-id>\` scratch, consumed by the
+builder, and never persisted to the repo. The audit carries provenance; `routing-table.json` carries
+scores/ranks/metadata only. Both share the one fixed taxonomy.
 
 **Fixed-taxonomy mandate.** The 10 categories + `fallback_default`@99 are **immutable**. This skill
 profiles models **against** them — it never derives, chooses, renames, reorders, merges, or
@@ -42,23 +47,25 @@ member, a flagship-judging member, elevated effort, etc.). The operator binds co
 dispatch time. Rankings are derived **solely** from discovered research; the only place judged
 model+effort names legitimately appear is the OUTPUT artifacts, which are the profiler's product.
 
-**DATA-ONLY rule.** This skill modifies: `.spec/references/` RAG leaves, `assets/routing-table.json`,
-`assets/routing-table-audit.json`, `src/routing-table.json`, `package.json` build script,
-`scripts/copy-provider.mjs`, `scripts/validate_provider.mjs`, and `validate_kb.py` taxonomy constants.
-It MUST NOT touch `src/index.ts` routing logic.
+**DATA-ONLY rule.** This skill modifies: `src/routing-table.json`, `src/routing-table-audit.json`,
+`research-seed-sites.json`, `package.json`, `scripts/copy-provider.mjs`,
+`scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `scripts/update_seed_sites.mjs`,
+and `scripts/validate_seed_sites.mjs`. It READS `.spec/references/work-categories.md` (the fixed
+spine) as an input but never writes it. It MUST NOT touch `src/index.ts` routing logic.
 
-This is a **re-profiling** of an existing KB, not a greenfield build. Read the current KB first so
-the refreshed rankings are a recorded delta — but the prior rankings are diffed, never inherited as
-the source of truth (Invariant: impartial judging).
+This is a **re-profiling** of an existing routing table, not a greenfield build. Read the prior
+`src/routing-table.json` + `research-seed-sites.json` first so the refreshed rankings are a recorded
+delta — but the prior rankings are diffed, never inherited as the source of truth (Invariant:
+impartial judging).
 
 ## Orchestrator-Only Contract
 
 The agent running this skill is an **orchestrator**. Its only direct work:
 1. Read baseline workspace files: `AGENTS.md`, `.spec/references/work-categories.md` (the fixed
-   spine), the `.spec/references/` leaves it will update (start at `retrieval-map.md`), and prior
-   `giga-research/` outputs as the run template.
-2. Dispatch sub-agents, relay interview questions to the owner, persist answers, and decide
-   merges/repairs based on returned JSON.
+   spine), and the prior `src/routing-table.json` + `research-seed-sites.json` as the diff template
+   for the run.
+2. Dispatch sub-agents, relay interview questions to the owner or run the standing-profile
+   adjudication path, persist answers/resolutions, and decide merges/repairs based on returned JSON.
 
 The orchestrator **never** performs discovery, research, judging, validation, or file authorship
 itself. Every such unit of work is delegated to a sub-agent. Producing agents never review their own
@@ -89,11 +96,12 @@ output; critics are fresh and distinct (self-review ban / Anti-Pattern D).
 
 | Condition | Action |
 |-----------|--------|
-| A required provider family is unavailable | Halt; surface; do not single-family |
-| Owner has not consented in Phase 0 | Do not dispatch |
+| Cross-family unavailable (only one provider family reachable) | Do NOT halt — dispatch single-family (e.g. Claude-only) as an EXPLICIT, LOGGED degrade recorded in the run's `risks` (amended invariant #5); silent un-logged single-family is still forbidden |
+| No Phase 0 consent or matching standing repository profile | Do not dispatch |
 | Two hard gates / specs irreducibly conflict | Surface to owner (`needs_user`) |
 | Evidence suggests the FIXED taxonomy is wrong | Surface to owner (`needs_user`); never alter the spine here |
 | A KB leaf would exceed 200 lines | Split into an index + same-named subdir before writing |
+| One or more Phase-1 agents stall, fail, or hit provider limits | Apply finite-wait + fallback + GAP-stub policy (`dispatch-mechanics.md`); continue to Phase 2 with GAP stubs |
 | Provider/model fallback chain exhausted mid-run | Report `blocked`; persist partial provenance |
 | Brand-new model has sparse corroboration | Use task-split framing; mark assumption-based claims |
 

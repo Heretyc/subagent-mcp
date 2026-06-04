@@ -381,29 +381,27 @@ test("full model id claude-haiku-4-5 maps to short launch id haiku", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 15. bug_002: codex@none must be retained (like haiku@none)
-//     WHY: gpt-5.5@none should not be dropped by normalizeEffort.
-//     resolveEffort already defaults codex@none to high. The "none" sentinel
-//     must pass through so buildCandidates retains the candidate.
+// 15. bug_002 replacement: codex@none must be rejected.
+//     WHY: gpt-5.5 supports selectable effort settings. Letting "none" pass
+//     through masks bad routing data by launching high while reporting none.
 // ---------------------------------------------------------------------------
-test("effort normalization: codex@none returns 'none' sentinel (resolved to high downstream)", () => {
+test("effort normalization: codex@none returns null (skip invalid effort-capable pairing)", () => {
   const result = normalizeEffort("codex", "gpt-5.5", "none");
-  assert.ok(result !== null, "codex@none must not produce a skip-candidate null");
-  assert.equal(result, "none",
-    "codex@none must normalize to 'none' sentinel, mirroring haiku, so buildCandidates retains the candidate");
+  assert.equal(result, null,
+    "codex@none must be skipped because gpt-5.5 has selectable effort settings");
 });
 
-test("auto mode with gpt-5.5@none: candidate retained and resolves to codex high", () => {
-  // math_proof category has gpt-5.5@none as rank-1 entry (after fixture update)
+test("auto mode with gpt-5.5@xhigh: candidate retained with concrete selectable effort", () => {
+  // math_proof category has gpt-5.5@xhigh as rank-1 entry.
   const result = buildCandidates(fixtureTable, "math_proof", {});
-  assert.ok(result.candidates.length > 0, "math_proof has gpt-5.5@none pairing");
+  assert.ok(result.candidates.length > 0, "math_proof has gpt-5.5@xhigh pairing");
   const gpt55Candidate = result.candidates[0];
   assert.equal(gpt55Candidate.provider, "codex",
     "gpt-5.5 must map to codex provider");
   assert.equal(gpt55Candidate.model, "gpt-5.5",
     "gpt-5.5 table entry must produce gpt-5.5 launch model");
-  assert.equal(gpt55Candidate.effort, "none",
-    "gpt-5.5@none must retain 'none' in candidate so the success payload reports it accurately");
+  assert.equal(gpt55Candidate.effort, "xhigh",
+    "gpt-5.5 must retain its concrete selectable effort instead of a no-effort sentinel");
 });
 
 // ---------------------------------------------------------------------------

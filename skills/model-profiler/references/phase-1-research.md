@@ -3,9 +3,14 @@
 **Load when:** dispatching Phase 1 (parallel discovery+research) or Phase 1.5 (the interview).
 Prereq: Phase 0 consent persisted.
 
-**Check first:** `references/benchmark-sources.md` — the canonical, provider-impartial source list
-(tiered) + the per-category benchmark-family map. Every Phase 1 agent loads it BEFORE searching so
-profiling stays stable run-to-run; only go beyond it for genuinely new entrants.
+**Check first:** `references/benchmark-sources.md` — the canonical, provider-impartial CURATED source
+list (tiered) + the per-category benchmark-family map. Every Phase 1 agent loads it BEFORE searching
+so profiling stays stable run-to-run; only go beyond it for genuinely new entrants.
+
+**Also read (if present):** `research-seed-sites.json` at the repo root — the LEARNED/accumulating
+seed registry, harvested from prior runs' audit citations. Each Phase 1 agent reads it **in addition
+to** `benchmark-sources.md`: the learned seed augments the curated seed (two seed loci by design). On
+a fresh clone before the first run it is absent; that is fine — fall back to the curated seed alone.
 
 ---
 
@@ -16,11 +21,12 @@ Anti-Pattern A). **Cross-family mix** across the set (a web-research member + a 
 member at minimum), all launched via `mcp__subagent-mcp__launch_agent` (the `provider:` field is set
 per `dispatch-mechanics.md`; the operator binds the concrete family — the skill names none). All
 agents are **web-enabled** (recency matters). Each writes its full output to
-`giga-research/phase-1-agent-N.md` and returns only the JSON status.
+`%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md` (ephemeral scratch — never persisted to the repo)
+and returns only the JSON status.
 
 | Agent | Domain | Focus |
 |-------|--------|-------|
-| 1 | **Model discovery + specs** | Enumerate **every** model published in the in-scope recency window by **each** in-scope provider family; for each, capture supported effort/reasoning tiers, context in/out, modality, knowledge cutoff, sampling locks, pricing tier. This roster is the authoritative model+effort universe every later agent maps onto. |
+| 1 | **Model discovery + specs** | Enumerate **every** model published in the in-scope recency window by **each** in-scope provider family; for each, capture supported effort/reasoning tiers, context in/out, modality, knowledge cutoff, sampling locks, pricing tier. Classify whether the model has selectable effort tiers or no selectable effort; never list `none` as a tier when selectable tiers exist. This roster is the authoritative model+effort universe every later agent maps onto. |
 | 2 | **Benchmark capture — reasoning/correctness spine** | For each discovered pairing, gather all public scores + stats diagnostic of `math_proof`, `security_review`, `debugging`, `quality_review`. |
 | 3 | **Benchmark capture — build/execute spine** | Same, for `architecture`, `agentic_execution`, `data_analysis`, `coding`. |
 | 4 | **Benchmark capture — synthesis/leaf + modifier signals** | Same, for `knowledge_synthesis`, `mechanical`; plus the capability data the cross-cutting modifiers need (context-size, output-size, perception, long-horizon, data-sensitivity). |
@@ -70,12 +76,17 @@ surface raw inputs for their pairings block the judging step.
 ROLE: Phase-1 discovery+research agent N. Domain: <domain>.
 CONTEXT: profiling scope = <in-scope provider families + recency window> (see consent record).
   Fixed taxonomy: .spec/references/work-categories.md. Source list + category map:
-  skills/model-profiler/references/benchmark-sources.md (CHECK FIRST). Existing fleet + current
-  rankings: read .spec/references/{model-profiles,routing-table,cost-model,...}.md to DIFF, not inherit.
+  skills/model-profiler/references/benchmark-sources.md (curated seed — CHECK FIRST) AND
+  research-seed-sites.json (learned/accumulating seed at repo root, if present — augments the curated
+  seed). Existing fleet + current rankings: read the prior src/routing-table.json +
+  research-seed-sites.json to DIFF, not inherit.
 TASK: discover/measure your domain on the web. Map every score onto the FIXED 10 categories via the
   family map. APA-cite ORIGINAL sources only. Label [SEED]/[INFERRED]/[ASSUMPTION]/[UNVERIFIED].
   For a brand-new model with sparse corroboration, use task-split framing and mark assumptions.
-WRITE: full findings to %TEMP%\... then to giga-research/phase-1-agent-N.md.
+  If a model has selectable effort tiers, do not emit `none` as one of its model+effort pairings
+  (this is an owner directive enforced independent of vendor documentation—exclude such pairings).
+WRITE: full findings to %TEMP%\model-profiler\<run-id>\phase-1-agent-N.md (ephemeral scratch — never
+  persisted to the repo).
 RETURN ONLY JSON {status, summary<=80w, source_locators, risks, writes_requested}.
   NOTE: source_locators entries are objects {url, retrieved_at(ISO8601), annotation(one sentence),
   source_id?, label?}, one per cited source, feeding routing-table-audit.json.
@@ -90,18 +101,45 @@ binds the concrete member. The skill names no model here.
 1. Dispatch **one** sub-agent to read all `phase-1-agent-*.md` outputs and **derive the most pivotal
    questions** whose answers would most change the per-category tier rankings (score conflicts,
    magnitude calls, corroboration-posture choices, gap-handling). It writes them to
-   `giga-research/phase-1.5-...md` and returns them in its JSON.
-2. The **orchestrator relays** those questions to the owner via **AskUserQuestion** (batched).
-   The orchestrator does not answer them itself.
-3. **Persist the answers** into the interview file. These answers are **binding steering**
-   (authority chain: interview decisions > vendor docs/verified benchmarks > seed) and feed Phase 2
-   and the `decision-rationale.md` label key / conflict reconciliations.
+   `%TEMP%\model-profiler\<run-id>\phase-1.5-...md` (ephemeral) and returns them in its JSON.
+2. If Phase 0 used the `bare-reprofile-default` standing profile, do **not** stop for owner
+   interview answers. Dispatch one fresh adjudication sub-agent to resolve each pivotal question
+   from the recorded authority chain (owner SOPs/interview records > vendor docs/verified
+   benchmarks > seed). Persist the resolutions, labels, and residual risks. Return `needs_user`
+   only for questions that would authorize out-of-allowlist writes, credentials/private data,
+   destructive action, taxonomy-spine changes, or git writes. (Single-family execution is NOT a
+   `needs_user` event — it is a logged degrade per amended invariant #5, recorded in the run's `risks`.)
+3. Otherwise, the **orchestrator relays** those questions to the owner via **AskUserQuestion**
+   (batched). The orchestrator does not answer them itself.
+4. **Persist the answers or standing-profile resolutions** into the interview file. These are
+   **binding steering** and feed Phase 2 and the audit's `basis` (label key / conflict
+   reconciliations).
 
 ### Checkpoint before Phase 2
 
-Confirm: the discovery roster + benchmark files exist on disk, the interview file holds the pivotal
-questions + owner answers, and no agent returned `blocked`/`needs_user` unresolved. If any did,
-resolve or surface before judging.
+**Classify each Phase-1 output** before dispatching Phase 1.5:
+- **COMPLETE** — `%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md` exists with non-empty research content.
+- **MISSING** — file absent, empty, or agent returned `blocked`/`needs_user`/error.
+- **REUSED** (bounded-continuation mode only) — existing file from today's `%TEMP%\model-profiler\<run-id>\` run dir, counted as complete without re-dispatch.
+
+**For MISSING agents:** apply the finite-wait + fallback policy in `dispatch-mechanics.md`. If
+fallback also fails, write an explicit GAP stub at `%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md`. Record the
+GAP and any single-family condition in the run's `risks`; do not halt the run for a domain GAP.
+
+**For bounded-continuation mode** (exact bare prompt with Phase 1 budget exceeded):
+- Check the `%TEMP%\model-profiler\<run-id>\` run dir for existing agents from today's run-id (e.g., `%TEMP%\model-profiler\2026-06-04-<run-id>\phase-1-agent-1.md`)
+- Each valid output counts as COMPLETE/REUSED for that agent; no re-dispatch needed
+- Missing agents get GAP stubs written to the standard `%TEMP%` location (`%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md`)
+- Proceed to Phase 1.5 with existing + GAP data (no halt on budget)
+
+The Phase 1.5 adjudication agent reads all `phase-1-agent-*.md` files including GAP stubs. It must
+note every GAP domain explicitly and include "what data would fill this GAP" as a pivotal question.
+For the bare standing-profile path: a single-family fallback already documented in GAP stubs is
+**not** a new `needs_user` event — it is recorded constraint, not an authorization question.
+
+Confirm before dispatching Phase 2: every expected `phase-1-agent-N.md` exists on disk (complete,
+reused, or GAP stub), the interview file holds pivotal questions plus owner answers or standing-profile
+resolutions, and no non-GAP agent returned `blocked`/`needs_user` unresolved.
 
 ---
 
