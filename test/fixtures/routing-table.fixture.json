@@ -1,0 +1,335 @@
+{
+  "metadata": {
+    "version": "0.0.1",
+    "schema_version": "1",
+    "generated": "2026-06",
+    "author": "Lexi Blackburn",
+    "author_url": "https://github.com/Heretyc/",
+    "model_effort_universe": [
+      "claude-opus-4-8@high",
+      "claude-sonnet-4-6@medium",
+      "claude-sonnet-4-6@ultracode",
+      "claude-haiku-4-5@none",
+      "gpt-5.5@xhigh",
+      "gpt-5.5@max",
+      "gpt-5.5-pro@high",
+      "claude-opus-4-7@high",
+      "unknown-model-xyz@high"
+    ],
+    "formula_definitions": {
+      "normalization": { "name": "fixture", "params": {} },
+      "composite_weights": {},
+      "sentiment_cap": 1.0,
+      "calibrated_exponents": { "a": 2.0, "b": 1.0 }
+    },
+    "cost_blend": {
+      "input_tokens": 100000,
+      "output_tokens": 20000,
+      "price_cliff_side": "n/a"
+    },
+    "calibration_gate": {
+      "k_categories_min": 1,
+      "m_rank_churn_min": 1,
+      "k_observed": 1,
+      "m_observed": 2,
+      "passed": true
+    },
+    "rag_pointer": ".spec/references/retrieval-map.md"
+  },
+  "performance": {
+    "architecture": [
+      {
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 1,
+        "score": 0.95,
+        "cost_figure_used": 0.000015,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 2,
+        "score": 0.88,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 3,
+        "score": 0.82,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-haiku-4-5",
+        "effort": "none",
+        "rank": 4,
+        "score": 0.70,
+        "cost_figure_used": 0.000001,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "gpt-5.5-pro",
+        "effort": "high",
+        "rank": 5,
+        "score": 0.60,
+        "cost_figure_used": 0.000020,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      },
+      {
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 6,
+        "score": 0.55,
+        "cost_figure_used": 0.000012,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      },
+      {
+        "model": "unknown-model-xyz",
+        "effort": "high",
+        "rank": 7,
+        "score": 0.50,
+        "cost_figure_used": 0.000005,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      }
+    ],
+    "coding": [
+      {
+        "model": "gpt-5.5",
+        "effort": "max",
+        "rank": 1,
+        "score": 0.91,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-sonnet-4-6",
+        "effort": "ultracode",
+        "rank": 2,
+        "score": 0.88,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
+    "mechanical": [
+      {
+        "model": "claude-haiku-4-5",
+        "effort": "none",
+        "rank": 1,
+        "score": 0.78,
+        "cost_figure_used": 0.000001,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
+    "debugging": [],
+    "only_nonlaunchable": [
+      {
+        "model": "gpt-5.5-pro",
+        "effort": "high",
+        "rank": 1,
+        "score": 0.70,
+        "cost_figure_used": 0.000020,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      },
+      {
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 2,
+        "score": 0.60,
+        "cost_figure_used": 0.000012,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      },
+      {
+        "model": "unknown-model-xyz",
+        "effort": "high",
+        "rank": 3,
+        "score": 0.50,
+        "cost_figure_used": 0.000005,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      }
+    ],
+    "math_proof": [],
+    "security_review": [],
+    "quality_review": [],
+    "agentic_execution": [],
+    "data_analysis": [],
+    "knowledge_synthesis": [],
+    "fallback_default": []
+  },
+  "cost_efficiency": {
+    "architecture": [
+      {
+        "model": "claude-haiku-4-5",
+        "effort": "none",
+        "rank": 1,
+        "score": 0.90,
+        "cost_figure_used": 0.000001,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 2,
+        "score": 0.70,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 3,
+        "score": 0.60,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 4,
+        "score": 0.50,
+        "cost_figure_used": 0.000015,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "gpt-5.5-pro",
+        "effort": "high",
+        "rank": 5,
+        "score": 0.40,
+        "cost_figure_used": 0.000020,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      },
+      {
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 6,
+        "score": 0.30,
+        "cost_figure_used": 0.000012,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      },
+      {
+        "model": "unknown-model-xyz",
+        "effort": "high",
+        "rank": 7,
+        "score": 0.20,
+        "cost_figure_used": 0.000005,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      }
+    ],
+    "coding": [
+      {
+        "model": "gpt-5.5",
+        "effort": "max",
+        "rank": 1,
+        "score": 0.88,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-sonnet-4-6",
+        "effort": "ultracode",
+        "rank": 2,
+        "score": 0.70,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
+    "mechanical": [
+      {
+        "model": "claude-haiku-4-5",
+        "effort": "none",
+        "rank": 1,
+        "score": 0.85,
+        "cost_figure_used": 0.000001,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
+    "debugging": [],
+    "only_nonlaunchable": [
+      {
+        "model": "gpt-5.5-pro",
+        "effort": "high",
+        "rank": 1,
+        "score": 0.65,
+        "cost_figure_used": 0.000020,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      },
+      {
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 2,
+        "score": 0.55,
+        "cost_figure_used": 0.000012,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      },
+      {
+        "model": "unknown-model-xyz",
+        "effort": "high",
+        "rank": 3,
+        "score": 0.45,
+        "cost_figure_used": 0.000005,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": ["[ASSUMPTION]"]
+      }
+    ],
+    "math_proof": [],
+    "security_review": [],
+    "quality_review": [],
+    "agentic_execution": [],
+    "data_analysis": [],
+    "knowledge_synthesis": [],
+    "fallback_default": []
+  }
+}

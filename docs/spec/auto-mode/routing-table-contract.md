@@ -15,10 +15,10 @@ list, normalizes effort, and runs the attempt loop with silent fallback.
 - Loading: read + `JSON.parse` inside try/catch. On ENOENT, parse error, or any
   read failure → treat as "table missing" → `ERR_TABLE_MISSING`
   (`resolution-matrix.md`). Never throw uncaught; never crash the server.
-- Cache the parsed table in module memory after first successful load. The
-  server is long-lived; a re-read per launch is unnecessary. (A missing table
-  stays missing for the process lifetime — acceptable; document that a profiler
-  run requires a server restart to pick up a newly-emitted table.)
+- Fresh read per launch (no process-lifetime cache): re-read + `JSON.parse`
+  `dist/routing-table.json` on every launch. The file is tiny and launches are
+  infrequent, so a freshly-emitted table needs no restart — a profiler run that
+  writes the table AFTER server start is picked up on the next launch.
 
 ## Branch consumed
 

@@ -41,6 +41,32 @@ On Windows, quote the absolute path to `dist\index.js`. For Codex, Gemini, `.mcp
 
 ---
 
+## Auto Mode
+
+`launch_agent` supports **auto mode**: pass `prompt` + `task_category` and the server picks the best provider/model/effort for that category from its routing table, silently falling back to the next-best candidate on any launch-time failure.
+
+`provider`, `model`, and `effort` are optional overrides — omit them to get auto-selected best combination. Rules: passing `model` requires `provider`; passing `effort` requires both `provider` and `model`.
+
+**task_category** (required) — pick one:
+
+| Category | What it is |
+|---|---|
+| `math_proof` | deliverable is a proof/derivation/formally-checkable result |
+| `security_review` | security verdict, threat assessment, or demonstrated exploit |
+| `debugging` | verified fix/root-cause; requires an observed failure as precondition |
+| `quality_review` | evaluative verdict on existing artifact (review, A-vs-B, validate-vs-spec) |
+| `architecture` | cross-module design/plan, no code, no execution loop |
+| `agentic_execution` | end-state via act/observe/adapt loop (run/deploy/provision/browse) |
+| `data_analysis` | empirical finding about structured dataset (query, stat, model) |
+| `coding` | bounded runnable code artifact, one-pass (implement, test, refactor) |
+| `knowledge_synthesis` | novel integrated prose over sources (synthesize, summarize, draft) |
+| `mechanical` | deterministic single-pass transform, exact-match checkable (grep, rename, reformat) |
+| `fallback_default` | no category matches with confidence; prefer splitting work instead |
+
+**Atomic-split guidance:** if you are unsure which category fits, do NOT submit one large amorphous task. Break the work into smaller atomic steps each mapping to a single category and launch one agent per step.
+
+---
+
 ## Tools
 
 Six tools are exposed over the stdio MCP transport:

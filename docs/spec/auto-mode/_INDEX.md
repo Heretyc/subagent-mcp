@@ -41,6 +41,10 @@ front of that path.
 - Topic branch + PR for the implementation; pre-commit contradiction-checker
   sub-agent before any source commit.
 
+## Authoritative pairing shape note
+
+The runtime pairing shape is defined by `skills/model-profiler/references/provider-json-emission.md` and enforced by `scripts/validate_provider.mjs`: `performance.<category>` is a **direct array** of pairing objects (no `.pairings` wrapper). The `.spec/references/assets/routing-table.json` file is the spine/category-key mirror used for structural validation only — it is NOT the runtime pairing shape and must not be treated as the authoritative source for array vs. object layout.
+
 ## AGENTS.md load-trigger note (for B2 — do NOT edit AGENTS.md from this task)
 
 B2 should add a load trigger to `AGENTS.md` "Load Triggers":
