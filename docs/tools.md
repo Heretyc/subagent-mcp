@@ -40,15 +40,15 @@ Get current status and output tail of an agent.
 | `agent_id` | string | Yes | UUID returned by `launch_agent` |
 | `verbose` | boolean | No | When `true`, also return `final_output` (default: `false`) |
 
-Returns: `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds }` plus `hint` when `status` is `processing`, plus `final_output` when `verbose` is `true`.
+Returns: `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream }` plus `hint` when `status` is `stalled`, plus `final_output` when `verbose` is `true`.
 
-`stdout_tail` is capped at the last 2000 characters; `stderr_tail` at 1000 characters. `alive` is `true` while the process is running/processing; `idle_seconds` is whole seconds since last output. Exit is reconciled synchronously on each call, so an already-exited process is reported `completed`/`failed` immediately. A `processing` agent is alive but quiet -- prefer `wait`/re-poll over killing it. With `verbose: true`, `final_output` holds the agent's final assistant turn text extracted from its full captured stdout (falls back to the raw stdout if it cannot be parsed).
+`stdout_tail` is capped at the last 2000 characters; `stderr_tail` at 1000 characters. `recent_stream` holds exactly the last 3 parsed visible provider-stream items, each with its timestamp. `alive` is `true` while the process is processing/stalled; `idle_seconds` is whole seconds since the last visible-stream heartbeat. Exit is reconciled synchronously on each call, so an already-exited process is reported `finished`/`errored` immediately. A `stalled` agent is alive but quiet -- prefer `wait`/re-poll over killing it. With `verbose: true`, `final_output` holds the agent's final assistant turn text extracted from its full captured stdout (falls back to the raw stdout if it cannot be parsed).
 
 ---
 
 ## `kill_agent`
 
-Terminate a running agent. Sends SIGTERM, then `taskkill /pid /t /f` (Windows) or SIGKILL (macOS/Linux) after 5 seconds if still alive.
+Immediately force-kill any live agent (`processing` or `stalled`): `taskkill /pid /t /f` (Windows) or SIGKILL (macOS/Linux). Reports terminal `stopped`. Killing an already-terminal agent is not an error.
 
 | Parameter | Type | Required |
 |-----------|------|----------|
@@ -60,7 +60,7 @@ Returns: `{ agent_id, status, message }`
 
 ## `send_message`
 
-Write a message to an agent's stdin (newline appended). Only works while status is `running`.
+Write a message to an agent's stdin (newline appended). Only works while the agent is live (`processing` or `stalled`).
 
 | Parameter | Type | Required |
 |-----------|------|----------|
@@ -75,13 +75,13 @@ Returns: `{ agent_id, status, message }`
 
 List all agents known to the server (all statuses).
 
-No parameters. Returns: `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd, alive, idle_seconds }] }`, each agent also carrying a `hint` when its `status` is `processing`. Exit is reconciled synchronously per agent on each call.
+No parameters and no `verbose` arg. Returns token-efficient core metrics: `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd_basename, alive, idle_seconds }] }`. No `hint`, no tails, no `recent_stream`, no `final_output` -- use `poll_agent` for those. Exit is reconciled synchronously per agent on each call.
 
 ---
 
 ## `wait`
 
-Block until one or more sub-agents finish (completed/failed/killed) and return their exit details. Returns immediately if terminal-unreported agents already exist. Returns after a 15-minute hard timeout with a list of still-running agents if nothing finishes in time.
+Block until one or more sub-agents reach a terminal state (finished/errored/stopped) and return their exit details. A `stalled` agent is still live, so `wait` does NOT return on it. Returns immediately if terminal-unreported agents already exist. Returns after a 15-minute hard timeout with a list of still-live agents if nothing reaches terminal in time.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -97,7 +97,7 @@ With `verbose: true`, every entry in `finished` gains a `final_output` field car
       "id": "...",
       "provider": "claude",
       "model": "sonnet",
-      "status": "completed",
+      "status": "finished",
       "exit_code": 0,
       "exited_at": "2024-03-15T10:30:45+00:00 (UTC)",
       "elapsed_ms": 12345

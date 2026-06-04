@@ -113,6 +113,33 @@ test("(claude,haiku,high) args do NOT include --effort", () => {
   assert.ok(!result.args.includes("--effort"), "args should NOT include --effort for haiku");
 });
 
+// --- Claude output format: stream-json drives the visible-stream heartbeat ---
+// WHY: poll_agent's heartbeat + recent_stream parse Claude's per-line
+// `stream-json` events. A single buffered `--output-format json` blob would
+// arrive as one chunk at the end, defeating live heartbeats; the CLI also
+// requires `--verbose` alongside `stream-json` in print mode.
+
+function assertStreamJson(args, label) {
+  const i = args.indexOf("--output-format");
+  assert.ok(i !== -1, `${label}: args should include --output-format`);
+  assert.equal(args[i + 1], "stream-json", `${label}: --output-format should be stream-json`);
+  assert.ok(!args.includes("json"), `${label}: stale buffered "json" value must be gone`);
+  assert.ok(args.includes("--verbose"), `${label}: stream-json print mode requires --verbose`);
+}
+
+// 12. (claude, sonnet, high): normal path uses stream-json --verbose
+test("(claude,sonnet,high) uses --output-format stream-json --verbose", () => {
+  const result = buildCommand("claude", "sonnet", "high", "test", process.cwd());
+  assertStreamJson(result.args, "normal");
+});
+
+// 13. (claude, opus, ultracode): ultracode path ALSO uses stream-json --verbose
+test("(claude,opus,ultracode) uses --output-format stream-json --verbose", () => {
+  const result = buildCommand("claude", "opus", "ultracode", "test", process.cwd());
+  assertStreamJson(result.args, "ultracode");
+  unlinkSync(result.ucSettingsPath);
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);
