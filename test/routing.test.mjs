@@ -381,6 +381,57 @@ test("full model id claude-haiku-4-5 maps to short launch id haiku", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 15. bug_002: codex@none must be retained (like haiku@none)
+//     WHY: gpt-5.5@none should not be dropped by normalizeEffort.
+//     resolveEffort already defaults codex@none to high. The "none" sentinel
+//     must pass through so buildCandidates retains the candidate.
+// ---------------------------------------------------------------------------
+test("effort normalization: codex@none returns 'none' sentinel (resolved to high downstream)", () => {
+  const result = normalizeEffort("codex", "gpt-5.5", "none");
+  assert.ok(result !== null, "codex@none must not produce a skip-candidate null");
+  assert.equal(result, "none",
+    "codex@none must normalize to 'none' sentinel, mirroring haiku, so buildCandidates retains the candidate");
+});
+
+test("auto mode with gpt-5.5@none: candidate retained and resolves to codex high", () => {
+  // math_proof category has gpt-5.5@none as rank-1 entry (after fixture update)
+  const result = buildCandidates(fixtureTable, "math_proof", {});
+  assert.ok(result.candidates.length > 0, "math_proof has gpt-5.5@none pairing");
+  const gpt55Candidate = result.candidates[0];
+  assert.equal(gpt55Candidate.provider, "codex",
+    "gpt-5.5 must map to codex provider");
+  assert.equal(gpt55Candidate.model, "gpt-5.5",
+    "gpt-5.5 table entry must produce gpt-5.5 launch model");
+  assert.equal(gpt55Candidate.effort, "none",
+    "gpt-5.5@none must retain 'none' in candidate so the success payload reports it accurately");
+});
+
+// ---------------------------------------------------------------------------
+// 16. bug_005: model:"opus" must match claude-opus-4-8 pairings
+//     WHY: "opus" is a documented alias for claude-opus-4-8. Filtering by
+//     provider:"claude",model:"opus" must return the Opus candidates, not
+//     noCandidates. Explicit mode already handles this via mapModel.
+// ---------------------------------------------------------------------------
+test("provider_model filter: claude+opus returns opus-4-8 pairings (opus alias)", () => {
+  // architecture fixture has claude-opus-4-8@high as rank-1 entry.
+  // Filtering by model:"opus" must match the "claude-opus-4-8" table entry.
+  const result = buildCandidates(fixtureTable, "architecture", {
+    provider: "claude",
+    model: "opus",
+  });
+  assert.ok(result.candidates.length > 0,
+    "provider_model filter with model:'opus' must return candidates (opus is a valid alias)");
+  assert.equal(result.mode, "provider_model", "mode must be 'provider_model'");
+  for (const c of result.candidates) {
+    // The returned model should be the canonical short id (opus-4-8), not the user's input.
+    assert.ok(["opus", "opus-4-8"].includes(c.model),
+      "returned model must be opus or opus-4-8 (canonical alias)");
+    assert.equal(c.provider, "claude",
+      "every returned candidate must have provider=claude");
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Print summary and fail if any test failed
 // ---------------------------------------------------------------------------
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
