@@ -11,7 +11,7 @@
     "build": "tsc && node scripts/copy-provider.mjs",
     "start": "node dist/index.js",
     "prepare": "npm run build",
-    "test": "node test/effort.test.mjs && node test/platform.test.mjs && node test/wait.test.mjs && node test/status.test.mjs && node test/output.test.mjs && node test/routing.test.mjs && node test/handler-validation.test.mjs && node test/index-handler.test.mjs && node scripts/validate_provider.mjs"
+    "test": "node test/effort.test.mjs && node test/platform.test.mjs && node test/wait.test.mjs && node test/status.test.mjs && node test/output.test.mjs && node test/routing.test.mjs && node test/handler-validation.test.mjs && node test/index-handler.test.mjs && node scripts/validate_provider.mjs && node scripts/validate_seed_sites.mjs && node test/seed-sites.test.mjs"
   },
   "author": "Lexi Blackburn",
   "license": "Apache-2.0",

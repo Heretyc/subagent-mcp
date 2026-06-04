@@ -50,15 +50,16 @@ agentic collaboration.
   under `docs/spec`, skills, policy gates, CI/CD agent instructions, or text
   future agents/maintainers must follow. Do not read for one-off task notes,
   changelogs, or agent-state markdown unless they contain reusable rules.
-- `.spec/references/retrieval-map.md`: read when choosing which model/provider/
-  effort for a task, routing or distributing work across Claude/Codex,
-  classifying a prompt into a work-category, or wiring the subagent-mcp routing
-  feature. Entry point for the cross-provider model-routing KB; re-profile new
+- `src/routing-table.json` (+ `.spec/references/work-categories.md`): read when
+  choosing which model/provider/effort for a task, routing or distributing work
+  across Claude/Codex, classifying a prompt into a work-category, or wiring the
+  subagent-mcp routing feature. `src/routing-table.json` is the routing artifact;
+  `work-categories.md` defines the fixed work-category taxonomy; re-profile new
   models with the `model-profiler` skill.
 - `docs/spec/task-taxonomy/_INDEX.md`: read when defining, citing, or changing
   the fixed 10-category task taxonomy (immutable; never re-derived by a
   profiler run) or how/why it was determined — spec and provenance, not
-  operational routing; see `.spec/references/retrieval-map.md` for that.
+  operational routing.
 - `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior.
 
 ## Always Enforce

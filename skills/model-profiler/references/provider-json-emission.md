@@ -51,12 +51,16 @@ of pairing objects, ordered best→worst by the branch's power-law score.
 |---|---|---|
 | `provider` | string | `"claude"` for `claude-*` model ids, `"codex"` for `gpt-*` |
 | `model` | string | Real model id (e.g. `claude-opus-4-8`, `gpt-5.5`) |
-| `effort` | string | Effort ladder tier (e.g. `"high"`, `"low"`, `null`) |
+| `effort` | string or null | Effort ladder tier (e.g. `"high"`, `"low"`, `null`) |
 | `rank` | integer | Dense 1..N within the branch/category (1 = best) |
 
 `rank` is branch-specific (the two branches order the same universe differently). `provider`,
 `model`, `effort` identify the pairing. No `score`, `cost_figure_used`, `basis`, `interpolated`,
 or `confidence` on the canonical table — read the audit sibling for those.
+
+No-effort sentinels (`null`, `"none"`, or `"n/a"`) are valid only for models whose discovered
+effort ladder has no selectable tiers. If a model supports selectable effort settings, every emitted
+pairing for that model must use a concrete selectable tier; never emit `<model>@none` for it.
 
 ---
 
@@ -89,7 +93,8 @@ The standalone checker enforces all of the following; any failure exits non-zero
 5. **Lean pairing keys** — every pairing has EXACTLY `{provider, model, effort, rank}`.
 6. **Valid provider** — `provider` ∈ `{claude, codex}` and consistent with the model family.
 7. **Closed model/effort enums** — every `model` is a known real model id; every `effort` is a
-   known ladder tier. Unknown values are flagged, never silently skipped.
+   known ladder tier. Unknown values are flagged, never silently skipped. A no-effort sentinel on a
+   model with selectable effort settings is invalid and fails validation.
 8. **Lean metadata** — `metadata` has EXACTLY the 5 keys above; `author`/`author_url` exact;
    `generated` matches `YYYY-MM`; `schema_version`/`version` non-empty strings.
 

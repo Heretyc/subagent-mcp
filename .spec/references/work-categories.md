@@ -3,9 +3,6 @@
 **Load when:** classifying a prompt; verifying a category id; understanding classification signals,
 definitions, or boundary cases.
 
-**Do not load when:** you need the per-category route table (→ `./routing-table.md`), gate
-thresholds (→ `./hard-gates.md`), or the routing evaluation order (→ `./routing-contract.md`).
-
 Categories and modifiers are defined PURELY by task shape — *deliverable · cognitive demand ·
 verification mode.* No provider, model, effort, or route is named or implied anywhere in this file.
 
@@ -22,7 +19,7 @@ Then `fallback_default` @ precedence 99 — off-spine; fires only when no tile r
 never overrides a hard gate; **not one of the 10.**
 
 First-match wins (most-specific-signal-first). On genuine adjacent-tier ambiguity, escalate one tier
-up. See `./routing-contract.md §2`. Classification is a pure task-shape language task — no numeric
+up. Classification is a pure task-shape language task — no numeric
 thresholds enter it (context size is a gate, not a category boundary).
 
 **Deltas vs prior order:** `debugging` ↑ (5→3, above quality_review/architecture); `architecture`
@@ -145,22 +142,18 @@ restriction, or a re-rank). None names a model, provider, effort, or route.
 |---|---|---|
 | `perception_required` | Input includes non-text (image, screenshot, chart, scan, GUI, diagram, audio/video frame). | Eligibility-restrict to perception-capable members; re-rank by perception/OCR/layout competency (re-orders members independently of text skill). **This is where multimodal lives.** |
 | `architecture_complexity` | An implementation/host task carries cross-module/interface/API cascade (architectural blast radius). | Require a plan-before-build step **+** an independent cross-review of the plan. |
-| `context_size` | Input materially exceeds an ordinary-context threshold (very large corpus/codebase/document set). | Eligibility-restrict to members whose context window suffices; require chunk-and-synthesize above each threshold; forbid any single-route call above the maximum. (Gates `G_CTX_200/272/400/1M` → `./hard-gates.md`.) |
+| `context_size` | Input materially exceeds an ordinary-context threshold (very large corpus/codebase/document set). | Eligibility-restrict to members whose context window suffices; require chunk-and-synthesize above each threshold; forbid any single-route call above the maximum. |
 | `output_size` | Estimated output exceeds the standard output cap. | Eligibility-restrict to the member(s) offering the extended output ceiling. (Gate `G_CTX_OUT`.) |
 | `long_horizon` | Task needs many sequential steps/iterations (high step-count / extended trajectory). | Require decomposition into checkpoints **+** intermediate progress verification (guards mid-trajectory drift). |
 | `data_sensitivity` | Task handles regulated/personal/confidential data (PII, PHI, secrets, contractual-confidential). | Classify before routing; minimize/redact; no-exfiltration; eligibility-restrict to members meeting the required handling class; halt unless an approved boundary exists. (Gate `G_DATA`; **distinct from `G_SEC`** — privacy/compliance *handling*, not adversarial threat.) |
 | `execution_sandbox` | A member executes via a local harness. | Default to a write-restricted workspace sandbox; full-access/approval-bypass only inside an externally hardened, disposable, secret-free runner; halt on any sandbox-bypass ambiguity. (Gate `G_SANDBOX`.) |
 
 The category-coupled gate-modifiers `G_MATH` (→ `math_proof`), `G_SEC` (→ `security_review`), and
-`G_COMMIT` (→ `quality_review`) are defined in `./hard-gates.md`.
+`G_COMMIT` (→ `quality_review`) are hosted by their respective tiles.
 
 **Considered and NOT minted (fail-loud):** latency/cost-sensitivity (edges into route/effort — out
 of an impartial taxonomy's scope); language/locale (an eligibility nuance, too fine to be
 first-class); determinism-required (already captured by `mechanical`'s exact-match verification).
-
----
-
-*Cross-refs: `./routing-contract.md` · `./routing-table.md` · `./hard-gates.md` · `./synergy-patterns.md`*
 
 ---
 

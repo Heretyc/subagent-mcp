@@ -21,9 +21,81 @@ task/scope, never by a named model.
 
 ## Mechanism
 
-Use **AskUserQuestion** (a single batched prompt) to confirm the six parameters below. Do not
-proceed on assumed defaults. Persist the answers to `giga-research/phase-0-consent.md` for this run
-(this also becomes the provenance that Phase 1 agents read).
+Default path: use **AskUserQuestion** (a single batched prompt) to confirm the six parameters below.
+Do not proceed on assumed defaults.
+
+Exception: if the exact standing repository profile below matches, Phase 0 is satisfied by this
+owner-authored directive. Do not ask the owner and do not return `needs_user` for these six
+parameters. Persist either the owner's answers or the standing profile to
+`%TEMP%\model-profiler\<run-id>\phase-0-consent.md` for this run (this also becomes the provenance
+that Phase 1 agents read). All other hard halt conditions remain active.
+
+## Standing repository profile for a bare run
+
+Apply this profile only when **all** conditions are true:
+
+- Current working directory is the `subagent-mcp` repository root.
+- The user instruction is exactly `Run the model-profiler skill.` after trimming whitespace.
+- The instruction adds no credentials, deletes, branch/git writes, outbound messages, deployments,
+  private-data export, taxonomy change, or files outside the profiler write allowlist below.
+
+When matched, use these Phase 0 answers:
+
+| # | Standing answer |
+|---|-----------------|
+| 1 | **Profiling scope:** current-generation fleet for every repository-supported provider family reachable through Subagent-MCP; recency window is public releases since the prior `research-seed-sites.json` `metadata.last_run_at`, plus current-generation models already retained in `src/routing-table.json`. Phase 1 discovers concrete model ids and effort ladders. |
+| 2 | **Mode:** Fast. |
+| 3 | **Runtime / budget:** Fast-mode run capped at 90 wall-clock minutes and the current session's configured provider budget; stop as `blocked` on quota or timeout rather than guessing or retrying indefinitely. A reachable-but-single provider family is NOT a `blocked` condition — it is a logged single-family degrade (amended invariant #5). |
+| 4 | **Provider mix:** use all currently reachable Subagent-MCP provider families and effort tiers; cross-family is preferred. When only one family is reachable (e.g. Claude-only), dispatch single-family as an explicit LOGGED degrade recorded in the run's `risks` — do not halt. |
+| 5 | **Model universe scope:** current generation. |
+| 6 | **Emission authorization:** yes, for the profiler write allowlist only. |
+
+Profiler write allowlist (EXACTLY these — the 3 persisted artifacts plus build-wiring):
+`src/routing-table.json`, `src/routing-table-audit.json`, `research-seed-sites.json`, `package.json`,
+`scripts/copy-provider.mjs`, `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`,
+`scripts/update_seed_sites.mjs`, `scripts/validate_seed_sites.mjs`, and `%TEMP%\model-profiler\**`
+(ephemeral research scratch — written, consumed, never persisted to the repo). The spine asset
+(`.spec/references/assets/routing-table.json`) and `.spec/references/work-categories.md` are READ-only
+inputs, NOT writable. Build-wiring files are idempotent: update them only if the schema or builder
+contract changed.
+
+This profile authorizes file edits only; it does **not** authorize staging, commits, pushes, PRs,
+branch/worktree changes, deletes, credential access, outbound third-party messages, deployments,
+taxonomy-spine changes, or writes outside the allowlist. Inspect `git status --short --branch`
+before writes.
+
+## Standing dirty-tree policy
+
+For the exact bare standing run, a dirty tree does not block by itself. Classify dirty and
+untracked paths from `git status --porcelain` before Phase 1:
+
+- **Generated outputs that may be overwritten after backup:** the 3 persisted artifacts only —
+  `src/routing-table.json`, `src/routing-table-audit.json`, and `research-seed-sites.json`.
+- **Adjacent implementation files that may be dirty but are read-only for this run:**
+  `skills/model-profiler/**`, `package.json`, `scripts/copy-provider.mjs`,
+  `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `src/routing.ts`, and
+  `test/**`. If the run would write one of these dirty paths, halt as `blocked` unless the owner
+  separately authorized that schema/build/test change in this session.
+- **Any other dirty path:** halt as `blocked` before dispatch; it is unrelated user-owned work.
+
+Before overwriting a generated output with an uncommitted diff, copy its current contents to
+`%TEMP%\model-profiler-backups\<run-id>\...` using the same relative path, then record the backup
+path in `%TEMP%\model-profiler\<run-id>\phase-0-consent.md` or the run note. Do not use `git stash`,
+`reset`, `checkout`, or cleanup commands to manage dirty files. Attempts to overwrite a path outside
+the generated-output set above must halt, even if the path is on the broader allowlist.
+
+## Bounded-Continuation Mode (exact bare prompt only)
+
+When Phase 1 fan-out would exceed the standing-profile budget cap (90 wall-clock minutes + session token budget):
+
+1. **Do not halt or ask for confirmation.** Automatically enter bounded-continuation mode.
+2. **Reuse existing phase-1-agent-*.md files** from the current `%TEMP%\model-profiler\<run-id>\` run dir if they exist for today's run-id. Each agent's valid output counts as complete for that domain.
+3. **For missing agents or an absent `%TEMP%` run dir:** write **GAP stubs** per `dispatch-mechanics.md` at the expected `%TEMP%` path. Record that the domain has `[DATA_MISSING]` status and flag it in the run's risks.
+4. **Proceed to Phase 1.5 + Phase 2** without halting. Phase 2 judges must treat GAP domains explicitly and record them in the audit's metadata/`basis`.
+5. **Emit routing-table.json + routing-table-audit.json** with all available data (partial is OK). The audit trail reflects which domains were GAP-stubbed.
+6. **Record the condition** in the run note: add a line to the persisted `%TEMP%\model-profiler\<run-id>\phase-0-consent.md` consent record stating `Continuation mode: bounded` with a brief reason (e.g., "Phase 1 budget exceeded; using existing run-id data + GAP stubs for [domain list]").
+
+This mode is **authorization-neutral** — it does not weaken the credential, taxonomy, git-write, or out-of-allowlist barriers. It only softens the token-budget hard gate for the exact bare prompt, allowing a partial run to continue rather than blocking entirely.
 
 ## The six parameters to confirm
 
@@ -32,9 +104,9 @@ proceed on assumed defaults. Persist the answers to `giga-research/phase-0-conse
 | 1 | **Profiling scope:** which in-scope provider families + which recency window (e.g. last 6 months)? Or a specific model the owner already has in mind? | Bounds discovery. Phase 1 enumerates the concrete model list within this scope; the skill preselects nothing. |
 | 2 | **Fast or Full** mode? | Scales fan-out (agent counts) and number of adversarial passes |
 | 3 | **Runtime / budget** ceiling? (wall-clock + token/cost budget) | Long background jobs run detached; budget bounds fan-out |
-| 4 | **Provider mix** available? (which provider families + effort tiers are reachable now) | Cross-family is mandatory; a missing required family = halt |
+| 4 | **Provider mix** available? (which provider families + effort tiers are reachable now) | Cross-family is preferred; when only one family is reachable, dispatch single-family as a LOGGED degrade (amended invariant #5) — not a halt |
 | 5 | **Model universe scope:** "current generation" (recommended) or a strict recency window? | **Tradeoff to surface impartially:** a strict recency window can exclude an older small/low-cost tier that currently anchors a low-complexity category's primary route — leaving that route without a replacement. State this consequence; recommend "current generation"; confirm the owner's choice before proceeding. Name no specific model. |
-| 6 | **Authorize routing-table.json + routing-table-audit.json emission + build-wiring?** The run will write `src/routing-table.json` + the audit mirror, edit the `package.json` build script, and touch `scripts/copy-provider.mjs` + `scripts/validate_provider.mjs`. | These are code/config changes alongside the RAG-only writes; the owner must scope them in. |
+| 6 | **Authorize the 3-artifact emission + build-wiring?** The run will write `src/routing-table.json` + `src/routing-table-audit.json` + `research-seed-sites.json`, and touch `package.json`, `scripts/copy-provider.mjs`, `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `scripts/update_seed_sites.mjs`, `scripts/validate_seed_sites.mjs`. | These are code/config changes; the owner must scope them in. |
 
 > The taxonomy is **fixed** — there is no "authorize taxonomy change" question. The 10 categories +
 > `fallback_default`@99 are immutable inputs (`.spec/references/work-categories.md`); this run only
@@ -42,15 +114,19 @@ proceed on assumed defaults. Persist the answers to `giga-research/phase-0-conse
 
 ## Decision after answers
 
-- **All six answered + required provider families available + emission authorized** -> proceed to Phase 1.
-- **Required provider family missing** -> halt; surface; ask the owner whether to wait, or to
-  explicitly authorize a degraded single-family run (which weakens cross-family validation — flag the
-  cost). Do not silently degrade.
-- **Owner declines routing-table.json scope** -> continue as a RAG-only re-profile (skip
-  routing-table.json + audit emission and build-wiring); surface what will be skipped.
+- **All six answered or standing profile matched + required provider families available + emission
+  authorized** -> proceed to Phase 1.
+- **Cross-family unavailable (only one provider family reachable)** -> do NOT halt; dispatch
+  single-family (e.g. Claude-only web-research) as an EXPLICIT, LOGGED degrade recorded in the run's
+  `risks` (amended invariant #5, `dispatch-mechanics.md`). For the standing profile this is the
+  accepted degrade for the run — proceed and log it; do not `blocked`. Silent un-logged single-family
+  is still forbidden.
+- **Owner declines emission scope** -> stop; the run produces no artifacts. (There is no RAG-only
+  fallback — the 3 artifacts are the only output.) Surface what will be skipped.
 - **Owner declines / defers** -> stop. No dispatch, no writes.
 - **Scope unclear** (e.g., "profile the new one" with no family/window) -> ask a narrowing
-  follow-up; do not guess the scope and do not preselect a model.
+  follow-up; do not guess the scope and do not preselect a model. The exact bare instruction above
+  is not unclear; it uses the standing repository profile.
 
 ## Persisted record (example shape)
 
@@ -61,8 +137,9 @@ proceed on assumed defaults. Persist the answers to `giga-research/phase-0-conse
 - Runtime/budget: <wall-clock>, <token/cost ceiling>
 - Provider mix: <families + effort tiers reachable now>
 - Model universe scope: current-generation | strict-recency-window
-- routing-table.json + audit + build-wiring authorized: yes | no
+- 3-artifact emission + build-wiring authorized: yes | no
 - Consent: granted by <owner> at <time>
+- Standing profile: none | bare-reprofile-default
 - Notes/constraints: <...>
 ```
 

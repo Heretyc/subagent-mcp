@@ -53,5 +53,5 @@ B2 should add a load trigger to `AGENTS.md` "Load Triggers":
 > tool's param contract, the routing-table loader/resolver, or auto-mode
 > candidate-selection / silent-fallback behavior.
 
-Keep `AGENTS.md` <=100 lines when adding it; the existing
-`.spec/references/retrieval-map.md` trigger already covers routing-KB reads.
+Keep `AGENTS.md` <=100 lines when adding it; `src/routing-table.json` is the
+routing artifact; the fixed taxonomy lives in `.spec/references/work-categories.md`.
