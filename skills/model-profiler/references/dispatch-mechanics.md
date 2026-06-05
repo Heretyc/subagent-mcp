@@ -1,7 +1,7 @@
 # dispatch-mechanics.md — Proven Sub-Agent Dispatch (Claude + Codex)
 
 **Load when:** writing/launching any sub-agent prompt. This is the concrete how-to that makes the
-mixed-provider fan-out actually work.
+sub-agent fan-out actually work (single-family or mixed-provider — provider mix is optional).
 
 ---
 
@@ -13,7 +13,7 @@ coordination flows back through the orchestrator (never spoke-to-spoke). Paramet
 
 | Param | Values | Notes |
 |-------|--------|-------|
-| `provider` | `claude` \| `codex` | Which family/CLI backs the agent (≥2 families across the run) |
+| `provider` | `claude` \| `codex` | Which family/CLI backs the agent (provider mix optional — one or more families) |
 | `model` | the concrete member id within the chosen family | **Operator-selected at dispatch**, dogfooding the run's `routing-table.json`; the skill prescribes a role, never a named member |
 | `effort` | the member's reasoning-effort tier (family ladder, weakest→strongest) | Standard for research/extraction; elevated/maximal for flagship synthesis; operator-selected |
 | `prompt` | string | Begins with `<this is a request from a parent process>` |
@@ -30,7 +30,7 @@ the operator binds the concrete member+effort from `routing-table.json`:
 | a low-cost mechanical-execution member | Mechanical read/write — leaf edits, file moves, boilerplate, list/reformat |
 | a mid-tier research/build member | Research / review / build / repair — Phase 1 research, critics, repair passes |
 | a flagship-synthesis member (elevated effort) | Synthesis / merge / critique / architecture / tie-break — Phase 2, the merge, hard reviews |
-| a deterministic-extraction member (cross-family) | Deterministic extraction / structured pulls / closed-loop validator work |
+| a deterministic-extraction member | Deterministic extraction / structured pulls / closed-loop validator work |
 
 Every prompt starts with `<this is a request from a parent process>` and demands the JSON return
 contract (`status, summary, source_locators, risks, writes_requested`).
@@ -41,20 +41,18 @@ contract (`status, summary, source_locators, risks, writes_requested`).
 - **Verify the output FILE on disk** — the scratch/output file under `%TEMP%\model-profiler\<run-id>\`
   is the source of truth, not the agent's returned stream.
 
-## Claude-only web-research dispatch — a first-class LOGGED path
+## Single-family (e.g. Claude-only) dispatch — a first-class supported path
 
-Cross-family (≥2 provider families) is the **preferred** path when ≥2 families are reachable. But when
-the cross-family Subagent-MCP path is unavailable, dispatch ALL research/judging via Claude
-web-research subagents (the native Agent tool, or `mcp__subagent-mcp__launch_agent` with
-`provider: claude`). This is a **supported, first-class degrade for this run** (owner decision #6):
+Provider mix is **optional** (Hard Invariant #5). Multi-family and single-family are both
+fully-supported, first-class paths. When running single-family, dispatch ALL research/judging via that
+family's web-research subagents (e.g. Claude via the native Agent tool, or
+`mcp__subagent-mcp__launch_agent` with `provider: claude`):
 
-- Record `single-family: claude` in the run's `risks`. The degrade is LOGGED, not silent.
-- It does **NOT** block emission and does **NOT** halt the run.
+- It does **NOT** block emission and does **NOT** halt the run. It is not a degrade — no risk logging
+  required.
 - Critics remain FRESH within-family agents distinct from producers — never the producing agent itself
-  (self-review ban / Anti-Pattern D; per amended Hard Invariant #4). The cross-family self-review
-  separation weakens to within-family fresh-critic separation; this is the accepted, written degrade.
-
-Silent (un-logged) single-family is still forbidden.
+  (self-review ban / Anti-Pattern D; Hard Invariant #4). When ≥2 families are reachable, cross-family
+  critics are available; the only invariant is fresh-critic separation, which holds in every case.
 
 ## Fallback — if `subagent-mcp` is unavailable
 
@@ -95,8 +93,8 @@ treat the agent as **STALLED**.
 **Fallback dispatch.** On STALLED or terminal `blocked`/error:
 1. Relaunch via an **alternate provider/model** from `routing-table.json`.
    - Bare standing-profile runs: prefer Claude-backed research fallback when Codex is
-     usage-limited or unavailable, even if this makes the fallback single-family. Record
-     single-family fallback in the run's `risks`.
+     usage-limited or unavailable, even if this makes the fallback single-family. Single-family is a
+     fully-supported path (invariant #5); no risk logging required for the provider mix itself.
 2. Poll the fallback up to **5 times** (≥5 min each).
 3. If fallback also stalls or errors: write a **GAP stub** at the expected output path and
    continue. Do not halt the run for a single domain's GAP.

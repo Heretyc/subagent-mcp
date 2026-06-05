@@ -97,6 +97,18 @@ const EFFORT_LADDER = [
 const EFFORT_INDEX = new Map(EFFORT_LADDER.map((e, i) => [e, i]));
 const NO_EFFORT_SENTINELS = new Set(["n/a", "null", "none"]);
 
+// Owner directive: models with NO selectable effort (null/none/n/a) are EXCLUDED from
+// ranking/listing in these higher-reasoning task categories. They remain ranked in the
+// other 4 (math_proof, data_analysis, coding, mechanical).
+const NO_EFFORT_EXCLUDED_CATEGORIES = new Set([
+  "agentic_execution",
+  "architecture",
+  "security_review",
+  "debugging",
+  "quality_review",
+  "knowledge_synthesis",
+]);
+
 // Lower-is-better benchmarks (invert during normalization). Dataset gives no polarity
 // flag; per design these two bug/false-report density benchmarks are lower-is-better.
 function isLowerBetter(benchmark) {
@@ -552,11 +564,17 @@ function buildFullPairingObject(item) {
   };
 }
 
+// Per-category ranked universe: drop no-effort pairings from the excluded categories.
+function categoryUniverse(category) {
+  if (!NO_EFFORT_EXCLUDED_CATEGORIES.has(category)) return UNIVERSE;
+  return UNIVERSE.filter((p) => !NO_EFFORT_SENTINELS.has(p.effortK));
+}
+
 function buildFullBranch(branch, exponents) {
   const out = {};
   for (const category of SPINE) {
     const scores = perfScores.get(category);
-    const { items } = rankBranch(branch, scores, exponents);
+    const { items } = rankBranch(branch, scores, exponents, categoryUniverse(category));
     out[category] = items.map((item, idx) => {
       const obj = buildFullPairingObject(item);
       obj.rank = idx + 1;
@@ -568,9 +586,9 @@ function buildFullBranch(branch, exponents) {
 
 // Rank a branch by power-law score (desc), dense 1..N. Both branches use the same
 // score = perf_norm^a / cost_norm^b form; only the exponents differ.
-function rankBranch(branch, scores, exponents) {
+function rankBranch(branch, scores, exponents, universe = UNIVERSE) {
   const observed = [];
-  for (const p of UNIVERSE) {
+  for (const p of universe) {
     const s = scores.get(p.id);
     if (s.score === null) continue;
     observed.push(powerScore(p, s, exponents));
@@ -578,7 +596,7 @@ function rankBranch(branch, scores, exponents) {
   const minObs = observed.length ? Math.min(...observed) : 0;
   const SENTINEL = observed.length ? minObs - 1e-6 : 0;
 
-  const items = UNIVERSE.map((p) => {
+  const items = universe.map((p) => {
     const s = scores.get(p.id);
     const hasScore = s.score !== null;
     const branchScore = hasScore ? powerScore(p, s, exponents) : SENTINEL;

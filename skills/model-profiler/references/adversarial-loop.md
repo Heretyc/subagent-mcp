@@ -7,10 +7,11 @@ the emission from `decompose-update.md` ("Emit the 3 Artifacts") complete.
 
 ## Principles
 
-- **Fresh, mixed-provider critics** each pass (cross-family preferred when ≥2 families reachable; on
-  the Claude-only logged degrade, critics are FRESH within-family agents). A critic never reviewed an
-  earlier pass of the same artifact, and never reviews its own producer's output (self-review ban /
-  Anti-Pattern D).
+- **Fresh critics** each pass — distinct agents from producers regardless of provider family.
+  Cross-family critics are available when ≥2 families are reachable; on a single-family run, critics are
+  FRESH within-family agents (provider mix is optional, invariant #5 — single-family is not a degrade).
+  A critic never reviewed an earlier pass of the same artifact, and never reviews its own producer's
+  output (self-review ban / Anti-Pattern D).
 - **Repair between passes:** after each pass, dispatch a repair sub-agent (a research/build/repair
   member) to fix the findings, then re-validate before the next pass. Do not batch all three passes
   against the un-repaired artifacts.
@@ -22,10 +23,13 @@ Do the emitted artifacts *fire* correctly for the new model?
 - New model present in every category of both branches it should be?
 - No orphaned route, no category with a stale model, no dangling reference to a retired tier?
 - Gaps where the new model *should* have changed a route but didn't?
-- **routing-table.json coverage:** every model+effort pairing appears in every category in both
-  `performance` and `cost_efficiency` branches; `interpolated` flags consistent with the
-  interpolation rule (`tier-ranking-and-scoring.md`) — each unmeasured higher-effort variant
-  marked `true`, measured variants marked `false`.
+- **routing-table.json coverage (per-category, invariant #14):** in `math_proof`, `data_analysis`,
+  `coding`, `mechanical` — every model+effort pairing of the full universe appears in both branches.
+  In `agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
+  `knowledge_synthesis` — the REDUCED universe appears (full universe minus pairings of no-effort-only
+  models); no-effort-only models must be absent from these 6. `interpolated` flags consistent with the
+  interpolation rule (`tier-ranking-and-scoring.md`) — each unmeasured higher-effort variant marked
+  `true`, measured variants marked `false`.
 
 ## Pass 2 — Audit / Citation Honesty
 
@@ -61,8 +65,9 @@ Are the artifacts internally consistent and do they route real tasks correctly?
 - **Scenario routing + gate-preservation:** feed the 6 scenario prompts (see `validation.md`) to a
   critic and confirm each routes to its expected `{fixed category → run-produced member+effort route}`
   after the refresh, including any route the new profiling just changed. Gate-preservation: a
-  `math_proof` task must still route per `G_MATH`, and a security task authored by one family must
-  still trigger `G_SEC` cross-review rendered by a member of a **different** family than the author.
+  `math_proof` task must still route per `G_MATH`, and a security task must still trigger `G_SEC`
+  cross-review rendered by a FRESH member distinct from the author (a different family when ≥2 are
+  reachable; otherwise a fresh within-family member — never the author itself).
 
 ## Exit criteria
 
