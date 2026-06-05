@@ -1,31 +1,9 @@
 # validation.md — Final Validation Gate
 
-**Load when:** the adversarial loop has exited and you are signing off the updated KB. This is the
-last gate before delivery.
+**Load when:** the adversarial loop has exited and you are signing off the emitted artifacts. This is
+the last gate before delivery.
 
 ---
-
-## 1. Run the KB validator
-
-```powershell
-python .spec/references/scripts/validate_kb.py
-```
-
-It must print `PASS`. The validator enforces (pure stdlib, path-relative):
-
-- **Line caps** — every `.spec/references/**/*.md` <=200 lines.
-- **Relative cross-links** — no broken `.md`/`.json` links; nothing links outside the KB.
-- **retrieval-map coverage** — every leaf and `assets/routing-table.json` is referenced in
-  `retrieval-map.md`.
-- **routing-table.json (machine mirror) mirror + precedence** — metadata block, `schema_version`, version,
-  `classification_precedence`, `default_category`, `hard_gates` (ids + order), and `categories`
-  (keys + order) all match the manifest spine; each category record has all required fields with
-  valid `{provider, model}` and correct integer `precedence`; the markdown route-table order equals
-  the json category order.
-- **Provenance purity** — no leaf cites an internal `.spec/references/` path as a source.
-
-> If you bumped `version`/`schema_version` in `decompose-update.md`, the validator's pinned
-> constants must already match (you updated them in the same change). A version mismatch fails here.
 
 ## 1a. Run the routing-table.json validator
 
@@ -40,24 +18,16 @@ below). It checks:
 
 - **Exactly two root branches** (`performance`, `cost_efficiency`); each has the same category keys
   in the same order as the RAG spine.
-- **Full universe coverage** — each category array contains every `model_effort_universe` pairing
-  exactly once (set-equality, no duplicates, no omissions).
-- **Dense monotonic ranks** — `rank` is a 1-based integer sequence with no gaps or ties; `score`
-  ordering matches rank order.
-- **Valid models** — every `model` is a known real model id AND every `model`+`effort` pair is in
-  `metadata.model_effort_universe`; every `effort` is a known ladder tier.
-- **Interpolation flag + same-model monotonicity** — `interpolated:true` entries do not score below
-  a lower-effort variant of the **same** model. (Cross-model clamp correctness is NOT re-derived
-  here — see disclaimer.)
-- **Calibration gate** — reads `metadata.calibration_gate {k_categories_min, m_rank_churn_min,
-  k_observed, m_observed, passed}`. Recomputes observed churn from the performance vs
-  cost_efficiency orderings, asserts `k_observed ≥ k_categories_min` (the floor), asserts the
-  recorded `k_observed`/`m_observed`/`passed` match the recomputation, and bans the rank-1
-  cost_efficiency pick per category from being the globally cheapest-AND-weakest pairing. If
-  `calibration_gate` is absent the validator FAILS (no silent default).
-- **Metadata well-formed** — `version`, `schema_version`, `generated` (YYYY-MM), `author`,
-  `rag_pointer` all present; `formula_definitions` includes `calibrated_exponents` (with `a > b`)
-  and `cost_blend`; `confidence`, when present, is in the allowed enum.
+- **Full universe coverage** — the table-derived union of `model@effort` pairings appears exactly
+  once in every category of both branches (set-equality, no duplicates, no omissions).
+- **Dense ranks** — `rank` is a 1-based integer sequence with no gaps or ties and equals array
+  position.
+- **Lean shape** — pairings carry exactly `{provider, model, effort, rank}` and lean metadata
+  carries exactly the 5 schema-versioned fields from `provider-json-emission.md`.
+- **Valid provider/model/effort** — every provider matches the model family, every model is a known
+  real model id, and every effort is a known ladder tier.
+- **Effort capability** — no-effort sentinels (`null`, `none`, `n/a`) appear only on models with no
+  selectable effort setting; effort-capable models use concrete selectable tiers.
 
 > **Scope disclaimer (no over-claiming):** the structural validator does NOT re-derive the full
 > cross-model interpolation clamp — that requires the per-benchmark data, which lives in the RAG,
@@ -69,17 +39,37 @@ below). It checks:
 
 ## 1b. Audit-mirror check (routing-table-audit.json)
 
-Confirm `.spec/references/assets/routing-table-audit.json` exists and structurally mirrors
-`routing-table.json`: identical branch keys, identical category keys/order, identical per-pairing
+Confirm `src/routing-table-audit.json` exists and structurally mirrors `src/routing-table.json`:
+identical branch keys, identical category keys/order, identical per-pairing
 `model`/`effort` set per category. Every pairing carries a non-empty `citations` array; each
-citation has a non-empty `url`, an ISO8601 `retrieved_at`, and a single-sentence `annotation`.
+citation has an ISO8601 `retrieved_at` and a single-sentence `annotation`. Source-backed citations
+have a non-empty `url`; data-free sentinel citations may use an empty `url` with label `[SENTINEL]`.
 A missing audit file, a structural drift from routing-table.json, or any pairing with zero citations
 FAILS validation (no silent default).
+
+## 1c. Seed-sites existence + growth gate (run-level — NOT the npm-test skip path)
+
+First run the schema validator:
+
+```powershell
+node scripts/validate_seed_sites.mjs   # must PASS (schema)
+```
+
+Then, against the run that just completed, this leaf MUST assert:
+
+- `research-seed-sites.json` EXISTS. A completed profiling run that produced it is mandatory; absence
+  here is a **FAIL**, not a NOTICE-skip. (The NOTICE-skip in `validate_seed_sites.mjs` is only for a
+  fresh clone before any profiling run has ever happened — never for a run that was supposed to emit it.)
+- `metadata.last_run_at` equals THIS run's stamp (proves the run actually merged into it).
+- `sites.length >= prior committed sites.length` (the list never shrank).
+
+If the file is absent, stale (`last_run_at` not this run's stamp), or shrank → **FAIL the run**
+(Rule 12: a run cannot exit green having emitted only 2 of the 3 artifacts).
 
 ## 2. Spec checklist
 
 Confirm the AGENTS.md / spec obligations for a structural + policy change:
-- `git status --short --branch` inspected before writes; changes scoped to the KB + this skill.
+- `git status --short --branch` inspected before writes; changes scoped to the 3 artifacts + this skill.
 - Topic branch + PR for the multi-file change (not a direct protected-branch edit).
 - Pre-commit contradiction-checker sub-agent dispatched (strongest model) before committing source/
   executable changes; if it reports `blocked`/`needs_user`, no writes.
@@ -100,7 +90,7 @@ members just changed.
 | 3 | A cross-cutting design / decomposition task | Classified `architecture`; the `architecture_complexity` modifier fires plan-before-build + independent cross-review; routes to that category's run-produced primary |
 | 4 | A closed-loop terminal / "iterate until tests pass" task | Classified `agentic_execution`; routes to its run-produced primary and fires its mandatory-before-commit synergy pattern |
 | 5 | A leaf file read / search / reformat task | Classified `mechanical`; routes to its run-produced low-cost primary, subject to its context-cap gate |
-| 6 | A "which member for X now?" question (post-launch) | Resolves via `retrieval-map.md` to the run-produced route for the matched category |
+| 6 | A "which member for X now?" question (post-launch) | Resolves via the `src/routing-table.json` performance branch to the run-produced route for the matched category |
 
 Scenarios 1 and 2 are **gate-preservation tests** — `G_MATH` and `G_SEC` must fire correctly against
 the fixed spine. Scenarios 3–6 exercise fixed categories whose **routes** the new profiling may have
@@ -109,10 +99,11 @@ hard-code which member/effort serves a category here.
 
 ## 4. Sign-off → deliver
 
-When validator = PASS, checklist clear, and all six scenarios route as expected, emit the change
-note and the output contract (updated leaves + bumped `routing-table.json` + `source-ledger.md` +
-`decision-rationale.md` + new `giga-research/` provenance). Surface any residual uncertainty
-(e.g., a same-day model launch with [PRESS]-only figures) rather than hiding it.
+When validators = PASS, checklist clear, and all six scenarios route as expected, confirm the output
+contract: EXACTLY 3 persisted artifacts — `src/routing-table.json`, `src/routing-table-audit.json`,
+`research-seed-sites.json`. Nothing else persists to the repo. The change note lives in the audit
+metadata, not a separate prose file. Surface any residual uncertainty (e.g., a same-day model launch
+with [PRESS]-only figures) rather than hiding it.
 
 ---
 

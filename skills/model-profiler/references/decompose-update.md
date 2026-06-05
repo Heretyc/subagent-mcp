@@ -1,8 +1,8 @@
-# decompose-update.md — Update the KB Rankings In Lockstep (Fixed Taxonomy)
+# Emit the 3 Artifacts
 
-**Load when:** the canonical core synthesis is ready and you are updating `.spec/references/`.
-Prereq: `giga-research/phase-2-core-synthesis.md` with per-category, per-pairing tier rankings +
-rationale (the spine is a fixed input, never a verdict to be re-decided here).
+**Load when:** the canonical core synthesis is ready and you are emitting the run's persisted output.
+Prereq: `%TEMP%\model-profiler\<run-id>\phase-2-core-synthesis.md` with per-category, per-pairing tier
+rankings + rationale (the spine is a fixed input, never a verdict to be re-decided here).
 
 ---
 
@@ -10,102 +10,85 @@ rationale (the spine is a fixed input, never a verdict to be re-decided here).
 
 The 10 categories + `fallback_default`@99 and their precedence are an **immutable input**
 (`work-categories.md`; determination methodology in `docs/spec/task-taxonomy/`). A run refreshes the
-per-category **rankings** (the member+effort ordering) and the prose explaining them — it never adds,
-merges, renames, reorders, or drops a category. Keep the existing manifest spine as-is. If a run
-surfaces evidence the spine itself is wrong, **surface it to the owner as `needs_user`** — do not
-mutate the spine in this skill. The validator pins the spine and fails any drift — see `validation.md`.
+per-category **rankings** (the member+effort ordering) — it never adds, merges, renames, reorders, or
+drops a category. Keep the spine as-is. If a run surfaces evidence the spine itself is wrong, **surface
+it to the owner as `needs_user`** — do not mutate the spine in this skill. The builder reads the spine
+from `.spec/references/assets/routing-table.json` and asserts its category keys; `validate_provider.mjs`
+checks category keys/order — see `validation.md`.
 
-## 2. Files to update IN LOCKSTEP
+## 2. The output contract — EXACTLY 3 persisted artifacts
 
-Dispatch write sub-agents (mechanical writes → a mechanical-write member; structured/JSON edits → a
-deterministic-extraction member; keep the fan-out cross-family) to update, together, so the KB never
-drifts:
+A run persists EXACTLY 3 artifacts to the repo and nothing else:
 
-| File | Update |
-|------|--------|
-| `.spec/references/model-profiles.md` | Newly profiled members' capabilities, ctx, effort ladder, benchmarks, cutoff, sampling locks |
-| `.spec/references/work-categories.md` | **Fixed spine — read, not rewritten on a ranking run.** Touch only if the owner has separately ratified a spine change in `docs/spec/task-taxonomy/` (out of normal scope) |
-| `.spec/references/routing-table.md` | Per-category `{provider, model, effort}` + fallback (refresh the routes; precedence order is fixed) |
-| `.spec/references/routing-contract.md` | **Precedence string is fixed — do not rewrite it.** Refresh only the per-category routes; preserve gate IDs + gate-first/first-match rules |
-| `.spec/references/hard-gates.md` | Any gate thresholds/severities the new model changes (ctx caps, G_SEC scope) |
-| `.spec/references/cost-model.md` | New model pricing, priority tiers, inflation/effective-cost constants |
-| `.spec/references/synergy-patterns.md` | New producer/critic pairings, fan-out involving the new model |
-| `.spec/references/failure-modes.md` | New failure signatures (hallucination, stall, 429) for the new model |
-| `.spec/references/governance-halts.md` | Commit/data/sandbox authority changes for the new model |
-| `.spec/references/assets/routing-table.json` | **Machine mirror** — see "routing-table.json (machine mirror) — bump version, keep mirror exact" |
-| `.spec/references/source-ledger.md` | New APA sources for the newly profiled members (original sources only) |
-| `.spec/references/decision-rationale.md` | **Record the ranking refresh** — see "Record the ranking refresh in decision-rationale.md" |
-| `.spec/references/retrieval-map.md` | Add any new leaf/alias so coverage stays complete |
-| `src/routing-table.json` | **Tier rankings artifact** — rewrite all category orderings (see "routing-table.json — write in lockstep, validate before merge") |
-| `.spec/references/assets/routing-table-audit.json` | **Audit sibling of routing-table.json** — same branch/category/pairing structure + per-pairing `citations[]` (url, retrieved_at, one-sentence annotation). Emitted with routing-table.json. |
-| `scripts/validate_kb.py` | Refresh `VALID_MODELS` + metadata version/source pin each run; spine constants (`EXPECTED_CATEGORIES`/`EXPECTED_PRECEDENCE`) change **only** on an owner-ratified spine change |
-| `scripts/validate_provider.mjs` | Standalone routing-table.json validator — created at build time; a run ensures-it-exists and updates it only if the `provider-json-emission.md` schema evolves (idempotent) |
+| Artifact | Produced by | Owns |
+|----------|-------------|------|
+| `src/routing-table.json` | the deterministic builder (`build_routing_table.mjs`) | Lean canonical tier rankings (the runtime table) |
+| `src/routing-table-audit.json` | the same builder, same run | Full provenance: per-pairing `citations[]`, scoring/cost metadata (the SOLE provenance store) |
+| `research-seed-sites.json` (repo root) | `update_seed_sites.mjs` (merges this run's audit citations) | Accumulating learned source registry |
 
-**Every leaf <=200 lines.** If a leaf would exceed it, split into an index + same-named subdir.
+NO `.spec/references` writes. NO `validate_kb.py`. NO `source-ledger.md` / `retrieval-map.md` /
+`decision-rationale.md` / `model-profiles.md` / `routing-table.md` prose — those KB leaves are gone.
+The "why" of each route lives in the audit's `basis` / `citations[]`, not a separate prose file.
 
-## 2a. Build-wiring files (idempotent; created at build time)
+## 3. Emission steps (after the Phase-2 merge)
 
-`scripts/copy-provider.mjs` and `scripts/validate_provider.mjs` are wired by the build (not the
-run). A run only ensures-they-exist and updates them if the `provider-json-emission.md` schema
-evolves. Do **not** rewrite them on a run that produces no schema change.
+Phase research is EPHEMERAL — written to `%TEMP%` scratch, consumed by the builder, never persisted to
+the repo. The emission is **deterministic code** (sanity Rule 5), not free-hand LLM ranking:
 
-## 3. routing-table.json (machine mirror) — bump version, keep mirror exact
+1. **Assemble the ephemeral dataset.** From the Phase-2 merge, assemble `structured-dataset.json` under
+   `%TEMP%\model-profiler\<run-id>\` (per-model `pricing`, benchmarks, effort ladders, tier-ordering
+   inputs). It is never committed.
+2. **Point the builder at it + stamp the run.** Set env (see `tier-ranking-and-scoring.md` §D.6 / the
+   builder header):
+   ```powershell
+   $env:DATASET_PATH = "$env:TEMP\model-profiler\<run-id>\structured-dataset.json"
+   $env:DATASET_DATE = "<YYYY-MM-DD>"; $env:GENERATED_MONTH = "<YYYY-MM>"
+   $env:SEED_SOURCES_PATH = "$env:TEMP\model-profiler\<run-id>\source-locators.json"  # optional
+   ```
+3. **Run the deterministic builder.** It reads only `DATASET_PATH` (ephemeral) + the committed spine,
+   applies the SOPs (`tier-ranking-and-scoring/01-sops.md`), and writes
+   `src/routing-table.json` + `src/routing-table-audit.json`:
+   ```powershell
+   node scripts/build_routing_table.mjs
+   ```
+4. **Merge this run's citations into the seed registry.** `update_seed_sites.mjs` reads
+   `src/routing-table-audit.json`, harvests every non-empty-url citation, and accumulates into
+   `research-seed-sites.json` (the spine is fixed — never re-derive it):
+   ```powershell
+   node scripts/update_seed_sites.mjs
+   ```
+5. **Validate.** Run `validate_provider.mjs` + the audit-mirror check + `validate_seed_sites.mjs` + the
+   run-level §1c existence/growth gate (`validation.md`):
+   ```powershell
+   node scripts/validate_provider.mjs
+   node scripts/validate_seed_sites.mjs
+   ```
 
-`assets/routing-table.json` is consumed at runtime by subagent-mcp. It must mirror
-`routing-table.md` exactly and pass `validate_kb.py`. When updating:
+## 4. Build-wiring files (idempotent; created at build time)
 
-- **Bump `version` AND `schema_version`** (e.g. `2.0.0` -> next). Update `metadata.source` to the
-  new synthesis date (`phase-2-core-synthesis/<date>`) and `metadata.generated` to the new month.
-- Keep `classification_precedence`, `default_category` (`fallback_default`), `hard_gates` (ids +
-  order), and `categories` (keys + order) **identical** to the markdown spine.
-- Each category record keeps all required fields (`id, definition, classify_signals, precedence,
-  primary, fallback, gates, synergy_pattern, cost_note, risk_flags`); `primary`/`fallback` use only
-  valid `{provider, model}` values; `precedence` integer matches spine position (`fallback_default`
-  = 99). The md route-table order must equal the json category order (validator checks the mirror).
+`scripts/copy-provider.mjs`, `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`,
+`scripts/update_seed_sites.mjs`, and `scripts/validate_seed_sites.mjs` are wired by the build, not the
+run. A run only ensures-they-exist and updates them if the `provider-json-emission.md` schema evolves.
+Do **not** rewrite them on a run that produces no schema change.
 
-> The validator's expected metadata/version are pinned to constants. If you bump the version,
-> update those constants in `scripts/validate_kb.py` in the SAME change, or validation will fail.
-> Treat the validator as part of the lockstep.
+## 5. Atomicity invariant
 
-## 5. routing-table.json — write in lockstep, validate before merge
+All 3 artifacts move TOGETHER on a short-lived topic branch. The merge gate is:
 
-`src/routing-table.json` is a **committed build artifact** (canonical). `dist/routing-table.json` is copied
-at build time and gitignored. A run writes `src/routing-table.json`; the build copies it to `dist/`.
+1. `node scripts/validate_provider.mjs` — **PASS**
+2. `node scripts/validate_seed_sites.mjs` — **PASS** (plus the §1c existence/growth gate)
+3. `npm run build` — green (emits `dist/routing-table.json` from `src/routing-table.json`; `tsc` must
+   not emit a compiled routing-table.json)
 
-## 5a. Atomicity invariant
-
-All ranking-refresh edits (RAG prose + routing-table.json + `src/routing-table.json`, plus validator
-constants only if the schema itself evolved) happen on a short-lived topic branch. The merge gate is:
-
-1. `python .spec/references/scripts/validate_kb.py` — **PASS**
-2. `node scripts/validate_provider.mjs` — **PASS**
-3. `npm run build` — green (emits `dist/routing-table.json`; `tsc` must not emit a compiled routing-table.json)
-
-A half-updated KB (rankings refreshed on one artifact but not its mirror) must never reach the
-default branch.
-
-## 5b. Pre-defined split strategy for files at the 200-line cap
-
-The files most at risk are `retrieval-map.md` (~190/200 now) and `decision-rationale.md` (it grows
-each run). When a run rewrites either and the file approaches 200 lines, split it using this layout —
-**do not improvise a different structure mid-write**:
-
-- Keep the original filename as an **index file** (<=200 lines): overview + a table of links to leaves.
-- Place per-section content in a same-named subdirectory (e.g., `retrieval-map/`,
-  `decision-rationale/`) as individual leaf files, each <=200 lines.
-- Update `retrieval-map.md` to reference the new leaf paths; update cross-links in other files.
-
-## 6. Record the ranking refresh in decision-rationale.md
-
-Add: each newly profiled member's seed-corroboration row, each conflict reconciliation (CR-N) the
-merge produced with resolution + residual uncertainty, any mandate-overrides-benchmark calls, and the
-label key if new labels were used. This is the auditable "why" for the route changes.
+A half-emitted state (one artifact refreshed but not its siblings) must never reach the default branch.
 
 ### Checkpoint
 
-All listed files updated together; `routing-table.json` version bumped and validator constants
-matched; `src/routing-table.json` written; `validate_kb.py` + `validate_provider.mjs` both PASS;
-every leaf <=200 lines; ranking refresh recorded; routing-table-audit.json emitted and its branch/category/pairing structure matches routing-table.json. Then run the adversarial loop (`adversarial-loop.md`).
+Ephemeral dataset assembled under `%TEMP%`; the builder emitted `src/routing-table.json` +
+`src/routing-table-audit.json`; `update_seed_sites.mjs` merged this run's citations into
+`research-seed-sites.json`; `validate_provider.mjs` + audit-mirror + `validate_seed_sites.mjs` + §1c all
+PASS; all 3 artifacts move together; no `.spec/references` writes. Then run the adversarial loop
+(`adversarial-loop.md`).
 
 ---
 

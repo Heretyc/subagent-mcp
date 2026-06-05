@@ -52,7 +52,7 @@ export interface RoutingTable {
 
 interface PairingEntry {
   model: string;
-  effort: string;
+  effort: string | null;
   rank: number;
   [key: string]: unknown;
 }
@@ -136,25 +136,20 @@ export function mapModelToProvider(model: string): Provider | null {
  * the resolver never feeds an invalid combo into buildCommand.
  *
  * - haiku -> "none" sentinel (effort ignored by buildCommand; reported as-is).
- * - codex@none -> "none" sentinel (resolveEffort defaults to high; reported as-is).
+ * - `none` on effort-capable models is invalid routing data -> null (skip candidate).
  * - ultracode is opus/opus-4-8 only; any other model clamps to "xhigh".
  * - codex has no max/ultracode; both clamp to "xhigh".
- * - unknown tier (not in the launch enum, not "none") -> null (skip candidate).
+ * - unknown tier (not in the launch enum) -> null (skip candidate).
  *
  * `model` here is the SHORT launch id.
  */
 export function normalizeEffort(
   provider: Provider,
   model: string,
-  effort: string
+  effort: string | null
 ): string | null {
   // haiku ignores effort entirely; report the sentinel.
   if (provider === "claude" && model === "haiku") {
-    return HAIKU_EFFORT;
-  }
-
-  // codex@none: resolveEffort already defaults to high; return sentinel.
-  if (provider === "codex" && effort === "none") {
     return HAIKU_EFFORT;
   }
 
@@ -165,7 +160,7 @@ export function normalizeEffort(
   }
 
   // Unknown tiers (not a launch-enum value, not handled above) -> skip.
-  if (!(LAUNCH_EFFORTS as readonly string[]).includes(effort)) {
+  if (typeof effort !== "string" || !(LAUNCH_EFFORTS as readonly string[]).includes(effort)) {
     return null;
   }
 

@@ -1,0 +1,211 @@
+{
+  "metadata": {
+    "author": "Lexi Blackburn",
+    "author_url": "https://github.com/Heretyc/",
+    "schema_version": "1",
+    "generated": "2026-06",
+    "last_run_at": "2026-06-04T00:00:00Z",
+    "site_count": 14
+  },
+  "sites": [
+    {
+      "url": "https://artificialanalysis.ai/articles/claude-opus-4-8-analysis-and-benchmarks",
+      "domain": "artificialanalysis.ai",
+      "tier": 0,
+      "categories": [
+        "coding"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://artificialanalysis.ai/evaluations/artificial-analysis-intelligence-index",
+      "domain": "artificialanalysis.ai",
+      "tier": 0,
+      "categories": [
+        "knowledge_synthesis",
+        "mechanical"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://artificialanalysis.ai/models/claude-opus-4-8",
+      "domain": "artificialanalysis.ai",
+      "tier": 0,
+      "categories": [
+        "knowledge_synthesis",
+        "mechanical"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://benchlm.ai/benchmarks/frontierMath",
+      "domain": "benchlm.ai",
+      "tier": 0,
+      "categories": [
+        "math_proof"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://dev.to/blamsa0mine/swe-bench-agentic-coding-and-what-actually-changed-from-claude-sonnet-45-to-46-1gig",
+      "domain": "dev.to",
+      "tier": 0,
+      "categories": [
+        "agentic_execution",
+        "coding"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[UNVERIFIED]"
+    },
+    {
+      "url": "https://interestingengineering.com/ai-robotics/opanai-gpt-5-5-agentic-coding-gains",
+      "domain": "interestingengineering.com",
+      "tier": 0,
+      "categories": [
+        "agentic_execution"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public",
+      "domain": "labs.scale.com",
+      "tier": 0,
+      "categories": [
+        "architecture",
+        "coding",
+        "debugging"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://llm-stats.com/blog/research/claude-opus-4-8-launch",
+      "domain": "llm-stats.com",
+      "tier": 0,
+      "categories": [
+        "agentic_execution",
+        "coding"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://www.anthropic.com/news/claude-opus-4-8",
+      "domain": "anthropic.com",
+      "tier": 0,
+      "categories": [
+        "knowledge_synthesis",
+        "quality_review"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[ASSUMPTION]"
+    },
+    {
+      "url": "https://www.datacamp.com/blog/claude-opus-4-8-vs-gpt-5-5",
+      "domain": "datacamp.com",
+      "tier": 0,
+      "categories": [
+        "agentic_execution",
+        "architecture",
+        "data_analysis",
+        "quality_review"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://www.datacamp.com/blog/gpt-5-5-vs-claude-opus-4-7",
+      "domain": "datacamp.com",
+      "tier": 0,
+      "categories": [
+        "math_proof"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://www.hackerone.com/blog/vulnerability-exploitability-benchmark-gpt-5-5-vs-claude",
+      "domain": "hackerone.com",
+      "tier": 0,
+      "categories": [
+        "security_review"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://www.mindstudio.ai/blog/gpt-5-5-vs-claude-mythos-cybersecurity-benchmark-comparison",
+      "domain": "mindstudio.ai",
+      "tier": 0,
+      "categories": [
+        "security_review"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+      "domain": "vellum.ai",
+      "tier": 0,
+      "categories": [
+        "agentic_execution",
+        "architecture",
+        "coding",
+        "debugging",
+        "knowledge_synthesis",
+        "math_proof",
+        "mechanical",
+        "quality_review"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 3,
+      "label": "[INFERRED]"
+    }
+  ]
+}

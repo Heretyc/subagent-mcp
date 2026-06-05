@@ -29,8 +29,8 @@ const effortOrder = new Map([
   ["pro", 9],
   ["ultracode", 10],
 ]);
-// Closed real-model set. MIRRORS validate_kb.py VALID_MODELS — keep in sync whenever the
-// model universe changes.
+// Closed real-model set. The single source of truth for valid model ids now that the
+// .spec KB validator is retired — update here whenever the model universe changes.
 const VALID_MODELS = new Set([
   "claude-opus-4-8",
   "claude-opus-4-7",
@@ -40,6 +40,17 @@ const VALID_MODELS = new Set([
   "gpt-5.5",
   "gpt-5.5-pro",
   "gpt-5.4-mini",
+]);
+const NO_EFFORT_SENTINELS = new Set(["null", "none", "n/a"]);
+const MODEL_EFFORT_LADDERS = new Map([
+  ["claude-opus-4-8", ["low", "medium", "high", "xhigh", "max"]],
+  ["claude-opus-4-7", ["low", "medium", "high", "xhigh", "max"]],
+  ["claude-opus-4-6", ["low", "medium", "high", "max"]],
+  ["claude-sonnet-4-6", ["low", "medium", "high", "max"]],
+  ["claude-haiku-4-5", ["n/a"]],
+  ["gpt-5.5", ["low", "medium", "high", "xhigh"]],
+  ["gpt-5.5-pro", ["n/a"]],
+  ["gpt-5.4-mini", ["n/a"]],
 ]);
 
 function isObject(value) {
@@ -58,6 +69,11 @@ function readJson(path, label, issues) {
 
 function effortKey(effort) {
   return effort === null ? "null" : String(effort);
+}
+
+function modelSupportsSelectableEffort(model) {
+  const ladder = MODEL_EFFORT_LADDERS.get(model);
+  return Array.isArray(ladder) && ladder.some((effort) => !NO_EFFORT_SENTINELS.has(effortKey(effort)));
 }
 
 function pairingKey(model, effort) {
@@ -247,6 +263,14 @@ function validatePairingArray(label, entries, universeSet, issues) {
       issues.push(`${label}[${index}].effort missing`);
     } else if (!effortOrder.has(effortKey(entry.effort))) {
       issues.push(`${label}[${index}].effort is not a known effort tier: ${effortKey(entry.effort)}`);
+    } else if (
+      typeof entry.model === "string" &&
+      modelSupportsSelectableEffort(entry.model) &&
+      NO_EFFORT_SENTINELS.has(effortKey(entry.effort))
+    ) {
+      issues.push(
+        `${label}[${index}] ${pairingKey(entry.model, entry.effort)} uses a no-effort sentinel, but ${entry.model} has selectable effort settings`
+      );
     }
     // rank: dense, matches ordered array position.
     if (!Number.isInteger(entry.rank) || entry.rank < 1) {

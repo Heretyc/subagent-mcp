@@ -30,20 +30,30 @@ interpolated performance value combined with the cost figure. Do not re-interpol
 
 ## B. Cost-Figure Methodology
 
-**Source of truth: `.spec/references/cost-model.md`.** Do not duplicate rate tables here; cite
-and reference that file. Every rate used must trace to a row in `cost-model.md` or be labelled
-`[ASSUMPTION]` / `[UNVERIFIED]`.
+**Source of truth: the dataset's per-model `pricing` block + the builder constants in
+`build_routing_table.mjs`.** Per-model rates come from the ephemeral research dataset's `spec.pricing`;
+the blend/multiplier/cliff constants are hardcoded in the builder. Do not duplicate rate tables here.
+Every rate used must trace to a dataset `pricing` row or be labelled `[ASSUMPTION]` / `[UNVERIFIED]`.
 
 One provider-neutral `$/token` scalar per model+effort pairing. Construction:
 
 | Factor | Rule |
 |---|---|
-| **Blend** | Fixed 100K input / 20K visible output reference (matches `cost-model.md` §4 reference blend) |
-| **Tokenizer inflation** | Apply each member's tokenizer-inflation factor from `cost-model.md` §3 to every pairing of any family whose tokenizer inflates token counts; members on a legacy/non-inflating tokenizer get no adjustment. The factor is a per-member datum in `cost-model.md`, never named here. |
-| **Hidden-reasoning multipliers** | Apply the effort-tier hidden-output multipliers from `cost-model.md` §4 (the effort-ladder definition: none=0×, low=0.1×, med=0.25×, high=0.75×, xhigh=1.5×, max=2.5×). |
-| **Efforts without a published multiplier** | Every effort in the validator ladder (`null, none, min, light, low, medium, high, xhigh, max, pro, ultracode`) must resolve to a multiplier so no pairing has undefined cost. Any effort lacking a published §4 value uses the **nearest lower documented tier** as its default: `null`→`none` (0×), `min`/`light`→`low` (0.1×), `pro`/`ultracode`→`max` (2.5×). State the default applied and label the pairing `[ASSUMPTION]`. |
-| **Input price-cliff** | For any member with a published input price cliff (`cost-model.md` §2), determine whether the 100K-in/20K-out reference blend sits below or above that member's cliff; record the side in `routing-table.json` metadata (`cost_blend.price_cliff_side`), and use the below- or above-cliff rates accordingly. A member with no cliff records `"n/a"`. Threshold values are per-member data in `cost-model.md`, never named here. |
-| **Gaps** | Any rate not in `cost-model.md` → label `[ASSUMPTION]` or `[UNVERIFIED]` on the pairing's `basis` field. |
+| **Blend** | Fixed 100K input / 20K visible output reference (the builder's reference blend) |
+| **Tokenizer inflation** | Apply each member's tokenizer-inflation factor (from the dataset's per-member pricing data) to every pairing of any family whose tokenizer inflates token counts; members on a legacy/non-inflating tokenizer get no adjustment. The factor is a per-member datum, never named here. |
+| **Hidden-reasoning multipliers** | Apply the effort-tier hidden-output multipliers from the builder's effort-ladder definition: none=0×, low=0.1×, med=0.25×, high=0.75×, xhigh=1.5×, max=2.5×. |
+| **Efforts without a published multiplier** | Every effort in the validator ladder (`null, none, min, light, low, medium, high, xhigh, max, pro, ultracode`) must resolve to a multiplier so no pairing has undefined cost. Any effort lacking a published value uses the **nearest lower documented tier** as its default: `null`→`none` (0×), `min`/`light`→`low` (0.1×), `pro`/`ultracode`→`max` (2.5×). State the default applied and label the pairing `[ASSUMPTION]`. |
+| **Input price-cliff** | For any member with a published input price cliff (from the dataset's per-member pricing data), determine whether the 100K-in/20K-out reference blend sits below or above that member's cliff; record the side in the **audit** metadata (`cost_blend.price_cliff_side`), and use the below- or above-cliff rates accordingly. A member with no cliff records `"n/a"`. Threshold values are per-member data, never named here. |
+| **Gaps** | Any rate not in the dataset `pricing` block → label `[ASSUMPTION]` or `[UNVERIFIED]` on the pairing's `basis` field. |
+
+No-effort sentinels (`null`, `none`, `n/a`) are costable only for members with no selectable
+effort setting. If a member supports selectable efforts, exclude `none` from its model+effort
+universe and score only concrete selectable tiers.
+
+**Owner directive (absolute):** the ban on no-effort sentinels for effort-capable models is
+enforced independent of the authority chain — even vendor documentation claiming a model supports
+`@none` does not override this. Phase 2 judges and the merge must silently exclude any `<model>@none`
+pairing from tier outputs if the model has any selectable effort tiers, regardless of Phase 1 notes.
 
 ---
 
@@ -111,7 +121,7 @@ are deterministic and example-backed; see the leaf:
 | SOP | Rule (one line) | Leaf |
 |---|---|---|
 | **SOP-1 Version-promotion** | A missing lineage version is inserted immediately above its nearest-older listed predecessor (never above a different model); guard: no older version listed → no insert | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) |
-| **SOP-2 Worst-case cost** | Most-expensive defensible value: tokenizer inflation = **1.35×** max (1.4× DEPRECATED); gpt-5.5 cliff → post-cliff rate when `G_CTX_272` in play | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) · `.spec/references/cost-model.md` |
+| **SOP-2 Worst-case cost** | Most-expensive defensible value: tokenizer inflation = **1.35×** max (1.4× DEPRECATED); gpt-5.5 cliff → post-cliff rate when `G_CTX_272` in play | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) · dataset `pricing` + builder constants |
 | **SOP-3 Sourcing policy** | Thin-sourced (vendor-only/single-press) moves a pairing ≤±1 tier and only if the gap clears ~10pp; withdrawn vendor self-reports discarded; tier-2/3 corroboration lifts the cap | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) |
 
 This is distinct from §A: §A interpolates a missing **effort** of the same model; SOP-1 fills a missing

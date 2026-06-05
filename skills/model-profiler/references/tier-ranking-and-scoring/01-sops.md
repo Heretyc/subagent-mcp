@@ -2,9 +2,10 @@
 
 **Load when:** the deterministic builder constructs `routing-table.json` / `routing-table-audit.json`
 and must apply the three owner-mandated Standard Operating Procedures. Parent index:
-`../tier-ranking-and-scoring.md`. Authority: `giga-research/2026-06-03-profiling/phase-1.5-answers.md`
-(owner answers > vendor docs/verified benchmarks > seed). These SOPs are **deterministic**: a code
-builder applies them, not free-hand LLM ranking. Worked examples are owner-supplied and **normative**.
+`../tier-ranking-and-scoring.md`. Authority: the run's ephemeral Phase-1.5 adjudication record (under
+`%TEMP%\model-profiler\<run-id>\`) — owner answers > vendor docs/verified benchmarks > seed. These SOPs
+are **deterministic**: a code builder applies them, not free-hand LLM ranking. Worked examples are
+owner-supplied and **normative**.
 
 ---
 
@@ -63,13 +64,13 @@ moves `V_new` above a different model.
 ## SOP-2 — Worst-Case ("Most Expensive") Cost
 
 **Rule.** For any cost figure that has a range or a cliff, use the **most-expensive DEFENSIBLE** value.
-Rate tables and constants live in `.spec/references/cost-model.md`; this SOP encodes the selection rule,
-never the numbers.
+Per-model rates live in the dataset's `pricing` block; the blend/multiplier constants are hardcoded in
+`build_routing_table.mjs`. This SOP encodes the selection rule, never the numbers.
 
 - **Tokenizer inflation (Opus 4.7 / 4.8).** Adopt the documented **MAXIMUM = 1.35×** (vendor-documented
   ceiling). The prior **1.4× assumption is DEPRECATED** — it exceeds the vendor-documented max. Owner
   directive was "most expensive"; 1.35× is the most-expensive *defensible* (documented-ceiling) value.
-  *(Surfaced: if the owner intends a literal 1.4×, flip one constant in `cost-model.md` §3.)*
+  *(Surfaced: if the owner intends a literal 1.4×, flip the tokenizer-inflation constant in `build_routing_table.mjs`.)*
 - **gpt-5.5 272K price cliff.** Price at the **post-cliff** rate (`$10` in / `$45` out) whenever
   `context_size` / the `G_CTX_272` modifier is in play. Use the base ≤272K rate **only when the route is
   provably sub-cliff**. When uncertain, use the cliff (worst-case) rate.
