@@ -29,9 +29,9 @@ the server auto-selects): see [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_IN
 ```
 claude -p --model <mapped-id> [--effort <e> | --settings <ultracode.json>]
   --permission-mode bypassPermissions --tools default --max-turns 50
-  --output-format json
+  --output-format stream-json --verbose
 ```
-Prompt is sent via stdin.
+Prompt is sent via stdin. The `stream-json` events drive the visible-stream heartbeat.
 
 **Codex:**
 ```
@@ -58,7 +58,7 @@ codex exec -C <cwd> -m gpt-5.5 -c 'model_reasoning_effort="<e>"'
 }
 ```
 
-Returns `{ "agent_id": "abc-123", "status": "running", ... }`. Then poll:
+Returns `{ "agent_id": "abc-123", "status": "processing", ... }`. Then poll:
 
 ```json
 { "tool": "poll_agent", "arguments": { "agent_id": "abc-123" } }

@@ -46,46 +46,47 @@ test("formatLocalIso zone name is non-empty string in parens", () => {
 
 // --- selectUnreported tests ---
 // Invariant: agent is reportable ONLY when terminal AND exitedAt !== null AND !waitReported
+// Terminal = finished | errored | stopped. Live (processing | stalled) is never reportable.
 
 function makeAgent(id, status, waitReported, exitedAt = null) {
   return { id, status, waitReported, exitedAt };
 }
 
-// killed with exitedAt=null → NOT selected (close hasn't fired yet)
-test("selectUnreported: killed+exitedAt=null -> NOT selected", () => {
-  const agents = [makeAgent("a", "killed", false, null)];
+// stopped with exitedAt=null → NOT selected (close hasn't fired yet)
+test("selectUnreported: stopped+exitedAt=null -> NOT selected", () => {
+  const agents = [makeAgent("a", "stopped", false, null)];
   const result = selectUnreported(agents);
-  assert.equal(result.length, 0, "killed+exitedAt=null must NOT be selected");
+  assert.equal(result.length, 0, "stopped+exitedAt=null must NOT be selected");
 });
 
-// killed with exitedAt set → selected
-test("selectUnreported: killed+exitedAt set -> selected", () => {
-  const agents = [makeAgent("a", "killed", false, Date.now())];
+// stopped with exitedAt set → selected
+test("selectUnreported: stopped+exitedAt set -> selected", () => {
+  const agents = [makeAgent("a", "stopped", false, Date.now())];
   const result = selectUnreported(agents);
-  assert.equal(result.length, 1, "killed+exitedAt set must be selected");
+  assert.equal(result.length, 1, "stopped+exitedAt set must be selected");
   assert.equal(result[0].id, "a");
 });
 
-// completed with exitedAt set → selected
-test("selectUnreported: completed+exitedAt set -> selected", () => {
-  const agents = [makeAgent("b", "completed", false, Date.now())];
+// finished with exitedAt set → selected
+test("selectUnreported: finished+exitedAt set -> selected", () => {
+  const agents = [makeAgent("b", "finished", false, Date.now())];
   const result = selectUnreported(agents);
-  assert.equal(result.length, 1, "completed+exitedAt set must be selected");
+  assert.equal(result.length, 1, "finished+exitedAt set must be selected");
   assert.equal(result[0].id, "b");
 });
 
-// completed with exitedAt=null → NOT selected
-test("selectUnreported: completed+exitedAt=null -> NOT selected", () => {
-  const agents = [makeAgent("b", "completed", false, null)];
+// finished with exitedAt=null → NOT selected
+test("selectUnreported: finished+exitedAt=null -> NOT selected", () => {
+  const agents = [makeAgent("b", "finished", false, null)];
   const result = selectUnreported(agents);
-  assert.equal(result.length, 0, "completed+exitedAt=null must NOT be selected");
+  assert.equal(result.length, 0, "finished+exitedAt=null must NOT be selected");
 });
 
-// failed with exitedAt set → selected; failed with exitedAt=null → NOT selected
-test("selectUnreported: failed+exitedAt set -> selected; failed+exitedAt=null -> NOT selected", () => {
+// errored with exitedAt set → selected; errored with exitedAt=null → NOT selected
+test("selectUnreported: errored+exitedAt set -> selected; errored+exitedAt=null -> NOT selected", () => {
   const agents = [
-    makeAgent("c1", "failed", false, Date.now()),
-    makeAgent("c2", "failed", false, null),
+    makeAgent("c1", "errored", false, Date.now()),
+    makeAgent("c2", "errored", false, null),
   ];
   const result = selectUnreported(agents);
   const ids = result.map((a) => a.id);
@@ -95,8 +96,8 @@ test("selectUnreported: failed+exitedAt set -> selected; failed+exitedAt=null ->
 // after marking waitReported=true, re-select returns [] for it
 test("selectUnreported: after marking waitReported=true, re-select returns []", () => {
   const agents = [
-    makeAgent("x", "completed", false, Date.now()),
-    makeAgent("y", "failed", false, Date.now()),
+    makeAgent("x", "finished", false, Date.now()),
+    makeAgent("y", "errored", false, Date.now()),
   ];
   const first = selectUnreported(agents);
   assert.equal(first.length, 2);
@@ -105,31 +106,33 @@ test("selectUnreported: after marking waitReported=true, re-select returns []", 
   assert.equal(second.length, 0, "Expected empty after marking reported");
 });
 
-// running/processing never selected
-test("selectUnreported: running/processing never selected", () => {
+// processing/stalled never selected
+// WHY: `stalled` is a LIVE state, not terminal — wait must keep waiting on it
+// and never report it as a finished job.
+test("selectUnreported: processing/stalled never selected", () => {
   const agents = [
-    makeAgent("p", "running", false, null),
-    makeAgent("q", "processing", false, null),
-    makeAgent("r", "running", false, Date.now()),
+    makeAgent("p", "processing", false, null),
+    makeAgent("q", "stalled", false, null),
+    makeAgent("r", "stalled", false, Date.now()),
   ];
   const result = selectUnreported(agents);
-  assert.equal(result.length, 0, "running/processing must never be selected");
+  assert.equal(result.length, 0, "processing/stalled must never be selected");
 });
 
 // mixed: only those meeting all three criteria are selected
 test("selectUnreported: full mixed set - only terminal+exitedAt+!reported", () => {
   const now = Date.now();
   const agents = [
-    makeAgent("a", "running",   false, null),   // no
-    makeAgent("b", "completed", false, now),     // yes
-    makeAgent("c", "failed",    false, now),     // yes
-    makeAgent("d", "killed",    false, now),     // yes
-    makeAgent("e", "processing", false, null),   // no
-    makeAgent("f", "completed", true,  now),     // no (reported)
-    makeAgent("g", "failed",    true,  now),     // no (reported)
-    makeAgent("h", "killed",    true,  now),     // no (reported)
-    makeAgent("i", "killed",    false, null),    // no (exitedAt=null)
-    makeAgent("j", "completed", false, null),    // no (exitedAt=null)
+    makeAgent("a", "processing", false, null),   // no
+    makeAgent("b", "finished",   false, now),     // yes
+    makeAgent("c", "errored",    false, now),     // yes
+    makeAgent("d", "stopped",    false, now),     // yes
+    makeAgent("e", "stalled",    false, now),     // no (live, not terminal)
+    makeAgent("f", "finished",   true,  now),     // no (reported)
+    makeAgent("g", "errored",    true,  now),     // no (reported)
+    makeAgent("h", "stopped",    true,  now),     // no (reported)
+    makeAgent("i", "stopped",    false, null),    // no (exitedAt=null)
+    makeAgent("j", "finished",   false, null),    // no (exitedAt=null)
   ];
   const result = selectUnreported(agents);
   const ids = result.map((a) => a.id).sort();

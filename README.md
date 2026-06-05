@@ -12,10 +12,10 @@ MCP server that launches and manages locally installed `claude` and `codex` CLI 
 
 - Spawn `claude` or `codex` CLI processes as managed sub-agents from any MCP host
 - Poll status, stream stdout/stderr tails, and send stdin messages to live agents
-- Concurrency caps: 5 concurrent Claude agents + 5 concurrent Codex agents (counts only actively-`running` agents, to limit API rate-limit pressure; quiet `processing` agents don't reserve a slot)
-- Liveness tracking: agents with no output for 60 seconds enter `processing` state (still alive, just quiet -- thinking or awaiting a temp-file handoff), and recover to `running` if output resumes
+- Concurrency caps: 5 concurrent Claude agents + 5 concurrent Codex agents (counts only actively-streaming `processing` agents, to limit API rate-limit pressure; quiet `stalled` agents don't reserve a slot)
+- Liveness tracking via the visible provider stream (Claude `stream-json`, Codex `--json` JSONL): agents with no parsed visible provider stream item for 10 minutes enter `stalled` state (still alive, just quiet -- thinking or awaiting a temp-file handoff), and recover to `processing` if the visible stream resumes
 - Ultracode mode for Opus 4.8 -- headless activation via `--settings {"ultracode":true}` (see [docs/usage.md](docs/usage.md))
-- Cross-platform exe resolution (Windows: npm-prefix .exe paths; macOS/Linux: PATH + Homebrew/usr-local fallbacks); SIGTERM/taskkill kill flow
+- Cross-platform exe resolution (Windows: npm-prefix .exe paths; macOS/Linux: PATH + Homebrew/usr-local fallbacks); immediate `taskkill /t /f` (Windows) / `SIGKILL` (POSIX) force-kill; no graceful shutdown period
 - stdio MCP transport; built with `@modelcontextprotocol/sdk` + `zod`
 
 ---
@@ -75,12 +75,12 @@ Six tools are exposed over the stdio MCP transport:
 |------|---------|
 | `launch_agent` | Spawn a new `claude`/`codex` sub-agent process |
 | `poll_agent` | Get status + output tail of one agent |
-| `kill_agent` | Terminate a running agent (SIGTERM then force-kill) |
-| `send_message` | Write to a running agent's stdin |
-| `list_agents` | List all agents and their statuses |
+| `kill_agent` | Immediately force-kill any live agent |
+| `send_message` | Write to a live agent's stdin |
+| `list_agents` | List all agents with token-efficient core metrics |
 | `wait` | Block until one or more agents finish, or 15-minute timeout |
 
-Full parameters, return shapes, and the new `alive` / `idle_seconds` / `hint` fields are in [docs/tools.md](docs/tools.md).
+Full parameters, return shapes, the `alive` / `idle_seconds` / `hint` / `recent_stream` fields, and `poll_agent`'s last-3 visible-stream items are in [docs/tools.md](docs/tools.md).
 
 ---
 
@@ -90,13 +90,13 @@ Each agent transitions through these states:
 
 | Status | Meaning |
 |--------|---------|
-| `running` | Process is alive and produced output recently (< 60s ago) |
-| `processing` | Process is STILL ALIVE but has produced no stdout/stderr for >= 60s -- working, thinking, or awaiting a temp-file handoff (renamed from `stalled`; not a failure). Recovers to `running` if output resumes |
-| `completed` | Process exited with code 0, or Codex emitted `turn.completed` event |
-| `failed` | Process exited with non-zero code |
-| `killed` | Terminated by `kill_agent` |
+| `processing` | Process alive with a visible provider-stream heartbeat in the last 10 minutes -- actively working. Launch time counts as the initial heartbeat |
+| `stalled` | Process STILL ALIVE but no parsed visible provider stream item for >= 10 minutes -- working, thinking, or awaiting a temp-file handoff (not a failure). Recovers to `processing` if the visible stream resumes |
+| `finished` | Process exited with code 0, or Codex emitted `turn.completed` event |
+| `errored` | Process exited with non-zero code |
+| `stopped` | Terminated by `kill_agent` |
 
-Only `completed`, `failed`, and `killed` are terminal; `running` and `processing` are live. A health monitor runs every 10 seconds, and `poll_agent`/`list_agents` additionally reconcile exit synchronously so an exited process is reported immediately. `processing` agents recover to `running` if output resumes and are never auto-killed -- prefer `wait`/re-poll (or checking the agent's temp output) over `kill_agent`. Full semantics: [docs/reference/status-lifecycle.md](docs/reference/status-lifecycle.md).
+Only `finished`, `errored`, and `stopped` are terminal; `processing` and `stalled` are live. A health monitor runs every 10 seconds, and `poll_agent`/`list_agents` additionally reconcile exit synchronously so an exited process is reported immediately. `wait` does not return just because an agent is `stalled`. `stalled` agents recover to `processing` if the visible stream resumes and are never auto-killed -- prefer `wait`/re-poll (or checking the agent's temp output) over `kill_agent`. Full semantics: [docs/reference/status-lifecycle.md](docs/reference/status-lifecycle.md).
 
 ---
 
