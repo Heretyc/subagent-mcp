@@ -51,11 +51,10 @@ agentic collaboration.
   future agents/maintainers must follow. Do not read for one-off task notes,
   changelogs, or agent-state markdown unless they contain reusable rules.
 - `src/routing-table.json` (+ `.spec/references/work-categories.md`): read when
-  choosing model/provider/effort for a task, routing/distributing work across
-  Claude/Codex, classifying a prompt into a work-category, or wiring the
-  subagent-mcp routing feature. `routing-table.json` is the routing artifact;
-  `work-categories.md` defines the fixed taxonomy; re-profile new models with
-  the `model-profiler` skill.
+  choosing model/provider/effort, routing/distributing work across Claude/Codex,
+  classifying a prompt into a work-category, or wiring the subagent-mcp routing
+  feature. `routing-table.json` is the routing artifact; `work-categories.md`
+  defines the fixed taxonomy; re-profile new models with `model-profiler`.
 - `docs/spec/task-taxonomy/_INDEX.md`: read when defining, citing, or changing
   the fixed 10-category task taxonomy (immutable; never re-derived by a profiler
   run) or how/why it was determined — spec and provenance, not routing.
@@ -77,17 +76,15 @@ agentic collaboration.
   branch edits require explicit owner emergency approval.
 - Claude Code Routines are the canonical CI/CD path. GitHub Actions may only
   dispatch or bridge to Claude routines unless the owner approves otherwise.
-- Automated workflows must prepend `<You are the primary agent in an automated
-  workflow>` as the first character line of injected user turns.
-- Every sub-agent prompt must begin with
-  `<this is a request from a parent process>`.
+- Automated workflows must prepend `<You are the primary agent in an automated workflow>` as the first character line of injected user turns.
+- Every sub-agent prompt must begin with `<this is a request from a parent process>`.
 - Sub-agents return JSON with `status`, `summary`, `source_locators`, `risks`,
   and `writes_requested`; include source locators for file-backed claims.
 - Do not include AI attribution or co-author lines in commits, manifests, docs,
   or generated project metadata.
 - Do not invoke the Subagent-MCP server (`launch_agent`/`wait`/`poll_agent`/
-  `send_message`/`kill_agent`/`list_agents`) from within this repository: it is
-  this server's own source tree and self-use risks dogfooding loops. Use a
+  `send_message`/`kill_agent`/`list_agents`) from within this repository: this
+  is the server's own source tree and self-use risks dogfooding loops. Use a
   different delegation mechanism where a sub-agent is required.
 
 ## Validation
