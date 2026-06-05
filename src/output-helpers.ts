@@ -64,8 +64,39 @@ export function extractFinalTurn(provider: string, stdout: string): string {
         }
       }
     } catch {
-      // fall through to raw fallback
+      // Not a single buffered object/array — fall through to stream-json scan.
     }
+    // stream-json: one JSON event per line. Prefer the final `result` event;
+    // otherwise the last assistant `text` block.
+    let resultText: string | null = null;
+    let lastAssistantText: string | null = null;
+    for (const line of stdout.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let evt: unknown;
+      try {
+        evt = JSON.parse(trimmed);
+      } catch {
+        continue;
+      }
+      if (!evt || typeof evt !== "object") continue;
+      const e = evt as Record<string, unknown>;
+      if (e.type === "result" && typeof e.result === "string") {
+        resultText = e.result;
+      } else if (e.type === "assistant" && e.message && typeof e.message === "object") {
+        const content = (e.message as Record<string, unknown>).content;
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            if (block && typeof block === "object") {
+              const b = block as Record<string, unknown>;
+              if (b.type === "text" && typeof b.text === "string") lastAssistantText = b.text;
+            }
+          }
+        }
+      }
+    }
+    if (resultText !== null) return resultText;
+    if (lastAssistantText !== null) return lastAssistantText;
     return rawFallback(stdout);
   }
 

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { spawn, execSync, ChildProcess } from "child_process";
 import { unlinkSync, existsSync, realpathSync } from "node:fs";
 import { randomUUID } from "crypto";
-import { isAbsolute } from "node:path";
+import { isAbsolute, basename } from "node:path";
 import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
 import { resolveExeFor } from "./platform.js";
@@ -17,6 +17,12 @@ import {
   buildLivenessFields,
 } from "./status-helpers.js";
 import { extractFinalTurn } from "./output-helpers.js";
+import {
+  consumeStreamChunk,
+  flushStream,
+  retainLastN,
+  type VisibleStreamItem,
+} from "./stream-helpers.js";
 import {
   loadRoutingTable,
   buildCandidates,
@@ -43,6 +49,13 @@ interface AgentState {
   cwd: string;
   ucSettingsPath?: string;
   waitReported: boolean;
+  // Rolling buffer of the last 3 parsed visible provider stream items.
+  // Each item is stamped with its capture time (`at`, ms).
+  visibleStream: VisibleStreamItem[];
+  // Carried-over partial stdout line (a provider JSONL event split across two
+  // stdout chunks). Held until its terminating newline arrives so a valid event
+  // is never dropped. Flushed on close.
+  streamBuf: string;
 }
 
 const agents = new Map<string, AgentState>();
@@ -87,10 +100,13 @@ function cleanupUcSettings(agentState: AgentState): void {
   }
 }
 
-function countRunning(provider: Provider): number {
+// Concurrency cap accounting: only `processing` agents count against a
+// provider's cap. `stalled` agents (live but quiet past the heartbeat window) do
+// NOT count, freeing a slot while they idle.
+function countProcessing(provider: Provider): number {
   let count = 0;
   for (const a of agents.values()) {
-    if (a.provider === provider && a.status === "running") count++;
+    if (a.provider === provider && a.status === "processing") count++;
   }
   return count;
 }
@@ -100,7 +116,7 @@ function countRunning(provider: Provider): number {
 // exited process is reported as completed/failed immediately (no monitor lag).
 function reconcileAgent(agent: AgentState, now: number): void {
   if (
-    (agent.status === "running" || agent.status === "processing") &&
+    (agent.status === "processing" || agent.status === "stalled") &&
     agent.process.exitCode !== null
   ) {
     agent.exitCode = agent.process.exitCode;
@@ -160,7 +176,7 @@ async function tryLaunchCandidate(
   agentCwd: string
 ): Promise<{ agentId: string } | { reason: string }> {
   // Concurrency cap for this provider.
-  const running = countRunning(candidate.provider);
+  const running = countProcessing(candidate.provider);
   const max = candidate.provider === "claude" ? MAX_CLAUDE : MAX_CODEX;
   if (running >= max) {
     return {
@@ -239,22 +255,29 @@ async function tryLaunchCandidate(
     id: agentId,
     provider: candidate.provider,
     model: candidate.model,
-    status: "running",
+    status: "processing",
     process: childProcess,
     stdout: "",
     stderr: "",
     exitCode: null,
     exitedAt: null,
+    // Launch time is the initial heartbeat. Only PARSED VISIBLE provider stream
+    // items refresh lastActivity afterwards (see the stdout handler); raw
+    // stdout/stderr chunks do NOT, so `stalled` means exactly "no visible
+    // provider stream item for the heartbeat window".
     startedAt: now,
     lastActivity: now,
     cwd: agentCwd,
     ucSettingsPath: buildResult.ucSettingsPath,
     waitReported: false,
+    visibleStream: [],
+    streamBuf: "",
   };
 
   childProcess.on("error", (err) => {
+    // Captured into the stderr tail for debugging. Not a visible provider stream
+    // item, so it does NOT refresh the heartbeat.
     agentState.stderr += `\n[process error] ${err instanceof Error ? err.message : String(err)}`;
-    agentState.lastActivity = Date.now();
   });
 
   if (candidate.provider === "claude" && childProcess.stdin) {
@@ -265,45 +288,91 @@ async function tryLaunchCandidate(
   if (childProcess.stdout) {
     childProcess.stdout.on("data", (data) => {
       const chunk = data.toString();
-      agentState.stdout += chunk;
-      agentState.lastActivity = Date.now();
-      // Codex emits JSONL; turn.completed signals task done — kill process
-      if (agentState.provider === "codex" && chunk.includes('"type":"turn.completed"')) {
-        agentState.status = "completed";
+      const at = Date.now();
+      // Buffer partial lines so a provider JSONL event split across chunks is
+      // never dropped. Only COMPLETE lines are parsed this call; the trailing
+      // fragment is carried in streamBuf until its newline arrives.
+      const { items, pending, lines } = consumeStreamChunk(
+        agentState.provider,
+        agentState.streamBuf,
+        chunk
+      );
+      agentState.streamBuf = pending;
+      // Accumulate all complete lines into stored stdout.
+      for (const line of lines) {
+        agentState.stdout += line + "\n";
+      }
+      if (items.length > 0) {
+        // Heartbeat refreshes only on parsed visible provider stream items,
+        // not on raw stdout bytes.
+        agentState.lastActivity = at;
+        agentState.visibleStream = retainLastN(
+          agentState.visibleStream,
+          items.map((it) => ({ ...it, at })),
+          3
+        );
+      }
+      // Codex emits JSONL; turn.completed signals task done — kill process. Scan
+      // COMPLETE lines only so a marker split across chunks is matched once
+      // fully assembled (never on a partial fragment).
+      if (
+        agentState.provider === "codex" &&
+        lines.some((l) => l.includes('"type":"turn.completed"'))
+      ) {
+        agentState.status = "finished";
         agentState.exitCode = 0;
-        if (agentState.exitedAt === null) agentState.exitedAt = Date.now();
+        if (agentState.exitedAt === null) agentState.exitedAt = at;
         childProcess.kill();
       }
     });
   }
 
-  // Capture stderr
+  // Capture stderr into the tail for debugging. stderr is NOT a parsed visible
+  // provider stream, so it does NOT refresh the heartbeat (parsed-visible only).
   if (childProcess.stderr) {
     childProcess.stderr.on("data", (data) => {
       agentState.stderr += data.toString();
-      agentState.lastActivity = Date.now();
     });
   }
 
   childProcess.on("close", (code) => {
+    // Flush any buffered trailing stdout line (final event may arrive without a
+    // terminating newline) so its visible item is not lost.
+    if (agentState.streamBuf) {
+      const at = Date.now();
+      const { items, lines } = flushStream(agentState.provider, agentState.streamBuf);
+      agentState.streamBuf = "";
+      for (const line of lines) {
+        agentState.stdout += line + "\n";
+      }
+      if (items.length > 0) {
+        agentState.lastActivity = at;
+        agentState.visibleStream = retainLastN(
+          agentState.visibleStream,
+          items.map((it) => ({ ...it, at })),
+          3
+        );
+      }
+    }
+
     // Always clean up ultracode settings file on close
     cleanupUcSettings(agentState);
 
     // Always record actual close time (unless already finalized)
     if (agentState.exitedAt === null) agentState.exitedAt = Date.now();
 
-    if (agentState.status === "killed") {
-      // Record real exit code but preserve "killed" status
+    if (agentState.status === "stopped") {
+      // Record real exit code but preserve "stopped" status
       if (agentState.exitCode === null) agentState.exitCode = code !== null ? code : -1;
       return;
     }
-    if (agentState.status === "completed") {
+    if (agentState.status === "finished") {
       // Already finalized by turn.completed; exitedAt already stamped
       return;
     }
     // Normal exit: set exit code and derive status
     agentState.exitCode = code !== null ? code : -1;
-    agentState.status = code === 0 ? "completed" : "failed";
+    agentState.status = code === 0 ? "finished" : "errored";
   });
 
   agents.set(agentId, agentState);
@@ -313,7 +382,7 @@ async function tryLaunchCandidate(
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent. AUTO MODE: pass just `prompt` + `task_category` and the server picks the best provider/model/effort for that category from its routing table, launching the best candidate and silently falling back to the next-best if a launch fails. `provider`/`model`/`effort` are OPTIONAL overrides and are usually unnecessary — omit them to get the auto-selected best combination (rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`). If you are unsure which task_category fits, do NOT submit one large amorphous task — break the work into smaller atomic steps that each map to a single category and launch one agent per step. Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes; does NOT call the Anthropic or OpenAI HTTP APIs (no API keys, no SDK). Note: ultracode effort is Opus-4.8+ only (induced via a temp `--settings {\"ultracode\":true}` file; the CLI rejects `--effort ultracode`). Status `processing` means the agent is ALIVE but has been quiet for >=60s (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll rather than killing.",
+  "Spawn a sub-agent. AUTO MODE: pass just `prompt` + `task_category` and the server picks the best provider/model/effort for that category from its routing table, launching the best candidate and silently falling back to the next-best if a launch fails. `provider`/`model`/`effort` are OPTIONAL overrides and are usually unnecessary — omit them to get the auto-selected best combination (rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`). If you are unsure which task_category fits, do NOT submit one large amorphous task — break the work into smaller atomic steps that each map to a single category and launch one agent per step. Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes; does NOT call the Anthropic or OpenAI HTTP APIs (no API keys, no SDK). Note: ultracode effort is Opus-4.8+ only (induced via a temp `--settings {\"ultracode\":true}` file; the CLI rejects `--effort ultracode`). Status `processing` means ALIVE with visible provider activity in the last 10 minutes (counts against concurrency caps); `stalled` means ALIVE but no parsed visible provider stream item for 10 minutes (thinking or awaiting a temp-file handoff, NOT dead, does not count against caps) — wait or re-poll rather than killing.",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
@@ -377,7 +446,7 @@ server.tool(
               type: "text",
               text: JSON.stringify({
                 agent_id: outcome.agentId,
-                status: "running",
+                status: "processing",
                 provider: candidate.provider,
                 model: candidate.model,
                 effort: candidate.effort,
@@ -416,7 +485,7 @@ server.tool(
 // Tool 2: poll_agent
 server.tool(
   "poll_agent",
-  "Get current status and output of an agent. Status `processing` means ALIVE but quiet for >=60s (thinking or awaiting a temp-file handoff), NOT dead; `alive` and `idle_seconds` are always returned, and a `hint` is included while processing. Prefer `wait`/re-poll over killing a processing agent. Pass `verbose: true` to also return `final_output`, the agent's final assistant turn text extracted from its captured stdout.",
+  "Get current status and output of an agent. Status `processing` means ALIVE with visible provider activity in the last 10 minutes; `stalled` means ALIVE but no parsed visible provider stream item for 10 minutes (thinking or awaiting a temp-file handoff), NOT dead. `alive` and `idle_seconds` are always returned, plus `recent_stream`: the last 3 parsed visible provider stream items, each with a timestamp. A `hint` is included while stalled. Prefer `wait`/re-poll over killing a live agent. Pass `verbose: true` to also return `final_output`, the agent's final assistant turn text extracted from its captured stdout.",
   {
     agent_id: z.string(),
     verbose: z.boolean().optional().default(false),
@@ -472,6 +541,11 @@ server.tool(
             last_activity: agent.lastActivity,
             cwd: agent.cwd,
             ...liveness,
+            recent_stream: agent.visibleStream.map((it) => ({
+              type: it.type,
+              text: it.text,
+              at: it.at !== undefined ? formatLocalIso(it.at) : null,
+            })),
             ...(params.verbose
               ? { final_output: extractFinalTurn(agent.provider, agent.stdout) }
               : {}),
@@ -485,7 +559,7 @@ server.tool(
 // Tool 3: kill_agent
 server.tool(
   "kill_agent",
-  "Terminate a running agent",
+  "Terminate a live agent (status `processing` or `stalled`) by immediately force-killing its managed process tree. No-op for already-terminal agents.",
   {
     agent_id: z.string(),
   },
@@ -503,7 +577,10 @@ server.tool(
       };
     }
 
-    if (agent.status !== "running") {
+    // Kill applies to ALL live states (processing OR stalled). A terminal agent
+    // (finished/errored/stopped) is a no-op.
+    const isLive = agent.status === "processing" || agent.status === "stalled";
+    if (!isLive) {
       return {
         content: [
           {
@@ -511,7 +588,7 @@ server.tool(
             text: JSON.stringify({
               agent_id: agent.id,
               status: agent.status,
-              message: `Agent is not running (status: ${agent.status})`,
+              message: `Agent is not live (status: ${agent.status})`,
             }),
           },
         ],
@@ -519,26 +596,19 @@ server.tool(
     }
 
     try {
-      // Send SIGTERM
-      agent.process.kill("SIGTERM");
-      agent.status = "killed";
-
-      // Set up 5-second timeout for force kill
-      const timeout = setTimeout(() => {
-        if (agent.process.exitCode === null) {
-          // Process still alive, force kill using taskkill
-          if (isWindows) {
-            spawn("taskkill", ["/pid", String(agent.process.pid), "/t", "/f"], { windowsHide: true });
-          } else {
-            process.kill(agent.process.pid!, "SIGKILL");
-          }
-        }
-      }, 5000);
-
-      // Clear timeout if process exits naturally (cleanup handled by close handler on agentState)
-      agent.process.once("close", () => {
-        clearTimeout(timeout);
-      });
+      // Immediately force-kill the managed process tree — no graceful SIGTERM
+      // grace period. On Windows, taskkill /t /f tears down the whole tree; on
+      // POSIX, SIGKILL the process (close handler records the real exit code).
+      agent.status = "stopped";
+      if (isWindows && agent.process.pid) {
+        spawn("taskkill", ["/pid", String(agent.process.pid), "/t", "/f"], {
+          windowsHide: true,
+        });
+      } else if (agent.process.pid) {
+        process.kill(agent.process.pid, "SIGKILL");
+      } else {
+        agent.process.kill("SIGKILL");
+      }
 
       return {
         content: [
@@ -546,8 +616,8 @@ server.tool(
             type: "text",
             text: JSON.stringify({
               agent_id: agent.id,
-              status: "killed",
-              message: "Kill signal sent",
+              status: "stopped",
+              message: "Process tree force-killed",
             }),
           },
         ],
@@ -590,12 +660,13 @@ server.tool(
       };
     }
 
-    if (agent.status !== "running") {
+    const isLive = agent.status === "processing" || agent.status === "stalled";
+    if (!isLive) {
       return {
         content: [
           {
             type: "text",
-            text: `Error: Agent is not running (status: ${agent.status})`,
+            text: `Error: Agent is not live (status: ${agent.status})`,
           },
         ],
         isError: true,
@@ -648,14 +719,16 @@ server.tool(
 // Tool 5: list_agents
 server.tool(
   "list_agents",
-  "List all agents with their current status. Status `processing` means ALIVE but quiet for >=60s, NOT dead; each agent includes `alive` and `idle_seconds` (and a `hint` while processing). Prefer `wait`/re-poll over killing a processing agent.",
+  "List all agents with token-efficient core metrics. Status `processing` means ALIVE with visible provider activity in the last 10 minutes; `stalled` means ALIVE but quiet for 10 minutes, NOT dead. Each agent includes `alive` and `idle_seconds`. Use `poll_agent` for per-agent stream items, hints, and final output.",
   {},
   async () => {
     const now = Date.now();
     const agentList = Array.from(agents.values()).map((agent) => {
       // Reconcile exit synchronously so already-exited processes are reported
-      // as completed/failed immediately (no health-monitor lag).
+      // as finished/errored immediately (no health-monitor lag).
       reconcileAgent(agent, now);
+      // includeHint=false: the verbose stalled hint lives on poll_agent only;
+      // list_agents stays token-efficient.
       return {
         id: agent.id,
         provider: agent.provider,
@@ -663,12 +736,13 @@ server.tool(
         status: agent.status,
         started_at: agent.startedAt,
         last_activity: agent.lastActivity,
-        cwd: agent.cwd,
+        cwd_basename: basename(agent.cwd),
         ...buildLivenessFields(
           agent.status,
           agent.exitCode,
           agent.lastActivity,
-          now
+          now,
+          false
         ),
       };
     });
@@ -687,7 +761,7 @@ server.tool(
 // Tool 6: wait
 server.tool(
   "wait",
-  "Blocks until one or more sub-agents exit (completed/failed/killed) and returns their exit code + local-time exit timestamp, or returns the running-job list after a 15-minute timeout. Pass `verbose: true` to add `final_output` (each finished agent's final assistant turn text extracted from its captured stdout) to every finished entry.",
+  "Blocks until one or more sub-agents reach a terminal state (finished/errored/stopped) and returns their exit code + local-time exit timestamp, or returns the live-job list after a 15-minute timeout. A `stalled` agent is still ALIVE and does NOT end the wait — only a terminal exit does. Pass `verbose: true` to add `final_output` (each finished agent's final assistant turn text extracted from its captured stdout) to every finished entry.",
   {
     verbose: z.boolean().optional().default(false),
   },
@@ -732,12 +806,13 @@ server.tool(
       };
     }
 
-    // Step 2: nothing alive and nothing unreported (includes killed-but-not-yet-closed)
-    const TERMINAL_SET = new Set(["completed", "failed", "killed"]);
+    // Step 2: nothing alive and nothing unreported (includes stopped-but-not-yet-closed).
+    // `stalled` is a LIVE state — it keeps the wait pending, it never ends it.
+    const TERMINAL_SET = new Set(["finished", "errored", "stopped"]);
     const hasPending = Array.from(agents.values()).some(
       (a) =>
-        a.status === "running" ||
         a.status === "processing" ||
+        a.status === "stalled" ||
         (TERMINAL_SET.has(a.status) && a.exitedAt === null)
     );
     if (!hasPending) {
@@ -766,7 +841,7 @@ server.tool(
     // Step 4: timeout — return still-running jobs
     const now = Date.now();
     const stillRunning = Array.from(agents.values()).filter(
-      (a) => a.status === "running" || a.status === "processing"
+      (a) => a.status === "processing" || a.status === "stalled"
     );
     const payload = {
       timed_out: true,
