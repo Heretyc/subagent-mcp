@@ -21,18 +21,24 @@ If unsure which category fits, do NOT pass one big amorphous task: break the wor
 
 ## Presence matrix
 
-`P`=provider, `M`=model, `E`=effort present. `C`=task_category valid.
+`P`=provider, `M`=model, `E`=effort present. `launchable valid` means one
+of the 10 fixed categories other than `fallback_default`. `fallback_default` is
+a valid category sentinel, but resolver-backed modes cannot launch it.
 
 | C | P | M | E | Outcome |
 |---|---|---|---|---|
-| valid | – | – | – | `auto` mode; build candidate list, attempt loop |
-| valid | yes | – | – | `provider` mode; candidate list, attempt loop |
-| valid | yes | yes | – | `provider_model` mode; candidate list, attempt loop |
-| valid | yes | yes | yes | `explicit` mode; single direct attempt, no fallback |
-| valid | – | yes | – | **ERR_MODEL_NEEDS_PROVIDER** |
-| valid | – | yes | yes | **ERR_EFFORT_NEEDS_BOTH** (effort rule checked first; see Validation order) |
-| valid | – | – | yes | **ERR_EFFORT_NEEDS_BOTH** |
-| valid | yes | – | yes | **ERR_EFFORT_NEEDS_BOTH** |
+| launchable valid | – | – | – | `auto` mode; build candidate list, attempt loop |
+| launchable valid | yes | – | – | `provider` mode; candidate list, attempt loop |
+| launchable valid | yes | yes | – | `provider_model` mode; candidate list, attempt loop |
+| launchable valid | yes | yes | yes | `explicit` mode; single direct attempt, no fallback |
+| fallback_default | – | – | – | **ERR_FALLBACK_DEFAULT** |
+| fallback_default | yes | – | – | **ERR_FALLBACK_DEFAULT** |
+| fallback_default | yes | yes | – | **ERR_FALLBACK_DEFAULT** |
+| fallback_default | yes | yes | yes | `explicit` mode; single direct attempt, no fallback |
+| launchable valid/fallback_default | – | yes | – | **ERR_MODEL_NEEDS_PROVIDER** |
+| launchable valid/fallback_default | – | yes | yes | **ERR_EFFORT_NEEDS_BOTH** (effort rule checked first; see Validation order) |
+| launchable valid/fallback_default | – | – | yes | **ERR_EFFORT_NEEDS_BOTH** |
+| launchable valid/fallback_default | yes | – | yes | **ERR_EFFORT_NEEDS_BOTH** |
 | absent/invalid | * | * | * | **ERR_BAD_CATEGORY** (validate category FIRST, before P/M/E rules) |
 
 Validation order in the handler:
@@ -43,7 +49,9 @@ Validation order in the handler:
 4. (explicit mode only) provider+model must match the existing
    provider↔model rule from `src/index.ts` (claude↔{haiku,sonnet,opus,opus-4-8};
    codex↔gpt-5.5); reuse that existing check and its message verbatim.
-5. Build candidate list per mode; run attempt loop (`routing-table-contract.md`).
+5. If `task_category` is `fallback_default` and mode is not `explicit` →
+   `ERR_FALLBACK_DEFAULT`.
+6. Build candidate list per mode; run attempt loop (`routing-table-contract.md`).
 
 ## Exact error messages
 
@@ -67,6 +75,17 @@ Error: provider is required when model is given. You passed model=<model> withou
 
 ```
 Error: effort requires both provider and model. You passed effort=<effort> without a complete provider+model. Either pass provider+model+effort for a fully explicit launch, or omit all three.
+<AUTO_HINT>
+```
+
+`ERR_FALLBACK_DEFAULT` (`fallback_default` in auto/provider/provider_model
+mode). The sentinel is a valid category value, but it is not a launchable
+routing-table category. Return split guidance instead of model-profiler
+population guidance:
+
+```
+Error: fallback_default is a split hint sentinel, not a launchable routing-table category.
+<SPLIT_HINT>
 <AUTO_HINT>
 ```
 
