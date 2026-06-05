@@ -147,7 +147,7 @@
     "math_proof": [
       {
         "model": "gpt-5.5",
-        "effort": "none",
+        "effort": "xhigh",
         "rank": 1,
         "score": 0.85,
         "cost_figure_used": 0.000010,
@@ -316,7 +316,7 @@
     "math_proof": [
       {
         "model": "gpt-5.5",
-        "effort": "none",
+        "effort": "xhigh",
         "rank": 1,
         "score": 0.88,
         "cost_figure_used": 0.000010,

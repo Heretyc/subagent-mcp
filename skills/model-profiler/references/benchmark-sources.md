@@ -1,8 +1,14 @@
 # benchmark-sources.md — Canonical Benchmark Source List (check FIRST, run-to-run stability)
 
 **Load when:** any Phase 1 agent is about to gather benchmark scores. Check this list **first** so
-profiling stays reasonably stable between runs; only go beyond it for genuinely new entrants, and
-record any new source in `source-ledger.md`.
+profiling stays reasonably stable between runs; only go beyond it for genuinely new entrants, and let
+the emission step harvest any new source into `research-seed-sites.json` (the learned seed registry).
+New sources are recorded in `src/routing-table-audit.json` `citations[]`; they are NOT written to any
+`.spec` ledger.
+
+This file (`benchmark-sources.md`, in the skill) is the **CURATED** seed — stable, hand-maintained.
+`research-seed-sites.json` (repo root) is the **LEARNED/accumulating** seed, grown from each run's audit
+citations. Phase-1 agents read **BOTH**: the curated list here plus the learned registry (if present).
 
 **Provider-impartial by construction.** Vendor sources appear as a **symmetric set**; the profiler
 reads every candidate's card under the *same* benchmark + same eval config, and never lets a

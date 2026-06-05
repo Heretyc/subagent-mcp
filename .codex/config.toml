@@ -1,0 +1,32 @@
+# Project-local Codex config for the subagent-mcp repo.
+#
+# Purpose: prevent dogfooding self-use of subagent-mcp inside its own repo.
+#
+# IMPORTANT: Codex honors this project-local file ONLY when this project is
+# marked trusted in the user config (~/.codex/config.toml). See:
+#   [projects.'C:\Users\Lexi\Dropbox\subagent-mcp']
+#   trust_level = "trusted"
+#
+# Precedence: project-local config (this file) OVERRIDES the user config
+# (~/.codex/config.toml) for the keys it sets.
+
+# Active: kill the entire subagent-mcp server in this workspace.
+[mcp_servers.subagent-mcp]
+enabled = false
+
+# ---------------------------------------------------------------------------
+# Granular alternative (commented out): keep the server running but deny
+# specific tools via a deny-list. Uncomment this block and remove/disable the
+# `enabled = false` above if you prefer per-tool blocking over killing the
+# whole server. Tool names below are the exact names registered in src/index.ts.
+#
+# [mcp_servers.subagent-mcp]
+# disabled_tools = [
+#   "launch_agent",
+#   "poll_agent",
+#   "kill_agent",
+#   "send_message",
+#   "list_agents",
+#   "wait",
+# ]
+# ---------------------------------------------------------------------------
