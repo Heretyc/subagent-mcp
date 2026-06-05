@@ -1,0 +1,11 @@
+#!/bin/sh
+# Worktree-Isolation gate (pre-commit). Blocks commits from a non-compliant worktree.
+# Works under Git-for-Windows sh. See docs/spec/dev-loop/worktree-enforcement/.
+set -e
+
+TOP="$(git rev-parse --show-toplevel)"
+node "$TOP/scripts/check_worktree.mjs" || {
+  echo "pre-commit: WORKTREE-GATE failed — commit blocked. Move work into a compliant linked worktree." >&2
+  exit 1
+}
+exit 0
