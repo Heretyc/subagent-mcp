@@ -117,7 +117,7 @@ For each candidate in order (best→worst):
 2. Reuse the EXISTING launch path from `src/index.ts` unchanged:
    `buildCommand(provider, launchModel, launchEffort, prompt, cwd)` →
    `resolveExe(provider)` → `spawn(...)`, plus the concurrency-cap check
-   (`countRunning` vs `MAX_CLAUDE`/`MAX_CODEX`).
+   (`countProcessing` vs `MAX_CLAUDE`/`MAX_CODEX`).
 3. **"Fails for any reason" = LAUNCH-TIME failure**, specifically:
    - concurrency limit for that provider already reached;
    - `buildCommand`/`resolveEffort` throws;

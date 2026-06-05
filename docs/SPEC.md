@@ -44,12 +44,12 @@ All logs go to stderr. stdout carries only JSON-RPC messages.
 | Tool | Key params (zod) | Success return shape |
 |------|-----------------|----------------------|
 | `launch_agent` | `provider` enum, `model` enum, `effort` enum (default `"high"`), `prompt` string, `cwd?` string | `{ agent_id, status, provider, model }` |
-| `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds }` (+ `hint` when status is `processing`; + `final_output` string when `verbose` is `true`) |
+| `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream }` (+ `hint` when status is `stalled`; + `final_output` string when `verbose` is `true`) |
 | `kill_agent` | `agent_id` string | `{ agent_id, status, message }` (not-running is not an error) |
 | `send_message` | `agent_id` string, `message` string | `{ agent_id, status: "sent", message }` |
-| `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd, alive, idle_seconds }] }` (each + `hint` when status is `processing`) |
+| `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd_basename, alive, idle_seconds }] }` (token-efficient core metrics; no `hint`, no `verbose` arg, no tails or stream items -- use `poll_agent`) |
 
-stdout_tail: last 2000 chars. stderr_tail: last 1000 chars. `alive`: boolean, true while running/processing (exitCode === null). `idle_seconds`: `Math.floor((now - lastActivity) / 1000)`. `poll_agent` and `list_agents` reconcile process exit synchronously before building their return value, so an already-exited process is reported `completed`/`failed` immediately rather than after the next health-monitor tick. Errors set `isError: true`; text begins with `"Error: "`.
+stdout_tail: last 2000 chars. stderr_tail: last 1000 chars. `recent_stream`: exactly the last 3 parsed visible provider stream items, each with its timestamp. `alive`: boolean, true while processing/stalled (exitCode === null). `idle_seconds`: `Math.floor((now - lastActivity) / 1000)` since the last visible-stream heartbeat. `poll_agent` and `list_agents` reconcile process exit synchronously before building their return value, so an already-exited process is reported `finished`/`errored` immediately rather than after the next health-monitor tick. Errors set `isError: true`; text begins with `"Error: "`.
 
 ---
 
@@ -100,7 +100,8 @@ The npm prefix is obtained via `execSync("npm prefix -g")` and cached after the 
 
 ### Kill signal
 
-On agent termination, SIGTERM is sent first. If the process is still alive after 5 seconds:
+`kill_agent` immediately force-kills any live agent (`processing` or `stalled`)
+and reports terminal `stopped`:
 - **Windows:** `taskkill /pid <pid> /t /f`
 - **macOS / Linux:** `process.kill(pid, "SIGKILL")`
 
@@ -113,7 +114,7 @@ const MAX_CLAUDE = 5;
 const MAX_CODEX  = 5;
 ```
 
-`countRunning(provider)` counts agents in `status === "running"` for that provider. If the count meets or exceeds the cap, `launch_agent` returns an error without spawning. Completed, failed, killed, and processing agents do not count toward the cap. The cap exists to limit API rate-limit pressure, and only actively-producing (`running`) agents add that load; a `processing` agent is quiet by definition (no output for >= 60s) so it costs no rate-limit budget and intentionally does not reserve a slot. More than 5 live processes per provider can therefore coexist when some are `processing`.
+`countProcessing(provider)` counts agents in `status === "processing"` for that provider. If the count meets or exceeds the cap, `launch_agent` returns an error without spawning. Finished, errored, stopped, and stalled agents do not count toward the cap. The cap exists to limit API rate-limit pressure, and only actively-streaming (`processing`) agents add that load; a `stalled` agent is quiet by definition (no visible provider stream for >= 10 minutes) so it costs no rate-limit budget and intentionally does not reserve a slot. More than 5 live processes per provider can therefore coexist when some are `stalled`.
 
 Agents are stored in a module-level `Map<string, AgentState>` keyed by UUID. There is no persistence -- the map is cleared on server restart.
 
@@ -124,16 +125,16 @@ Agents are stored in a module-level `Map<string, AgentState>` keyed by UUID. The
 ### Claude
 
 - stdin: `"pipe"` -- prompt written then closed immediately after spawn
-- stdout: `"pipe"` -- buffered into `agentState.stdout`; `lastActivity` updated on each chunk
-- stderr: `"pipe"` -- buffered into `agentState.stderr`; `lastActivity` updated on each chunk
-- Exit: `close` event sets `exitCode` and `status` (`completed` for code 0, `failed` otherwise)
+- stdout: `"pipe"` -- buffered into `agentState.stdout`; parsed as a `stream-json` visible stream with per-agent line buffering so an event split across chunks is never dropped. Each PARSED visible item refreshes `lastActivity` (the heartbeat) and the last 3 are retained for `poll_agent`
+- stderr: `"pipe"` -- buffered into `agentState.stderr` for the tail; NOT a parsed visible stream, so it does NOT refresh the heartbeat
+- Exit: `close` event flushes any buffered trailing line, then sets `exitCode` and `status` (`finished` for code 0, `errored` otherwise)
 
 ### Codex
 
 - stdin: `"ignore"` -- prompt passed as CLI argument, not stdin
-- stdout: `"pipe"` -- JSONL stream; each chunk scanned for `"type":"turn.completed"`
-- stderr: `"pipe"` -- captured same as Claude
-- `turn.completed` detection: when a stdout chunk contains the string `"type":"turn.completed"`, the server sets `status = "completed"`, `exitCode = 0`, and kills the process cleanly. The `close` event then fires but the status is already terminal and is not overwritten.
+- stdout: `"pipe"` -- JSONL visible stream parsed with the same per-agent line buffering as Claude; each PARSED visible item refreshes the heartbeat (last 3 retained for `poll_agent`) and completed lines are scanned for `"type":"turn.completed"`
+- stderr: `"pipe"` -- captured into the tail same as Claude; does NOT refresh the heartbeat
+- `turn.completed` detection: when a COMPLETE stdout line contains the string `"type":"turn.completed"`, the server sets `status = "finished"`, `exitCode = 0`, and kills the process cleanly. The `close` event then fires but the status is already terminal and is not overwritten.
 
 ### Output Tails
 
@@ -143,12 +144,12 @@ Agents are stored in a module-level `Map<string, AgentState>` keyed by UUID. The
 
 ## Status Lifecycle and Health Monitor
 
-The full status table (`running`, `processing`, `completed`, `failed`,
-`killed`), the `alive`/`idle_seconds`/`hint` fields, the
-`computeStatusTransition` ordering, the `STALL_THRESHOLD = 60000` boundary, and
-synchronous exit reconciliation are documented in
-[reference/status-lifecycle.md](reference/status-lifecycle.md). `processing`
-(renamed from `stalled`) is a live, non-failure state.
+The full status table (`processing`, `stalled`, `finished`, `errored`,
+`stopped`), the visible-stream heartbeat, the `alive`/`idle_seconds`/`hint`
+fields, the `computeStatusTransition` ordering, the `HEARTBEAT_TIMEOUT_MS = 600000`
+(10-minute) boundary, and synchronous exit reconciliation are documented in
+[reference/status-lifecycle.md](reference/status-lifecycle.md). `stalled` is a
+live, non-failure state; `processing` is the active live state.
 
 ---
 
@@ -165,7 +166,7 @@ Every error string the server can return:
 | `Error: max effort is not valid for gpt-5.5 (Codex). Valid: low, medium, high, xhigh.` | `resolveEffort`, max on codex |
 | `Error launching agent: <message>` | `launch_agent`, `spawn` threw |
 | `Error: Agent <uuid> not found` | `poll_agent`, `kill_agent`, `send_message` |
-| `Error: Agent is not running (status: <status>)` | `send_message` when not running |
+| `Error: Agent is not live (status: <status>)` | `send_message` when not running |
 | `Error: Agent stdin is not available` | `send_message` when stdin is null |
 | `Error killing agent: <message>` | `kill_agent`, `process.kill` threw |
 | `Error sending message: <message>` | `send_message`, `stdin.write` threw |
@@ -176,7 +177,7 @@ All error responses set `isError: true` on the MCP content object.
 
 ## Full CLI Invocation Strings
 
-**Claude (non-ultracode):** `claude -p --model <id> [--effort <e>] --permission-mode bypassPermissions --tools default --max-turns 50 --output-format json` | stdio `["pipe","pipe","pipe"]`, prompt via stdin.
+**Claude (non-ultracode):** `claude -p --model <id> [--effort <e>] --permission-mode bypassPermissions --tools default --max-turns 50 --output-format stream-json` | stdio `["pipe","pipe","pipe"]`, prompt via stdin. The visible `stream-json` events drive heartbeats.
 
 **Claude (ultracode):** Same as above but `--settings <tmpdir/subagent-uc-<uuid>.json>` replaces `--effort`. Settings file: `{"ultracode":true}`. Deleted on close.
 
@@ -186,7 +187,7 @@ All error responses set `isError: true` on the MCP content object.
 
 ## AgentState Structure
 
-`AgentState` fields: `id` (UUID), `provider`, `model` (alias), `status`, `process` (ChildProcess), `stdout` (full string), `stderr` (full string), `exitCode`, `startedAt` (ms), `lastActivity` (ms), `cwd`, `ucSettingsPath?` (temp file path, Claude ultracode only).
+`AgentState` fields: `id` (UUID), `provider`, `model` (alias), `status`, `process` (ChildProcess), `stdout` (full string), `stderr` (full string), `exitCode`, `startedAt` (ms), `lastActivity` (ms, stamped by each visible-stream heartbeat), `cwd`, `recentStream` (last 3 parsed visible stream items with timestamps), `ucSettingsPath?` (temp file path, Claude ultracode only).
 
 ---
 
