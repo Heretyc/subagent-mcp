@@ -1,11 +1,28 @@
 #!/bin/sh
 # Worktree-Isolation gate (pre-push). Blocks pushes from a non-compliant worktree.
+# EXEMPTION: a push that ONLY deletes remote refs (e.g. cleaning up a merged branch)
+# mutates no working tree and creates no branch, so it bypasses the gate. A push
+# carrying at least one non-deletion ref update runs the full gate. Deleting a
+# protected/default branch is still blocked server-side by Tier-1 branch protection.
 # Works under Git-for-Windows sh. See docs/spec/dev-loop/worktree-enforcement/.
-set -e
+#
+# stdin (one line per ref): <local ref> <local sha> <remote ref> <remote sha>
+# A deletion has an all-zero <local sha> and a local ref of "(delete)".
+non_deletion=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_sha" ] && continue
+  case "$local_sha" in
+    *[!0]*) non_deletion=1; break ;;
+  esac
+done
+
+if [ "$non_deletion" -eq 0 ]; then
+  exit 0
+fi
 
 TOP="$(git rev-parse --show-toplevel)"
 node "$TOP/scripts/check_worktree.mjs" || {
-  echo "pre-push: WORKTREE-GATE failed — push blocked. Move work into a compliant linked worktree." >&2
+  echo "pre-push: WORKTREE-GATE failed - push blocked. Move work into a compliant linked worktree." >&2
   exit 1
 }
 exit 0
