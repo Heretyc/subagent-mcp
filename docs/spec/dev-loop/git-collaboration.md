@@ -14,8 +14,11 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
    change, stage, commit, merge, rebase, pull, push, reset, clean, or prune.
 2. Never overwrite, discard, stage, commit, reset, clean, rebase, move, or hide
    user/unowned changes without explicit owner authorization for that action.
-3. Every non-trivial change intended for merge must use a short-lived topic
-   branch. Protected/default branches receive changes through PRs.
+3. ALL mutating work (file create/edit/delete, stage, commit, branch, merge,
+   rebase, reset, clean, dependency/lockfile or generated-output changes) MUST
+   occur inside a LINKED git worktree on a short-lived `<type>/<subject>` topic
+   branch, never in the primary working tree. Protected/default branches receive
+   changes only through PRs.
 4. Direct protected/default-branch edits are emergency-only and require explicit
    owner approval plus a written follow-up PR or incident note.
 5. Branches must pass `git check-ref-format --branch`.
@@ -95,13 +98,28 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
 38. If GitHub shows a plan-gating warning for private-repository rulesets or
     branch protection, do not represent those rules as enforced. Use manual
     maintainer gates until the repository moves to an enforcing plan.
+39. Primary-working-tree mutation is forbidden. Before any mutating or
+    repo-affecting action, the pre-action worktree gate
+    (`scripts/check_worktree.mjs`) must pass: not the primary tree, branch
+    matches `<type>/<subject>` and the allowed type set, worktree lives outside
+    the repo dir. Read-only actions (status, log, diff, show, branch --list,
+    worktree list, fetch, grep, file inspection) are exempt.
+40. Worktree-isolation enforcement is tiered: Tier-1 (authoritative) = GitHub
+    branch protection on the default branch (applied to `main`: enforce_admins,
+    PR-required, force-push/deletion blocked); Tier-2 (best-effort) = local
+    `core.hooksPath=.githooks` pre-commit/pre-push running the gate (bypassable,
+    per-clone — every clone must run `node scripts/install_worktree_hooks.mjs`);
+    Tier-3 = the agent-run pre-action gate. Full spec + naming + provider notes:
+    `docs/spec/dev-loop/worktree-enforcement/`.
 
 ## SOP
 
 1. Before work: inspect status, read `AGENTS.md`, identify owned files, and
    record any dirty/unowned changes that affect the task.
-2. Branch/worktree: create a policy-named topic branch. Use a sibling worktree
-   only when parallel work, PR review, release work, or isolation warrants it.
+2. Branch/worktree: create a policy-named topic branch. ALWAYS create/enter a
+   compliant linked sibling worktree (branch `<type>/<subject>`, located outside
+   the repo dir) before any mutating action; the primary checkout is read-only.
+   Run `node scripts/check_worktree.mjs` to confirm compliance.
 3. Edit: keep changes scoped. Preserve user changes. Separate mechanical
    rewrites from behavior changes.
 4. Commit: inspect staged diff, run validation, then commit the smallest
