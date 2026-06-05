@@ -55,6 +55,13 @@ enforced independent of the authority chain — even vendor documentation claimi
 `@none` does not override this. Phase 2 judges and the merge must silently exclude any `<model>@none`
 pairing from tier outputs if the model has any selectable effort tiers, regardless of Phase 1 notes.
 
+**No-effort exclusion (per-category; SKILL.md invariant #14):** a model whose ONLY effort is a
+no-effort sentinel (`null`/`none`/`n/a`) is excluded from the ranked universe in 6 categories —
+`agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
+`knowledge_synthesis` — so those carry a REDUCED per-category universe. It REMAINS ranked in the other
+4: `math_proof`, `data_analysis`, `coding`, `mechanical`. `build_routing_table.mjs` applies this at
+ranking; distinct from the effort-capable `@none` ban above.
+
 ---
 
 ## C. Scoring-Formula Methodology (form only; run calibrates values)

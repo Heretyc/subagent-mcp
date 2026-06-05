@@ -5,7 +5,7 @@
     "schema_version": "1",
     "generated": "2026-06",
     "last_run_at": "2026-06-04T00:00:00Z",
-    "site_count": 14
+    "site_count": 23
   },
   "sites": [
     {
@@ -63,6 +63,46 @@
       "label": "[INFERRED]"
     },
     {
+      "url": "https://benchlm.ai/benchmarks/sweVerified",
+      "domain": "benchlm.ai",
+      "tier": 0,
+      "categories": [
+        "coding",
+        "debugging"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
+      "label": "[SEED]"
+    },
+    {
+      "url": "https://benchlm.ai/math",
+      "domain": "benchlm.ai",
+      "tier": 0,
+      "categories": [
+        "math_proof"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://buildfast.io/claude-opus-4-7",
+      "domain": "buildfast.io",
+      "tier": 0,
+      "categories": [
+        "knowledge_synthesis"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
+      "label": "[INFERRED]"
+    },
+    {
       "url": "https://dev.to/blamsa0mine/swe-bench-agentic-coding-and-what-actually-changed-from-claude-sonnet-45-to-46-1gig",
       "domain": "dev.to",
       "tier": 0,
@@ -90,6 +130,21 @@
       "label": "[INFERRED]"
     },
     {
+      "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+      "domain": "kingy.ai",
+      "tier": 0,
+      "categories": [
+        "knowledge_synthesis",
+        "math_proof",
+        "security_review"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
+      "label": "[SEED]"
+    },
+    {
       "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public",
       "domain": "labs.scale.com",
       "tier": 0,
@@ -105,6 +160,19 @@
       "label": "[INFERRED]"
     },
     {
+      "url": "https://llm-stats.com/benchmarks/frontiermath",
+      "domain": "llm-stats.com",
+      "tier": 0,
+      "categories": [
+        "math_proof"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
+      "label": "[SEED]"
+    },
+    {
       "url": "https://llm-stats.com/blog/research/claude-opus-4-8-launch",
       "domain": "llm-stats.com",
       "tier": 0,
@@ -116,6 +184,19 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
+      "label": "[INFERRED]"
+    },
+    {
+      "url": "https://venturebeat.com/technology/deepswe-blows-up-the-ai-coding-leaderboard-crowns-gpt-5-5-and-finds-claude-opus-exploiting-a-benchmark-loophole",
+      "domain": "venturebeat.com",
+      "tier": 0,
+      "categories": [
+        "debugging"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
       "label": "[INFERRED]"
     },
     {
@@ -133,6 +214,19 @@
       "label": "[ASSUMPTION]"
     },
     {
+      "url": "https://www.datacamp.com/blog/claude-opus-4-8",
+      "domain": "datacamp.com",
+      "tier": 0,
+      "categories": [
+        "knowledge_synthesis"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
+      "label": "[INFERRED]"
+    },
+    {
       "url": "https://www.datacamp.com/blog/claude-opus-4-8-vs-gpt-5-5",
       "domain": "datacamp.com",
       "tier": 0,
@@ -147,6 +241,19 @@
       "last_seen": "2026-06-04",
       "times_seen": 3,
       "label": "[INFERRED]"
+    },
+    {
+      "url": "https://www.datacamp.com/blog/gpt-5-5",
+      "domain": "datacamp.com",
+      "tier": 0,
+      "categories": [
+        "knowledge_synthesis"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
+      "label": "[SEED]"
     },
     {
       "url": "https://www.datacamp.com/blog/gpt-5-5-vs-claude-opus-4-7",
@@ -173,6 +280,20 @@
       "last_seen": "2026-06-04",
       "times_seen": 3,
       "label": "[INFERRED]"
+    },
+    {
+      "url": "https://www.marc0.dev/en/leaderboard",
+      "domain": "marc0.dev",
+      "tier": 0,
+      "categories": [
+        "coding",
+        "debugging"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-06-04",
+      "times_seen": 2,
+      "label": "[SEED]"
     },
     {
       "url": "https://www.mindstudio.ai/blog/gpt-5-5-vs-claude-mythos-cybersecurity-benchmark-comparison",
@@ -204,7 +325,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 3,
+      "times_seen": 5,
       "label": "[INFERRED]"
     }
   ]

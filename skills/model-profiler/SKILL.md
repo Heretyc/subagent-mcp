@@ -1,7 +1,7 @@
 ---
 name: model-profiler
 version: 3.0.0
-description: Impartially PROFILE the cross-provider sub-agent fleet against the FIXED canonical 10 work-categories whenever a new model ships (or on demand). Discover every model published in the recent window by the in-scope provider families, gather ALL public benchmark scores + statistics, map them onto the fixed 10 categories, then JUDGE each model+effort pairing into per-category tier rankings (best→worst) SOLELY from the discovered research, with a recorded rationale per tier placement. Emits exactly 3 artifacts: routing-table.json (lean), routing-table-audit.json (full provenance), research-seed-sites.json (accumulating learned source list). Claude-only single-family is a supported, logged-degrade path. The 10 categories are immutable inputs — this skill never derives, chooses, renames, reorders, or reshuffles them. Use when a new model is released, when asked to profile new model, re-profile models, re-profile the fleet, rebalance routing, update routing table, refresh model profiles, re-run model research, regenerate routing-table.json, refresh tier rankings, or to answer "which model for X now" after a model launch. Orchestrator-only pipeline: model discovery + maximalist benchmark research, pivotal-question interview, flagship judging + merge, 3-artifact emission, 3-pass adversarial validation, and provider/seed validators + scenario routing tests. Cross-family (mixed-provider) sub-agents preferred, dispatched via `mcp__subagent-mcp__launch_agent`.
+description: Impartially PROFILE the cross-provider sub-agent fleet against the FIXED canonical 10 work-categories whenever a new model ships (or on demand). Discover every model published in the recent window by the in-scope provider families, gather ALL public benchmark scores + statistics, map them onto the fixed 10 categories, then JUDGE each model+effort pairing into per-category tier rankings (best→worst) SOLELY from the discovered research, with a recorded rationale per tier placement. Emits exactly 3 artifacts: routing-table.json (lean), routing-table-audit.json (full provenance), research-seed-sites.json (accumulating learned source list). Single-family and multi-family are both fully-supported, first-class paths; provider mix is optional. The 10 categories are immutable inputs — this skill never derives, chooses, renames, reorders, or reshuffles them. Use when a new model is released, when asked to profile new model, re-profile models, re-profile the fleet, rebalance routing, update routing table, refresh model profiles, re-run model research, regenerate routing-table.json, refresh tier rankings, or to answer "which model for X now" after a model launch. Orchestrator-only pipeline: model discovery + maximalist benchmark research, pivotal-question interview, flagship judging + merge, 3-artifact emission, 3-pass adversarial validation, and provider/seed validators + scenario routing tests. Sub-agents dispatched via `mcp__subagent-mcp__launch_agent`; cross-family critics are available when ≥2 families are reachable.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: May 2026
 ---
@@ -68,7 +68,7 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
 **Pre-conditions:** CWD=repo root; prompt exact; no credentials/deletes/git-writes/taxonomy-changes/outbound-messages/out-of-allowlist requests.
 
 **When matched:**
-1. Use standing-profile answers: current-generation fleet, all reachable families, Fast mode, 90 min + session budget, cross-family preferred (Claude-only single-family is a logged degrade, not a halt). Persist to `%TEMP%\model-profiler\<run-id>\phase-0-consent.md`.
+1. Use standing-profile answers: current-generation fleet, all reachable families, Fast mode, 90 min + session budget, provider mix optional (single-family and multi-family both fully supported; neither halts). Persist to `%TEMP%\model-profiler\<run-id>\phase-0-consent.md`.
 2. **MANDATORY FIRST CHECK — before Phase 1 dispatch:** does the `%TEMP%\model-profiler\<run-id>\` run dir contain all 5 valid `phase-1-agent-{1..5}.md`?
    - **YES** → bounded-continuation mode: skip Phase 1 dispatch; jump to Phase 1.5 + Phase 2. Note: `Continuation mode: bounded (reusing current-day Phase 1)`.
    - **NO** → proceed to dirty-tree check (§Dirty-tree policy) + Phase 1 dispatch as normal.
@@ -98,14 +98,13 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
    delegate **all** research, judging, validation, and writing to sub-agents. You dispatch, relay,
    persist, and decide — never execute the work yourself.
 4. **Sub-agents validate sub-agents.** A producing agent never reviews its own output. Critics are
-   fresh and distinct from producers (self-review ban / Anti-Pattern D). Cross-family critics are
-   preferred when ≥2 families are reachable; when only one family is available (logged degrade, e.g.
-   Claude-only), critics MUST still be FRESH within-family agents distinct from producers — never the
-   producing agent itself.
-5. **Cross-family preferred.** Use ≥2 distinct provider families when reachable. When the cross-family
-   path is unavailable, dispatch single-family (e.g. Claude-only web-research) as an EXPLICIT, LOGGED
-   degrade recorded in the run's `risks` — this does NOT halt. Silent single-family (un-logged) is
-   still forbidden; the degrade must be recorded.
+   FRESH agents distinct from producers (self-review ban / Anti-Pattern D), regardless of provider
+   family. Cross-family critics are **available** when ≥2 families are reachable; on a single-family
+   run, critics are fresh within-family agents — either way, never the producing agent itself.
+5. **Provider mix is optional.** Single-family and multi-family are BOTH fully-supported, first-class
+   paths — neither is a degrade, neither is logged as risk; the profiler never requires a provider
+   blend. A single-family run (e.g. Claude-only web-research) is equally valid. The only invariant is
+   the fresh-critic / self-review ban (#4): critics must be distinct agents from producers in every case.
 6. **Hub-and-spoke only.** Sub-agents never call sub-agents. All coordination goes through you.
    Inter-agent handoff is via `%TEMP%` scratch files: full content to disk, only **compact JSON
    status** returned to the orchestrator.
@@ -133,6 +132,14 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
     routing logic. The only code it may touch: `package.json`, `scripts/copy-provider.mjs`,
     `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `scripts/update_seed_sites.mjs`,
     and `scripts/validate_seed_sites.mjs`.
+14. **No-effort exclusion (6 categories).** Models whose ONLY effort is a no-effort sentinel
+    (`null`/`none`/`n/a` — e.g. `claude-haiku-4-5`, `gpt-5.5-pro`, `gpt-5.4-mini`) are EXCLUDED from
+    ranking in `agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
+    `knowledge_synthesis` (those 6 carry a REDUCED per-category universe), but REMAIN ranked in the
+    other 4 (`math_proof`, `data_analysis`, `coding`, `mechanical`, full universe).
+    `build_routing_table.mjs` enforces this at ranking; `validate_provider.mjs` checks per-category
+    coverage against the reduced set. **Distinct from #12** (which bans emitting `none` for
+    EFFORT-CAPABLE models): #14 EXCLUDES genuinely no-effort models from 6 categories.
 
 ## Pipeline at a Glance
 
@@ -147,7 +154,7 @@ CHECK:    For exact bare prompt ONLY: are all 5 phase-1-agent-*.md files present
    |       skip Phase 1 dispatch; jump to Phase 1.5. If NO → proceed to Phase 1.
    |
    v
-Phase 1   [OPTIONAL] N domain-partitioned discovery+research agents (cross-family, web-enabled):
+Phase 1   [OPTIONAL] N domain-partitioned discovery+research agents (web-enabled; any provider mix):
 (skip)         DISCOVER every model published in the recent window by the in-scope provider families;
 or run         gather ALL public benchmark scores + stats, mapped onto the FIXED 10 categories.
                Check references/benchmark-sources.md FIRST. -> %TEMP%\...\phase-1-agent-{1..N}.md
@@ -156,7 +163,7 @@ or run         gather ALL public benchmark scores + stats, mapped onto the FIXED
 Phase 1.5 1 agent derives pivotal questions -> AskUserQuestion, or standing-profile adjudication -> persist
    |
    v
-Phase 2   N flagship judges (elevated effort, cross-family) independently ARBITRATE the discovered
+Phase 2   N flagship judges (elevated effort; any provider mix) independently ARBITRATE the discovered
    |          research into per-category, per-pairing TIER rankings (best→worst) + a rationale each;
    |          1 fresh flagship MERGES -> routing-table-audit.json (audit trail) -> routing-table.json
    |
