@@ -127,7 +127,7 @@
         "score": 1.2887880299545085,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
-        "confidence": "measured",
+        "confidence": "inferred",
         "basis": [
           "[INFERRED]",
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
@@ -6066,7 +6066,7 @@
         "score": 2.1406441646939482,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
-        "confidence": "measured",
+        "confidence": "inferred",
         "basis": [
           "[INFERRED]",
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
