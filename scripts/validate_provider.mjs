@@ -42,6 +42,16 @@ const VALID_MODELS = new Set([
   "gpt-5.4-mini",
 ]);
 const NO_EFFORT_SENTINELS = new Set(["null", "none", "n/a"]);
+// Categories from which no-effort (null/none/n/a) pairings are excluded — they are not
+// ranked/listed here, so per-category coverage expects the universe MINUS no-effort pairings.
+const NO_EFFORT_EXCLUDED_CATEGORIES = new Set([
+  "agentic_execution",
+  "architecture",
+  "security_review",
+  "debugging",
+  "quality_review",
+  "knowledge_synthesis",
+]);
 const MODEL_EFFORT_LADDERS = new Map([
   ["claude-opus-4-8", ["low", "medium", "high", "xhigh", "max"]],
   ["claude-opus-4-7", ["low", "medium", "high", "xhigh", "max"]],
@@ -177,6 +187,17 @@ function deriveUniverse(provider, spine) {
   return set;
 }
 
+// Per-category expected coverage: excluded categories omit the no-effort pairings.
+function expectedUniverseForCategory(category, universeSet) {
+  if (!NO_EFFORT_EXCLUDED_CATEGORIES.has(category)) return universeSet;
+  return new Set(
+    [...universeSet].filter((key) => {
+      const effort = key.slice(key.lastIndexOf("@") + 1);
+      return !NO_EFFORT_SENTINELS.has(effort);
+    })
+  );
+}
+
 function validateRoot(provider, issues) {
   if (!isObject(provider)) {
     issues.push("routing-table.json root must be an object");
@@ -218,7 +239,7 @@ function validateCategoryEntries(provider, spine, universeSet, issues) {
         issues.push(`${label} must be an array`);
         continue;
       }
-      validatePairingArray(label, entries, universeSet, issues);
+      validatePairingArray(label, entries, expectedUniverseForCategory(category, universeSet), issues);
     }
   }
 }

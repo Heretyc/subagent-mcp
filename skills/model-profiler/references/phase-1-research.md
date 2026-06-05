@@ -17,10 +17,10 @@ a fresh clone before the first run it is absent; that is fine — fall back to t
 ## Phase 1 — domain-partitioned discovery + research agents
 
 Dispatch **parallel sub-agents**, each owning one domain (no overlap — no duplicate tasks,
-Anti-Pattern A). **Cross-family mix** across the set (a web-research member + a deterministic-extraction
-member at minimum), all launched via `mcp__subagent-mcp__launch_agent` (the `provider:` field is set
-per `dispatch-mechanics.md`; the operator binds the concrete family — the skill names none). All
-agents are **web-enabled** (recency matters). Each writes its full output to
+Anti-Pattern A). Use a web-research member + a deterministic-extraction member at minimum, all launched
+via `mcp__subagent-mcp__launch_agent` (the `provider:` field is set per `dispatch-mechanics.md`; the
+operator binds the concrete family — the skill names none). Provider mix is optional: single-family
+and multi-family are both fully supported. All agents are **web-enabled** (recency matters). Each writes its full output to
 `%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md` (ephemeral scratch — never persisted to the repo)
 and returns only the JSON status.
 
@@ -41,6 +41,12 @@ Every score is keyed to whichever of the 10 fixed categories it is most diagnost
 per-category benchmark-family map in `benchmark-sources.md`. Benchmarks **measure** a category; they
 never endorse a model. Do not invent a new category to hold a score — if a score fits no fixed
 category, record it as out-of-spine context and flag it; the spine does not change.
+
+> **No-effort exclusion (SKILL.md invariant #14):** models whose ONLY effort is a no-effort sentinel
+> (`null`/`none`/`n/a`) are NOT ranked in `agentic_execution`, `architecture`, `security_review`,
+> `debugging`, `quality_review`, `knowledge_synthesis`. They REMAIN ranked in `math_proof`,
+> `data_analysis`, `coding`, `mechanical`. The builder enforces the exclusion at ranking; still capture
+> all available scores for these models — the exclusion is applied downstream, not by dropping data here.
 
 ### Additional research dimension: per-pairing tier inputs
 
@@ -108,7 +114,7 @@ binds the concrete member. The skill names no model here.
    benchmarks > seed). Persist the resolutions, labels, and residual risks. Return `needs_user`
    only for questions that would authorize out-of-allowlist writes, credentials/private data,
    destructive action, taxonomy-spine changes, or git writes. (Single-family execution is NOT a
-   `needs_user` event — it is a logged degrade per amended invariant #5, recorded in the run's `risks`.)
+   `needs_user` event and NOT a degrade — it is a fully-supported path per invariant #5.)
 3. Otherwise, the **orchestrator relays** those questions to the owner via **AskUserQuestion**
    (batched). The orchestrator does not answer them itself.
 4. **Persist the answers or standing-profile resolutions** into the interview file. These are
@@ -124,7 +130,8 @@ binds the concrete member. The skill names no model here.
 
 **For MISSING agents:** apply the finite-wait + fallback policy in `dispatch-mechanics.md`. If
 fallback also fails, write an explicit GAP stub at `%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md`. Record the
-GAP and any single-family condition in the run's `risks`; do not halt the run for a domain GAP.
+GAP in the run's `risks`; do not halt the run for a domain GAP. (Single-family is a supported path,
+not a risk to log — invariant #5.)
 
 **For bounded-continuation mode** (exact bare prompt with Phase 1 budget exceeded):
 - Check the `%TEMP%\model-profiler\<run-id>\` run dir for existing agents from today's run-id (e.g., `%TEMP%\model-profiler\2026-06-04-<run-id>\phase-1-agent-1.md`)
@@ -134,8 +141,8 @@ GAP and any single-family condition in the run's `risks`; do not halt the run fo
 
 The Phase 1.5 adjudication agent reads all `phase-1-agent-*.md` files including GAP stubs. It must
 note every GAP domain explicitly and include "what data would fill this GAP" as a pivotal question.
-For the bare standing-profile path: a single-family fallback already documented in GAP stubs is
-**not** a new `needs_user` event — it is recorded constraint, not an authorization question.
+For the bare standing-profile path: a single-family fallback is **not** a new `needs_user` event and
+**not** a degrade — it is a fully-supported path (invariant #5), not an authorization question.
 
 Confirm before dispatching Phase 2: every expected `phase-1-agent-N.md` exists on disk (complete,
 reused, or GAP stub), the interview file holds pivotal questions plus owner answers or standing-profile

@@ -18,8 +18,11 @@ below). It checks:
 
 - **Exactly two root branches** (`performance`, `cost_efficiency`); each has the same category keys
   in the same order as the RAG spine.
-- **Full universe coverage** — the table-derived union of `model@effort` pairings appears exactly
-  once in every category of both branches (set-equality, no duplicates, no omissions).
+- **Per-category coverage (invariant #14)** — each category's expected set appears exactly once in
+  both branches (set-equality, no duplicates, no omissions). The 6 no-effort-exclusion categories
+  (`agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
+  `knowledge_synthesis`) expect the table-derived universe MINUS no-effort-only model pairings; the
+  other 4 (`math_proof`, `data_analysis`, `coding`, `mechanical`) expect the full universe.
 - **Dense ranks** — `rank` is a 1-based integer sequence with no gaps or ties and equals array
   position.
 - **Lean shape** — pairings carry exactly `{provider, model, effort, rank}` and lean metadata
