@@ -9,10 +9,11 @@ prerequisites satisfy this check — do not re-block Phase 2 for them.
 
 ## Phase 2 — independent flagship judges
 
-Dispatch **several flagship-judging members at elevated/maximal effort**, **cross-family**, all
-launched via `mcp__subagent-mcp__launch_agent` (the `provider:` field is set per
-`dispatch-mechanics.md`; the operator binds the concrete family — the skill names none). Scale the
-count with the Phase-0 mode.
+Dispatch **several flagship-judging members at elevated/maximal effort**, all launched via
+`mcp__subagent-mcp__launch_agent` (the `provider:` field is set per `dispatch-mechanics.md`; the
+operator binds the concrete family — the skill names none). Provider mix is optional: single-family
+and multi-family judge sets are both fully supported (invariant #5). Scale the count with the Phase-0
+mode.
 
 Each judge **independently** ARBITRATES the Phase-1 discovered research into rankings organized around
 the **FIXED 10 categories** (`.spec/references/work-categories.md`; the count is fixed at 10 +
@@ -49,6 +50,10 @@ Each judge must emit **both**:
    never `none`. **Enforcement:** if Phase 1 notes contain `<model>@none` for a model with selectable
    effort tiers, silently exclude that pairing from your tier ordering — the owner directive overrides
    vendor documentation and all other phase-1 claims.
+   **No-effort exclusion (invariant #14):** models whose ONLY effort is a no-effort sentinel
+   (`null`/`none`/`n/a`) are NOT ranked in `agentic_execution`, `architecture`, `security_review`,
+   `debugging`, `quality_review`, `knowledge_synthesis` (omit them from those 6 tier orderings); they
+   REMAIN ranked in `math_proof`, `data_analysis`, `coding`, `mechanical`. The builder enforces this.
 
 If a judge cannot produce tier-ordering inputs (e.g., insufficient benchmark coverage), it must
 surface that as a gap in its JSON `risks` field — not silently omit the section.

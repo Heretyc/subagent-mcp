@@ -96,7 +96,7 @@ output; critics are fresh and distinct (self-review ban / Anti-Pattern D).
 
 | Condition | Action |
 |-----------|--------|
-| Cross-family unavailable (only one provider family reachable) | Do NOT halt — dispatch single-family (e.g. Claude-only) as an EXPLICIT, LOGGED degrade recorded in the run's `risks` (amended invariant #5); silent un-logged single-family is still forbidden |
+| Only one provider family reachable | NOT a halt and NOT a degrade — single-family (e.g. Claude-only) is a fully-supported, first-class path (invariant #5). Critics stay FRESH within-family agents distinct from producers. No risk logging required |
 | No Phase 0 consent or matching standing repository profile | Do not dispatch |
 | Two hard gates / specs irreducibly conflict | Surface to owner (`needs_user`) |
 | Evidence suggests the FIXED taxonomy is wrong | Surface to owner (`needs_user`); never alter the spine here |

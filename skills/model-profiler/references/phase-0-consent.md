@@ -45,8 +45,8 @@ When matched, use these Phase 0 answers:
 |---|-----------------|
 | 1 | **Profiling scope:** current-generation fleet for every repository-supported provider family reachable through Subagent-MCP; recency window is public releases since the prior `research-seed-sites.json` `metadata.last_run_at`, plus current-generation models already retained in `src/routing-table.json`. Phase 1 discovers concrete model ids and effort ladders. |
 | 2 | **Mode:** Fast. |
-| 3 | **Runtime / budget:** Fast-mode run capped at 90 wall-clock minutes and the current session's configured provider budget; stop as `blocked` on quota or timeout rather than guessing or retrying indefinitely. A reachable-but-single provider family is NOT a `blocked` condition — it is a logged single-family degrade (amended invariant #5). |
-| 4 | **Provider mix:** use all currently reachable Subagent-MCP provider families and effort tiers; cross-family is preferred. When only one family is reachable (e.g. Claude-only), dispatch single-family as an explicit LOGGED degrade recorded in the run's `risks` — do not halt. |
+| 3 | **Runtime / budget:** Fast-mode run capped at 90 wall-clock minutes and the current session's configured provider budget; stop as `blocked` on quota or timeout rather than guessing or retrying indefinitely. A reachable-but-single provider family is NOT a `blocked` condition — single-family is a fully-supported path (invariant #5). |
+| 4 | **Provider mix (optional):** use whichever Subagent-MCP provider families and effort tiers are reachable. Single-family and multi-family are both fully-supported, first-class paths; provider mix is never required. When only one family is reachable (e.g. Claude-only), dispatch single-family — not a degrade, not a halt. |
 | 5 | **Model universe scope:** current generation. |
 | 6 | **Emission authorization:** yes, for the profiler write allowlist only. |
 
@@ -104,7 +104,7 @@ This mode is **authorization-neutral** — it does not weaken the credential, ta
 | 1 | **Profiling scope:** which in-scope provider families + which recency window (e.g. last 6 months)? Or a specific model the owner already has in mind? | Bounds discovery. Phase 1 enumerates the concrete model list within this scope; the skill preselects nothing. |
 | 2 | **Fast or Full** mode? | Scales fan-out (agent counts) and number of adversarial passes |
 | 3 | **Runtime / budget** ceiling? (wall-clock + token/cost budget) | Long background jobs run detached; budget bounds fan-out |
-| 4 | **Provider mix** available? (which provider families + effort tiers are reachable now) | Cross-family is preferred; when only one family is reachable, dispatch single-family as a LOGGED degrade (amended invariant #5) — not a halt |
+| 4 | **Provider mix** available? (which provider families + effort tiers are reachable now) | Provider mix is OPTIONAL — single-family and multi-family are both fully-supported paths (invariant #5); when only one family is reachable, dispatch single-family — not a degrade, not a halt |
 | 5 | **Model universe scope:** "current generation" (recommended) or a strict recency window? | **Tradeoff to surface impartially:** a strict recency window can exclude an older small/low-cost tier that currently anchors a low-complexity category's primary route — leaving that route without a replacement. State this consequence; recommend "current generation"; confirm the owner's choice before proceeding. Name no specific model. |
 | 6 | **Authorize the 3-artifact emission + build-wiring?** The run will write `src/routing-table.json` + `src/routing-table-audit.json` + `research-seed-sites.json`, and touch `package.json`, `scripts/copy-provider.mjs`, `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `scripts/update_seed_sites.mjs`, `scripts/validate_seed_sites.mjs`. | These are code/config changes; the owner must scope them in. |
 
@@ -116,11 +116,10 @@ This mode is **authorization-neutral** — it does not weaken the credential, ta
 
 - **All six answered or standing profile matched + required provider families available + emission
   authorized** -> proceed to Phase 1.
-- **Cross-family unavailable (only one provider family reachable)** -> do NOT halt; dispatch
-  single-family (e.g. Claude-only web-research) as an EXPLICIT, LOGGED degrade recorded in the run's
-  `risks` (amended invariant #5, `dispatch-mechanics.md`). For the standing profile this is the
-  accepted degrade for the run — proceed and log it; do not `blocked`. Silent un-logged single-family
-  is still forbidden.
+- **Only one provider family reachable** -> NOT a halt and NOT a degrade; dispatch single-family
+  (e.g. Claude-only web-research) as a fully-supported, first-class path (invariant #5,
+  `dispatch-mechanics.md`). Proceed; do not `blocked`. No risk logging required for the provider mix.
+  Critics stay FRESH within-family agents distinct from producers.
 - **Owner declines emission scope** -> stop; the run produces no artifacts. (There is no RAG-only
   fallback — the 3 artifacts are the only output.) Surface what will be skipped.
 - **Owner declines / defers** -> stop. No dispatch, no writes.
