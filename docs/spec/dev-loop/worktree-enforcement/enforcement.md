@@ -66,7 +66,11 @@ node scripts/install_worktree_hooks.mjs   # git config core.hooksPath .githooks
 (N4) `pre-push` validates the LOCAL worktree's compliance (gate logic) before a push
 leaves the machine; it is Tier-2 (bypassable, absent until installed). The ref-level
 block that actually refuses a direct push to the default branch is Tier-1 (server-side
-branch protection), not this hook.
+branch protection), not this hook. `pre-push` EXEMPTS deletion-only pushes (every ref
+update has an all-zero local SHA) so merged/stale remote branches can be cleaned up from
+any checkout, but any push carrying a real ref update still runs the gate, and deleting a
+protected/default branch remains blocked by Tier-1 branch protection
+(`allow_deletions=false`).
 
 ## Three-tier enforcement model (honest about what actually blocks)
 
