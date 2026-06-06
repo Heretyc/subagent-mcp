@@ -7,17 +7,44 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { tmpdir } from "node:os";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const AUDIT_PATH = resolve(ROOT, "src/routing-table-audit.json");
 const SEED_PATH = resolve(ROOT, "research-seed-sites.json");
-const RUN_DATE = process.env.DATASET_DATE || "2026-06-03";
+// refinement #21: DATASET_DATE is REQUIRED — fail loud rather than defaulting to a stale literal
+// date. A silent default mis-stamps the run and decoupled this stamp from the builder's; the regen
+// always sets DATASET_DATE, so this only bites an un-pinned invocation.
+const RUN_DATE = process.env.DATASET_DATE;
+if (!RUN_DATE) {
+  throw new Error(
+    "DATASET_DATE is required (YYYY-MM-DD) — refusing to default to a stale literal date. " +
+    "Set DATASET_DATE to the run's dataset date so the seed and audit share one run stamp."
+  );
+}
 if (!/^\d{4}-\d{2}-\d{2}$/.test(RUN_DATE)) {
   throw new Error(`DATASET_DATE must be YYYY-MM-DD; got '${RUN_DATE}'`);
 }
 if (!existsSync(AUDIT_PATH)) {
   throw new Error(`Audit not found at ${AUDIT_PATH}; run build_routing_table.mjs first.`);
 }
+
+// refinement #21: bind to the SAME run-id the builder used. Resolution mirrors build_routing_table:
+//   1. process.env.RUN_ID            — explicit override.
+//   2. <tmpdir>/model-profiler/run-id — the file the builder wrote this run (authoritative link).
+//   3. deterministic default `run-${RUN_DATE}` — same value both scripts derive offline.
+// Preferring the builder's run-id file ties the seed to the exact run that produced the audit it is
+// harvesting; the deterministic default keeps both scripts in lockstep when no file is present.
+const RUN_ID_PATH = resolve(tmpdir(), "model-profiler", "run-id");
+function resolveRunId() {
+  if (process.env.RUN_ID) return process.env.RUN_ID;
+  if (existsSync(RUN_ID_PATH)) {
+    const fromFile = readFileSync(RUN_ID_PATH, "utf8").replace(/^﻿/, "").trim();
+    if (fromFile) return fromFile;
+  }
+  return `run-${RUN_DATE}`;
+}
+const RUN_ID = resolveRunId();
 
 const TRACKING = new Set(["utm_source","utm_medium","utm_campaign","utm_term","utm_content","fbclid","gclid"]);
 function normalizeUrl(raw) {
@@ -309,9 +336,12 @@ const out = {
     schema_version: "1",
     generated: RUN_DATE.slice(0, 7),
     last_run_at: process.env.BUILD_TS || `${RUN_DATE}T00:00:00Z`,
+    // refinement #21: the SHARED run-id this seed was merged under — equals
+    // audit.metadata.run_manifest.run_id, so the seed and audit are provably from one run.
+    run_id: RUN_ID,
     site_count: sites.length,
   },
   sites,
 };
 writeFileSync(SEED_PATH, JSON.stringify(out, null, 2) + "\n", "utf8");
-console.log(`update_seed_sites: research-seed-sites.json now has ${sites.length} sites (run ${RUN_DATE}).`);
+console.log(`update_seed_sites: research-seed-sites.json now has ${sites.length} sites (run ${RUN_DATE}, run_id ${RUN_ID}).`);
