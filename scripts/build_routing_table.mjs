@@ -124,6 +124,35 @@ function isLowerBetter(benchmark) {
   );
 }
 
+// ---- refinement #10: optional explicit per-row polarity (approach A) ---------------
+// An OPTIONAL `row.polarity` ("lower_is_better" / "higher_is_better"; "lower"/"higher"
+// tolerated) OVERRIDES the name-based isLowerBetter inference. When a row carries NO
+// explicit polarity AND its benchmark name does NOT match the isLowerBetter substring
+// list (so the scorer defaults to higher-is-better purely by absence of a match), we
+// record a WARNING in the audit so silent backwards-ranking risk is surfaced. Warnings
+// are deduped by benchmark+category. The live dataset carries no polarity field, so this
+// is purely additive (warn, never fail).
+const POLARITY_WARNINGS = new Map(); // `${benchmark}|${category}` -> {benchmark, category, assumed}
+function parseExplicitPolarity(value) {
+  if (value === undefined || value === null) return null;
+  const v = String(value).toLowerCase();
+  if (v === "lower_is_better" || v === "lower" || v === "lower-is-better") return true;
+  if (v === "higher_is_better" || v === "higher" || v === "higher-is-better") return false;
+  return null; // unrecognized -> treat as no explicit polarity (fall back to name inference)
+}
+function rowIsLowerBetter(category, row) {
+  const explicit = parseExplicitPolarity(row.polarity);
+  if (explicit !== null) return explicit;
+  const inferred = isLowerBetter(row.benchmark);
+  if (!inferred) {
+    const key = `${row.benchmark}|${category}`;
+    if (!POLARITY_WARNINGS.has(key)) {
+      POLARITY_WARNINGS.set(key, { benchmark: row.benchmark, category, assumed: "higher_is_better" });
+    }
+  }
+  return inferred;
+}
+
 const SENTIMENT_CAP = 0.05; // < min benchmark weight (1.0); design §1.4
 const SENTIMENT_ADJ = 0; // no free-text corpus -> 0 for every pairing
 const NORMALIZATION = { method: "min-max", params: { clamp: [0, 1], empty_population: 1 } };
@@ -151,6 +180,68 @@ const spineRoot = readJsonStripBom(SPINE_PATH);
 // ordered math_proof…mechanical). `fallback_default` is the precedence sentinel only and
 // is NOT a branch category in the provider table (matches validate_provider buildSpine).
 const SPINE = Object.keys(spineRoot.categories); // 10 keys
+
+// ---- refinement #25: dataset-shape preflight --------------------------------------
+// Fail LOUD and SPECIFIC before any field is dereferenced below. Requires ONLY the
+// structural fields the builder actually consumes: dataset.models (object),
+// dataset.model_effort_universe (array), dataset.category_benchmarks (object) with an
+// array present for every SPINE taxonomy category, the per-benchmark-row fields the
+// scorer/citations read (benchmark/raw/tier/source_url), and the per-model fields the
+// builder dereferences unconditionally (pricing.input_per_mtok/output_per_mtok plus
+// version_rank/version_lineage). Fields the builder defaults internally are NOT required:
+// `withdrawn` (treated as [] when absent), `gaps`, `effort_ladder` (|| []), pricing.cliff
+// (falsy-safe), tokenizer_inflation, and per-row label/unit/retrieved_at/annotation.
+function validateDatasetShape(ds) {
+  const errs = [];
+  const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+  if (!isObj(ds.models) || Object.keys(ds.models).length === 0) {
+    errs.push("dataset.models: missing or empty (expected a non-empty model->spec object)");
+  }
+  if (!Array.isArray(ds.model_effort_universe)) {
+    errs.push("dataset.model_effort_universe: missing or not an array");
+  }
+  if (!isObj(ds.category_benchmarks)) {
+    errs.push("dataset.category_benchmarks: missing or not an object");
+  } else {
+    for (const category of SPINE) {
+      const rows = ds.category_benchmarks[category];
+      if (!Array.isArray(rows)) {
+        errs.push(`dataset.category_benchmarks.${category}: missing or not an array (required for taxonomy category)`);
+        continue;
+      }
+      rows.forEach((row, i) => {
+        if (!isObj(row)) {
+          errs.push(`dataset.category_benchmarks.${category}[${i}]: not an object`);
+          return;
+        }
+        for (const f of ["benchmark", "raw", "tier", "source_url"]) {
+          if (!(f in row)) errs.push(`dataset.category_benchmarks.${category}[${i}].${f}: missing required benchmark-row field`);
+        }
+      });
+    }
+  }
+  if (isObj(ds.models)) {
+    for (const [model, spec] of Object.entries(ds.models)) {
+      if (!isObj(spec)) {
+        errs.push(`dataset.models.${model}: not an object`);
+        continue;
+      }
+      if (!isObj(spec.pricing)) {
+        errs.push(`dataset.models.${model}.pricing: missing or not an object`);
+      } else {
+        for (const f of ["input_per_mtok", "output_per_mtok"]) {
+          if (!(f in spec.pricing)) errs.push(`dataset.models.${model}.pricing.${f}: missing required pricing field`);
+        }
+      }
+      if (!("version_rank" in spec)) errs.push(`dataset.models.${model}.version_rank: missing required field`);
+      if (!("version_lineage" in spec)) errs.push(`dataset.models.${model}.version_lineage: missing required field`);
+    }
+  }
+  if (errs.length > 0) {
+    throw new Error(`Invalid dataset shape (${DATASET_PATH}):\n- ${errs.join("\n- ")}`);
+  }
+}
+validateDatasetShape(dataset);
 
 const MODELS = dataset.models;
 const UNIVERSE_MODELS = new Set(Object.keys(MODELS));
@@ -213,8 +304,9 @@ const UNIVERSE = dataset.model_effort_universe.map((entry) => {
 const UNIVERSE_IDS = UNIVERSE.map((p) => p.id);
 
 // withdrawn (model+category+benchmark) — discard those rows entirely (SOP-3).
+// Absent `withdrawn` is treated as [] (refinement #25: not a required dataset field).
 const WITHDRAWN = new Set(
-  dataset.withdrawn.map((w) => `${w.model}|${w.category}|${(w.benchmark || "").toLowerCase()}`)
+  (dataset.withdrawn || []).map((w) => `${w.model}|${w.category}|${(w.benchmark || "").toLowerCase()}`)
 );
 function isWithdrawn(category, row) {
   return WITHDRAWN.has(`${row.model}|${category}|${(row.benchmark || "").toLowerCase()}`);
@@ -265,13 +357,16 @@ function buildCategoryScores(category) {
     if (r.raw < s.min) s.min = r.raw;
     if (r.raw > s.max) s.max = r.raw;
     stats.set(b, s);
+    // refinement #10: surface polarity-by-absence over every non-withdrawn row (deduped),
+    // not just the rows later selected for a universe pairing.
+    rowIsLowerBetter(category, r);
   }
-  function normalize(benchmark, raw) {
-    const s = stats.get(benchmark);
+  function normalize(row) {
+    const s = stats.get(row.benchmark);
     let n;
     if (s.max === s.min) n = 1;
-    else n = (raw - s.min) / (s.max - s.min);
-    if (isLowerBetter(benchmark)) n = 1 - n;
+    else n = (row.raw - s.min) / (s.max - s.min);
+    if (rowIsLowerBetter(category, row)) n = 1 - n;
     return n;
   }
 
@@ -290,7 +385,7 @@ function buildCategoryScores(category) {
     // Group normalized values by benchmark; mean within benchmark, then equal-weight mean across.
     const byBench = new Map();
     for (const r of selected) {
-      const n = normalize(r.benchmark, r.raw);
+      const n = normalize(r);
       const arr = byBench.get(r.benchmark) || [];
       arr.push(n);
       byBench.set(r.benchmark, arr);
@@ -767,6 +862,16 @@ function auditBranch(fullBranch) {
   return out;
 }
 
+// refinement #10: polarity-by-absence warnings, deterministically ordered (SPINE category
+// order, then benchmark name). Populated during buildCategoryScores; additive audit-only.
+const SPINE_ORDER = new Map(SPINE.map((c, i) => [c, i]));
+const polarityInferenceWarnings = [...POLARITY_WARNINGS.values()].sort((a, b) => {
+  const ca = SPINE_ORDER.get(a.category) ?? Number.MAX_SAFE_INTEGER;
+  const cb = SPINE_ORDER.get(b.category) ?? Number.MAX_SAFE_INTEGER;
+  if (ca !== cb) return ca - cb;
+  return a.benchmark < b.benchmark ? -1 : a.benchmark > b.benchmark ? 1 : 0;
+});
+
 const auditTable = {
   metadata: {
     author: "Lexi Blackburn",
@@ -778,6 +883,7 @@ const auditTable = {
     audits: "src/routing-table.json",
     seed_sites_pointer: "research-seed-sites.json",
     model_effort_universe: UNIVERSE_IDS,
+    polarity_inference_warnings: polarityInferenceWarnings,
     realized_exponents: {
       performance: { a: PERF_EXP.a, b: PERF_EXP.b },
       cost_efficiency: { a: COST_EXP.a, b: COST_EXP.b },
