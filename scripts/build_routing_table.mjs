@@ -501,10 +501,21 @@ for (const category of SPINE) {
 }
 
 // ---- provider derivation (owner schema A) -----------------------------------------
-// claude-* model ids -> "claude"; gpt-* -> "codex". The universe contains only these two
-// families, so the prefix test is total.
+// Explicit prefix -> family map. The universe is capped at two families
+// (Anthropic + OpenAI); an unrecognized prefix is a data/scope error, not a silent
+// default, so we THROW rather than mislabel an unknown third family as "codex".
+const PROVIDER_FAMILY_PREFIXES = [
+  ["claude-", "claude"],
+  ["gpt-", "codex"],
+  ["codex-", "codex"],
+];
 function providerOf(model) {
-  return model.startsWith("claude") ? "claude" : "codex";
+  for (const [prefix, family] of PROVIDER_FAMILY_PREFIXES) {
+    if (model.startsWith(prefix)) return family;
+  }
+  throw new Error(
+    `providerOf: unrecognized model prefix for '${model}'; expected one of ${PROVIDER_FAMILY_PREFIXES.map(([p]) => p).join(", ")}`
+  );
 }
 
 // ---- cost normalization: cost_norm in (0,1] (owner schema C) -----------------------
