@@ -95,11 +95,22 @@ function arraysEqual(left, right) {
 }
 
 // Provider implied by a model id's family — used to assert the explicit `provider` field is
-// consistent with the model (claude-* -> claude, gpt-* -> codex).
+// consistent with the model. Explicit prefix -> family map (claude-* -> claude;
+// gpt-*/codex-* -> codex). The universe is capped at two families (Anthropic + OpenAI);
+// an unrecognized prefix is a scope error, so we THROW rather than silently skip the
+// consistency check and let a mislabeled provider through.
+const PROVIDER_FAMILY_PREFIXES = [
+  ["claude-", "claude"],
+  ["gpt-", "codex"],
+  ["codex-", "codex"],
+];
 function impliedProvider(model) {
-  if (model.startsWith("claude")) return "claude";
-  if (model.startsWith("gpt")) return "codex";
-  return null;
+  for (const [prefix, family] of PROVIDER_FAMILY_PREFIXES) {
+    if (model.startsWith(prefix)) return family;
+  }
+  throw new Error(
+    `impliedProvider: unrecognized model prefix for '${model}'; expected one of ${PROVIDER_FAMILY_PREFIXES.map(([p]) => p).join(", ")}`
+  );
 }
 
 function buildSpine(issues) {
