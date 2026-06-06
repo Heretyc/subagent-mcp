@@ -96,6 +96,17 @@ Both branches rank by the **same** power law; only the exponents differ:
 - `perf_norm` = the capability composite above, in `(0, 1]`.
 - `cost_norm` = the normalized worst-case `$/token` in `(0, 1]` (SOP-2; each pairing's `$/token`
   divided by the universe max — rank-preserving, keeps the denominator bounded).
+- **Performance-branch cost winsorization (refinement #6, owner approach B):** the `performance`
+  branch is capability-dominant (`b = 0.2`), yet an extreme price ratio `R` still swings its score by
+  `R^0.2` — a ~100× ratio swings the score ~2.5×, enough for a cheap-but-weaker tier to lift above a
+  strong high-effort pairing. So on the **performance** branch ONLY, each pairing's `$/token` is
+  **winsorized to the `[p05, p95]` window** of the universe `$/token` distribution **before** it is
+  normalized into `cost_norm` (then renormalized by the winsorized max so `cost_norm` stays in
+  `(0, 1]`). This clips only the single cheapest / single priciest outliers, leaves the entire
+  in-window cost order intact, and is recorded in the **audit** metadata
+  (`performance_cost_winsorization`: window, clip bounds, raw-vs-clipped cost ratio). The
+  `cost_efficiency` branch is **unchanged** — it is intentionally cost-dominant, so clipping there
+  would defeat its intent and it keeps the raw `cost_norm`.
 - The `a:b` ratio sets the relative influence of performance vs cost (log-space weights):
 
 | Branch | `a` | `b` | `a:b` | Intent |
@@ -108,9 +119,10 @@ Each branch is re-ranked dense 1..N by its composite (higher score = rank 1). On
 positionally spliced immediately above its same-effort predecessor). `cost_efficiency` keeps pure
 composite order (a pricier newer version is legitimately less cost-efficient than its predecessor).
 
-The realized exponents (`performance` 0.8/0.2; `cost_efficiency` 0.4/0.6) and the cost-figure
-methodology are recorded in the **audit** metadata (`realized_exponents`, `cost_figure_methodology`),
-not on the lean canonical table.
+The realized exponents (`performance` 0.8/0.2; `cost_efficiency` 0.4/0.6), the performance-branch
+cost winsorization bound, and the cost-figure methodology are recorded in the **audit** metadata
+(`realized_exponents`, `performance_cost_winsorization`, `cost_figure_methodology`), not on the lean
+canonical table.
 
 ### Retired (lean schema, `schema_version` 2)
 
