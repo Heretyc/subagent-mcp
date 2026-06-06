@@ -138,6 +138,62 @@
         "assumed": "higher_is_better"
       }
     ],
+    "neutralized_benchmarks": [
+      {
+        "benchmark": "FrontierMath",
+        "category": "math_proof",
+        "model": "gpt-5.5-pro",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      },
+      {
+        "benchmark": "FrontierMath Tier 1-3",
+        "category": "math_proof",
+        "model": "gpt-5.5",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      },
+      {
+        "benchmark": "FrontierMath Tier 4",
+        "category": "math_proof",
+        "model": "gpt-5.5",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      },
+      {
+        "benchmark": "GPQA Diamond",
+        "category": "math_proof",
+        "model": "claude-opus-4-8",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      },
+      {
+        "benchmark": "HMMT Feb 2026",
+        "category": "math_proof",
+        "model": "claude-sonnet-4-6",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      },
+      {
+        "benchmark": "USAMO 2026",
+        "category": "math_proof",
+        "model": "claude-opus-4-8",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      },
+      {
+        "benchmark": "Cybench",
+        "category": "security_review",
+        "model": "claude-opus-4-8",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      },
+      {
+        "benchmark": "CyberSecEval Firefox-exploitation",
+        "category": "security_review",
+        "model": "claude-opus-4-8",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      },
+      {
+        "benchmark": "DeepSWE",
+        "category": "debugging",
+        "model": "gpt-5.5",
+        "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+      }
+    ],
     "category_completeness": {
       "math_proof": "measured",
       "security_review": "measured",
@@ -235,7 +291,9 @@
             0,
             1
           ],
-          "empty_population": 1
+          "empty_population": 1,
+          "thin_min_reporters": 2,
+          "thin_neutral_n": 0.5
         }
       },
       "composite_weights": {
@@ -292,7 +350,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 1,
-        "score": 1.5997078546428647,
+        "score": 0.9187908905520473,
         "cost_figure_used": 6.3e-7,
         "interpolated": false,
         "confidence": "high",
@@ -314,7 +372,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 2,
-        "score": 1.577785761601878,
+        "score": 0.9061999544449105,
         "cost_figure_used": 6.75e-7,
         "interpolated": false,
         "confidence": "high",
@@ -336,7 +394,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 3,
-        "score": 1.5157165665103982,
+        "score": 0.8705505632961241,
         "cost_figure_used": 8.25e-7,
         "interpolated": false,
         "confidence": "high",
@@ -358,7 +416,7 @@
         "model": "gpt-5.5",
         "effort": "low",
         "rank": 4,
-        "score": 1.4158498178167807,
+        "score": 0.8131921783244938,
         "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
@@ -387,7 +445,7 @@
         "model": "gpt-5.5",
         "effort": "medium",
         "rank": 5,
-        "score": 1.3948476802735588,
+        "score": 0.8011296179008335,
         "cost_figure_used": 0.00000125,
         "interpolated": false,
         "confidence": "high",
@@ -416,7 +474,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 6,
-        "score": 1.373542283523119,
+        "score": 0.7888928808009389,
         "cost_figure_used": 0.00000135,
         "interpolated": false,
         "confidence": "high",
@@ -438,7 +496,7 @@
         "model": "claude-opus-4-8",
         "effort": "low",
         "rank": 7,
-        "score": 1.3602043944366875,
+        "score": 0.7812322751745805,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -468,7 +526,7 @@
         "model": "claude-opus-4-8",
         "effort": "medium",
         "rank": 8,
-        "score": 1.3415644113903722,
+        "score": 0.770526416243343,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -498,7 +556,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "rank": 9,
-        "score": 1.336110716911146,
+        "score": 0.767394091304871,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
         "confidence": "high",
@@ -527,7 +585,7 @@
         "model": "claude-opus-4-8",
         "effort": "high",
         "rank": 10,
-        "score": 1.2887880299545085,
+        "score": 0.7402143449743065,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -557,7 +615,7 @@
         "model": "gpt-5.5",
         "effort": "xhigh",
         "rank": 11,
-        "score": 1.2697048776900042,
+        "score": 0.7292539521671096,
         "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
@@ -586,7 +644,7 @@
         "model": "claude-opus-4-8",
         "effort": "xhigh",
         "rank": 12,
-        "score": 1.2281019577097803,
+        "score": 0.7053593492949313,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -616,7 +674,7 @@
         "model": "claude-opus-4-8",
         "effort": "max",
         "rank": 13,
-        "score": 1.1678996540339217,
+        "score": 0.6707822056951861,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -646,7 +704,7 @@
         "model": "gpt-5.5-pro",
         "effort": "null",
         "rank": 14,
-        "score": 1,
+        "score": 0.5743491774985174,
         "cost_figure_used": 0.0000065999999999999995,
         "interpolated": false,
         "confidence": "high",
@@ -669,7 +727,7 @@
         "model": "claude-haiku-4-5",
         "effort": "null",
         "rank": 15,
-        "score": 0.999999,
+        "score": 0.5743481774985174,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": true,
         "confidence": "low",
@@ -691,7 +749,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 16,
-        "score": 0.999999,
+        "score": 0.5743481774985174,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": true,
         "confidence": "low",
@@ -713,7 +771,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 17,
-        "score": 0.999999,
+        "score": 0.5743481774985174,
         "cost_figure_used": 0.00000151875,
         "interpolated": true,
         "confidence": "low",
@@ -735,7 +793,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 18,
-        "score": 0.999999,
+        "score": 0.5743481774985174,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
@@ -757,7 +815,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 19,
-        "score": 0.999999,
+        "score": 0.5743481774985174,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
@@ -779,7 +837,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 20,
-        "score": 0.999999,
+        "score": 0.5743481774985174,
         "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
@@ -801,7 +859,7 @@
         "model": "gpt-5.4-mini",
         "effort": "null",
         "rank": 21,
-        "score": 0.999999,
+        "score": 0.5743481774985174,
         "cost_figure_used": 1.65e-7,
         "interpolated": true,
         "confidence": "low",
@@ -821,11 +879,99 @@
     ],
     "security_review": [
       {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
+        "rank": 1,
+        "score": 1.2665798989842247,
+        "cost_figure_used": 0.00000116,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 2,
+        "score": 1.2477919704107232,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 3,
+        "score": 1.195247515351979,
+        "cost_figure_used": 0.00000155,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 4,
+        "score": 1.1358426970765705,
+        "cost_figure_used": 0.000002,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "low",
-        "rank": 1,
-        "score": 1.3602043944366875,
+        "rank": 5,
+        "score": 0.9834021792170984,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -861,8 +1007,8 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "medium",
-        "rank": 2,
-        "score": 1.3415644113903722,
+        "rank": 6,
+        "score": 0.96992582226421,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -898,8 +1044,8 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 3,
-        "score": 1.2887880299545085,
+        "rank": 7,
+        "score": 0.9317694916954389,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -932,55 +1078,11 @@
         ]
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 4,
-        "score": 1.2665798989842247,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 5,
-        "score": 1.2477919704107232,
-        "cost_figure_used": 0.00000125,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
-        "rank": 6,
-        "score": 1.2281019577097803,
+        "rank": 8,
+        "score": 0.8878946035259243,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -1013,33 +1115,11 @@
         ]
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
-        "rank": 7,
-        "score": 1.195247515351979,
-        "cost_figure_used": 0.00000155,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 8,
-        "score": 1.1678996540339217,
+        "rank": 9,
+        "score": 0.8443694709275644,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -1068,28 +1148,6 @@
             "annotation": "181 working exploits (raw count, score-unit) reinforcing opus-4-8 offensive-capability lead.",
             "label": "[INFERRED]",
             "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
-        "rank": 9,
-        "score": 1.1358426970765705,
-        "cost_figure_used": 0.000002,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
           }
         ]
       },
@@ -1505,11 +1563,101 @@
         ]
       },
       {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 8,
+        "score": 1.005396778469517,
+        "cost_figure_used": 0.0000018562500000000002,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          },
+          {
+            "url": "https://benchlm.ai/benchmarks/sweVerified",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 9,
+        "score": 0.9580549502443031,
+        "cost_figure_used": 0.0000023625000000000003,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          },
+          {
+            "url": "https://benchlm.ai/benchmarks/sweVerified",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 10,
+        "score": 0.9110905148481363,
+        "cost_figure_used": 0.0000030375,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          },
+          {
+            "url": "https://benchlm.ai/benchmarks/sweVerified",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "low",
-        "rank": 8,
-        "score": 1.0236327731184687,
+        "rank": 11,
+        "score": 0.8131921783244938,
         "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
@@ -1545,8 +1693,8 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "medium",
-        "rank": 9,
-        "score": 1.0084486229181784,
+        "rank": 12,
+        "score": 0.8011296179008335,
         "cost_figure_used": 0.00000125,
         "interpolated": false,
         "confidence": "high",
@@ -1580,29 +1728,43 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "high",
-        "rank": 10,
-        "score": 1.005396778469517,
-        "cost_figure_used": 0.0000018562500000000002,
+        "model": "claude-sonnet-4-6",
+        "effort": "low",
+        "rank": 13,
+        "score": 0.7825219709333646,
+        "cost_figure_used": 6.3e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+          "[SEED]"
         ],
         "citations": [
           {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "url": "https://benchlm.ai/benchmarks/sweVerified",
             "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
+            "annotation": "sonnet-4-6 Verified; below Opus tier on observed-failure repair.",
             "label": "[SEED]",
             "source_id": "[SEED]"
-          },
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 14,
+        "score": 0.7717984382560513,
+        "cost_figure_used": 6.75e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
           {
             "url": "https://benchlm.ai/benchmarks/sweVerified",
             "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
+            "annotation": "sonnet-4-6 Verified; below Opus tier on observed-failure repair.",
             "label": "[SEED]",
             "source_id": "[SEED]"
           }
@@ -1612,8 +1774,8 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 11,
-        "score": 0.9659829037899048,
+        "rank": 15,
+        "score": 0.767394091304871,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
         "confidence": "high",
@@ -1647,29 +1809,21 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "xhigh",
-        "rank": 12,
-        "score": 0.9580549502443031,
-        "cost_figure_used": 0.0000023625000000000003,
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 16,
+        "score": 0.7414363263640174,
+        "cost_figure_used": 8.25e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+          "[SEED]"
         ],
         "citations": [
           {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          },
-          {
             "url": "https://benchlm.ai/benchmarks/sweVerified",
             "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
+            "annotation": "sonnet-4-6 Verified; below Opus tier on observed-failure repair.",
             "label": "[SEED]",
             "source_id": "[SEED]"
           }
@@ -1679,8 +1833,8 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 13,
-        "score": 0.9179727317378907,
+        "rank": 17,
+        "score": 0.7292539521671096,
         "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
@@ -1707,102 +1861,6 @@
             "url": "https://www.marc0.dev/en/leaderboard",
             "retrieved_at": "2026-06-04T00:00:00Z",
             "annotation": "OpenAI-reported Verified; near-parity with opus-4-8 on Verified but contested by Pro/DeepSWE (corroboration only).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "max",
-        "rank": 14,
-        "score": 0.9110905148481363,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          },
-          {
-            "url": "https://benchlm.ai/benchmarks/sweVerified",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 15,
-        "score": 0.7825219709333646,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/benchmarks/sweVerified",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "sonnet-4-6 Verified; below Opus tier on observed-failure repair.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 16,
-        "score": 0.7717984382560513,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/benchmarks/sweVerified",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "sonnet-4-6 Verified; below Opus tier on observed-failure repair.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
-        "rank": 17,
-        "score": 0.7414363263640174,
-        "cost_figure_used": 8.25e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/benchmarks/sweVerified",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "sonnet-4-6 Verified; below Opus tier on observed-failure repair.",
             "label": "[SEED]",
             "source_id": "[SEED]"
           }
@@ -5511,7 +5569,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 1,
-        "score": 4.093756733307034,
+        "score": 3.1024874499684802,
         "cost_figure_used": 6.3e-7,
         "interpolated": false,
         "confidence": "high",
@@ -5533,7 +5591,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 2,
-        "score": 3.9277523544496833,
+        "score": 2.976679656394803,
         "cost_figure_used": 6.75e-7,
         "interpolated": false,
         "confidence": "high",
@@ -5555,7 +5613,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 3,
-        "score": 3.4822022531844956,
+        "score": 2.6390158215457875,
         "cost_figure_used": 8.25e-7,
         "interpolated": false,
         "confidence": "high",
@@ -5577,7 +5635,7 @@
         "model": "gpt-5.5",
         "effort": "low",
         "rank": 4,
-        "score": 2.838256020746256,
+        "score": 2.15099583532149,
         "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
@@ -5606,7 +5664,7 @@
         "model": "gpt-5.5",
         "effort": "medium",
         "rank": 5,
-        "score": 2.7138157181069587,
+        "score": 2.0566877211955146,
         "cost_figure_used": 0.00000125,
         "interpolated": false,
         "confidence": "high",
@@ -5635,7 +5693,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 6,
-        "score": 2.591350151626609,
+        "score": 1.9638761772248414,
         "cost_figure_used": 0.00000135,
         "interpolated": false,
         "confidence": "high",
@@ -5657,7 +5715,7 @@
         "model": "claude-opus-4-8",
         "effort": "low",
         "rank": 7,
-        "score": 2.5165903143093398,
+        "score": 1.9072188152591378,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -5687,7 +5745,7 @@
         "model": "claude-opus-4-8",
         "effort": "medium",
         "rank": 8,
-        "score": 2.414541013586024,
+        "score": 1.8298799074055723,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -5717,7 +5775,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "rank": 9,
-        "score": 2.3852139596478703,
+        "score": 1.8076541566550703,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
         "confidence": "high",
@@ -5746,7 +5804,7 @@
         "model": "claude-opus-4-8",
         "effort": "high",
         "rank": 10,
-        "score": 2.1406441646939482,
+        "score": 1.622304911715215,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -5776,7 +5834,7 @@
         "model": "gpt-5.5",
         "effort": "xhigh",
         "rank": 11,
-        "score": 2.0469553234931666,
+        "score": 1.5513020473626216,
         "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
@@ -5805,7 +5863,7 @@
         "model": "claude-opus-4-8",
         "effort": "xhigh",
         "rank": 12,
-        "score": 1.8522656420826955,
+        "score": 1.4037548596413805,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -5835,7 +5893,7 @@
         "model": "claude-opus-4-8",
         "effort": "max",
         "rank": 13,
-        "score": 1.5930029841561806,
+        "score": 1.207270506793012,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -5865,7 +5923,7 @@
         "model": "gpt-5.5-pro",
         "effort": "null",
         "rank": 14,
-        "score": 1,
+        "score": 0.757858283255199,
         "cost_figure_used": 0.0000065999999999999995,
         "interpolated": false,
         "confidence": "high",
@@ -5888,7 +5946,7 @@
         "model": "claude-haiku-4-5",
         "effort": "null",
         "rank": 15,
-        "score": 0.999999,
+        "score": 0.757857283255199,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": true,
         "confidence": "low",
@@ -5910,7 +5968,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 16,
-        "score": 0.999999,
+        "score": 0.757857283255199,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": true,
         "confidence": "low",
@@ -5932,7 +5990,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 17,
-        "score": 0.999999,
+        "score": 0.757857283255199,
         "cost_figure_used": 0.00000151875,
         "interpolated": true,
         "confidence": "low",
@@ -5954,7 +6012,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 18,
-        "score": 0.999999,
+        "score": 0.757857283255199,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
@@ -5976,7 +6034,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 19,
-        "score": 0.999999,
+        "score": 0.757857283255199,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
@@ -5998,7 +6056,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 20,
-        "score": 0.999999,
+        "score": 0.757857283255199,
         "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
@@ -6020,7 +6078,7 @@
         "model": "gpt-5.4-mini",
         "effort": "null",
         "rank": 21,
-        "score": 0.999999,
+        "score": 0.757857283255199,
         "cost_figure_used": 1.65e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6084,11 +6142,33 @@
         ]
       },
       {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 3,
+        "score": 2.255978952275852,
+        "cost_figure_used": 0.00000155,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "low",
-        "rank": 3,
-        "score": 2.5165903143093398,
+        "rank": 4,
+        "score": 2.1398139632717945,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -6124,8 +6204,8 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "medium",
-        "rank": 4,
-        "score": 2.414541013586024,
+        "rank": 5,
+        "score": 2.053043177662297,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -6160,10 +6240,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "high",
-        "rank": 5,
-        "score": 2.255978952275852,
-        "cost_figure_used": 0.00000155,
+        "effort": "xhigh",
+        "rank": 6,
+        "score": 1.9360477526013355,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6183,8 +6263,8 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 6,
-        "score": 2.1406441646939482,
+        "rank": 7,
+        "score": 1.8201533431815278,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -6217,33 +6297,11 @@
         ]
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
-        "rank": 7,
-        "score": 1.9360477526013355,
-        "cost_figure_used": 0.000002,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "gpt-5.5 close second on CyberGym; strongest cross-provider security number for it. High-not-Critical (OpenAI Preparedness).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
         "rank": 8,
-        "score": 1.8522656420826955,
+        "score": 1.5749499877197544,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -6280,7 +6338,7 @@
         "model": "claude-opus-4-8",
         "effort": "max",
         "rank": 9,
-        "score": 1.5930029841561806,
+        "score": 1.3545033570418608,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -6610,11 +6668,71 @@
         ]
       },
       {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 5,
+        "score": 2.411402186416818,
+        "cost_figure_used": 0.00000151875,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "Contamination-resistant Pro spine (A-2); opus-4-8 leads gpt-5.5 by ~10.6 pts. Decisive debugging signal.",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          },
+          {
+            "url": "https://benchlm.ai/benchmarks/sweVerified",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "GA Verified; corroboration only — near-saturated and carries documented Claude over-credit loophole (A-2).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "low",
+        "rank": 6,
+        "score": 2.2227494863311565,
+        "cost_figure_used": 0.0000014174999999999998,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          },
+          {
+            "url": "https://benchlm.ai/benchmarks/sweVerified",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "low",
-        "rank": 5,
-        "score": 2.413320845272292,
+        "rank": 7,
+        "score": 2.15099583532149,
         "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
@@ -6649,10 +6767,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
-        "rank": 6,
-        "score": 2.411402186416818,
-        "cost_figure_used": 0.00000151875,
+        "effort": "high",
+        "rank": 8,
+        "score": 2.1378613947902947,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6677,11 +6795,41 @@
         ]
       },
       {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 9,
+        "score": 2.132615613736381,
+        "cost_figure_used": 0.00000151875,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          },
+          {
+            "url": "https://benchlm.ai/benchmarks/sweVerified",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "medium",
-        "rank": 7,
-        "score": 2.3075113713713264,
+        "rank": 10,
+        "score": 2.0566877211955146,
         "cost_figure_used": 0.00000125,
         "interpolated": false,
         "confidence": "high",
@@ -6716,10 +6864,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 8,
-        "score": 2.2227494863311565,
-        "cost_figure_used": 0.0000014174999999999998,
+        "effort": "high",
+        "rank": 11,
+        "score": 1.8906993682827917,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6746,10 +6894,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "high",
-        "rank": 9,
-        "score": 2.1378613947902947,
-        "cost_figure_used": 0.0000018562500000000002,
+        "effort": "xhigh",
+        "rank": 12,
+        "score": 1.8498577551637148,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6775,29 +6923,21 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 10,
-        "score": 2.132615613736381,
-        "cost_figure_used": 0.00000151875,
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 13,
+        "score": 1.8123999088898206,
+        "cost_figure_used": 0.00000135,
         "interpolated": false,
         "confidence": "high",
         "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+          "[SEED]"
         ],
         "citations": [
           {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          },
-          {
             "url": "https://benchlm.ai/benchmarks/sweVerified",
             "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
+            "annotation": "sonnet-4-6 Verified; below Opus tier on observed-failure repair.",
             "label": "[SEED]",
             "source_id": "[SEED]"
           }
@@ -6807,8 +6947,8 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 11,
-        "score": 2.028106882246367,
+        "rank": 14,
+        "score": 1.8076541566550703,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
         "confidence": "high",
@@ -6843,127 +6983,8 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "high",
-        "rank": 12,
-        "score": 1.8906993682827917,
-        "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Pro split sits between opus-4-8 and gpt-5.5; generational debugging order.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          },
-          {
-            "url": "https://benchlm.ai/benchmarks/sweVerified",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "opus-4-7 Verified; one tier below opus-4-8 (corroboration).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
-        "rank": 13,
-        "score": 1.8498577551637148,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "Contamination-resistant Pro spine (A-2); opus-4-8 leads gpt-5.5 by ~10.6 pts. Decisive debugging signal.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          },
-          {
-            "url": "https://benchlm.ai/benchmarks/sweVerified",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "GA Verified; corroboration only — near-saturated and carries documented Claude over-credit loophole (A-2).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
-        "rank": 14,
-        "score": 1.8123999088898206,
-        "cost_figure_used": 0.00000135,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/benchmarks/sweVerified",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "sonnet-4-6 Verified; below Opus tier on observed-failure repair.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
         "effort": "xhigh",
         "rank": 15,
-        "score": 1.7404913141797171,
-        "cost_figure_used": 0.000002,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]",
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "gpt-5.5 on harder Pro split below Opus tier; the decisive cross-provider debugging gap.",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          },
-          {
-            "url": "https://venturebeat.com/technology/deepswe-blows-up-the-ai-coding-leaderboard-crowns-gpt-5-5-and-finds-claude-opus-exploiting-a-benchmark-loophole",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "Independent contamination-resistant DeepSWE: gpt-5.5 leads — the live dissent that keeps gpt-5.5 immediately below the Opus tier, not far down (A-2).",
-            "label": "[INFERRED]",
-            "source_id": "[INFERRED]"
-          },
-          {
-            "url": "https://www.marc0.dev/en/leaderboard",
-            "retrieved_at": "2026-06-04T00:00:00Z",
-            "annotation": "OpenAI-reported Verified; near-parity with opus-4-8 on Verified but contested by Pro/DeepSWE (corroboration only).",
-            "label": "[SEED]",
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "xhigh",
-        "rank": 16,
         "score": 1.635992350871809,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
@@ -6993,7 +7014,7 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 17,
+        "rank": 16,
         "score": 1.5909321305160224,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
@@ -7014,6 +7035,43 @@
             "url": "https://benchlm.ai/benchmarks/sweVerified",
             "retrieved_at": "2026-06-04T00:00:00Z",
             "annotation": "GA Verified; corroboration only — near-saturated and carries documented Claude over-credit loophole (A-2).",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 17,
+        "score": 1.5513020473626216,
+        "cost_figure_used": 0.000002,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "gpt-5.5 on harder Pro split below Opus tier; the decisive cross-provider debugging gap.",
+            "label": "[SEED]",
+            "source_id": "[SEED]"
+          },
+          {
+            "url": "https://venturebeat.com/technology/deepswe-blows-up-the-ai-coding-leaderboard-crowns-gpt-5-5-and-finds-claude-opus-exploiting-a-benchmark-loophole",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "Independent contamination-resistant DeepSWE: gpt-5.5 leads — the live dissent that keeps gpt-5.5 immediately below the Opus tier, not far down (A-2).",
+            "label": "[INFERRED]",
+            "source_id": "[INFERRED]"
+          },
+          {
+            "url": "https://www.marc0.dev/en/leaderboard",
+            "retrieved_at": "2026-06-04T00:00:00Z",
+            "annotation": "OpenAI-reported Verified; near-parity with opus-4-8 on Verified but contested by Pro/DeepSWE (corroboration only).",
             "label": "[SEED]",
             "source_id": "[SEED]"
           }
