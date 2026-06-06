@@ -52,4 +52,22 @@ for (let i = 0; i < root.sites.length; i++) {
 }
 if (md.site_count !== root.sites.length) fail(`metadata.site_count ${md.site_count} != sites.length ${root.sites.length}`);
 
+// refinement #7: dead-signal detector. tier 0 = unknown/unparsed. Before this fix a provenance
+// label ([SEED]/[INFERRED]/[ASSUMPTION]) masked each citation's numeric [Tn] tier, so EVERY site
+// landed at tier 0 while the schema (tier int 0..5) happily accepted it — a silently dead tier
+// signal. WARN (never fail: tier 0 is schema-valid and a genuinely thin pre-first-run seed may be
+// legitimately all-unknown) when >90% of sites are tier 0, so a regressed/masked tier pipeline is
+// surfaced loudly instead of passing green.
+if (root.sites.length > 0) {
+  const tier0 = root.sites.filter((s) => s.tier === 0).length;
+  const pct = tier0 / root.sites.length;
+  if (pct > 0.9) {
+    console.warn(
+      `validate_seed_sites: WARNING ${tier0}/${root.sites.length} sites (${(pct * 100).toFixed(1)}%) are tier 0 ` +
+      `(>90%). Possible dead/masked tier signal — verify build_routing_table emits numeric citation ` +
+      `tiers and update_seed_sites reads them (refinement #7). Not a hard failure (tier 0 is schema-valid).`
+    );
+  }
+}
+
 console.log(`validate_seed_sites: PASS (${root.sites.length} sites).`);

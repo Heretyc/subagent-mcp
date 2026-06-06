@@ -1094,6 +1094,13 @@ function citationsFor(detail, category) {
       annotation: r.annotation || `${r.model} ${r.benchmark} = ${r.raw}${r.unit === "pct" ? "%" : ""}.`,
     };
     if (r.tier) cite.label = r.label || `[T${r.tier}]`;
+    // refinement #7: emit the row's NUMERIC tier directly on the citation, ALONGSIDE the
+    // provenance label. Previously the [Tn] tier was only ever encoded into `cite.label`, and
+    // a provenance label ([SEED]/[INFERRED]/[ASSUMPTION]) on the row MASKED it — so the seed
+    // harvester (which regexed /^\[T(\d)\]$/ off the label) read tier 0 for every such site.
+    // Carrying the numeric tier on its own field lets update_seed_sites read the real tier.
+    const numericTier = Number.isFinite(Number(r.tier)) ? Number(r.tier) : null;
+    if (numericTier !== null) cite.tier = numericTier;
     if (r.label) cite.source_id = r.label;
     cites.push(cite);
   }
