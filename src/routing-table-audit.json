@@ -194,6 +194,32 @@
         "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
       }
     ],
+    "cross_category_benchmarks": [
+      {
+        "benchmark": "GPQA Diamond",
+        "categories": [
+          "math_proof",
+          "knowledge_synthesis"
+        ]
+      },
+      {
+        "benchmark": "SWE-bench Pro",
+        "categories": [
+          "debugging",
+          "agentic_execution",
+          "coding"
+        ]
+      },
+      {
+        "benchmark": "SWE-bench Verified",
+        "categories": [
+          "debugging",
+          "coding"
+        ]
+      }
+    ],
+    "off_map_rows": [],
+    "off_map_enforcement": "throw_on_future_off_map",
     "category_completeness": {
       "math_proof": "measured",
       "security_review": "measured",

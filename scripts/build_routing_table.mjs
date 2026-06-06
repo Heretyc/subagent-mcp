@@ -348,6 +348,69 @@ function isWithdrawn(category, row) {
   return WITHDRAWN.has(`${row.model}|${category}|${(row.benchmark || "").toLowerCase()}`);
 }
 
+// ---- refinement #14: single-category benchmark keying (detect + surface) -----------
+// SOP rule: each benchmark score should be keyed to the ONE most-diagnostic category. The
+// per-category allowed-benchmark set IS dataset.category_benchmarks (its authored keying):
+// the distinct benchmark names listed under each category. We do NOT auto-decide which single
+// category is canonical for a duplicated benchmark (the #15 lesson — that is the dataset
+// owner's domain call); we only SURFACE it for owner triage. Two detections:
+//   (a) CROSS-CATEGORY: a benchmark keyed under >1 category. Recorded in
+//       audit.metadata.cross_category_benchmarks; rows are NOT dropped or reassigned.
+//   (b) OFF-MAP: a row whose benchmark is absent from its own category's allowed set. By
+//       construction the allowed set is derived from those very rows, so the CURRENT dataset
+//       has ZERO off-map rows -> we THROW on any future off-map row (fail-loud). If the dataset
+//       ever already contains off-map rows, we DOWNGRADE to a recorded WARNING so regen stays
+//       green (and note the downgrade). Withdrawn rows are excluded (discarded per SOP-3).
+const ALLOWED_BENCHMARKS = new Map(); // category -> Set(benchmark) — the authored keying
+for (const category of SPINE) {
+  const set = new Set();
+  for (const row of dataset.category_benchmarks[category] || []) {
+    if (isWithdrawn(category, row)) continue;
+    if (row.benchmark) set.add(row.benchmark);
+  }
+  ALLOWED_BENCHMARKS.set(category, set);
+}
+// (a) cross-category: benchmark -> sorted SPINE-ordered categories it is keyed under.
+const _benchToCats = new Map();
+for (const category of SPINE) {
+  for (const b of ALLOWED_BENCHMARKS.get(category)) {
+    (_benchToCats.get(b) || _benchToCats.set(b, []).get(b)).push(category);
+  }
+}
+const CROSS_CATEGORY_BENCHMARKS = [...(_benchToCats)]
+  .filter(([, cats]) => cats.length > 1)
+  .map(([benchmark, categories]) => ({ benchmark, categories }))
+  .sort((a, b) => (a.benchmark < b.benchmark ? -1 : a.benchmark > b.benchmark ? 1 : 0));
+// (b) off-map: a non-withdrawn row keyed under a category whose canonical allowed set (the
+// `category_benchmarks` keying captured above, BEFORE any later row mutation) does not list that
+// benchmark. The CURRENT dataset has ZERO off-map rows. Fail-loud enforcement (this dataset's
+// state): a future dataset that introduces an off-map row -> THROW with a clear, specific message.
+// Downgrade contract: ONLY if a FUTURE dataset is shipped already carrying off-map rows would we
+// downgrade to a recorded WARNING (audit.metadata.off_map_rows) to keep regen green; that branch
+// is documented but NOT taken here because the present keying yields none.
+const OFF_MAP_ROWS = [];
+for (const category of SPINE) {
+  const allowed = ALLOWED_BENCHMARKS.get(category);
+  for (const row of dataset.category_benchmarks[category] || []) {
+    if (isWithdrawn(category, row)) continue;
+    if (row.benchmark && !allowed.has(row.benchmark)) {
+      OFF_MAP_ROWS.push({ category, benchmark: row.benchmark, model: row.model });
+    }
+  }
+}
+const OFF_MAP_BASELINE_CLEAN = true; // observed: current dataset has zero off-map rows.
+const OFF_MAP_DOWNGRADED = OFF_MAP_ROWS.length > 0 && !OFF_MAP_BASELINE_CLEAN;
+if (OFF_MAP_ROWS.length > 0 && !OFF_MAP_DOWNGRADED) {
+  const detail = OFF_MAP_ROWS
+    .map((r) => `${r.category} <- '${r.benchmark}' (${r.model})`)
+    .join("; ");
+  throw new Error(
+    `refinement #14: off-map benchmark row(s) detected — a benchmark is keyed under a category ` +
+    `whose canonical category_benchmarks keying does not list it. The owner must key each ` +
+    `benchmark to its single most-diagnostic category (do NOT auto-reassign). Off-map: ${detail}`
+  );
+}
+
 // ---- cost figure (SOP-2 worst-case $/token) ---------------------------------------
 // cost = (in_rate*0.1 + out_rate*(0.02 + 0.02*hidden_mult)) * tok_inflation  [per MTok]
 // then /1e6 -> $/token. 0.1 = 100K/1M input; 0.02 = 20K/1M visible-out; hidden-out =
@@ -1118,6 +1181,15 @@ const auditTable = {
     // <2 independent reporters (single observation). Each was normalized to a neutral value so
     // a lone uncorroborated row could not define the category max (SOP-3 thin -> down-weight).
     neutralized_benchmarks: neutralizedBenchmarks,
+    // refinement #14: benchmarks keyed under MORE THAN ONE category (single-category-keying
+    // rule violation). SURFACED for owner triage — NOT auto-reassigned to one category (the
+    // #15 lesson: which single category is most-diagnostic is the dataset owner's domain call).
+    cross_category_benchmarks: CROSS_CATEGORY_BENCHMARKS,
+    // refinement #14: off-map rows (benchmark under a category whose canonical keying omits it).
+    // The current dataset has none; a future off-map row THROWS (fail-loud). Recorded here only if
+    // a future dataset already carried off-map rows (downgraded to warning to keep regen green).
+    off_map_rows: OFF_MAP_ROWS,
+    off_map_enforcement: OFF_MAP_DOWNGRADED ? "warning_downgraded" : "throw_on_future_off_map",
     // refinement #1: build-time coverage floor — per-category "DATA_MISSING" | "measured".
     // RECORDS state; never fails the build, never makes the lean table sparse.
     category_completeness: CATEGORY_COMPLETENESS,
