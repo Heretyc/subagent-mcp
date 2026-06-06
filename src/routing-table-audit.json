@@ -298,6 +298,108 @@
         ]
       }
     ],
+    "run_manifest": {
+      "run_id": null,
+      "trigger": null,
+      "recency_window": null,
+      "provider_scope": [
+        "claude",
+        "codex"
+      ],
+      "generated_at": "2026-06-04T00:00:00Z",
+      "completeness_state": "gap_stubbed",
+      "model_discovery": {
+        "discovered": [
+          "claude-haiku-4-5",
+          "claude-opus-4-7",
+          "claude-opus-4-8",
+          "claude-sonnet-4-6",
+          "gpt-5.4-mini",
+          "gpt-5.5",
+          "gpt-5.5-pro"
+        ],
+        "included": [
+          "claude-haiku-4-5",
+          "claude-opus-4-7",
+          "claude-opus-4-8",
+          "claude-sonnet-4-6",
+          "gpt-5.4-mini",
+          "gpt-5.5",
+          "gpt-5.5-pro"
+        ],
+        "discovered_count": 7,
+        "included_count": 7,
+        "discovered_not_included": []
+      },
+      "source_attempt_counts": "unavailable_offline",
+      "phase_statuses": "unavailable_offline",
+      "budget_consumed": null,
+      "category_coverage": {
+        "total_categories": 10,
+        "measured_categories": 6,
+        "data_missing_categories": 4,
+        "measured": [
+          "math_proof",
+          "security_review",
+          "debugging",
+          "agentic_execution",
+          "coding",
+          "knowledge_synthesis"
+        ],
+        "data_missing": [
+          "quality_review",
+          "architecture",
+          "data_analysis",
+          "mechanical"
+        ]
+      },
+      "dropped_pairings": {
+        "withdrawn": [],
+        "withdrawn_count": 0,
+        "neutralized_count": 9
+      },
+      "provider_coverage": {
+        "requested": [
+          "claude",
+          "codex"
+        ],
+        "realized": [
+          "claude",
+          "codex"
+        ],
+        "degraded": false
+      },
+      "agent_provenance": {
+        "status": "unavailable_offline",
+        "routing_table": {
+          "produced_by": null,
+          "critiqued_by": null
+        },
+        "audit": {
+          "produced_by": null,
+          "critiqued_by": null
+        },
+        "dataset": {
+          "produced_by": null,
+          "critiqued_by": null
+        }
+      },
+      "drift_vs_prior_audit": {
+        "prior_generated_at": "2026-06-04T00:00:00Z",
+        "universe_count": {
+          "prior": 21,
+          "current": 21
+        },
+        "neutralized_count": {
+          "prior": 9,
+          "current": 9
+        },
+        "data_missing_categories": {
+          "prior": 4,
+          "current": 4
+        }
+      }
+    },
     "realized_exponents": {
       "performance": {
         "a": 0.8,
