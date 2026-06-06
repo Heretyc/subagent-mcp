@@ -1165,6 +1165,156 @@ const neutralizedBenchmarks = [...NEUTRALIZED_BENCHMARKS].sort((a, b) => {
   return a.model < b.model ? -1 : a.model > b.model ? 1 : 0;
 });
 
+// ---- refinements #5/#4/#16/#18: run_manifest umbrella (additive AUDIT metadata) -----
+// ONE audit.metadata.run_manifest block. The validator ignores extra audit.metadata.* keys,
+// so this is purely additive (stays green). HONESTY: any field NOT genuinely derivable from
+// the ephemeral dataset / this offline single-process build is emitted as explicit null or
+// "unavailable_offline" rather than fabricated. The STRUCTURE is the deliverable.
+//
+// Optional run-context env (read but NOT required — null when unset; the present run sets none
+// of these, so they resolve to null honestly rather than to a fabricated value).
+const RUN_ID = process.env.RUN_ID || null;
+const RUN_TRIGGER = process.env.RUN_TRIGGER || null;
+const RECENCY_WINDOW = process.env.RECENCY_WINDOW || null;
+
+// provider_scope / provider_coverage (#18 approach A — transparency-only, NO gating).
+// realized = provider families actually present in the universe (derivable). requested =
+// from env (REQUESTED_PROVIDERS, comma-separated) if supplied, else defaults to realized.
+// degraded = realized fewer than requested. NO auto-degrade, NO gating on this signal.
+const REALIZED_FAMILIES = [...new Set([...UNIVERSE_MODELS].map((m) => providerOf(m)))].sort();
+const REQUESTED_FAMILIES = (process.env.REQUESTED_PROVIDERS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .sort();
+const _requested = REQUESTED_FAMILIES.length ? REQUESTED_FAMILIES : REALIZED_FAMILIES;
+const PROVIDER_COVERAGE = {
+  requested: _requested,
+  realized: REALIZED_FAMILIES,
+  degraded: REALIZED_FAMILIES.length < _requested.length,
+};
+
+// model-discovery diff (derivable): discovered = every model spec in the dataset; included =
+// models that actually appear in the ranked universe. Identical on this dataset (no model is
+// discovered-but-excluded), but the diff structure surfaces any future divergence.
+const DISCOVERED_MODELS = [...UNIVERSE_MODELS].sort();
+const INCLUDED_MODELS = [...new Set(UNIVERSE.map((p) => p.model))].sort();
+const MODEL_DISCOVERY = {
+  discovered: DISCOVERED_MODELS,
+  included: INCLUDED_MODELS,
+  discovered_count: DISCOVERED_MODELS.length,
+  included_count: INCLUDED_MODELS.length,
+  discovered_not_included: DISCOVERED_MODELS.filter((m) => !INCLUDED_MODELS.includes(m)),
+};
+
+// per-category measured-vs-sentinel counts (DERIVABLE from CATEGORY_COMPLETENESS): a category
+// is "measured" when >=1 universe pairing earns a real score, else DATA_MISSING (sentinel-only).
+const _measuredCats = SPINE.filter((c) => CATEGORY_COMPLETENESS[c] === "measured");
+const _dataMissingCats = SPINE.filter((c) => CATEGORY_COMPLETENESS[c] === "DATA_MISSING");
+const CATEGORY_COVERAGE = {
+  total_categories: SPINE.length,
+  measured_categories: _measuredCats.length,
+  data_missing_categories: _dataMissingCats.length,
+  measured: _measuredCats,
+  data_missing: _dataMissingCats,
+};
+
+// dropped_pairings: rows the builder discarded or neutralized (reuses what the builder already
+// knows). withdrawn rows are discarded entirely (SOP-3); neutralized thin single-observation
+// benchmarks are down-weighted from MAX capability (refinement #3). Both are derivable.
+const DROPPED_PAIRINGS = {
+  withdrawn: (dataset.withdrawn || []).map((w) => ({
+    model: w.model,
+    category: w.category,
+    benchmark: w.benchmark || null,
+  })),
+  withdrawn_count: (dataset.withdrawn || []).length,
+  neutralized_count: neutralizedBenchmarks.length,
+};
+
+// #4 completeness_state in {full, bounded_reuse, gap_stubbed, phase2_deferred}, chosen HONESTLY
+// from build signals: any DATA_MISSING (sentinel-stubbed) category present => "gap_stubbed";
+// otherwise "full". bounded_reuse / phase2_deferred are not signalled by this offline build.
+const COMPLETENESS_STATE = _dataMissingCats.length > 0 ? "gap_stubbed" : "full";
+// validate_provider WARNs (not fails) when state != full ONLY if that warn can be added WITHOUT
+// flipping the validator red on the regenerated audit. On this dataset the regenerated state is
+// "gap_stubbed" (4 DATA_MISSING categories), so a hard validator warn would be noisy/at-risk;
+// per the keep-green principle we record the state audit-only and emit a build-time console.warn
+// that does NOT affect the build exit code (the deferral is noted here and in the handoff).
+if (COMPLETENESS_STATE !== "full") {
+  console.warn(
+    `run_manifest.completeness_state=${COMPLETENESS_STATE} (${_dataMissingCats.length} DATA_MISSING ` +
+    `categor${_dataMissingCats.length === 1 ? "y" : "ies"}: ${_dataMissingCats.join(", ")}). ` +
+    `Recorded audit-only; not gated (keep-green).`
+  );
+}
+
+// #16 agent-provenance: which agent produced vs critiqued each artifact. No agent/build context
+// is available in this offline single-process build, so each slot is explicit null /
+// "unavailable_offline" rather than fabricated (HONESTY directive). Structure is the deliverable.
+const _agentEnv = (name) => process.env[name] || null;
+const AGENT_PROVENANCE = {
+  status: "unavailable_offline",
+  routing_table: { produced_by: _agentEnv("AGENT_PRODUCER"), critiqued_by: _agentEnv("AGENT_CRITIC") },
+  audit: { produced_by: _agentEnv("AGENT_PRODUCER"), critiqued_by: _agentEnv("AGENT_CRITIC") },
+  dataset: { produced_by: _agentEnv("DATASET_PRODUCER"), critiqued_by: _agentEnv("DATASET_CRITIC") },
+};
+
+// drift vs prior audit: if a prior src/routing-table-audit.json exists at build time (BEFORE we
+// overwrite it below), include a small drift summary (counts changed). Else null. Read defensively
+// — a malformed/absent prior audit yields a null drift block, never a build failure.
+function priorAuditDrift() {
+  if (!existsSync(OUT_AUDIT)) return null;
+  let prior;
+  try {
+    prior = readJsonStripBom(OUT_AUDIT);
+  } catch {
+    return { status: "prior_audit_unreadable" };
+  }
+  const pm = prior && prior.metadata ? prior.metadata : {};
+  const priorUniverse = Array.isArray(pm.model_effort_universe) ? pm.model_effort_universe.length : null;
+  const priorNeutralized = Array.isArray(pm.neutralized_benchmarks) ? pm.neutralized_benchmarks.length : null;
+  const priorCompleteness = pm.category_completeness && typeof pm.category_completeness === "object"
+    ? Object.values(pm.category_completeness).filter((v) => v === "DATA_MISSING").length
+    : null;
+  return {
+    prior_generated_at: typeof pm.generated_at === "string" ? pm.generated_at : null,
+    universe_count: { prior: priorUniverse, current: UNIVERSE_IDS.length },
+    neutralized_count: { prior: priorNeutralized, current: neutralizedBenchmarks.length },
+    data_missing_categories: { prior: priorCompleteness, current: _dataMissingCats.length },
+  };
+}
+const PRIOR_AUDIT_DRIFT = priorAuditDrift();
+
+const RUN_MANIFEST = {
+  // run identity / context — not derivable offline (no run-context env or dataset field set).
+  run_id: RUN_ID,
+  trigger: RUN_TRIGGER,
+  recency_window: RECENCY_WINDOW,
+  provider_scope: REALIZED_FAMILIES,
+  generated_at: GENERATED_AT,
+  // #4 completeness umbrella
+  completeness_state: COMPLETENESS_STATE,
+  // model discovery diff (derivable)
+  model_discovery: MODEL_DISCOVERY,
+  // source attempt counts by provider/category/outcome — NOT derivable: the ephemeral dataset
+  // carries no per-source attempt log in this offline build.
+  source_attempt_counts: "unavailable_offline",
+  // phase statuses + budget — NOT derivable in this single-process build.
+  phase_statuses: "unavailable_offline",
+  budget_consumed: null,
+  // per-category measured-vs-sentinel coverage (derivable)
+  category_coverage: CATEGORY_COVERAGE,
+  // dropped/neutralized pairings the builder already knows about (derivable)
+  dropped_pairings: DROPPED_PAIRINGS,
+  // #18 approach A provider coverage (transparency-only, no gating)
+  provider_coverage: PROVIDER_COVERAGE,
+  // #16 agent provenance (structure; null/unavailable_offline when no agent context)
+  agent_provenance: AGENT_PROVENANCE,
+  // drift vs prior committed audit (null when no prior audit existed at build time)
+  drift_vs_prior_audit: PRIOR_AUDIT_DRIFT,
+};
+
 const auditTable = {
   metadata: {
     author: "Lexi Blackburn",
@@ -1196,6 +1346,11 @@ const auditTable = {
     // refinement #9: dataset.gaps surfaced into the audit (reason + affected model +
     // remediation), grouped per category with each DATA_MISSING category's coverage state.
     gaps: GAPS_AUDIT,
+    // refinements #5/#4/#16/#18: run_manifest umbrella — additive audit metadata (run identity,
+    // completeness_state, model-discovery diff, per-category coverage, dropped/neutralized
+    // pairings, provider_coverage transparency, agent provenance, drift vs prior audit). Fields
+    // not genuinely derivable in this offline build are explicit null / "unavailable_offline".
+    run_manifest: RUN_MANIFEST,
     realized_exponents: {
       performance: { a: PERF_EXP.a, b: PERF_EXP.b },
       cost_efficiency: { a: COST_EXP.a, b: COST_EXP.b },
