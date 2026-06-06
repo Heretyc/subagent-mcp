@@ -73,7 +73,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -90,7 +90,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -100,14 +100,14 @@
     {
       "url": "https://buildfast.io/claude-opus-4-7",
       "domain": "buildfast.io",
-      "tier": 0,
+      "tier": 2,
       "categories": [
         "knowledge_synthesis"
       ],
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation"
@@ -152,7 +152,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -184,7 +184,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -215,7 +215,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -246,7 +246,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -279,7 +279,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -323,7 +323,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 4,
+      "times_seen": 5,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -346,7 +346,7 @@
     {
       "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
       "domain": "vellum.ai",
-      "tier": 1,
+      "tier": 2,
       "categories": [
         "agentic_execution",
         "architecture",
@@ -360,7 +360,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 7,
+      "times_seen": 8,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
