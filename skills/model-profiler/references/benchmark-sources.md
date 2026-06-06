@@ -52,6 +52,10 @@ category is measured (strong / moderate / proxy).
 `perception_required` modifier draws on a multimodal family (MMMU/MMMU-Pro · ScreenSpot-Pro · CharXiv
 · OCRBench · MathVista · Video-MME · BLINK) — a modifier re-rank input, not a category.
 
+**Polarity (record when non-obvious):** a benchmark's direction may be stated explicitly per row via an optional `polarity` field (`higher_is_better` / `lower_is_better`); absent that, the builder infers it from the benchmark name (defaulting to higher-is-better) and records any name-inferred assumption in the audit's `polarity_inference_warnings`.
+
+**Single-category keying (one most-diagnostic category per score):** each benchmark score should be keyed to the **one** category it is most diagnostic of. The builder treats each category's `category_benchmarks` list as that category's canonical allowed-benchmark set. It does **not** auto-decide which single category is canonical for a benchmark that is currently keyed under more than one (e.g. GPQA Diamond under `math_proof` + `knowledge_synthesis`; SWE-bench Pro / SWE-bench Verified across `debugging`/`coding`/`agentic_execution`) — that is the **dataset owner's domain call**. Such cross-category duplicates are **surfaced for owner triage** in `src/routing-table-audit.json` `metadata.cross_category_benchmarks` (`{benchmark, categories:[…]}`), never dropped or reassigned. A genuinely **off-map** row (a benchmark under a category whose canonical keying does not list it) is a fail-loud regression: the builder **throws** on any future off-map row (the current dataset has none); only a future dataset already shipping off-map rows downgrades to a recorded `metadata.off_map_rows` warning to keep regen green.
+
 ---
 
 ## Tier 1 — Official vendor model cards & docs (self-reported; symmetric; corroborate before trusting)
