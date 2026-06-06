@@ -31,6 +31,113 @@
       "claude-opus-4-7@xhigh",
       "claude-opus-4-7@max"
     ],
+    "polarity_inference_warnings": [
+      {
+        "benchmark": "FrontierMath",
+        "category": "math_proof",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "FrontierMath Tier 1-3",
+        "category": "math_proof",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "FrontierMath Tier 4",
+        "category": "math_proof",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "GPQA Diamond",
+        "category": "math_proof",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "HMMT Feb 2026",
+        "category": "math_proof",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "USAMO 2026",
+        "category": "math_proof",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "Cybench",
+        "category": "security_review",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "CyberGym",
+        "category": "security_review",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "CyberSecEval Firefox-exploitation",
+        "category": "security_review",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "DeepSWE",
+        "category": "debugging",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "SWE-bench Pro",
+        "category": "debugging",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "SWE-bench Verified",
+        "category": "debugging",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "OSWorld-Verified",
+        "category": "agentic_execution",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "SWE-bench Pro",
+        "category": "agentic_execution",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "Terminal-Bench 2.1 (Terminus-2)",
+        "category": "agentic_execution",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "SWE-bench Pro",
+        "category": "coding",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "SWE-bench Verified",
+        "category": "coding",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "GPQA Diamond",
+        "category": "knowledge_synthesis",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "GraphWalks BFS 1M",
+        "category": "knowledge_synthesis",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "HLE (no tools)",
+        "category": "knowledge_synthesis",
+        "assumed": "higher_is_better"
+      },
+      {
+        "benchmark": "HLE (with tools)",
+        "category": "knowledge_synthesis",
+        "assumed": "higher_is_better"
+      }
+    ],
     "realized_exponents": {
       "performance": {
         "a": 0.8,
