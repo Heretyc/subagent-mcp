@@ -1,0 +1,67 @@
+# Worktree-Isolation branch-name guard.
+# SCOPE: PR-time branch-NAME check ONLY. This is a fast advisory signal, NOT the
+# authoritative gate. The AUTHORITATIVE block is the Tier-1 branch-protection ruleset
+# on the DEFAULT branch (see docs/spec/dev-loop/worktree-enforcement/enforcement.md and
+# scripts/apply_branch_protection.mjs); that ruleset — not this workflow — blocks direct
+# pushes/force-push/deletion to the default branch for everyone.
+# Owner-approved exception to git-collaboration directive 23 (Claude routines are the
+# canonical CI/CD path): this workflow neither builds, tests, nor executes any PR code.
+# Least-privilege: contents:read only, NO checkout, NO PR-code execution.
+# The head-branch regex below MUST match BRANCH_FORMULA in scripts/check_worktree.mjs and
+# docs/spec/dev-loop/worktree-enforcement/naming.md char-for-char, except the slash is
+# written `/` here (POSIX ERE, slash is not special) vs `\/` in the JS regex literal —
+# the two patterns are semantically identical. Edit all three together.
+# All github.event fields (head.ref, base.ref, default branch) are treated as UNTRUSTED
+# strings and are passed via env — never interpolated inline into a run script (dir. 27).
+name: worktree-guard
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate head branch name against the worktree formula
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -eu
+          # Untrusted: HEAD_REF / BASE_REF / DEFAULT_BRANCH arrive only via env, never inlined.
+          # NOTE: byte-identical to BRANCH_FORMULA in scripts/check_worktree.mjs and naming.md.
+          formula='^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration)/[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)?$'
+
+          fail=0
+          if ! printf '%s' "$HEAD_REF" | grep -Eq "$formula"; then
+            echo "::error::head branch '$HEAD_REF' violates the worktree branch formula."
+            echo "  allowed: <type>/<subject> or <type>/<actor>/<subject>"
+            echo "  types: feature fix hotfix release docs test refactor chore agent user integration"
+            fail=1
+          fi
+
+          # Reject deeper forbidden tokens the formula alone permits.
+          case "$HEAD_REF" in
+            *..*|*@\{*|*.lock) echo "::error::head branch '$HEAD_REF' contains a forbidden token (.. @{ or .lock)."; fail=1 ;;
+          esac
+
+          # base.ref must be the repo's actual default branch (authoritative source:
+          # repository.default_branch), with main/master as a literal fallback.
+          if [ "$BASE_REF" = "$DEFAULT_BRANCH" ]; then
+            :
+          else
+            case "$BASE_REF" in
+              main|master) : ;;
+              *) echo "::error::base branch '$BASE_REF' is not the default branch ('$DEFAULT_BRANCH') or a main/master fallback."; fail=1 ;;
+            esac
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            exit 1
+          fi
+          echo "WORKTREE-GUARD: head '$HEAD_REF' -> base '$BASE_REF' OK"

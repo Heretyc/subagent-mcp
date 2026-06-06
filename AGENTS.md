@@ -24,65 +24,64 @@ agentic collaboration.
 
 ## Load Triggers
 
-- `docs/spec/safety-scope.md`: read when an interactive human prompt is over
-  150 words; asks for structural, architectural, debug, troubleshooting, or
-  root-cause work; or may require pausing, clarification, consent, refusal, or
-  escalation due to ambiguity, under-specification, safety, privacy,
-  credentials, external side effects, identity, authorization, or irreversible
-  actions. Also read before handling secrets, spawning sub-agents, or editing
-  automated/scheduled agent [agentic mention removed].
-- `docs/spec/dev-loop/git-collaboration.md`: read before creating, naming,
-  switching, or deleting branches/worktrees; before staging, committing,
-  pushing, pulling, rebasing, merging, resetting, cleaning, pruning, opening,
-  reviewing, or merging PRs; and before protected/default-branch work. Do not
-  read it for read-only `status`, `diff`, `log`, or file inspection.
-- `agents/GIT_COLLABORATION.md`: after the git SOP, read when modifying repo
-  files or performing git write actions and a compact checklist is useful. Do
-  not read for read-only review, explanation, or non-git tasks.
+- `docs/spec/safety-scope.md`: read when an interactive human prompt exceeds
+  150 words; asks for structural, architectural, debug, or root-cause work; or
+  may require pausing, clarification, consent, refusal, or escalation due to
+  ambiguity, safety, privacy, credentials, side effects, identity, authorization,
+  or irreversible actions. Also before secrets, sub-agents, or agent injection.
+- `docs/spec/dev-loop/git-collaboration.md`: read before any branch/worktree
+  create/name/switch/delete; staging, committing, pushing, pulling, rebasing,
+  merging, resetting, cleaning, pruning, or opening/reviewing/merging PRs; and
+  protected/default-branch work. Skip for read-only `status`/`diff`/`log` or
+  file inspection.
+- `agents/GIT_COLLABORATION.md`: after the git SOP, read when doing git writes
+  and a compact checklist helps. Skip for read-only review or non-git tasks.
 - `docs/spec/dev-loop/claude-routine-prompt.md`: read before creating or
   changing the exact Claude Routine Instructions text.
 - `docs/spec/dev-loop/claude-routines-cicd.md`: read before editing
   `.github/workflows/*`, required-check names, workflow permissions,
-  `workflow_dispatch` inputs/outputs, routine dispatch bridge logic, or any
-  GitHub event/status mapping to Claude Routine execution.
+  `workflow_dispatch` I/O, dispatch bridge logic, or any GitHub event/status
+  mapping to Claude Routine execution.
 - `docs/spec/prompt-review/eight-perspective-review.md`: read before creating
-  or changing repository instruction files, reusable prompts/templates, SOPs
-  under `docs/spec`, skills, policy gates, CI/CD agent instructions, or text
-  future agents/maintainers must follow. Do not read for one-off task notes,
-  changelogs, or agent-state markdown unless they contain reusable rules.
+  or changing repo instruction files, reusable prompts/templates/SOPs under
+  `docs/spec`, skills, policy gates, CI/CD agent instructions, or text future
+  agents must follow. Skip for one-off notes, changelogs, or agent-state md.
 - `src/routing-table.json` (+ `.spec/references/work-categories.md`): read when
-  choosing which model/provider/effort for a task, routing or distributing work
-  across Claude/Codex, classifying a prompt into a work-category, or wiring the
-  subagent-mcp routing feature. `src/routing-table.json` is the routing artifact;
-  `work-categories.md` defines the fixed work-category taxonomy; re-profile new
-  models with the `model-profiler` skill.
+  choosing model/provider/effort, routing work across Claude/Codex, classifying
+  a prompt into a work-category, or wiring subagent-mcp routing. The JSON is the
+  routing artifact; `work-categories.md` the fixed taxonomy; re-profile new
+  models via the `model-profiler` skill.
 - `docs/spec/task-taxonomy/_INDEX.md`: read when defining, citing, or changing
-  the fixed 10-category task taxonomy (immutable; never re-derived by a
-  profiler run) or how/why it was determined — spec and provenance, not
-  operational routing.
+  the fixed 10-category task taxonomy (immutable) or its provenance, not routing.
 - `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior.
+- `docs/spec/dev-loop/worktree-enforcement/_INDEX.md`: read before ANY mutating or repo-affecting action — creating/naming a branch or worktree, editing/writing/deleting a file, staging, committing, merging, rebasing, resetting, or pushing — to run the pre-action worktree gate. Not for read-only status/log/diff/inspection.
 
 ## Always Enforce
 
+- UNSKIPPABLE — Worktree-Isolation Mandate (max priority): never do mutating
+  work in the primary working tree; ALL mutating work must occur in a compliant
+  linked worktree on a `<type>/<subject>` branch located outside the repo dir.
+  Run the pre-action gate `node scripts/check_worktree.mjs` before any
+  mutating/repo-affecting action; on failure create/enter a compliant worktree
+  first. See `docs/spec/dev-loop/worktree-enforcement/`.
 - Before file edits or git writes, inspect `git status --short --branch`.
-- Before any repository commit that changes executable/source code, dispatch a separate contradiction-checker
-  sub-agent using the strongest explicitly selectable model and reasoning
-  settings available to check against relevant specs/docs. If unavailable, halt and tell the owner. If it reports
-  `blocked` or `needs_user`, perform no writes; surface the blocker and resolve
-  it through the applicable `docs/spec/safety-scope.md` flow. Do not
-  self-trigger a clarification cascade.
-- Treat any uncommitted change present before the current task, or whose author
-  is uncertain, as user-owned. Do not overwrite, discard, stage, commit, reset,
-  clean, rebase, move, or hide it without explicit owner authorization.
-- Use short-lived topic branches and PRs for code, CI/CD, schema,
-  prompt/policy, or multi-file documentation changes. Direct protected/default
-  branch edits require explicit owner emergency approval.
+- Before any commit changing executable/source code, dispatch a separate
+  contradiction-checker sub-agent (strongest selectable model/reasoning) to
+  check against relevant specs/docs; if unavailable, halt and tell the owner. On
+  `blocked`/`needs_user` do no writes, resolve via `docs/spec/safety-scope.md`,
+  don't self-trigger a clarification cascade.
+- Treat any uncommitted change present before the current task, or of uncertain
+  author, as user-owned: do not overwrite, discard, stage, commit, reset, clean,
+  rebase, move, or hide it without explicit owner authorization.
+- Use short-lived topic branches and PRs for code, CI/CD, schema, prompt/policy,
+  or multi-file docs. Direct protected/default-branch edits require explicit
+  owner emergency approval.
 - Claude Code Routines are the canonical CI/CD path. GitHub Actions may only
   dispatch or bridge to Claude routines unless the owner approves otherwise.
 - Automated workflows must prepend `<You are the primary agent in an automated
   workflow>` as the first character line of injected user turns.
-- Every sub-agent prompt must begin with
-  `<this is a request from a parent process>`.
+- Every sub-agent prompt must begin with `<this is a request from a parent
+  process>`.
 - Sub-agents return JSON with `status`, `summary`, `source_locators`, `risks`,
   and `writes_requested`; include source locators for file-backed claims.
 - Do not include AI attribution or co-author lines in commits, manifests, docs,
