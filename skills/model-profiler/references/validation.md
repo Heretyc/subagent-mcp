@@ -64,6 +64,11 @@ Then, against the run that just completed, this leaf MUST assert:
   here is a **FAIL**, not a NOTICE-skip. (The NOTICE-skip in `validate_seed_sites.mjs` is only for a
   fresh clone before any profiling run has ever happened — never for a run that was supposed to emit it.)
 - `metadata.last_run_at` equals THIS run's stamp (proves the run actually merged into it).
+- `metadata.run_id` equals the SINGLE recorded run-id for this run — the same id carried by
+  `src/routing-table-audit.json` at `metadata.run_manifest.run_id` (refinement #21). Both scripts
+  derive this id deterministically from `DATASET_DATE` (env `RUN_ID` or a `<temp>/model-profiler/run-id`
+  file may pin it), so a mismatch means the audit and seed came from DIFFERENT runs → **FAIL**.
+  (`DATASET_DATE` is now REQUIRED: both scripts fail loud rather than default to a stale date.)
 - `sites.length >= prior committed sites.length` (the list never shrank).
 
 If the file is absent, stale (`last_run_at` not this run's stamp), or shrank → **FAIL the run**

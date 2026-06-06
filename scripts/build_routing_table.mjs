@@ -10,8 +10,8 @@
 //   - src/routing-table-audit.json                   (populated audit + per-pairing citations)
 //
 // DETERMINISM: stable sort with explicit tie-breakers; no wall-clock / RNG in ranking.
-// Timestamps come from env (BUILD_TS / RETRIEVED_AT) or the dataset date (DATASET_DATE,
-// env-overridable; default '2026-06-03').
+// Timestamps come from env (BUILD_TS / RETRIEVED_AT) or the dataset date (DATASET_DATE, which is
+// REQUIRED — refinement #21 fails loud if unset rather than defaulting to a stale literal date).
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -35,7 +35,16 @@ const OUT_PROVIDER = resolve(ROOT, "src/routing-table.json");
 const OUT_AUDIT = resolve(ROOT, "src/routing-table-audit.json");
 
 // ---- fail-loud guards (run BEFORE deriving GENERATED_MONTH) ------------------------
-const _DATASET_DATE = process.env.DATASET_DATE || "2026-06-03";
+// refinement #21: DATASET_DATE is REQUIRED — fail loud rather than defaulting to a stale
+// literal date. A silent default silently mis-stamps the run (and decoupled the two scripts'
+// stamps); the regen always sets DATASET_DATE, so this only bites an un-pinned invocation.
+const _DATASET_DATE = process.env.DATASET_DATE;
+if (!_DATASET_DATE) {
+  throw new Error(
+    "DATASET_DATE is required (YYYY-MM-DD) — refusing to default to a stale literal date. " +
+    "Set DATASET_DATE to the run's dataset date so the audit and seed share one run stamp."
+  );
+}
 if (!/^\d{4}-\d{2}-\d{2}$/.test(_DATASET_DATE)) {
   throw new Error(`DATASET_DATE must be YYYY-MM-DD; got '${_DATASET_DATE}'`);
 }
@@ -55,6 +64,32 @@ const DATASET_DATE = _DATASET_DATE;                                   // "YYYY-M
 const GENERATED_MONTH = _GENERATED_MONTH;                              // "YYYY-MM"
 const GENERATED_AT = process.env.BUILD_TS || `${DATASET_DATE}T00:00:00Z`;       // ISO8601
 const DEFAULT_RETRIEVED_AT = process.env.RETRIEVED_AT || `${DATASET_DATE}T00:00:00Z`;
+
+// ---- refinement #21: ONE shared run-id across both artifacts -----------------------
+// Both the audit (audit.metadata.run_manifest.run_id) and the seed stamp must reference a
+// SINGLE run-id so the two artifacts are provably from the same run. Resolution order:
+//   1. process.env.RUN_ID            — explicit override (honored; preserves prior behavior).
+//   2. <tmpdir>/model-profiler/run-id — a run-id file (lets an external orchestrator pin one).
+//   3. deterministic default `run-${DATASET_DATE}` — same value both scripts derive offline.
+// The builder runs FIRST and WRITES the resolved run-id to the run-id file, so update_seed_sites
+// (which runs after) reads the IDENTICAL id even if its env differs. Pure offline, deterministic.
+const RUN_ID_PATH = resolve(tmpdir(), "model-profiler", "run-id");
+function resolveRunId() {
+  if (process.env.RUN_ID) return process.env.RUN_ID;
+  if (existsSync(RUN_ID_PATH)) {
+    const fromFile = readFileSync(RUN_ID_PATH, "utf8").replace(/^﻿/, "").trim();
+    if (fromFile) return fromFile;
+  }
+  return `run-${DATASET_DATE}`;
+}
+const RUN_ID = resolveRunId();
+// Persist the resolved run-id so the seed-updater binds to this exact run (best-effort; a write
+// failure must not fail the build — the seed-updater falls back to the same deterministic default).
+try {
+  writeFileSync(RUN_ID_PATH, RUN_ID + "\n", "utf8");
+} catch (e) {
+  console.warn(`refinement #21: could not persist run-id to ${RUN_ID_PATH}: ${e.message}`);
+}
 
 // ---- SOP / cost constants (cost-model.md §1/§3/§4) --------------------------------
 const COST_BLEND = { input_tokens: 100000, output_tokens: 20000 }; // cost-model.md §4
@@ -1232,7 +1267,9 @@ const normalizationSources = [...NORMALIZATION_SOURCES].sort((a, b) => {
 //
 // Optional run-context env (read but NOT required — null when unset; the present run sets none
 // of these, so they resolve to null honestly rather than to a fabricated value).
-const RUN_ID = process.env.RUN_ID || null;
+// refinement #21: run_id is NO LONGER null — it is the shared run-id resolved above (env RUN_ID,
+// the temp run-id file, or the deterministic `run-${DATASET_DATE}` default) and the seed stamp
+// references the SAME id, so both artifacts are provably from one run.
 const RUN_TRIGGER = process.env.RUN_TRIGGER || null;
 const RECENCY_WINDOW = process.env.RECENCY_WINDOW || null;
 
@@ -1346,7 +1383,9 @@ function priorAuditDrift() {
 const PRIOR_AUDIT_DRIFT = priorAuditDrift();
 
 const RUN_MANIFEST = {
-  // run identity / context — not derivable offline (no run-context env or dataset field set).
+  // run identity / context. refinement #21: run_id is the shared run-id (deterministic from
+  // DATASET_DATE, env-/run-id-file-overridable) that the seed stamp ALSO references, so the two
+  // artifacts are provably one run. trigger/recency stay null when their env is unset (honest).
   run_id: RUN_ID,
   trigger: RUN_TRIGGER,
   recency_window: RECENCY_WINDOW,

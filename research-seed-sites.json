@@ -5,6 +5,7 @@
     "schema_version": "1",
     "generated": "2026-06",
     "last_run_at": "2026-06-04T00:00:00Z",
+    "run_id": "run-2026-06-04",
     "site_count": 23
   },
   "sites": [
@@ -103,7 +104,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -148,7 +149,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -195,7 +196,7 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation"
@@ -283,7 +284,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -379,7 +380,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -454,7 +455,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -524,7 +525,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -592,7 +593,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -679,7 +680,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 6,
+      "times_seen": 9,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -756,7 +757,7 @@
       ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 9,
+      "times_seen": 12,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
