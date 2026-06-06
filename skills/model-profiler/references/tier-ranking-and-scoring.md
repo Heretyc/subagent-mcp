@@ -13,14 +13,21 @@ not yet measured.
 
 **Algorithm:**
 
-1. Order all measured pairings by score (descending) for the benchmark/category being ranked.
+1. For each model `M`, order its pairings by effort-ladder index (ascending) and walk upward,
+   tracking the nearest measured lower-effort pairing as the running **anchor**.
 2. For each unmeasured `M@E′` (where `E′` > `E` on the effort ladder):
-   - **Anchor:** the nearest measured lower-effort pairing for the same model (`M@E`).
-   - **Clamp:** the lowest-scoring cross-model competitor that outscored the anchor (`M@E`) on
-     this benchmark/category. If no such competitor exists, clamp = +∞ (no upper bound).
-   - Insert `M@E′` at a score strictly between anchor and clamp; keep monotonic.
+   - **Anchor:** the nearest measured lower-effort pairing for the same model (`M@E`). If no
+     measured lower-effort pairing exists, leave `M@E′` null (a data-free sentinel) — low-effort
+     performance is never inferred from high-effort data.
+   - **Inherit:** `M@E′` takes the anchor's score **exactly** (no cross-model clamp; no
+     interpolation toward any competitor — the anchor value is copied verbatim).
    - Mark `interpolated: true` on the pairing object.
-3. Tie-breaking (reproducible): sort ties by model id ascending, then effort-ladder index ascending.
+3. **Monotonic raise (same-model only):** in a separate downstream pass, walk each model's efforts
+   low→high and raise any interpolated pairing **up** to the running maximum of its lower-effort
+   same-model scores, so a higher effort never scores below a lower one. This raise consults only
+   same-model scores — there is no cross-model competitor bound, and measured pairings are never
+   altered.
+4. Tie-breaking (reproducible): sort ties by model id ascending, then effort-ladder index ascending.
 
 **Audit invariant:** performance is interpolated exactly once per pairing. Both the `performance`
 and `cost_efficiency` branch scores for that pairing derive from this single measured-or-
