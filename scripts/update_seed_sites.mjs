@@ -43,17 +43,23 @@ const sortUniq = (a) => [...new Set(a)].sort();
 
 // ---- harvest from audit (authoritative) -------------------------------------------
 const audit = JSON.parse(readFileSync(AUDIT_PATH, "utf8"));
-// Map<normUrl, {tier, label, categories:Set, benchmarks:Set}>
+// Map<normUrl, {tier, label, categories:Set, benchmarks:Set, sourceClasses:Set}>
 const harvested = new Map();
+function getEntry(n) {
+  if (!harvested.has(n)) {
+    harvested.set(n, { tier: 0, label: "", categories: new Set(), benchmarks: new Set(), sourceClasses: new Set() });
+  }
+  return harvested.get(n);
+}
 function addCite(url, label, category) {
   const n = normalizeUrl(url);
   if (!n) return; // skip empty-url sentinels ([SENTINEL]/[SOP-1])
-  if (!harvested.has(n)) harvested.set(n, { tier: 0, label: "", categories: new Set(), benchmarks: new Set() });
-  const e = harvested.get(n);
+  const e = getEntry(n);
   const t = tierFromLabel(label);
   if (t && (e.tier === 0 || t < e.tier)) e.tier = t; // most authoritative (lower non-zero) tier
   if (label && !e.label) e.label = label;
   if (category) e.categories.add(category);
+  e.sourceClasses.add("pairing_citation");
 }
 for (const branch of ["performance", "cost_efficiency"]) {
   const b = audit[branch] || {};
@@ -62,6 +68,24 @@ for (const branch of ["performance", "cost_efficiency"]) {
       for (const c of pairing.citations || []) addCite(c.url, c.label, category);
     }
   }
+}
+
+// ---- refinement #8: harvest scale-anchor normalization sources ---------------------
+// build_routing_table emits audit.metadata.normalization_sources: the source row(s) that
+// DEFINED each category benchmark's min/max normalization anchor. citationsFor only emits
+// citations for SELECTED ranked pairings, so a source that CALIBRATED a category's scale but
+// was not attached to a ranked pairing would otherwise be dropped from the seed. Harvest those
+// here as source_class=scale_anchor (in ADDITION to the pairing-citation harvest above),
+// respecting the same normalize/dedup-by-url. tier is taken from the row's numeric tier
+// (audit normalization_sources carries `tier`, not a [T<n>] label).
+for (const a of audit.metadata?.normalization_sources || []) {
+  const n = normalizeUrl(a.url);
+  if (!n) continue; // skip anchor rows with no usable source url
+  const e = getEntry(n);
+  const t = Number.isInteger(a.tier) ? a.tier : 0;
+  if (t && (e.tier === 0 || t < e.tier)) e.tier = t; // most authoritative (lower non-zero) tier
+  if (a.category) e.categories.add(a.category);
+  e.sourceClasses.add("scale_anchor");
 }
 
 // ---- optional ephemeral source dump (may add sources + structured benchmarks) -----
@@ -87,11 +111,15 @@ const byUrl = new Map((existing.sites || []).map((s) => [s.url, s]));
 
 for (const [url, h] of harvested) {
   const cur = byUrl.get(url);
+  // refinement #8: source_classes accumulates how each url was harvested ("pairing_citation"
+  // and/or "scale_anchor") — accumulate-forever, never narrowed on re-run.
+  const harvestedClasses = sortUniq([...h.sourceClasses]);
   if (!cur) {
     byUrl.set(url, {
       url, domain: hostOf(url), tier: h.tier,
       categories: sortUniq([...h.categories]),
       benchmarks: sortUniq([...h.benchmarks]),
+      ...(harvestedClasses.length ? { source_classes: harvestedClasses } : {}),
       first_seen: RUN_DATE, last_seen: RUN_DATE, times_seen: 1,
       ...(h.label ? { label: h.label } : {}),
     });
@@ -100,6 +128,7 @@ for (const [url, h] of harvested) {
     cur.times_seen = (cur.times_seen || 0) + 1;
     cur.categories = sortUniq([...(cur.categories || []), ...h.categories]);
     cur.benchmarks = sortUniq([...(cur.benchmarks || []), ...h.benchmarks]);
+    cur.source_classes = sortUniq([...(cur.source_classes || []), ...harvestedClasses]);
     if (h.tier && (!cur.tier || h.tier < cur.tier)) cur.tier = h.tier;
     if (!cur.label && h.label) cur.label = h.label;
     cur.domain = cur.domain || hostOf(url);
