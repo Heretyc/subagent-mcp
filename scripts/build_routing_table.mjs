@@ -744,6 +744,50 @@ const MAX_COST = Math.max(...[...COST.values()].map((c) => c.perToken));
 const COST_NORM = new Map();
 for (const p of UNIVERSE) COST_NORM.set(p.id, COST.get(p.id).perToken / MAX_COST);
 
+// ---- refinement #6: winsorize $/token (PERFORMANCE branch only) ---------------------
+// Approach B (owner-chosen, DISPUTED): the performance branch is capability-DOMINANT
+// (PERF_EXP a=0.8 b=0.2). With raw cost_norm, an extreme price ratio R in the universe can
+// still swing the score by R^b = R^0.2 — a ~100x ratio swings the score ~2.5x, which is
+// enough for a cheap-but-weaker tier to lift above a strong high-effort pairing (e.g.
+// sonnet@low above opus@max). We winsorize the per-token cost to the [p05, p95] window of
+// the universe $/token distribution BEFORE normalizing, so the single cheapest / single
+// priciest outliers (here both off-ladder @null sentinels) cannot dominate. This CLIPS the
+// realized cost ratio (~40x raw -> ~15x clipped on this dataset; swing ~2.1x -> ~1.7x) yet
+// leaves the entire in-window cost ORDER intact. cost_efficiency is UNCHANGED (it is meant
+// to be cost-dominant; clipping there would defeat its intent), so this is performance-only.
+const PERF_COST_WINSOR = { p_low: 0.05, p_high: 0.95 };
+function costPercentile(sortedAsc, p) {
+  if (sortedAsc.length === 0) return 0;
+  const idx = (sortedAsc.length - 1) * p;
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  return sortedAsc[lo] + (sortedAsc[hi] - sortedAsc[lo]) * (idx - lo);
+}
+const _PERF_COST_SORTED = UNIVERSE.map((p) => COST.get(p.id).perToken).sort((a, b) => a - b);
+const PERF_COST_LOW = costPercentile(_PERF_COST_SORTED, PERF_COST_WINSOR.p_low);
+const PERF_COST_HIGH = costPercentile(_PERF_COST_SORTED, PERF_COST_WINSOR.p_high);
+function winsorizeCost(perToken) {
+  return Math.min(Math.max(perToken, PERF_COST_LOW), PERF_COST_HIGH);
+}
+// Renormalize the winsorized cost by the winsorized universe max so cost_norm stays in (0,1].
+const PERF_MAX_COST = Math.max(...UNIVERSE.map((p) => winsorizeCost(COST.get(p.id).perToken)));
+const PERF_COST_NORM = new Map();
+for (const p of UNIVERSE) PERF_COST_NORM.set(p.id, winsorizeCost(COST.get(p.id).perToken) / PERF_MAX_COST);
+const PERF_COST_WINSOR_AUDIT = {
+  applies_to: "performance",
+  method: "winsorize_percentile_window",
+  p_low: PERF_COST_WINSOR.p_low,
+  p_high: PERF_COST_WINSOR.p_high,
+  clip_low_per_token: PERF_COST_LOW,
+  clip_high_per_token: PERF_COST_HIGH,
+  raw_cost_ratio: MAX_COST / Math.min(..._PERF_COST_SORTED),
+  clipped_cost_ratio: PERF_COST_HIGH / PERF_COST_LOW,
+  note:
+    "Performance-branch only: per-pairing $/token clipped to the [p05,p95] universe window " +
+    "before cost_norm (renormalized by the winsorized max), so an extreme price ratio cannot " +
+    "swing the capability-dominant score (~R^0.2). cost_efficiency uses the raw cost_norm.",
+};
+
 // ---- two-branch power-law weights (owner schema C) --------------------------------
 // score = perf_norm^a / cost_norm^b. The a:b ratio sets perf-vs-cost influence (log-space):
 //   performance     a=0.8 b=0.2  -> 80:20 capability:cost (cost a light nudge)
@@ -769,12 +813,14 @@ function isThinGated(s) {
 }
 
 // Power-law branch score. Sentinels (perf=null) collapse to 0 here but are placed strictly
-// last by rankBranch's SENTINEL value, not by this 0.
-function powerScore(p, s, exponents) {
+// last by rankBranch's SENTINEL value, not by this 0. `costNormMap` selects the cost basis:
+// the performance branch passes PERF_COST_NORM (refinement #6 winsorized $/token); the
+// cost_efficiency branch passes the raw COST_NORM (unchanged).
+function powerScore(p, s, exponents, costNormMap = COST_NORM) {
   let perf = s.score === null ? 0 : Math.max(s.score, 0);
   // refinement #3: thin/uncorroborated pairings cannot claim the 1.0 max-capability ceiling.
   if (isThinGated(s)) perf = Math.min(perf, RANK1_THIN_PERF_CAP);
-  const costNorm = COST_NORM.get(p.id);
+  const costNorm = costNormMap.get(p.id);
   return Math.pow(perf, exponents.a) / Math.pow(costNorm, exponents.b);
 }
 
@@ -849,11 +895,14 @@ function buildFullBranch(branch, exponents) {
 // canonical universe sequence (capability-NEUTRAL, documented, deterministic). The table
 // still ends up dense 1..N; only the ORDERING BASIS among the (tied) sentinels changes.
 function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing = false) {
+  // refinement #6: the performance branch scores against the winsorized $/token cost_norm;
+  // cost_efficiency keeps the raw cost_norm (it is intentionally cost-dominant).
+  const costNormMap = branch === "performance" ? PERF_COST_NORM : COST_NORM;
   const observed = [];
   for (const p of universe) {
     const s = scores.get(p.id);
     if (s.score === null) continue;
-    observed.push(powerScore(p, s, exponents));
+    observed.push(powerScore(p, s, exponents, costNormMap));
   }
   const minObs = observed.length ? Math.min(...observed) : 0;
   const SENTINEL = observed.length ? minObs - 1e-6 : 0;
@@ -861,7 +910,7 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
   const items = universe.map((p) => {
     const s = scores.get(p.id);
     const hasScore = s.score !== null;
-    const branchScore = hasScore ? powerScore(p, s, exponents) : SENTINEL;
+    const branchScore = hasScore ? powerScore(p, s, exponents, costNormMap) : SENTINEL;
     return {
       p,
       s,
@@ -1079,11 +1128,18 @@ const auditTable = {
       performance: { a: PERF_EXP.a, b: PERF_EXP.b },
       cost_efficiency: { a: COST_EXP.a, b: COST_EXP.b },
     },
+    // refinement #6: the winsorization guard applied to the performance-branch cost term so an
+    // extreme price ratio cannot dominate the capability-dominant score. cost_efficiency is
+    // unaffected and continues to use the raw cost_norm.
+    performance_cost_winsorization: PERF_COST_WINSOR_AUDIT,
     cost_figure_methodology:
       "SOP-2 worst-case $/token: fixed 100K-in / 20K-visible-out blend, opus tokenizer " +
       "inflation 1.35x (1.4x deprecated), effort hidden-output multiplier ladder, gpt-5.5 " +
       "272K cliff sub-cliff at this blend. cost_norm = $/token / universe-max in (0,1]. " +
-      "Branch score = perf_norm^a / cost_norm^b.",
+      "Branch score = perf_norm^a / cost_norm^b. Refinement #6: the PERFORMANCE branch " +
+      "winsorizes $/token to the [p05,p95] universe window before cost_norm (see " +
+      "performance_cost_winsorization) so an extreme price ratio cannot swing the " +
+      "capability-dominant score; cost_efficiency uses the raw cost_norm.",
     formula_definitions: {
       normalization: NORMALIZATION,
       composite_weights: compositeWeights,
