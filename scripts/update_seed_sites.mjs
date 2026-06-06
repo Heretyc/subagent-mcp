@@ -45,11 +45,17 @@ const sortUniq = (a) => [...new Set(a)].sort();
 
 // ---- harvest from audit (authoritative) -------------------------------------------
 const audit = JSON.parse(readFileSync(AUDIT_PATH, "utf8"));
-// Map<normUrl, {tier, label, categories:Set, benchmarks:Set, sourceClasses:Set}>
+// Map<normUrl, {tier, label, categories:Set, benchmarks:Set, sourceClasses:Set,
+//   providerFamilies:Set, attemptedAt:string|null}>
+// refinement #12: providerFamilies + attemptedAt are the per-site attempt-ledger inputs
+// harvested ALONGSIDE the existing fields — see the ledger assembly block below.
 const harvested = new Map();
 function getEntry(n) {
   if (!harvested.has(n)) {
-    harvested.set(n, { tier: 0, label: "", categories: new Set(), benchmarks: new Set(), sourceClasses: new Set() });
+    harvested.set(n, {
+      tier: 0, label: "", categories: new Set(), benchmarks: new Set(), sourceClasses: new Set(),
+      providerFamilies: new Set(), attemptedAt: null,
+    });
   }
   return harvested.get(n);
 }
@@ -66,7 +72,7 @@ function mergeTier(prev, t) {
   if (!Number.isInteger(t) || t <= 0) return prev; // 0/non-int = unknown -> no signal
   return t > prev ? t : prev; // keep the strongest (most-independent) tier seen
 }
-function addCite(url, label, category, tier) {
+function addCite(url, label, category, tier, providerFamily, retrievedAt) {
   const n = normalizeUrl(url);
   if (!n) return; // skip empty-url sentinels ([SENTINEL]/[SOP-1])
   const e = getEntry(n);
@@ -77,12 +83,20 @@ function addCite(url, label, category, tier) {
   if (label && !e.label) e.label = label;
   if (category) e.categories.add(category);
   e.sourceClasses.add("pairing_citation");
+  // refinement #12: ledger inputs harvested from the SAME authoritative citation —
+  // provider_family is the pairing's provider (genuine: which model family this source was
+  // cited for); attempted_at is the citation's retrieved_at (the moment it was fetched). Both
+  // are real audit data; neither is fabricated.
+  if (providerFamily) e.providerFamilies.add(providerFamily);
+  if (retrievedAt && !e.attemptedAt) e.attemptedAt = retrievedAt;
 }
 for (const branch of ["performance", "cost_efficiency"]) {
   const b = audit[branch] || {};
   for (const category of Object.keys(b)) {
     for (const pairing of b[category] || []) {
-      for (const c of pairing.citations || []) addCite(c.url, c.label, category, c.tier);
+      for (const c of pairing.citations || []) {
+        addCite(c.url, c.label, category, c.tier, pairing.provider, c.retrieved_at);
+      }
     }
   }
 }
@@ -95,6 +109,11 @@ for (const branch of ["performance", "cost_efficiency"]) {
 // here as source_class=scale_anchor (in ADDITION to the pairing-citation harvest above),
 // respecting the same normalize/dedup-by-url. tier is taken from the row's numeric tier
 // (audit normalization_sources carries `tier`, not a [T<n>] label).
+// refinement #12: benchmarkOf[normUrl] = Set of benchmark NAMES this url anchored — the
+// normalization_sources rows carry a real `benchmark` field, so this is genuine structured data
+// (NOT scraped from prose). It populates BOTH seed.sites[].benchmarks (task 3) and the ledger's
+// benchmark_names (task 1). Built here, applied in the merge below.
+const benchmarkOf = new Map();
 for (const a of audit.metadata?.normalization_sources || []) {
   const n = normalizeUrl(a.url);
   if (!n) continue; // skip anchor rows with no usable source url
@@ -103,6 +122,34 @@ for (const a of audit.metadata?.normalization_sources || []) {
   e.tier = mergeTier(e.tier, Number(a.tier));
   if (a.category) e.categories.add(a.category);
   e.sourceClasses.add("scale_anchor");
+  if (a.benchmark) {
+    e.benchmarks.add(a.benchmark); // task 3: populate seed benchmarks from the real field
+    if (!benchmarkOf.has(n)) benchmarkOf.set(n, new Set());
+    benchmarkOf.get(n).add(a.benchmark);
+  }
+}
+
+// refinement #12: rejectionOf[normUrl] = ordered list of rejection_reason strings for any
+// benchmark this url anchored that the builder later NEUTRALIZED (thin-population down-weight,
+// etc.). neutralized_benchmarks carries {benchmark, reason} but no url; we re-key it through the
+// benchmark->url map above. A url with no neutralized benchmark gets rejection_reason: null (a
+// HONEST "no rejection recorded", not a fabricated reason). last_checked / http_status are NOT
+// derivable offline -> always null (we never invent a status code or a probe time).
+const urlsByBenchmark = new Map();
+for (const [n, bms] of benchmarkOf) {
+  for (const bm of bms) {
+    if (!urlsByBenchmark.has(bm)) urlsByBenchmark.set(bm, new Set());
+    urlsByBenchmark.get(bm).add(n);
+  }
+}
+const rejectionOf = new Map();
+for (const nb of audit.metadata?.neutralized_benchmarks || []) {
+  const urls = urlsByBenchmark.get(nb.benchmark);
+  if (!urls) continue; // neutralized benchmark not anchored by any harvested url -> not attributable
+  for (const n of urls) {
+    if (!rejectionOf.has(n)) rejectionOf.set(n, []);
+    rejectionOf.get(n).push({ benchmark: nb.benchmark, reason: nb.reason || "unknown" });
+  }
 }
 
 // ---- optional ephemeral source dump (may add sources + structured benchmarks) -----
@@ -111,8 +158,7 @@ if (process.env.SEED_SOURCES_PATH && existsSync(process.env.SEED_SOURCES_PATH)) 
   for (const s of Array.isArray(extra) ? extra : extra.sources || []) {
     const n = normalizeUrl(s.url);
     if (!n) continue;
-    if (!harvested.has(n)) harvested.set(n, { tier: 0, label: "", categories: new Set(), benchmarks: new Set() });
-    const e = harvested.get(n);
+    const e = getEntry(n); // refinement #12: use the canonical factory so ledger fields exist
     // External dumps still carry an explicit [Tn] label (NOT a masking provenance label), so
     // parse it; merge via the same strongest-tier rule (refinement #7). An explicit numeric
     // `s.tier`, if present, takes precedence over the label.
@@ -129,11 +175,35 @@ let existing = { metadata: {}, sites: [] };
 if (existsSync(SEED_PATH)) existing = JSON.parse(readFileSync(SEED_PATH, "utf8"));
 const byUrl = new Map((existing.sites || []).map((s) => [s.url, s]));
 
+// refinement #12: build the per-site attempt-ledger record for THIS run's harvest of `url`.
+// Every field is either real audit data or an explicit null/"unknown" — nothing is fabricated.
+// The ledger is REFRESHED each run (it describes the most-recent harvest attempt); the seed body
+// around it still accumulates-forever. NULL-FOR-NOW fields: http_status and last_checked are not
+// derivable from an offline audit (we never probe URLs), so they are always null here.
+function buildLedger(url, h) {
+  const provFams = sortUniq([...h.providerFamilies]);
+  const srcClasses = sortUniq([...h.sourceClasses]);
+  const bmNames = sortUniq([...(benchmarkOf.get(url) || [])]);
+  const rejections = rejectionOf.get(url) || [];
+  return {
+    attempted_at: h.attemptedAt || null,          // genuine: citation retrieved_at, else null
+    outcome: "harvested",                          // genuine: it was admitted into the seed this run
+    provider_family: provFams.length ? provFams : null, // genuine: families this url was cited for
+    categories: sortUniq([...h.categories]),       // genuine: same as the site's categories
+    source_class: srcClasses.length ? srcClasses : null, // genuine: how it was harvested
+    benchmark_names: bmNames,                      // genuine: from normalization_sources.benchmark
+    rejection_reason: rejections.length ? rejections : null, // genuine where a bench was neutralized
+    http_status: null,                             // NULL-FOR-NOW: no offline probe
+    last_checked: null,                            // NULL-FOR-NOW: no offline probe
+  };
+}
+
 for (const [url, h] of harvested) {
   const cur = byUrl.get(url);
   // refinement #8: source_classes accumulates how each url was harvested ("pairing_citation"
   // and/or "scale_anchor") — accumulate-forever, never narrowed on re-run.
   const harvestedClasses = sortUniq([...h.sourceClasses]);
+  const ledger = buildLedger(url, h); // refinement #12
   if (!cur) {
     byUrl.set(url, {
       url, domain: hostOf(url), tier: h.tier,
@@ -141,6 +211,7 @@ for (const [url, h] of harvested) {
       benchmarks: sortUniq([...h.benchmarks]),
       ...(harvestedClasses.length ? { source_classes: harvestedClasses } : {}),
       first_seen: RUN_DATE, last_seen: RUN_DATE, times_seen: 1,
+      attempt_ledger: ledger, // refinement #12
       ...(h.label ? { label: h.label } : {}),
     });
   } else {
@@ -156,6 +227,77 @@ for (const [url, h] of harvested) {
     cur.tier = mergeTier(cur.tier || 0, Number(h.tier));
     if (!cur.label && h.label) cur.label = h.label;
     cur.domain = cur.domain || hostOf(url);
+    cur.attempt_ledger = ledger; // refinement #12: refresh to THIS run's attempt snapshot
+  }
+}
+
+// ---- refinement #12: SELECTION policy — SEPARATE from storage, demote-without-delete ----------
+// Storage above keeps EVERYTHING forever (never narrowed, never TTL'd). This pass adds a `selection`
+// ANNOTATION to each site so a downstream consumer can prefer a balanced, de-skewed working set
+// WITHOUT the seed ever dropping a row. Health is computed fresh each run from the current corpus;
+// a demoted flag is a soft signal, NEVER a delete. NO TTL anywhere (the seed is accumulate-forever).
+const SELECTION_POLICY = {
+  // per-category minimum #sites we want covered before any over-cap demotion may bite (floor).
+  category_min: 2,
+  // per-provider-family minimum #sites cited for that family before its sites may be demoted (floor).
+  provider_min: 2,
+  // source-class cap: at most this many sites per (category, source_class) are "selected"; the
+  // rest are DEMOTED (over-cap) — kept in storage, just flagged so the working set is not skewed by
+  // one over-represented (category, source_class) bucket. Tuned high enough not to fire on the lean
+  // current corpus (warn-not-fail spirit: a real over-skew trips it; a thin seed stays all-healthy).
+  source_class_cap: 8,
+};
+{
+  const allSites = [...byUrl.values()];
+  // Count coverage so floors can protect the last/scarce sources for a category or provider family.
+  const catCount = new Map();
+  const provCount = new Map();
+  for (const s of allSites) {
+    for (const c of s.categories || []) catCount.set(c, (catCount.get(c) || 0) + 1);
+    const fams = (s.attempt_ledger && s.attempt_ledger.provider_family) || [];
+    for (const f of fams) provCount.set(f, (provCount.get(f) || 0) + 1);
+  }
+  // Bucket sites by (category, source_class); demote the weakest over the cap, never the scarce.
+  const bucket = new Map(); // key -> [site,...]
+  for (const s of allSites) {
+    const classes = s.source_classes || [];
+    for (const cat of s.categories || []) {
+      for (const sc of classes) {
+        const key = `${cat} ${sc}`;
+        if (!bucket.has(key)) bucket.set(key, []);
+        bucket.get(key).push(s);
+      }
+    }
+  }
+  const overCap = new Set(); // urls flagged over-cap by at least one bucket
+  for (const [, arr] of bucket) {
+    if (arr.length <= SELECTION_POLICY.source_class_cap) continue;
+    // weakest first: lower tier, then fewer times_seen, then url for determinism.
+    const ranked = [...arr].sort((a, b) =>
+      (a.tier || 0) - (b.tier || 0) || (a.times_seen || 0) - (b.times_seen || 0) ||
+      (a.url < b.url ? -1 : a.url > b.url ? 1 : 0));
+    for (let i = 0; i < ranked.length - SELECTION_POLICY.source_class_cap; i++) overCap.add(ranked[i].url);
+  }
+  for (const s of allSites) {
+    const reasons = [];
+    // low-health: tier 0 == unknown/unparsed provenance (weakest possible standing).
+    const lowHealth = (s.tier || 0) === 0;
+    if (lowHealth) reasons.push("low_health_tier0");
+    if (overCap.has(s.url)) reasons.push("over_source_class_cap");
+    // FLOOR PROTECTION: never demote a site if doing so would starve a category below category_min
+    // or a provider family below provider_min — the floors win over caps (demote-without-delete must
+    // not erase scarce coverage even from the WORKING set).
+    const protectsCategory = (s.categories || []).some((c) => (catCount.get(c) || 0) <= SELECTION_POLICY.category_min);
+    const fams = (s.attempt_ledger && s.attempt_ledger.provider_family) || [];
+    const protectsProvider = fams.some((f) => (provCount.get(f) || 0) <= SELECTION_POLICY.provider_min);
+    const floorProtected = protectsCategory || protectsProvider;
+    const demoted = reasons.length > 0 && !floorProtected;
+    s.selection = {
+      demoted,
+      health: demoted ? "demoted" : "healthy",
+      demote_reasons: demoted ? sortUniq(reasons) : [],
+      ...(floorProtected && reasons.length ? { floor_protected: true } : {}),
+    };
   }
 }
 

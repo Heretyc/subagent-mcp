@@ -19,7 +19,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://artificialanalysis.ai/evaluations/artificial-analysis-intelligence-index",
@@ -33,7 +40,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://artificialanalysis.ai/models/claude-opus-4-8",
@@ -47,7 +61,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://benchlm.ai/benchmarks/frontierMath",
@@ -60,7 +81,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://benchlm.ai/benchmarks/sweVerified",
@@ -70,15 +98,43 @@
         "coding",
         "debugging"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "SWE-bench Verified"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "claude"
+        ],
+        "categories": [
+          "coding",
+          "debugging"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "SWE-bench Verified"
+        ],
+        "rejection_reason": null,
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://benchlm.ai/math",
@@ -87,15 +143,47 @@
       "categories": [
         "math_proof"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "HMMT Feb 2026"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "claude"
+        ],
+        "categories": [
+          "math_proof"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "HMMT Feb 2026"
+        ],
+        "rejection_reason": [
+          {
+            "benchmark": "HMMT Feb 2026",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          }
+        ],
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://buildfast.io/claude-opus-4-7",
@@ -107,11 +195,33 @@
       "benchmarks": [],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "claude"
+        ],
+        "categories": [
+          "knowledge_synthesis"
+        ],
+        "source_class": [
+          "pairing_citation"
+        ],
+        "benchmark_names": [],
+        "rejection_reason": null,
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://dev.to/blamsa0mine/swe-bench-agentic-coding-and-what-actually-changed-from-claude-sonnet-45-to-46-1gig",
@@ -125,7 +235,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[UNVERIFIED]"
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://interestingengineering.com/ai-robotics/opanai-gpt-5-5-agentic-coding-gains",
@@ -138,7 +255,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
@@ -149,15 +273,76 @@
         "math_proof",
         "security_review"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "Cybench",
+        "CyberGym",
+        "CyberSecEval Firefox-exploitation",
+        "FrontierMath Tier 1-3",
+        "GPQA Diamond",
+        "USAMO 2026"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "claude",
+          "codex"
+        ],
+        "categories": [
+          "knowledge_synthesis",
+          "math_proof",
+          "security_review"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "Cybench",
+          "CyberGym",
+          "CyberSecEval Firefox-exploitation",
+          "FrontierMath Tier 1-3",
+          "GPQA Diamond",
+          "USAMO 2026"
+        ],
+        "rejection_reason": [
+          {
+            "benchmark": "FrontierMath Tier 1-3",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          },
+          {
+            "benchmark": "GPQA Diamond",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          },
+          {
+            "benchmark": "USAMO 2026",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          },
+          {
+            "benchmark": "Cybench",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          },
+          {
+            "benchmark": "CyberSecEval Firefox-exploitation",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          }
+        ],
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public",
@@ -172,7 +357,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://llm-stats.com/benchmarks/frontiermath",
@@ -181,15 +373,53 @@
       "categories": [
         "math_proof"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "FrontierMath",
+        "FrontierMath Tier 4"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "codex"
+        ],
+        "categories": [
+          "math_proof"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "FrontierMath",
+          "FrontierMath Tier 4"
+        ],
+        "rejection_reason": [
+          {
+            "benchmark": "FrontierMath",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          },
+          {
+            "benchmark": "FrontierMath Tier 4",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          }
+        ],
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://llm-stats.com/blog/research/claude-opus-4-8-launch",
@@ -203,7 +433,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://venturebeat.com/technology/deepswe-blows-up-the-ai-coding-leaderboard-crowns-gpt-5-5-and-finds-claude-opus-exploiting-a-benchmark-loophole",
@@ -212,15 +449,47 @@
       "categories": [
         "debugging"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "DeepSWE"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "codex"
+        ],
+        "categories": [
+          "debugging"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "DeepSWE"
+        ],
+        "rejection_reason": [
+          {
+            "benchmark": "DeepSWE",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          }
+        ],
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://www.anthropic.com/news/claude-opus-4-8",
@@ -234,7 +503,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[ASSUMPTION]"
+      "label": "[ASSUMPTION]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://www.datacamp.com/blog/claude-opus-4-8",
@@ -243,15 +519,42 @@
       "categories": [
         "knowledge_synthesis"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "GraphWalks BFS 1M"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "claude"
+        ],
+        "categories": [
+          "knowledge_synthesis"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "GraphWalks BFS 1M"
+        ],
+        "rejection_reason": null,
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://www.datacamp.com/blog/claude-opus-4-8-vs-gpt-5-5",
@@ -267,7 +570,13 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": [],
+        "floor_protected": true
+      }
     },
     {
       "url": "https://www.datacamp.com/blog/gpt-5-5",
@@ -276,15 +585,46 @@
       "categories": [
         "knowledge_synthesis"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "GraphWalks BFS 1M",
+        "HLE (no tools)",
+        "HLE (with tools)"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "codex"
+        ],
+        "categories": [
+          "knowledge_synthesis"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "GraphWalks BFS 1M",
+          "HLE (no tools)",
+          "HLE (with tools)"
+        ],
+        "rejection_reason": null,
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://www.datacamp.com/blog/gpt-5-5-vs-claude-opus-4-7",
@@ -297,7 +637,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://www.hackerone.com/blog/vulnerability-exploitability-benchmark-gpt-5-5-vs-claude",
@@ -310,7 +657,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://www.marc0.dev/en/leaderboard",
@@ -320,15 +674,43 @@
         "coding",
         "debugging"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "SWE-bench Verified"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 5,
+      "times_seen": 6,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "codex"
+        ],
+        "categories": [
+          "coding",
+          "debugging"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "SWE-bench Verified"
+        ],
+        "rejection_reason": null,
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     },
     {
       "url": "https://www.mindstudio.ai/blog/gpt-5-5-vs-claude-mythos-cybersecurity-benchmark-comparison",
@@ -341,7 +723,14 @@
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
       "times_seen": 3,
-      "label": "[INFERRED]"
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "low_health_tier0"
+        ]
+      }
     },
     {
       "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
@@ -357,15 +746,61 @@
         "mechanical",
         "quality_review"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "GPQA Diamond",
+        "HLE (no tools)",
+        "HLE (with tools)",
+        "OSWorld-Verified",
+        "SWE-bench Pro",
+        "Terminal-Bench 2.1 (Terminus-2)"
+      ],
       "first_seen": "2026-06-04",
       "last_seen": "2026-06-04",
-      "times_seen": 8,
+      "times_seen": 9,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
-      ]
+      ],
+      "attempt_ledger": {
+        "attempted_at": "2026-06-04T00:00:00Z",
+        "outcome": "harvested",
+        "provider_family": [
+          "claude",
+          "codex"
+        ],
+        "categories": [
+          "agentic_execution",
+          "coding",
+          "debugging",
+          "knowledge_synthesis"
+        ],
+        "source_class": [
+          "pairing_citation",
+          "scale_anchor"
+        ],
+        "benchmark_names": [
+          "GPQA Diamond",
+          "HLE (no tools)",
+          "HLE (with tools)",
+          "OSWorld-Verified",
+          "SWE-bench Pro",
+          "Terminal-Bench 2.1 (Terminus-2)"
+        ],
+        "rejection_reason": [
+          {
+            "benchmark": "GPQA Diamond",
+            "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+          }
+        ],
+        "http_status": null,
+        "last_checked": null
+      },
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
     }
   ]
 }

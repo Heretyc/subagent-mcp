@@ -75,6 +75,26 @@ scoring leaf (`tier-ranking-and-scoring.md`) will consume:
 This dimension feeds the `routing-table.json` tier-ranking pipeline directly. Agents that do not
 surface raw inputs for their pairings block the judging step.
 
+### Counter-search under-represented families / categories (anti-skew directive)
+
+The learned seed (`research-seed-sites.json`) harvests only the citations a prior run happened to
+cite, so its corpus **skews** toward whatever provider families and categories were heavy last run,
+and toward a few repeatedly-cited secondary domains. Each site now carries an `attempt_ledger`
+(`provider_family`, `categories`, `benchmark_names`, `source_class`, …) and a `selection` annotation
+(`demoted` / `health`, demote-**without**-delete — the seed never deletes and has no TTL). Use them
+to **diagnose and actively counter** the skew, do not merely inherit it:
+
+- **Before searching,** scan the seed's `attempt_ledger.provider_family` / `categories` counts. Any
+  in-scope provider family or fixed category that is thin or absent is **under-represented** — spend
+  proportionally MORE search budget there, with independent (higher-tier) sources, to balance the
+  corpus. Do not let a heavily-cited family crowd out a sparsely-covered one.
+- **Treat `selection.demoted` sites as a skew signal, not a denylist:** a site demoted `over_source_class_cap`
+  marks an over-represented (category, source_class) bucket — counter-search a DIFFERENT source class
+  / family for that category rather than piling onto the saturated bucket. A `low_health_tier0` demote
+  means the seed lacks an independently-corroborated source there — prioritise finding one.
+- **Never delete or skip a demoted/low-tier seed row to "fix" balance** — storage is accumulate-forever
+  by design; you rebalance by ADDING under-represented coverage, the selection layer down-weights softly.
+
 ### Research-agent prompt skeleton
 
 ```
