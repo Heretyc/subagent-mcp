@@ -155,7 +155,38 @@ function rowIsLowerBetter(category, row) {
 
 const SENTIMENT_CAP = 0.05; // < min benchmark weight (1.0); design §1.4
 const SENTIMENT_ADJ = 0; // no free-text corpus -> 0 for every pairing
-const NORMALIZATION = { method: "min-max", params: { clamp: [0, 1], empty_population: 1 } };
+
+// ---- refinement #3: neutralize thin single-reporter evidence -----------------------
+// min-max maps a single-observation benchmark population (min==max) to n=1.0 = MAX
+// capability, so a lone UNCORROBORATED row can silently define a category's ceiling while
+// the computed confidence/tierFloor are ignored by powerScore. Per repo TIER SEMANTICS +
+// SOP-3 (thin/vendor-only/uncorroborated = LOW confidence, DOWN-weighted), a benchmark
+// whose normalization basis has <2 independent reporters is NON-DISCRIMINATING: it cannot
+// define the category max. The dataset carries no explicit reporter count, so per spec the
+// single-benchmark-row (n=1) population IS the thin case. Such rows are normalized to a
+// NEUTRAL value (0.5) instead of 1.0, and every neutralized benchmark is surfaced in the
+// audit. A population with >=2 reporters (even if their values coincide) is corroborated
+// and keeps the standard min-max result.
+const THIN_MIN_REPORTERS = 2; // <2 distinct rows in the normalization basis -> thin
+const THIN_NEUTRAL_N = 0.5; // neutralized normalized value for a thin single-obs population
+const NEUTRALIZED_BENCHMARKS = []; // {benchmark, category, model, reason} (audit-only)
+const _NEUTRALIZED_SEEN = new Set(); // dedupe by benchmark|category|model
+function recordNeutralized(benchmark, category, model, reason) {
+  const key = `${benchmark}|${category}|${model}`;
+  if (_NEUTRALIZED_SEEN.has(key)) return;
+  _NEUTRALIZED_SEEN.add(key);
+  NEUTRALIZED_BENCHMARKS.push({ benchmark, category, model, reason });
+}
+const NORMALIZATION = {
+  method: "min-max",
+  params: {
+    clamp: [0, 1],
+    empty_population: 1,
+    // refinement #3: single-observation (n<2 reporters) populations are neutralized.
+    thin_min_reporters: THIN_MIN_REPORTERS,
+    thin_neutral_n: THIN_NEUTRAL_N,
+  },
+};
 
 // ---- IO helpers -------------------------------------------------------------------
 function readJsonStripBom(path) {
@@ -354,23 +385,38 @@ const PRICE_CLIFF_SIDE = [...COST.values()].some((c) => c.hasCliff) ? "below" : 
 
 function buildCategoryScores(category) {
   const rows = (dataset.category_benchmarks[category] || []).filter((r) => !isWithdrawn(category, r));
-  // Per-benchmark min/max over ALL non-withdrawn rows (anchors the scale).
-  const stats = new Map(); // benchmark -> {min,max}
+  // Per-benchmark min/max + reporter count over ALL non-withdrawn rows (anchors the scale).
+  const stats = new Map(); // benchmark -> {min,max,count}
   for (const r of rows) {
     const b = r.benchmark;
-    const s = stats.get(b) || { min: Infinity, max: -Infinity };
+    const s = stats.get(b) || { min: Infinity, max: -Infinity, count: 0 };
     if (r.raw < s.min) s.min = r.raw;
     if (r.raw > s.max) s.max = r.raw;
+    s.count += 1; // refinement #3: independent-reporter count = rows in the basis
     stats.set(b, s);
     // refinement #10: surface polarity-by-absence over every non-withdrawn row (deduped),
     // not just the rows later selected for a universe pairing.
     rowIsLowerBetter(category, r);
   }
+  // refinement #3: a benchmark population with <THIN_MIN_REPORTERS rows is single-observation
+  // (non-discriminating). It must NOT define the category max; it is neutralized to a neutral n.
+  function isThinBenchmark(benchmark) {
+    const s = stats.get(benchmark);
+    return Boolean(s) && s.count < THIN_MIN_REPORTERS;
+  }
   function normalize(row) {
     const s = stats.get(row.benchmark);
     let n;
-    if (s.max === s.min) n = 1;
-    else n = (row.raw - s.min) / (s.max - s.min);
+    if (isThinBenchmark(row.benchmark)) {
+      // single-observation population: neutralize so a lone uncorroborated row cannot earn
+      // MAX capability (SOP-3 thin -> down-weight). Recorded in the audit (per selected pairing).
+      n = THIN_NEUTRAL_N;
+    } else if (s.max === s.min) {
+      // >=2 corroborating reporters that coincide -> legitimately at the population ceiling.
+      n = 1;
+    } else {
+      n = (row.raw - s.min) / (s.max - s.min);
+    }
     if (rowIsLowerBetter(category, row)) n = 1 - n;
     return n;
   }
@@ -391,10 +437,23 @@ function buildCategoryScores(category) {
     const byBench = new Map();
     for (const r of selected) {
       const n = normalize(r);
+      // refinement #3: surface every thin (single-observation) benchmark this pairing rests on.
+      if (isThinBenchmark(r.benchmark)) {
+        recordNeutralized(
+          r.benchmark,
+          category,
+          r.model,
+          `single-observation population (<${THIN_MIN_REPORTERS} reporters); normalized to ${THIN_NEUTRAL_N} so it cannot define the category max (SOP-3 thin -> down-weight)`
+        );
+      }
       const arr = byBench.get(r.benchmark) || [];
       arr.push(n);
       byBench.set(r.benchmark, arr);
     }
+    // refinement #3: pairing rests ENTIRELY on neutralized thin evidence when every distinct
+    // benchmark in its basis is single-observation. Such a pairing is rank-1 INELIGIBLE on thin
+    // evidence alone (gated downstream in powerScore alongside the computed confidence).
+    const thinBasis = byBench.size > 0 && [...byBench.keys()].every((b) => isThinBenchmark(b));
     let sumW = 0;
     let sumWV = 0;
     for (const [, vals] of byBench) {
@@ -421,6 +480,7 @@ function buildCategoryScores(category) {
       rows: selected,
       confidence,
       tierFloor: Number.isFinite(tierFloor) ? tierFloor : null,
+      thinBasis, // refinement #3: score rests entirely on neutralized single-obs evidence
       basis: new Set(selected.map((r) => r.label).filter(Boolean)),
     });
   }
@@ -691,10 +751,29 @@ for (const p of UNIVERSE) COST_NORM.set(p.id, COST.get(p.id).perToken / MAX_COST
 const PERF_EXP = { a: 0.8, b: 0.2 };
 const COST_EXP = { a: 0.4, b: 0.6 };
 
+// refinement #3: rank-1 eligibility gate. The already-computed confidence/tierFloor (and the
+// thinBasis flag) were previously IGNORED by powerScore, so a thin/uncorroborated pairing could
+// reach perf=1.0 (max capability) and claim rank-1 on thin evidence alone. Per SOP-3 (thin ->
+// down-weight) a pairing is thin-gated when its confidence is below "high"/"measured" OR its
+// score rests entirely on neutralized single-observation evidence (thinBasis). A thin-gated
+// pairing's effective perf is CAPPED strictly below the 1.0 ceiling, so a corroborated pairing
+// (perf may reach 1.0) always outranks it: thin evidence alone can never claim max capability.
+// Non-thin/corroborated pairings are untouched. (On the live dataset every measured pairing is
+// "high" confidence, so this gate primarily bites via thinBasis; it remains a dormant safety
+// guard for any future low/medium-confidence pairing — warn-not-fail, never sparsifies.)
+const RANK1_THIN_PERF_CAP = 0.999; // strictly < 1.0 ceiling reserved for corroborated evidence
+function isThinGated(s) {
+  if (s.score === null) return false; // sentinels handled separately (placed strictly last)
+  if (s.thinBasis) return true; // score rests entirely on neutralized single-obs evidence
+  return s.confidence !== "high" && s.confidence !== "measured"; // low/medium = thin/uncorroborated
+}
+
 // Power-law branch score. Sentinels (perf=null) collapse to 0 here but are placed strictly
 // last by rankBranch's SENTINEL value, not by this 0.
 function powerScore(p, s, exponents) {
-  const perf = s.score === null ? 0 : Math.max(s.score, 0);
+  let perf = s.score === null ? 0 : Math.max(s.score, 0);
+  // refinement #3: thin/uncorroborated pairings cannot claim the 1.0 max-capability ceiling.
+  if (isThinGated(s)) perf = Math.min(perf, RANK1_THIN_PERF_CAP);
   const costNorm = COST_NORM.get(p.id);
   return Math.pow(perf, exponents.a) / Math.pow(costNorm, exponents.b);
 }
@@ -963,6 +1042,17 @@ const polarityInferenceWarnings = [...POLARITY_WARNINGS.values()].sort((a, b) =>
   return a.benchmark < b.benchmark ? -1 : a.benchmark > b.benchmark ? 1 : 0;
 });
 
+// refinement #3: neutralized single-observation benchmarks, deterministically ordered
+// (SPINE category order, then benchmark, then model). Populated during buildCategoryScores;
+// additive audit-only — surfaces every thin row that was down-weighted from MAX capability.
+const neutralizedBenchmarks = [...NEUTRALIZED_BENCHMARKS].sort((a, b) => {
+  const ca = SPINE_ORDER.get(a.category) ?? Number.MAX_SAFE_INTEGER;
+  const cb = SPINE_ORDER.get(b.category) ?? Number.MAX_SAFE_INTEGER;
+  if (ca !== cb) return ca - cb;
+  if (a.benchmark !== b.benchmark) return a.benchmark < b.benchmark ? -1 : 1;
+  return a.model < b.model ? -1 : a.model > b.model ? 1 : 0;
+});
+
 const auditTable = {
   metadata: {
     author: "Lexi Blackburn",
@@ -975,6 +1065,10 @@ const auditTable = {
     seed_sites_pointer: "research-seed-sites.json",
     model_effort_universe: UNIVERSE_IDS,
     polarity_inference_warnings: polarityInferenceWarnings,
+    // refinement #3: every benchmark dropped/neutralized because its normalization basis had
+    // <2 independent reporters (single observation). Each was normalized to a neutral value so
+    // a lone uncorroborated row could not define the category max (SOP-3 thin -> down-weight).
+    neutralized_benchmarks: neutralizedBenchmarks,
     // refinement #1: build-time coverage floor — per-category "DATA_MISSING" | "measured".
     // RECORDS state; never fails the build, never makes the lean table sparse.
     category_completeness: CATEGORY_COMPLETENESS,

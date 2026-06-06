@@ -137,57 +137,57 @@
     ],
     "security_review": [
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "low",
         "rank": 1
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "medium",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "high",
         "rank": 3
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "low",
         "rank": 5
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-4-8",
         "effort": "high",
         "rank": 7
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "xhigh",
         "rank": 8
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
         "rank": 9
       },
       {
@@ -289,63 +289,63 @@
         "rank": 7
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "low",
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
         "rank": 8
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
         "rank": 9
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "high",
+        "effort": "max",
         "rank": 10
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "high",
+        "effort": "low",
         "rank": 11
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "xhigh",
-        "rank": 12
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
-        "rank": 13
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "max",
-        "rank": 14
+        "effort": "medium",
+        "rank": 12
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "low",
-        "rank": 15
+        "rank": 13
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "medium",
-        "rank": 16
+        "rank": 14
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 15
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
         "rank": 17
       },
       {
@@ -1323,33 +1323,33 @@
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
         "rank": 3
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "low",
         "rank": 4
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
-        "rank": 5
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "high",
-        "rank": 6
+        "effort": "medium",
+        "rank": 5
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
+        "rank": 6
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
         "rank": 7
       },
       {
@@ -1445,81 +1445,81 @@
         "rank": 4
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "low",
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
         "rank": 5
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
+        "model": "claude-opus-4-7",
+        "effort": "low",
         "rank": 6
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 7
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
         "effort": "low",
-        "rank": 8
+        "rank": 7
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 9
+        "rank": 8
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "medium",
-        "rank": 10
+        "rank": 9
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 10
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 11
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "high",
-        "rank": 12
-      },
-      {
-        "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
-        "rank": 13
+        "rank": 12
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 14
+        "rank": 13
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
-        "rank": 15
+        "effort": "high",
+        "rank": 14
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 16
+        "rank": 15
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
         "rank": 17
       },
       {
