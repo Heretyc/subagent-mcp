@@ -302,6 +302,11 @@ const UNIVERSE = dataset.model_effort_universe.map((entry) => {
   return { id: pairingId(model, effortK), model, effort, effortK };
 });
 const UNIVERSE_IDS = UNIVERSE.map((p) => p.id);
+// refinement #2: canonical universe order — the dataset's own model_effort_universe
+// sequence (stable, capability-NEUTRAL). Used as the deterministic tie-break for
+// all-sentinel (DATA_MISSING) categories so their rank order is NOT a de-facto capability
+// signal (it replaces the model-id-ascending / version_rank de-facto proxy there).
+const UNIVERSE_ORDER = new Map(UNIVERSE.map((p, i) => [p.id, i]));
 
 // withdrawn (model+category+benchmark) — discard those rows entirely (SOP-3).
 // Absent `withdrawn` is treated as [] (refinement #25: not a required dataset field).
@@ -595,6 +600,63 @@ for (const category of SPINE) {
   perfScores.set(category, scores);
 }
 
+// ---- refinements #1/#2/#9: data-missing coverage floor + non-semantic order + gaps --
+// AUDIT-ONLY transparency (plus a sentinel-ORDER change within still-dense categories).
+//
+// #1 coverage-floor: a category is DATA_MISSING when NO universe pairing earns a real
+// (non-null) score — i.e. every row is a data-free sentinel, so there is no measured
+// benchmark signal at all. This RECORDS state in the audit; it never fails the build and
+// never makes the lean table sparse (every category stays dense 1..N).
+function categoryHasMeasuredSignal(category) {
+  const scores = perfScores.get(category);
+  for (const p of UNIVERSE) {
+    const s = scores.get(p.id);
+    if (s && s.score !== null) return true;
+  }
+  return false;
+}
+const DATA_MISSING_CATEGORIES = new Set(
+  SPINE.filter((category) => !categoryHasMeasuredSignal(category))
+);
+// audit.metadata.category_completeness: per-category build-time coverage state.
+const CATEGORY_COMPLETENESS = {};
+for (const category of SPINE) {
+  CATEGORY_COMPLETENESS[category] = DATA_MISSING_CATEGORIES.has(category)
+    ? "DATA_MISSING"
+    : "measured";
+}
+
+// #9 gaps: the dataset carries dataset.gaps (reason + affected model + remediation) that
+// the builder otherwise only validates (no-effort sentinel) and drops. Index them by
+// category for (a) audit.metadata.gaps, (b) per-category DATA_MISSING summaries, and (c)
+// referencing the SPECIFIC gap reason in sentinel pairings' basis/citation text. Absent
+// `gaps` is treated as [] (refinement #25: not a required dataset field). Order is the
+// dataset's own gap order (deterministic, source-faithful).
+const GAPS_BY_CATEGORY = new Map(); // category -> [{model, effort, reason}, ...]
+for (const gap of dataset.gaps || []) {
+  const arr = GAPS_BY_CATEGORY.get(gap.category) || [];
+  arr.push({ model: gap.model, effort: gap.effort, reason: gap.reason });
+  GAPS_BY_CATEGORY.set(gap.category, arr);
+}
+// Structured gaps for audit.metadata.gaps, deterministically ordered: DATA_MISSING
+// categories in SPINE order first (the ones these gaps explain), then any remaining
+// gap categories in SPINE order, preserving each category's source gap order within.
+const _gapCatOrder = [
+  ...SPINE.filter((c) => GAPS_BY_CATEGORY.has(c)),
+  ...[...GAPS_BY_CATEGORY.keys()].filter((c) => !SPINE.includes(c)),
+];
+const GAPS_AUDIT = _gapCatOrder.map((category) => ({
+  category,
+  state: CATEGORY_COMPLETENESS[category] || "measured",
+  entries: GAPS_BY_CATEGORY.get(category),
+}));
+// First gap reason per DATA_MISSING category — the specific basis/citation text the
+// sentinel pairings reference instead of the generic "no measured benchmark rows".
+function primaryGapReason(category) {
+  const arr = GAPS_BY_CATEGORY.get(category);
+  return arr && arr.length ? arr[0].reason : null;
+}
+
 // ---- provider derivation (owner schema A) -----------------------------------------
 // Explicit prefix -> family map. The universe is capped at two families
 // (Anthropic + OpenAI); an unrecognized prefix is a data/scope error, not a silent
@@ -639,7 +701,7 @@ function powerScore(p, s, exponents) {
 
 // Full per-pairing object (AUDIT shape). The lean canonical table keeps only
 // {provider, model, effort, rank}; every other field here lives ONLY in the audit sibling.
-function buildFullPairingObject(item) {
+function buildFullPairingObject(item, category) {
   const { p, s, branchScore } = item;
   const cost = COST.get(p.id).perToken;
   const interpolated = Boolean(s.interpolated) || s.score === null;
@@ -653,7 +715,16 @@ function buildFullPairingObject(item) {
   if (COST.get(p.id).tokInflation === OPUS_INFLATION) {
     basis.push(`[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)`);
   }
-  if (s.score === null) basis.push("data-free sentinel (no measured rows; SOP-1 guard-blocked)");
+  if (s.score === null) {
+    basis.push("data-free sentinel (no measured rows; SOP-1 guard-blocked)");
+    // refinement #2: in a DATA_MISSING category the rank order is non-semantic.
+    if (DATA_MISSING_CATEGORIES.has(category)) {
+      basis.push("order non-semantic: data-missing category (canonical universe order, not capability)");
+      // refinement #9: cite the SPECIFIC dataset gap reason, not the generic line.
+      const reason = primaryGapReason(category);
+      if (reason) basis.push(`[GAP] ${reason}`);
+    }
+  }
   if (basis.length === 0) basis.push("[UNVERIFIED] vendor-only");
 
   return {
@@ -680,9 +751,10 @@ function buildFullBranch(branch, exponents) {
   const out = {};
   for (const category of SPINE) {
     const scores = perfScores.get(category);
-    const { items } = rankBranch(branch, scores, exponents, categoryUniverse(category));
+    const dataMissing = DATA_MISSING_CATEGORIES.has(category);
+    const { items } = rankBranch(branch, scores, exponents, categoryUniverse(category), dataMissing);
     out[category] = items.map((item, idx) => {
-      const obj = buildFullPairingObject(item);
+      const obj = buildFullPairingObject(item, category);
       obj.rank = idx + 1;
       return obj;
     });
@@ -692,7 +764,12 @@ function buildFullBranch(branch, exponents) {
 
 // Rank a branch by power-law score (desc), dense 1..N. Both branches use the same
 // score = perf_norm^a / cost_norm^b form; only the exponents differ.
-function rankBranch(branch, scores, exponents, universe = UNIVERSE) {
+// `dataMissing` (refinement #2): when the WHOLE category is data-free (every pairing is a
+// sentinel), the score tie cascades into version_rank-desc / model-id-ascending — a
+// de-facto, MEANINGLESS capability proxy. For such categories we instead order by the
+// canonical universe sequence (capability-NEUTRAL, documented, deterministic). The table
+// still ends up dense 1..N; only the ORDERING BASIS among the (tied) sentinels changes.
+function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing = false) {
   const observed = [];
   for (const p of universe) {
     const s = scores.get(p.id);
@@ -719,6 +796,15 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE) {
 
   items.sort((a, b) => {
     if (b.branchScore !== a.branchScore) return b.branchScore - a.branchScore;
+    // refinement #2: data-missing category -> ALL sentinels tie on score; do NOT let the
+    // version_rank/model-id chain below stand in as a fake capability ranking. Break the tie
+    // by canonical universe order only (capability-neutral, deterministic). Still dense 1..N.
+    if (dataMissing) {
+      const ua = UNIVERSE_ORDER.get(a.p.id) ?? Number.MAX_SAFE_INTEGER;
+      const ub = UNIVERSE_ORDER.get(b.p.id) ?? Number.MAX_SAFE_INTEGER;
+      if (ua !== ub) return ua - ub;
+      return a.p.id < b.p.id ? -1 : 1;
+    }
     if (a.lineage === b.lineage && a.versionRank !== b.versionRank) return b.versionRank - a.versionRank;
     if (a.p.model !== b.p.model) return a.p.model < b.p.model ? -1 : 1;
     if (a.effIdx !== b.effIdx) return a.effIdx - b.effIdx;
@@ -762,7 +848,7 @@ const performanceFull = buildFullBranch("performance", PERF_EXP);
 const costEfficiencyFull = buildFullBranch("cost_efficiency", COST_EXP);
 
 // ---- citations for audit ----------------------------------------------------------
-function citationsFor(detail) {
+function citationsFor(detail, category) {
   const cites = [];
   const seen = new Set();
   for (const r of detail.rows || []) {
@@ -792,10 +878,15 @@ function citationsFor(detail) {
     });
   }
   if (cites.length === 0) {
+    // refinement #9: for a DATA_MISSING category, cite the SPECIFIC dataset gap reason and
+    // flag the non-semantic ordering, instead of the generic "no measured benchmark rows".
+    const gapReason = DATA_MISSING_CATEGORIES.has(category) ? primaryGapReason(category) : null;
     cites.push({
       url: "",
       retrieved_at: DEFAULT_RETRIEVED_AT,
-      annotation: "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+      annotation: gapReason
+        ? `Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: ${gapReason}`
+        : "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
       label: "[SENTINEL]",
     });
   }
@@ -856,7 +947,7 @@ function auditBranch(fullBranch) {
     out[category] = fullBranch[category].map((e) => {
       const detail = perfScores.get(category).get(pairingId(e.model, effortKey(e.effort)));
       const { _detail, ...rest } = e;
-      return { ...rest, citations: citationsFor(detail) };
+      return { ...rest, citations: citationsFor(detail, category) };
     });
   }
   return out;
@@ -884,6 +975,12 @@ const auditTable = {
     seed_sites_pointer: "research-seed-sites.json",
     model_effort_universe: UNIVERSE_IDS,
     polarity_inference_warnings: polarityInferenceWarnings,
+    // refinement #1: build-time coverage floor — per-category "DATA_MISSING" | "measured".
+    // RECORDS state; never fails the build, never makes the lean table sparse.
+    category_completeness: CATEGORY_COMPLETENESS,
+    // refinement #9: dataset.gaps surfaced into the audit (reason + affected model +
+    // remediation), grouped per category with each DATA_MISSING category's coverage state.
+    gaps: GAPS_AUDIT,
     realized_exponents: {
       performance: { a: PERF_EXP.a, b: PERF_EXP.b },
       cost_efficiency: { a: COST_EXP.a, b: COST_EXP.b },
