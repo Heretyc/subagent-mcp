@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
 const providerPath = new URL("../src/routing-table.json", import.meta.url);
+const auditPath = new URL("../src/routing-table-audit.json", import.meta.url);
 const routingTablePath = new URL("../.spec/references/assets/routing-table.json", import.meta.url);
 const branches = ["performance", "cost_efficiency"];
 
@@ -34,7 +35,6 @@ const effortOrder = new Map([
 const VALID_MODELS = new Set([
   "claude-opus-4-8",
   "claude-opus-4-7",
-  "claude-opus-4-6",
   "claude-sonnet-4-6",
   "claude-haiku-4-5",
   "gpt-5.5",
@@ -55,7 +55,6 @@ const NO_EFFORT_EXCLUDED_CATEGORIES = new Set([
 const MODEL_EFFORT_LADDERS = new Map([
   ["claude-opus-4-8", ["low", "medium", "high", "xhigh", "max"]],
   ["claude-opus-4-7", ["low", "medium", "high", "xhigh", "max"]],
-  ["claude-opus-4-6", ["low", "medium", "high", "max"]],
   ["claude-sonnet-4-6", ["low", "medium", "high", "max"]],
   ["claude-haiku-4-5", ["n/a"]],
   ["gpt-5.5", ["low", "medium", "high", "xhigh"]],
@@ -95,11 +94,22 @@ function arraysEqual(left, right) {
 }
 
 // Provider implied by a model id's family — used to assert the explicit `provider` field is
-// consistent with the model (claude-* -> claude, gpt-* -> codex).
+// consistent with the model. Explicit prefix -> family map (claude-* -> claude;
+// gpt-*/codex-* -> codex). The universe is capped at two families (Anthropic + OpenAI);
+// an unrecognized prefix is a scope error, so we THROW rather than silently skip the
+// consistency check and let a mislabeled provider through.
+const PROVIDER_FAMILY_PREFIXES = [
+  ["claude-", "claude"],
+  ["gpt-", "codex"],
+  ["codex-", "codex"],
+];
 function impliedProvider(model) {
-  if (model.startsWith("claude")) return "claude";
-  if (model.startsWith("gpt")) return "codex";
-  return null;
+  for (const [prefix, family] of PROVIDER_FAMILY_PREFIXES) {
+    if (model.startsWith(prefix)) return family;
+  }
+  throw new Error(
+    `impliedProvider: unrecognized model prefix for '${model}'; expected one of ${PROVIDER_FAMILY_PREFIXES.map(([p]) => p).join(", ")}`
+  );
 }
 
 function buildSpine(issues) {
@@ -196,6 +206,82 @@ function expectedUniverseForCategory(category, universeSet) {
       return !NO_EFFORT_SENTINELS.has(effort);
     })
   );
+}
+
+// Canonicalize a model@effort key for cross-source comparison: collapse every no-effort
+// sentinel (null/none/n/a) to one marker so the audit universe (`@null`) and the mirror
+// ladders (`n/a`) compare as the same pairing, consistent with how NO_EFFORT_SENTINELS is
+// treated interchangeably elsewhere in this validator.
+function canonicalPairingKey(key) {
+  const at = key.lastIndexOf("@");
+  const model = key.slice(0, at);
+  const effort = key.slice(at + 1);
+  return `${model}@${NO_EFFORT_SENTINELS.has(effort) ? "<no-effort>" : effort}`;
+}
+
+function canonicalSet(keys) {
+  return new Set([...keys].map(canonicalPairingKey));
+}
+
+function setDiff(a, b) {
+  return [...a].filter((value) => !b.has(value));
+}
+
+// #11 — completeness cross-check: the audit's metadata.model_effort_universe must equal the
+// table-derived universe (modulo no-effort sentinel spelling). A real mismatch (a pairing in
+// one source and not the other) FAILs; otherwise the audit and committed table have drifted
+// apart. Missing/malformed audit metadata is surfaced as an issue, not silently skipped.
+function crossCheckAuditUniverse(derivedUniverse, issues) {
+  const audit = readJson(auditPath, "src/routing-table-audit.json", issues);
+  if (!audit) {
+    return;
+  }
+  const universe = isObject(audit.metadata) ? audit.metadata.model_effort_universe : undefined;
+  if (!Array.isArray(universe) || !universe.every((key) => typeof key === "string")) {
+    issues.push("src/routing-table-audit.json metadata.model_effort_universe must be a string array");
+    return;
+  }
+  const auditCanon = canonicalSet(universe);
+  const derivedCanon = canonicalSet(derivedUniverse);
+  const onlyAudit = setDiff(auditCanon, derivedCanon);
+  const onlyDerived = setDiff(derivedCanon, auditCanon);
+  if (onlyAudit.length > 0) {
+    issues.push(`audit model_effort_universe has pairings absent from the table-derived universe: ${onlyAudit.join(", ")}`);
+  }
+  if (onlyDerived.length > 0) {
+    issues.push(`table-derived universe has pairings absent from audit model_effort_universe: ${onlyDerived.join(", ")}`);
+  }
+
+  // #19/#20(B) — ladder drift: the validator's VALID_MODELS + MODEL_EFFORT_LADDERS mirror must
+  // stay in lockstep with the audit universe. Any model/effort in the audit universe missing
+  // from the mirror (or vice-versa) means the hard-coded mirror has drifted (e.g. a stale model
+  // id like the removed claude-opus-4-6) and is FAILed with an explicit drift message.
+  const mirror = new Set();
+  for (const [model, ladder] of MODEL_EFFORT_LADDERS) {
+    if (!VALID_MODELS.has(model)) {
+      issues.push(`ladder drift: MODEL_EFFORT_LADDERS has model '${model}' absent from VALID_MODELS`);
+    }
+    for (const effort of ladder) {
+      mirror.add(canonicalPairingKey(pairingKey(model, effort)));
+    }
+  }
+  const mirrorOnly = setDiff(mirror, auditCanon);
+  const universeOnly = setDiff(auditCanon, mirror);
+  if (mirrorOnly.length > 0) {
+    issues.push(`ladder drift: VALID_MODELS/MODEL_EFFORT_LADDERS pairings absent from audit universe: ${mirrorOnly.join(", ")}`);
+  }
+  if (universeOnly.length > 0) {
+    issues.push(`ladder drift: audit universe pairings absent from VALID_MODELS/MODEL_EFFORT_LADDERS: ${universeOnly.join(", ")}`);
+  }
+  const auditModels = new Set(universe.map((key) => key.slice(0, key.lastIndexOf("@"))));
+  const mirrorModelsOnly = setDiff(VALID_MODELS, auditModels);
+  const auditModelsOnly = setDiff(auditModels, VALID_MODELS);
+  if (mirrorModelsOnly.length > 0) {
+    issues.push(`ladder drift: VALID_MODELS entries absent from audit universe: ${mirrorModelsOnly.join(", ")}`);
+  }
+  if (auditModelsOnly.length > 0) {
+    issues.push(`ladder drift: audit universe model ids absent from VALID_MODELS: ${auditModelsOnly.join(", ")}`);
+  }
 }
 
 function validateRoot(provider, issues) {
@@ -343,6 +429,7 @@ function main() {
     ["metadata", []],
     ["branches", []],
     ["pairings", []],
+    ["audit cross-check", []],
   ];
   const issuesFor = Object.fromEntries(checks);
   const spine = buildSpine(issuesFor["routing-table spine"]);
@@ -356,6 +443,8 @@ function main() {
       issuesFor.pairings.push("could not derive a non-empty model@effort universe from the table");
     }
     validateCategoryEntries(provider, spine, universeSet, issuesFor.pairings);
+    // #11 audit-universe completeness + #19/#20(B) ladder-drift cross-checks.
+    crossCheckAuditUniverse(universeSet, issuesFor["audit cross-check"]);
   }
 
   const failures = checks.filter(([, issues]) => issues.length > 0);

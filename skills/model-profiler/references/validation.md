@@ -64,6 +64,11 @@ Then, against the run that just completed, this leaf MUST assert:
   here is a **FAIL**, not a NOTICE-skip. (The NOTICE-skip in `validate_seed_sites.mjs` is only for a
   fresh clone before any profiling run has ever happened — never for a run that was supposed to emit it.)
 - `metadata.last_run_at` equals THIS run's stamp (proves the run actually merged into it).
+- `metadata.run_id` equals the SINGLE recorded run-id for this run — the same id carried by
+  `src/routing-table-audit.json` at `metadata.run_manifest.run_id` (refinement #21). Both scripts
+  derive this id deterministically from `DATASET_DATE` (env `RUN_ID` or a `<temp>/model-profiler/run-id`
+  file may pin it), so a mismatch means the audit and seed came from DIFFERENT runs → **FAIL**.
+  (`DATASET_DATE` is now REQUIRED: both scripts fail loud rather than default to a stale date.)
 - `sites.length >= prior committed sites.length` (the list never shrank).
 
 If the file is absent, stale (`last_run_at` not this run's stamp), or shrank → **FAIL the run**
@@ -89,7 +94,7 @@ members just changed.
 | # | Scenario task description | Required behavior (asserts) |
 |---|--------------------------|-----------------------------|
 | 1 | A formal-proof / derivation task ("prove this theorem / formal derivation") | Classified `math_proof`; routes per `G_MATH` to its forced verification target (run-produced member, unnamed here) |
-| 2 | A security change authored by one provider family ("audit this auth code for vulns") | Classified `security_review`; triggers `G_SEC` cross-review rendered by a member of a **different** family than the author (no self-review) |
+| 2 | A security change authored by one provider family ("audit this auth code for vulns") | Classified `security_review`; triggers `G_SEC` cross-review by a **fresh** critic distinct from the author (no self-review) — a different family when ≥2 families are reachable, otherwise a fresh within-family member (per absolute invariant #5) |
 | 3 | A cross-cutting design / decomposition task | Classified `architecture`; the `architecture_complexity` modifier fires plan-before-build + independent cross-review; routes to that category's run-produced primary |
 | 4 | A closed-loop terminal / "iterate until tests pass" task | Classified `agentic_execution`; routes to its run-produced primary and fires its mandatory-before-commit synergy pattern |
 | 5 | A leaf file read / search / reformat task | Classified `mechanical`; routes to its run-produced low-cost primary, subject to its context-cap gate |
