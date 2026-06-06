@@ -170,6 +170,17 @@ const SENTIMENT_ADJ = 0; // no free-text corpus -> 0 for every pairing
 const THIN_MIN_REPORTERS = 2; // <2 distinct rows in the normalization basis -> thin
 const THIN_NEUTRAL_N = 0.5; // neutralized normalized value for a thin single-obs population
 const NEUTRALIZED_BENCHMARKS = []; // {benchmark, category, model, reason} (audit-only)
+
+// ---- refinement #8: scale-anchor normalization sources -----------------------------
+// buildCategoryScores anchors each benchmark's min/max over ALL non-withdrawn rows, but
+// citationsFor only emits citations for SELECTED ranked pairings — so a row that CALIBRATED
+// a category's min/max scale (defined an anchor) but was not attached to a ranked pairing is
+// dropped from the audit citations, and therefore from the seed (update_seed_sites harvests
+// only audit citations). This accumulator records, per category+benchmark, the source row(s)
+// (url + benchmark + model + raw + tier) that defined that benchmark's MIN and MAX anchors,
+// so those scale-defining sources are surfaced in the audit (and reach the seed as
+// source_class=scale_anchor). Additive audit-only; never affects scoring/ranking.
+const NORMALIZATION_SOURCES = []; // {category, benchmark, role, model, url, raw, tier} per anchor row
 const _NEUTRALIZED_SEEN = new Set(); // dedupe by benchmark|category|model
 function recordNeutralized(benchmark, category, model, reason) {
   const key = `${benchmark}|${category}|${model}`;
@@ -449,17 +460,43 @@ const PRICE_CLIFF_SIDE = [...COST.values()].some((c) => c.hasCliff) ? "below" : 
 function buildCategoryScores(category) {
   const rows = (dataset.category_benchmarks[category] || []).filter((r) => !isWithdrawn(category, r));
   // Per-benchmark min/max + reporter count over ALL non-withdrawn rows (anchors the scale).
-  const stats = new Map(); // benchmark -> {min,max,count}
+  // refinement #8: also retain the row(s) that DEFINED each benchmark's min and max anchor
+  // (ties keep all rows at the anchor value) so the scale-calibrating sources can be surfaced.
+  const stats = new Map(); // benchmark -> {min,max,count,minRows:[],maxRows:[]}
   for (const r of rows) {
     const b = r.benchmark;
-    const s = stats.get(b) || { min: Infinity, max: -Infinity, count: 0 };
-    if (r.raw < s.min) s.min = r.raw;
-    if (r.raw > s.max) s.max = r.raw;
+    const s = stats.get(b) || { min: Infinity, max: -Infinity, count: 0, minRows: [], maxRows: [] };
+    if (r.raw < s.min) { s.min = r.raw; s.minRows = [r]; }
+    else if (r.raw === s.min) s.minRows.push(r);
+    if (r.raw > s.max) { s.max = r.raw; s.maxRows = [r]; }
+    else if (r.raw === s.max) s.maxRows.push(r);
     s.count += 1; // refinement #3: independent-reporter count = rows in the basis
     stats.set(b, s);
     // refinement #10: surface polarity-by-absence over every non-withdrawn row (deduped),
     // not just the rows later selected for a universe pairing.
     rowIsLowerBetter(category, r);
+  }
+  // refinement #8: record the min/max anchor source rows for this category's benchmarks.
+  // role distinguishes the lower (min) and upper (max) scale anchor. Single-observation
+  // (thin) benchmarks have min==max (one row, both roles) — still scale-defining sources, so
+  // they are recorded too (flagged via thin). Per-row entries; dedup-by-url happens at the
+  // seed merge (update_seed_sites) and in the audit assembly below.
+  for (const [benchmark, s] of stats) {
+    const thin = s.count < THIN_MIN_REPORTERS;
+    for (const role of ["min", "max"]) {
+      for (const r of role === "min" ? s.minRows : s.maxRows) {
+        NORMALIZATION_SOURCES.push({
+          category,
+          benchmark,
+          role,
+          model: r.model,
+          url: r.source_url || "",
+          raw: r.raw,
+          tier: Number.isFinite(Number(r.tier)) ? Number(r.tier) : null,
+          thin,
+        });
+      }
+    }
   }
   // refinement #3: a benchmark population with <THIN_MIN_REPORTERS rows is single-observation
   // (non-discriminating). It must NOT define the category max; it is neutralized to a neutral n.
@@ -1165,6 +1202,21 @@ const neutralizedBenchmarks = [...NEUTRALIZED_BENCHMARKS].sort((a, b) => {
   return a.model < b.model ? -1 : a.model > b.model ? 1 : 0;
 });
 
+// refinement #8: scale-anchor normalization sources, deterministically ordered (SPINE
+// category order, then benchmark, then role min<max, then model, then url). Populated during
+// buildCategoryScores; additive audit-only. Surfaces every source row that DEFINED a category
+// benchmark's min/max normalization anchor so a scale-calibrating source that was not attached
+// to a ranked pairing still reaches the audit (and the seed, as source_class=scale_anchor).
+const normalizationSources = [...NORMALIZATION_SOURCES].sort((a, b) => {
+  const ca = SPINE_ORDER.get(a.category) ?? Number.MAX_SAFE_INTEGER;
+  const cb = SPINE_ORDER.get(b.category) ?? Number.MAX_SAFE_INTEGER;
+  if (ca !== cb) return ca - cb;
+  if (a.benchmark !== b.benchmark) return a.benchmark < b.benchmark ? -1 : 1;
+  if (a.role !== b.role) return a.role < b.role ? -1 : 1; // "max" < "min" lexically -> max first
+  if (a.model !== b.model) return a.model < b.model ? -1 : 1;
+  return a.url < b.url ? -1 : a.url > b.url ? 1 : 0;
+});
+
 // ---- refinements #5/#4/#16/#18: run_manifest umbrella (additive AUDIT metadata) -----
 // ONE audit.metadata.run_manifest block. The validator ignores extra audit.metadata.* keys,
 // so this is purely additive (stays green). HONESTY: any field NOT genuinely derivable from
@@ -1331,6 +1383,11 @@ const auditTable = {
     // <2 independent reporters (single observation). Each was normalized to a neutral value so
     // a lone uncorroborated row could not define the category max (SOP-3 thin -> down-weight).
     neutralized_benchmarks: neutralizedBenchmarks,
+    // refinement #8: the source row(s) that DEFINED each category benchmark's min/max
+    // normalization anchor (role: "min"|"max"; thin==single-observation min==max population).
+    // These calibrate the scale even when not attached to a ranked pairing, so they are
+    // surfaced here and harvested into the seed as source_class=scale_anchor. Additive only.
+    normalization_sources: normalizationSources,
     // refinement #14: benchmarks keyed under MORE THAN ONE category (single-category-keying
     // rule violation). SURFACED for owner triage — NOT auto-reassigned to one category (the
     // #15 lesson: which single category is most-diagnostic is the dataset owner's domain call).

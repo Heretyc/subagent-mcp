@@ -194,6 +194,438 @@
         "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
       }
     ],
+    "normalization_sources": [
+      {
+        "category": "math_proof",
+        "benchmark": "FrontierMath",
+        "role": "max",
+        "model": "gpt-5.5-pro",
+        "url": "https://llm-stats.com/benchmarks/frontiermath",
+        "raw": 39.6,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "FrontierMath",
+        "role": "min",
+        "model": "gpt-5.5-pro",
+        "url": "https://llm-stats.com/benchmarks/frontiermath",
+        "raw": 39.6,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "FrontierMath Tier 1-3",
+        "role": "max",
+        "model": "gpt-5.5",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 51.7,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "FrontierMath Tier 1-3",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 51.7,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "FrontierMath Tier 4",
+        "role": "max",
+        "model": "gpt-5.5",
+        "url": "https://llm-stats.com/benchmarks/frontiermath",
+        "raw": 35.4,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "FrontierMath Tier 4",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://llm-stats.com/benchmarks/frontiermath",
+        "raw": 35.4,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "GPQA Diamond",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 94.5,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "GPQA Diamond",
+        "role": "min",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 94.5,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "HMMT Feb 2026",
+        "role": "max",
+        "model": "claude-sonnet-4-6",
+        "url": "https://benchlm.ai/math",
+        "raw": 97.1,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "HMMT Feb 2026",
+        "role": "min",
+        "model": "claude-sonnet-4-6",
+        "url": "https://benchlm.ai/math",
+        "raw": 97.1,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "USAMO 2026",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 97.6,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "USAMO 2026",
+        "role": "min",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 97.6,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "security_review",
+        "benchmark": "Cybench",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 100,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "security_review",
+        "benchmark": "Cybench",
+        "role": "min",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 100,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "security_review",
+        "benchmark": "CyberGym",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 83.1,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "security_review",
+        "benchmark": "CyberGym",
+        "role": "min",
+        "model": "claude-opus-4-7",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 73.1,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "security_review",
+        "benchmark": "CyberSecEval Firefox-exploitation",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 181,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "security_review",
+        "benchmark": "CyberSecEval Firefox-exploitation",
+        "role": "min",
+        "model": "claude-opus-4-8",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 181,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "debugging",
+        "benchmark": "DeepSWE",
+        "role": "max",
+        "model": "gpt-5.5",
+        "url": "https://venturebeat.com/technology/deepswe-blows-up-the-ai-coding-leaderboard-crowns-gpt-5-5-and-finds-claude-opus-exploiting-a-benchmark-loophole",
+        "raw": 70,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "debugging",
+        "benchmark": "DeepSWE",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://venturebeat.com/technology/deepswe-blows-up-the-ai-coding-leaderboard-crowns-gpt-5-5-and-finds-claude-opus-exploiting-a-benchmark-loophole",
+        "raw": 70,
+        "tier": 2,
+        "thin": true
+      },
+      {
+        "category": "debugging",
+        "benchmark": "SWE-bench Pro",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 69.2,
+        "tier": 1,
+        "thin": false
+      },
+      {
+        "category": "debugging",
+        "benchmark": "SWE-bench Pro",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 58.6,
+        "tier": 1,
+        "thin": false
+      },
+      {
+        "category": "debugging",
+        "benchmark": "SWE-bench Verified",
+        "role": "max",
+        "model": "gpt-5.5",
+        "url": "https://www.marc0.dev/en/leaderboard",
+        "raw": 88.7,
+        "tier": 3,
+        "thin": false
+      },
+      {
+        "category": "debugging",
+        "benchmark": "SWE-bench Verified",
+        "role": "min",
+        "model": "claude-haiku-4-5",
+        "url": "https://benchlm.ai/benchmarks/sweVerified",
+        "raw": 73.3,
+        "tier": 3,
+        "thin": false
+      },
+      {
+        "category": "agentic_execution",
+        "benchmark": "OSWorld-Verified",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 83.4,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "agentic_execution",
+        "benchmark": "OSWorld-Verified",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 78.7,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "agentic_execution",
+        "benchmark": "SWE-bench Pro",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 69.2,
+        "tier": 1,
+        "thin": false
+      },
+      {
+        "category": "agentic_execution",
+        "benchmark": "SWE-bench Pro",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 58.6,
+        "tier": 1,
+        "thin": false
+      },
+      {
+        "category": "agentic_execution",
+        "benchmark": "Terminal-Bench 2.1 (Terminus-2)",
+        "role": "max",
+        "model": "gpt-5.5",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 78.2,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "agentic_execution",
+        "benchmark": "Terminal-Bench 2.1 (Terminus-2)",
+        "role": "min",
+        "model": "claude-opus-4-8",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 74.6,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "coding",
+        "benchmark": "SWE-bench Pro",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 69.2,
+        "tier": 1,
+        "thin": false
+      },
+      {
+        "category": "coding",
+        "benchmark": "SWE-bench Pro",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 58.6,
+        "tier": 1,
+        "thin": false
+      },
+      {
+        "category": "coding",
+        "benchmark": "SWE-bench Verified",
+        "role": "max",
+        "model": "gpt-5.5",
+        "url": "https://www.marc0.dev/en/leaderboard",
+        "raw": 88.7,
+        "tier": 3,
+        "thin": false
+      },
+      {
+        "category": "coding",
+        "benchmark": "SWE-bench Verified",
+        "role": "min",
+        "model": "claude-haiku-4-5",
+        "url": "https://benchlm.ai/benchmarks/sweVerified",
+        "raw": 73.3,
+        "tier": 3,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "GPQA Diamond",
+        "role": "max",
+        "model": "claude-opus-4-7",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 94.2,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "GPQA Diamond",
+        "role": "min",
+        "model": "claude-opus-4-8",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 93.6,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "GPQA Diamond",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+        "raw": 93.6,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "GraphWalks BFS 1M",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://www.datacamp.com/blog/claude-opus-4-8",
+        "raw": 68.1,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "GraphWalks BFS 1M",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://www.datacamp.com/blog/gpt-5-5",
+        "raw": 45.4,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "HLE (no tools)",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 49.8,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "HLE (no tools)",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://www.datacamp.com/blog/gpt-5-5",
+        "raw": 41.4,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "HLE (with tools)",
+        "role": "max",
+        "model": "claude-opus-4-8",
+        "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+        "raw": 57.9,
+        "tier": 2,
+        "thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "HLE (with tools)",
+        "role": "min",
+        "model": "gpt-5.5",
+        "url": "https://www.datacamp.com/blog/gpt-5-5",
+        "raw": 52.2,
+        "tier": 2,
+        "thin": false
+      }
+    ],
     "cross_category_benchmarks": [
       {
         "benchmark": "GPQA Diamond",
