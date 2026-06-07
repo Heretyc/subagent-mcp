@@ -33,6 +33,7 @@ import {
   type Candidate,
   type SelectionMode,
 } from "./routing.js";
+import * as orchestrationMarker from "./orchestration/marker.js";
 
 interface AgentState {
   id: string;
@@ -855,6 +856,35 @@ server.tool(
   }
 );
 
+// Tool 7: orchestration-mode
+server.tool(
+  "orchestration-mode",
+  "Toggles per-project ORCHESTRATION MODE on/off (or queries it). Params: { enabled?: boolean }. DEFAULT OFF means ABSENCE of a marker: a project never enabled stays OFF. PERSISTENCE: enabling PERSISTS across process restarts/sessions for the project until a permitted disable (it does NOT reset on a new session). PURPOSE: orchestration mode is for LONG-HORIZON work — tasks expected to FILL THE CONTEXT WINDOW if run to completion inline. When ON, run the session like the ultracode workflow system: decompose the work and delegate to subagents/workflows, hand results off via temp scratch files, and keep the main/orchestrator context lean instead of doing the work inline. Mechanically: the bundled UserPromptSubmit hook injects a delegate-only directive each turn (FULL directive on the claim turn and every 5th turn after, a one-line reminder in between). The toggle writes a per-project marker file keyed by the current working directory; absence of the marker = OFF = no injection. On a NEW session where the mode is carried over from a prior session, the hook prepends a one-time CARRYOVER notice and the agent is prompted to notify the user it auto-activated and confirm whether to keep it ON. IMPORTANT: injection only fires in CLI hosts (Claude Code, Codex CLI) that load the bundled hook. Desktop hosts (Claude Desktop, Codex Desktop) have no UserPromptSubmit hook, so the tool still toggles the marker but NO per-turn injection occurs there (documented degradation, not a bug). ENABLE: turn ON whenever the user requests long-horizon work. DISABLE GOVERNANCE: do NOT disable on your own initiative — disable ONLY after obtaining EXPLICIT user permission, having first explained WHAT orchestration mode is and WHY you want to disable it, and request that permission using the provider-appropriate interactive tool: AskUserQuestion (Claude Code) or request-user-input (Codex). Pass enabled=true to turn ON (re-baselines), enabled=false to turn OFF, or omit enabled to query the current state.",
+  {
+    enabled: z.boolean().optional(),
+  },
+  async (params) => {
+    const cwd = process.cwd();
+    if (params.enabled === true) {
+      orchestrationMarker.enable(cwd);
+    } else if (params.enabled === false) {
+      orchestrationMarker.disable(cwd);
+    }
+    // enabled === undefined -> query only; no marker mutation.
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            orchestration_mode: orchestrationMarker.isActive(cwd),
+            marker_path: orchestrationMarker.markerPath(cwd),
+          }),
+        },
+      ],
+    };
+  }
+);
+
 // Connect the stdio transport only when run as the entry point (the bin), NOT
 // when this module is imported (e.g. test/handler-validation.test.mjs importing
 // the exported validatePresence). Connecting on import would block the test on
@@ -863,6 +893,12 @@ const isMain =
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
 if (isMain) {
+  // ORCHESTRATION MODE PERSISTS across restarts/sessions: the server does NOT
+  // clear the marker on startup. DEFAULT OFF now means ABSENCE of a marker — a
+  // project never enabled stays OFF; a project explicitly enabled persists ON
+  // until disabled with explicit user permission. On a new session the bundled
+  // hook detects the carried-over marker and prompts the user to confirm.
+  // (orchestrationMarker.disable is still used by the tool's enabled:false.)
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
