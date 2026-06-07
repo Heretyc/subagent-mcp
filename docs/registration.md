@@ -4,6 +4,11 @@ Per-platform registration for `subagent-mcp` across Claude Code, Codex, and
 Gemini CLIs. Replace the path in each example with the absolute path where you
 cloned the repo.
 
+This page is the MCP-only registration reference. To install the
+**orchestration-mode hook together with the server** on each host (the
+preferred plugin path, manual fallbacks, and per-host verification), see
+[docs/install/_INDEX.md](install/_INDEX.md).
+
 See [README.md](../README.md) for the project overview and
 [docs/SPEC.md](SPEC.md) for the full technical specification.
 
@@ -161,12 +166,14 @@ On Windows, pass the absolute repo path (for example
 session, then toggle with the `orchestration-mode` tool (`enabled: true` /
 `enabled: false`; omit `enabled` to query).
 
-### Codex CLI (plugin)
+### Codex CLI (hook + server)
 
-Codex registers its hooks from `codex/hooks.json` (`SessionStart` +
-`UserPromptSubmit`) with `${PLUGIN_ROOT}` resolved to the repo root, and the
-server from the Codex `config.toml` entry shown above. Both must point at the
-built `dist/` files.
+Codex has no plugin manifest in this repo, so install the hook by hand: copy
+`codex/hooks.json` to `~/.codex/hooks.json` and replace the placeholder path
+with an **absolute** path to the built `dist/hooks/orchestration-codex.js`
+(`${PLUGIN_ROOT}` only expands inside a real plugin and would otherwise no-op).
+The server comes from the `config.toml` entry shown above. Full step-by-step in
+[docs/install/codex-cli.md](install/codex-cli.md).
 
 ### Desktop hosts toggle but do not inject
 

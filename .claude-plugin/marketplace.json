@@ -3,10 +3,11 @@
   "owner": {
     "name": "Lexi Blackburn"
   },
+  "description": "Local Claude Code / Codex CLI sub-agent orchestration: MCP server + orchestration-mode hook.",
   "plugins": [
     {
       "name": "subagent-mcp",
-      "source": ".",
+      "source": "./",
       "description": "MCP server for local Claude Code / Codex CLI sub-agents, plus an orchestration-mode toggle with a bundled UserPromptSubmit hook."
     }
   ]
