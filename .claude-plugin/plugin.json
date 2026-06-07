@@ -1,0 +1,5 @@
+{
+  "name": "subagent-mcp",
+  "version": "2.2.0",
+  "description": "Launches and manages local Claude Code and Codex CLI sub-agents, plus an orchestration-mode toggle that injects an orchestrator-only directive every turn via the bundled UserPromptSubmit hook."
+}

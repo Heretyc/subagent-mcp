@@ -17,6 +17,7 @@ MCP server that launches and manages locally installed `claude` and `codex` CLI 
 - Ultracode mode for Opus 4.8 -- headless activation via `--settings {"ultracode":true}` (see [docs/usage.md](docs/usage.md))
 - Cross-platform exe resolution (Windows: npm-prefix .exe paths; macOS/Linux: PATH + Homebrew/usr-local fallbacks); immediate `taskkill /t /f` (Windows) / `SIGKILL` (POSIX) force-kill; no graceful shutdown period
 - stdio MCP transport; built with `@modelcontextprotocol/sdk` + `zod`
+- `orchestration-mode` tool — toggles an orchestrator-only directive that the bundled Claude Code / Codex plugin injects every turn via its `UserPromptSubmit` hook (Desktop hosts toggle but do not inject); see [docs/spec/orchestration-mode/_INDEX.md](docs/spec/orchestration-mode/_INDEX.md)
 
 ---
 

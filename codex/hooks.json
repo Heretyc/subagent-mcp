@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/ABS/PATH/TO/subagent-mcp/dist/hooks/orchestration-codex.js\"",
+            "commandWindows": "node \"C:/Users/YourName/Dropbox/subagent-mcp/dist/hooks/orchestration-codex.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/ABS/PATH/TO/subagent-mcp/dist/hooks/orchestration-codex.js\"",
+            "commandWindows": "node \"C:/Users/YourName/Dropbox/subagent-mcp/dist/hooks/orchestration-codex.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
