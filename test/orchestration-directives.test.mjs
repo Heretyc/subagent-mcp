@@ -25,6 +25,7 @@ const claude = readFileSync(join(directivesDir, "orchestration-claude.md"), "utf
 const codex = readFileSync(join(directivesDir, "orchestration-codex.md"), "utf8");
 const carryoverClaude = readFileSync(join(directivesDir, "carryover-claude.md"), "utf8");
 const carryoverCodex = readFileSync(join(directivesDir, "carryover-codex.md"), "utf8");
+const offTurn = readFileSync(join(directivesDir, "off-turn-reminder.md"), "utf8");
 
 let passed = 0;
 let failed = 0;
@@ -60,11 +61,36 @@ test("codex directive names request-user-input and NOT AskUserQuestion", () => {
 
 // ---------------------------------------------------------------------------
 // Disable-governance intent present in BOTH variants
+//
+// WHY (Rule 9): the compressed per-turn reminder still must encode the binding
+// disable rule — never self-disable, and only with explicit user permission via
+// the provider tool. The regex is intentionally tied to that INTENT (not exact
+// wording) so it keeps failing if either half is dropped during recompression.
 // ---------------------------------------------------------------------------
-test("both directives carry the disable-governance intent (explicit permission)", () => {
+test("both directives carry the disable-governance intent (no self-disable, explicit permission)", () => {
   for (const [name, body] of [["claude", claude], ["codex", codex]]) {
-    assert.match(body, /EXPLICIT .*permission/,
+    assert.match(body, /never on own initiative/i,
+      `${name} variant must forbid disabling on its own initiative`);
+    assert.match(body, /explicit user permission/i,
       `${name} variant must require explicit user permission to disable`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// No "ultracode" leakage: the operating-model phrasing is generic workflow
+// orchestration. The legacy "ultracode workflow system" wording must not appear
+// in any per-turn directive asset (case-insensitive).
+// ---------------------------------------------------------------------------
+test("no directive file contains 'ultracode' (case-insensitive)", () => {
+  for (const [name, body] of [
+    ["claude", claude],
+    ["codex", codex],
+    ["carryover-claude", carryoverClaude],
+    ["carryover-codex", carryoverCodex],
+    ["off-turn-reminder", offTurn],
+  ]) {
+    assert.ok(!/ultracode/i.test(body),
+      `${name} directive must not reference "ultracode"`);
   }
 });
 

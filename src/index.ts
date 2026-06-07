@@ -143,12 +143,25 @@ const reconcileInterval = setInterval(() => {
 }, 10000);
 reconcileInterval.unref();
 
-const server = new McpServer({
-  name: "subagent-mcp",
-  version: "2.2.0",
-  description:
-    "Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes. Does NOT call the Anthropic or OpenAI HTTP APIs directly (no API keys, no SDK) and there are no plans to — all model access is via the local CLIs.",
-});
+// Heavy operating-model + governance guidance for ORCHESTRATION MODE. Carried in
+// the MCP server `instructions` field so a connecting host reads it ONCE at
+// initialize (per the MCP spec the initialize result has an `instructions`
+// field) rather than re-injecting it on every turn. The bundled per-turn hook
+// injects only a small compact reminder; this is the durable, full explanation.
+const ORCHESTRATION_INSTRUCTIONS =
+  "ORCHESTRATION MODE (orchestration-mode tool). WHAT IT IS: a per-project toggle for LONG-HORIZON work — tasks that would fill the context window if run to completion inline. OPERATING MODEL: when ON, act as a workflow orchestrator — decompose the work and DELEGATE to sub-agents/workflows; do NOT do the heavy work inline. Hand results off via temp scratch files (%TEMP% on Windows, /tmp on POSIX) instead of returning large payloads into the orchestrator context; keep the main/orchestrator context lean. PERSISTENCE: enabling writes a per-project marker that PERSISTS across process restarts/sessions until it is disabled with explicit user permission (it does NOT reset on a new session). CARRYOVER: if the mode was already ON at the start of this session (inherited from a prior session), the bundled hook prepends a one-time CARRYOVER notice and you MUST notify the user it auto-activated, ask whether to keep it ON, and advise whether keeping it fits the user's request this session. DISABLE GOVERNANCE: never disable on your own initiative — disable ONLY with EXPLICIT user permission, after first explaining WHAT orchestration mode is and WHY you want to disable it, and request that permission with the provider-appropriate interactive tool: AskUserQuestion on Claude, request-user-input on Codex. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation).";
+
+const server = new McpServer(
+  {
+    name: "subagent-mcp",
+    version: "2.2.0",
+    description:
+      "Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes. Does NOT call the Anthropic or OpenAI HTTP APIs directly (no API keys, no SDK) and there are no plans to — all model access is via the local CLIs.",
+  },
+  {
+    instructions: ORCHESTRATION_INSTRUCTIONS,
+  }
+);
 
 // Best-effort removal of a candidate's temp ultracode settings file after a
 // LAUNCH-TIME failure (the agentState is never registered, so the close handler
@@ -859,7 +872,7 @@ server.tool(
 // Tool 7: orchestration-mode
 server.tool(
   "orchestration-mode",
-  "Toggles per-project ORCHESTRATION MODE on/off (or queries it). Params: { enabled?: boolean }. DEFAULT OFF means ABSENCE of a marker: a project never enabled stays OFF. PERSISTENCE: enabling PERSISTS across process restarts/sessions for the project until a permitted disable (it does NOT reset on a new session). PURPOSE: orchestration mode is for LONG-HORIZON work — tasks expected to FILL THE CONTEXT WINDOW if run to completion inline. When ON, run the session like the ultracode workflow system: decompose the work and delegate to subagents/workflows, hand results off via temp scratch files, and keep the main/orchestrator context lean instead of doing the work inline. Mechanically: the bundled UserPromptSubmit hook injects a delegate-only directive each turn (FULL directive on the claim turn and every 5th turn after, a one-line reminder in between). The toggle writes a per-project marker file keyed by the current working directory; absence of the marker = OFF = no injection. On a NEW session where the mode is carried over from a prior session, the hook prepends a one-time CARRYOVER notice and the agent is prompted to notify the user it auto-activated and confirm whether to keep it ON. IMPORTANT: injection only fires in CLI hosts (Claude Code, Codex CLI) that load the bundled hook. Desktop hosts (Claude Desktop, Codex Desktop) have no UserPromptSubmit hook, so the tool still toggles the marker but NO per-turn injection occurs there (documented degradation, not a bug). ENABLE: turn ON whenever the user requests long-horizon work. DISABLE GOVERNANCE: do NOT disable on your own initiative — disable ONLY after obtaining EXPLICIT user permission, having first explained WHAT orchestration mode is and WHY you want to disable it, and request that permission using the provider-appropriate interactive tool: AskUserQuestion (Claude Code) or request-user-input (Codex). Pass enabled=true to turn ON (re-baselines), enabled=false to turn OFF, or omit enabled to query the current state.",
+  "Toggles per-project ORCHESTRATION MODE on/off (or queries it). Params: { enabled?: boolean }. The full operating-model + governance guidance is carried in this server's MCP `instructions` (read once at initialize); this description is the operational summary. DEFAULT OFF means ABSENCE of a marker: a project never enabled stays OFF. PERSISTENCE: enabling PERSISTS across process restarts/sessions for the project until a permitted disable (it does NOT reset on a new session). PURPOSE: orchestration mode is for LONG-HORIZON work — tasks expected to FILL THE CONTEXT WINDOW if run to completion inline. When ON, act as a workflow orchestrator: decompose the work and DELEGATE to sub-agents/workflows, hand results off via temp scratch files, and keep the main/orchestrator context lean instead of doing the work inline. Mechanically: the bundled UserPromptSubmit hook injects a compact delegate-only reminder each turn (FULL reminder on the claim turn and every 5th turn after, a one-line reminder in between). The toggle writes a per-project marker file keyed by the current working directory; absence of the marker = OFF = no injection. On a NEW session where the mode is carried over from a prior session, the hook prepends a one-time CARRYOVER notice and the agent is prompted to notify the user it auto-activated and confirm whether to keep it ON. IMPORTANT: injection only fires in CLI hosts (Claude Code, Codex CLI) that load the bundled hook. Desktop hosts (Claude Desktop, Codex Desktop) have no UserPromptSubmit hook, so the tool still toggles the marker but NO per-turn injection occurs there (documented degradation, not a bug). ENABLE: turn ON whenever the user requests long-horizon work. DISABLE GOVERNANCE: do NOT disable on your own initiative — disable ONLY after obtaining EXPLICIT user permission, having first explained WHAT orchestration mode is and WHY you want to disable it, and request that permission using the provider-appropriate interactive tool: AskUserQuestion (Claude Code) or request-user-input (Codex). Pass enabled=true to turn ON (re-baselines), enabled=false to turn OFF, or omit enabled to query the current state.",
   {
     enabled: z.boolean().optional(),
   },

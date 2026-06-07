@@ -12,28 +12,51 @@ A toggle. When ON, every top-level (non-subagent) user turn in a CLI host that
 loads the bundled `UserPromptSubmit` hook gets an orchestrator-only directive
 injected ahead of the prompt — re-pinning "delegate, do not execute directly"
 so it survives long sessions and context drift. The MCP tool only flips the
-toggle; a **separate hook process** does the per-turn injection.
+toggle; a **separate hook process** does the per-turn injection. This is a
+TypeScript port of the `~/nag` Python prototype; cadence and toggle semantics are
+preserved. The directive text has since been compressed and the heavy guidance
+moved to MCP metadata (see next section).
 
-This is a TypeScript port of the `~/nag` Python prototype. The directive text
-is carried over verbatim; the cadence and toggle semantics are preserved.
+## Where the guidance lives (metadata vs per-turn)
+
+Heavy operating-model + governance guidance lives in **MCP server metadata**
+(read once when a host connects); the per-turn hook injects only a **compact
+caveman-ultra reminder**:
+
+- **Server `instructions`** (`ORCHESTRATION_INSTRUCTIONS` in `src/index.ts`,
+  passed as the second `McpServer` arg → emitted in the `initialize` result)
+  carries the full account: what orchestration mode is, the delegate operating
+  model, temp-file handoff, persistence, carryover, and the disable-governance
+  rule naming both provider tools. The `orchestration-mode` **tool description**
+  is the operational summary and points at the instructions.
+- **Per-turn directives** (`directives/**`) are reduced to a compact reminder:
+  the `<SUB-AGENT-INVARIANT>` wrapper + HTML comment marker + the
+  orchestrator-only / no-direct-execution invariant + temp-file IPC, all
+  ultra-compressed, plus a one-line pointer that disabling needs explicit user
+  permission via the provider tool. The long persistence/governance prose was
+  dropped from the injection (now in metadata); carryover notices keep their
+  event-specific notify/ask/advise instruction, ultra-compressed.
+
+**`ultracode` references removed.** The operating-model phrasing is now generic
+"workflow orchestration / delegate to sub-agents and workflows" across the
+directives and the orchestration-mode tool description. (The unrelated
+`ultracode` *effort* level in `effort.ts`/`routing.ts` is a separate, untouched
+CLI feature.)
 
 ## Purpose and governance
 
 **Purpose.** Orchestration mode is for LONG-HORIZON work — tasks expected to
 fill the context window if run to completion inline. When ON, the session should
-operate like the ultracode workflow system: decompose the work and delegate to
+act as a workflow orchestrator: decompose the work and delegate to
 subagents/workflows, hand results off via temp scratch files, and keep the
 main/orchestrator context lean instead of doing the work inline.
 
 **Enable.** Agents SHOULD enable orchestration mode whenever the user requests
-long-horizon work.
-
-**Disable.** The agent must NOT disable orchestration mode on its own
+long-horizon work. **Disable.** The agent must NOT disable orchestration mode on its own
 initiative. Disable ONLY after (1) obtaining EXPLICIT user permission, having
 first (2) explained WHAT orchestration mode is, and (3) explained WHY it wants
 to disable it. The permission request MUST use the provider-appropriate
-interactive tool: `AskUserQuestion` (Claude Code) or `request-user-input`
-(Codex). The directive assets enforce this per provider —
+interactive tool, and the directive assets enforce this per provider:
 `directives/orchestration-claude.md` names `AskUserQuestion` only,
 `directives/orchestration-codex.md` names `request-user-input` only.
 
@@ -141,9 +164,10 @@ flips, but with no hook host nothing is injected per turn.
 2. Cadence mirrors the prototype: FULL when `relTurn % 5 == 0`, else a one-line
    reminder; `relTurn` measured from toggle-ON (the toggle-ON turn is
    `relTurn 0` → FULL).
-3. Directive text is ported verbatim from the prototype's SUB-AGENT-INVARIANT
-   (claude variant, codex variant including its leading self-deactivation SCOPE
-   line, and the off-turn one-liner).
+3. Split delivery: heavy operating-model + governance guidance lives in MCP
+   server `instructions` (read once at initialize); the per-turn hook injects a
+   compact caveman-ultra reminder (`<SUB-AGENT-INVARIANT>` wrapper, codex variant
+   keeps its leading self-deactivation SCOPE line, plus the off-turn one-liner).
 4. Packaging: Claude Code CLI + Codex CLI bundle the hook AND the MCP server =
    full feature. Claude Desktop + Codex Desktop toggle but do not inject =
    documented degradation.

@@ -1,23 +1,13 @@
 <!-- INJECTED PRE-PROMPT DIRECTIVE — BINDING, NON-NEGOTIABLE -->
 <ORCHESTRATION-CARRYOVER priority="CRITICAL" override="NONE">
 
-## ORCHESTRATION MODE WAS ALREADY ENABLED AT SESSION START
+ORCHESTRATION MODE auto-activated at session start (carried over from prior session for this project; mode persists until disabled with permission). You did NOT enable it.
 
-Orchestration mode was ALREADY ON when this session started — it was carried over
-from a previous session for this project (the mode persists across
-sessions/restarts until it is disabled with permission). You did NOT enable it
-this session; it auto-activated.
+THIS turn you MUST:
+1. NOTIFY user it auto-activated at session start.
+2. ASK whether to keep it ON, via request-user-input.
+3. ADVISE whether keeping it ON fits user's request this session (long-horizon context-filling work → keep ON; small bounded task → not).
 
-Per governance you MUST, on THIS turn:
-
-1. NOTIFY the user that orchestration mode auto-activated at session start
-   (carried over from a prior session for this project).
-2. ASK the user whether to keep it ON, using the request-user-input tool.
-3. ADVISE the user whether keeping it ON makes sense given their initial request
-   for this session (long-horizon work that would fill the context window favors
-   keeping it ON; a small, bounded task does not).
-
-If the user declines, call the orchestration-mode tool with enabled:false. Do NOT
-disable it on your own initiative.
+User declines → call orchestration-mode with enabled:false. NEVER disable on own initiative.
 
 </ORCHESTRATION-CARRYOVER>
