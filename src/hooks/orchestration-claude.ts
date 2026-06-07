@@ -1,0 +1,97 @@
+import { realpathSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+import {
+  countJsonlType,
+  runHook,
+  type HookPayload,
+  type ProviderAdapter,
+} from "../orchestration/hook-core.js";
+
+/**
+ * Claude Code UserPromptSubmit hook entry. Reads the JSON payload from stdin,
+ * runs the provider-agnostic core with the Claude adapter, and writes the
+ * result to stdout. Always exits 0 — a hook must never fail the host turn.
+ *
+ * Compiles to dist/hooks/orchestration-claude.js and is invoked as:
+ *   node "${CLAUDE_PLUGIN_ROOT}/dist/hooks/orchestration-claude.js"
+ */
+
+// Claude entrypoints that are themselves SUBAGENTS and must NOT be nagged.
+// Top-level entrypoints that SHOULD inject (cli, mcp, claude-vscode) are simply
+// absent from this set. DECISION: claude-desktop is a non-hook host (it has no
+// UserPromptSubmit hook), so whether it appears here never matters there; we do
+// NOT add it, which resolves the prototype/INSTALL.md conflict over whether
+// claude-desktop should be skipped.
+const SUBAGENT_ENTRYPOINTS = new Set([
+  "local-agent",
+  "sdk-cli",
+  "sdk-ts",
+  "sdk-py",
+]);
+
+export const claudeAdapter: ProviderAdapter = {
+  isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean {
+    if (payload.agent_id) {
+      return true;
+    }
+    const entrypoint = env.CLAUDE_CODE_ENTRYPOINT;
+    return typeof entrypoint === "string" && SUBAGENT_ENTRYPOINTS.has(entrypoint);
+  },
+
+  // Count JSONL lines in the transcript whose parsed object.type === 'user'.
+  // Delegates to the bounded counter (reads at most the trailing window so a
+  // huge/attacker-supplied transcript can't stall the inline host turn).
+  // Unreadable/missing transcript -> 0, so the hook emits FULL (fail-safe: a
+  // visible directive rather than silent suppression).
+  currentTurn(transcriptPath: string | undefined): number {
+    return countJsonlType(transcriptPath, "user");
+  },
+
+  fullDirectiveFile: "orchestration-claude.md",
+  offTurnFile: "off-turn-reminder.md",
+  carryoverDirectiveFile: "carryover-claude.md",
+};
+
+function readStdin(): Promise<string> {
+  return new Promise((resolve) => {
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => resolve(data));
+    process.stdin.on("error", () => resolve(data));
+  });
+}
+
+async function main(): Promise<void> {
+  let payload: HookPayload = {};
+  try {
+    const raw = await readStdin();
+    if (raw.trim()) {
+      payload = JSON.parse(raw) as HookPayload;
+    }
+  } catch {
+    // Bad/empty stdin -> empty payload; runHook degrades to '' safely.
+  }
+  let out = "";
+  try {
+    out = runHook(payload, process.env, claudeAdapter);
+  } catch {
+    out = "";
+  }
+  if (out) {
+    process.stdout.write(out);
+  }
+  process.exit(0);
+}
+
+// Only run the stdin->stdout shim when invoked directly as the hook command,
+// NOT when a test imports `claudeAdapter`. Importing must have no side effects.
+const isMain =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+if (isMain) {
+  void main();
+}
