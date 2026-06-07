@@ -152,9 +152,12 @@ full feature. Run `npm run build` first — the hook runs from `dist/`.
 
 ### Claude Code CLI (plugin)
 
-The plugin manifest is `.claude-plugin/plugin.json`; it wires the bundled hook
-(`hooks/hooks.json`) and the server (`.mcp.json`). Install it as a local
-marketplace plugin so Claude resolves `${CLAUDE_PLUGIN_ROOT}`:
+The plugin manifest is `.claude-plugin/plugin.json` (just
+`name`/`version`/`description`); Claude **auto-discovers** the bundled hook
+(`hooks/hooks.json`) and the server (`.mcp.json`) at the plugin root, so the
+manifest must **not** re-declare `hooks`/`mcpServers` (doing so fails the load
+with a duplicate-hooks error). Install it as a local marketplace plugin so
+Claude resolves `${CLAUDE_PLUGIN_ROOT}`:
 
 ```bash
 claude plugin marketplace add /abs/path/to/subagent-mcp
