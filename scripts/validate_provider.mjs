@@ -58,8 +58,8 @@ const MODEL_EFFORT_LADDERS = new Map([
   ["claude-sonnet-4-6", ["low", "medium", "high", "max"]],
   ["claude-haiku-4-5", ["n/a"]],
   ["gpt-5.5", ["low", "medium", "high", "xhigh"]],
-  ["gpt-5.5-pro", ["n/a"]],
-  ["gpt-5.4-mini", ["n/a"]],
+  ["gpt-5.5-pro", ["low", "medium", "high", "xhigh"]],
+  ["gpt-5.4-mini", ["low", "medium", "high", "xhigh"]],
 ]);
 
 function isObject(value) {
