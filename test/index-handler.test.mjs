@@ -182,6 +182,32 @@ await test("symlinked dist/index.js connects as the main entrypoint", async () =
   }
 });
 
+await test("server exposes orchestration guidance via MCP instructions (no ultracode)", async () => {
+  // The heavy operating-model + governance guidance migrated OFF the per-turn
+  // hook and ONTO the server `instructions` field, read once at initialize. This
+  // asserts the channel is actually emitted, names both provider permission
+  // tools, and carries zero "ultracode" wording.
+  const session = createMcpSession(distIndex);
+  try {
+    const response = await session.initialize();
+    const instructions = response.result.instructions;
+    assert.equal(typeof instructions, "string",
+      "initialize result must carry an instructions string");
+    assert.match(instructions, /ORCHESTRATION MODE/,
+      "instructions must explain orchestration mode");
+    assert.match(instructions, /DELEGATE/,
+      "instructions must carry the delegate operating model");
+    assert.match(instructions, /AskUserQuestion/,
+      "instructions must name the Claude permission tool");
+    assert.match(instructions, /request-user-input/,
+      "instructions must name the Codex permission tool");
+    assert.ok(!/ultracode/i.test(instructions),
+      "instructions must not reference \"ultracode\"");
+  } finally {
+    await session.close();
+  }
+});
+
 await test("bare PATH executable is not rejected before spawn", async () => {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-index-path-"));
   const fakeBin = join(tempRoot, "bin");
