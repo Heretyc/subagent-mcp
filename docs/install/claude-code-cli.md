@@ -8,9 +8,14 @@ in one plugin. Do the [build prerequisite](_INDEX.md) first.
 ## Preferred path: local-marketplace plugin (hook + server together)
 
 The repo ships a single-plugin marketplace whose plugin source is the repo root
-itself, bundling both `.mcp.json` (server) and `hooks/hooks.json` (hook) under
-one `.claude-plugin/plugin.json`. Only the plugin loader resolves
-`${CLAUDE_PLUGIN_ROOT}` and loads both together, so this is the canonical path.
+itself, bundling both `.mcp.json` (server) and `hooks/hooks.json` (hook). The
+plugin loader **auto-discovers** the root-level `.mcp.json` and `hooks/hooks.json`,
+so `.claude-plugin/plugin.json` carries only `name`/`version`/`description` and
+must **not** re-declare `mcpServers` or `hooks` — re-declaring them collides with
+auto-discovery and the plugin fails to load with a duplicate-hooks error
+(`Hook load failed: Duplicate hooks file detected`). Only the plugin loader
+resolves `${CLAUDE_PLUGIN_ROOT}` and loads both together, so this is the
+canonical path.
 
 **macOS / Linux:**
 
