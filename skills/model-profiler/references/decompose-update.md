@@ -43,7 +43,7 @@ the repo. The emission is **deterministic code** (sanity Rule 5), not free-hand 
    ```powershell
    $env:DATASET_PATH = "$env:TEMP\model-profiler\<run-id>\structured-dataset.json"
    $env:DATASET_DATE = "<YYYY-MM-DD>"; $env:GENERATED_MONTH = "<YYYY-MM>"
-   $env:SEED_SOURCES_PATH = "$env:TEMP\model-profiler\<run-id>\source-locators.json"  # optional
+   $env:SEED_SOURCES_PATH = "$env:TEMP\model-profiler\<run-id>\source-locators.json"  # optional; counters survivorship bias (#28)
    ```
 3. **Run the deterministic builder.** It reads only `DATASET_PATH` (ephemeral) + the committed spine,
    applies the SOPs (`tier-ranking-and-scoring/01-sops.md`), and writes

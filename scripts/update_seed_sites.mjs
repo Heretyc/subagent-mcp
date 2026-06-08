@@ -4,7 +4,7 @@
 // the citation's numeric `tier` field gives `tier` — refinement #7; a provenance label such as
 // [SEED]/[INFERRED]/[ASSUMPTION] used to MASK the [Tn] tier and forced every site to tier 0).
 // Optional SEED_SOURCES_PATH may add sources + structured benchmarks.
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -46,7 +46,9 @@ function resolveRunId() {
 }
 const RUN_ID = resolveRunId();
 
-const TRACKING = new Set(["utm_source","utm_medium","utm_campaign","utm_term","utm_content","fbclid","gclid"]);
+// #20: expanded tracking-param strip list (ref/via/_bhlid/rd added).
+// Redirect resolution is an online-only step; results would be cached in ledger — deferred.
+const TRACKING = new Set(["utm_source","utm_medium","utm_campaign","utm_term","utm_content","fbclid","gclid","ref","via","_bhlid","rd"]);
 function normalizeUrl(raw) {
   if (!raw || typeof raw !== "string") return "";
   let u;
@@ -69,6 +71,8 @@ function tierFromLabel(label) {
   return m ? Number(m[1]) : 0;
 }
 const sortUniq = (a) => [...new Set(a)].sort();
+// #17: attempt_ledger is append-only; runs ring capped to last N; accumulated counters never shrink.
+const LEDGER_RING_CAP = 10;
 
 // ---- harvest from audit (authoritative) -------------------------------------------
 const audit = JSON.parse(readFileSync(AUDIT_PATH, "utf8"));
@@ -202,27 +206,70 @@ let existing = { metadata: {}, sites: [] };
 if (existsSync(SEED_PATH)) existing = JSON.parse(readFileSync(SEED_PATH, "utf8"));
 const byUrl = new Map((existing.sites || []).map((s) => [s.url, s]));
 
-// refinement #12: build the per-site attempt-ledger record for THIS run's harvest of `url`.
-// Every field is either real audit data or an explicit null/"unknown" — nothing is fabricated.
-// The ledger is REFRESHED each run (it describes the most-recent harvest attempt); the seed body
-// around it still accumulates-forever. NULL-FOR-NOW fields: http_status and last_checked are not
-// derivable from an offline audit (we never probe URLs), so they are always null here.
-function buildLedger(url, h) {
+// #17: attempt_ledger is append-only: a bounded runs ring + accumulated-forever counters.
+// buildRunRecord builds the per-run snapshot for THIS run. buildAccumulated initialises
+// counters from a set of run records (used only for migration from old flat format).
+// appendToLedger migrates old flat format, appends the new record, caps the ring, and
+// increments accumulated counters — counters never shrink even as old runs roll off the ring.
+function buildRunRecord(url, h) {
   const provFams = sortUniq([...h.providerFamilies]);
   const srcClasses = sortUniq([...h.sourceClasses]);
   const bmNames = sortUniq([...(benchmarkOf.get(url) || [])]);
   const rejections = rejectionOf.get(url) || [];
   return {
-    attempted_at: h.attemptedAt || null,          // genuine: citation retrieved_at, else null
-    outcome: "harvested",                          // genuine: it was admitted into the seed this run
-    provider_family: provFams.length ? provFams : null, // genuine: families this url was cited for
-    categories: sortUniq([...h.categories]),       // genuine: same as the site's categories
-    source_class: srcClasses.length ? srcClasses : null, // genuine: how it was harvested
-    benchmark_names: bmNames,                      // genuine: from normalization_sources.benchmark
-    rejection_reason: rejections.length ? rejections : null, // genuine where a bench was neutralized
-    http_status: null,                             // NULL-FOR-NOW: no offline probe
-    last_checked: null,                            // NULL-FOR-NOW: no offline probe
+    run_id: RUN_ID,
+    attempted_at: h.attemptedAt || null,
+    outcome: "harvested",
+    provider_family: provFams.length ? provFams : null,
+    categories: sortUniq([...h.categories]),
+    source_class: srcClasses.length ? srcClasses : null,
+    benchmark_names: bmNames,
+    rejection_reason: rejections.length ? rejections : null,
+    http_status: null,
+    last_checked: null,
   };
+}
+function buildAccumulated(runs) {
+  const pfc = {}, cc = {};
+  for (const r of runs) {
+    for (const pf of r.provider_family || []) pfc[pf] = (pfc[pf] || 0) + 1;
+    for (const cat of r.categories || []) cc[cat] = (cc[cat] || 0) + 1;
+  }
+  return { provider_family_counts: pfc, category_counts: cc, total_runs: runs.length };
+}
+// newRecord may be null for a migration-only call (existing site not cited this run).
+function appendToLedger(existing, newRecord) {
+  let runs, accumulated;
+  if (existing && Array.isArray(existing.runs)) {
+    // inject run_id sentinel into any legacy run records that lack it
+    runs = existing.runs.map((r) =>
+      ("run_id" in r) ? r : { run_id: "pre-#17-legacy", ...r }
+    );
+    accumulated = existing.accumulated
+      ? { ...existing.accumulated,
+          provider_family_counts: { ...(existing.accumulated.provider_family_counts || {}) },
+          category_counts: { ...(existing.accumulated.category_counts || {}) } }
+      : buildAccumulated(runs);
+  } else if (existing && typeof existing === "object" && existing.attempted_at !== undefined) {
+    // migrate old flat-object format: inject run_id sentinel if absent
+    const migrated = "run_id" in existing ? existing : { run_id: "pre-#17-legacy", ...existing };
+    runs = [migrated];
+    accumulated = buildAccumulated(runs);
+  } else {
+    runs = [];
+    accumulated = { provider_family_counts: {}, category_counts: {}, total_runs: 0 };
+  }
+  if (!newRecord) return { runs, accumulated }; // migration-only: shape fix, no new run
+  runs.push(newRecord);
+  if (runs.length > LEDGER_RING_CAP) runs = runs.slice(runs.length - LEDGER_RING_CAP);
+  for (const pf of newRecord.provider_family || []) {
+    accumulated.provider_family_counts[pf] = (accumulated.provider_family_counts[pf] || 0) + 1;
+  }
+  for (const cat of newRecord.categories || []) {
+    accumulated.category_counts[cat] = (accumulated.category_counts[cat] || 0) + 1;
+  }
+  accumulated.total_runs = (accumulated.total_runs || 0) + 1;
+  return { runs, accumulated };
 }
 
 for (const [url, h] of harvested) {
@@ -230,7 +277,7 @@ for (const [url, h] of harvested) {
   // refinement #8: source_classes accumulates how each url was harvested ("pairing_citation"
   // and/or "scale_anchor") — accumulate-forever, never narrowed on re-run.
   const harvestedClasses = sortUniq([...h.sourceClasses]);
-  const ledger = buildLedger(url, h); // refinement #12
+  const runRecord = buildRunRecord(url, h); // #17: per-run snapshot
   if (!cur) {
     byUrl.set(url, {
       url, domain: hostOf(url), tier: h.tier,
@@ -238,7 +285,7 @@ for (const [url, h] of harvested) {
       benchmarks: sortUniq([...h.benchmarks]),
       ...(harvestedClasses.length ? { source_classes: harvestedClasses } : {}),
       first_seen: RUN_DATE, last_seen: RUN_DATE, times_seen: 1,
-      attempt_ledger: ledger, // refinement #12
+      attempt_ledger: appendToLedger(null, runRecord), // #17: ring from first run
       ...(h.label ? { label: h.label } : {}),
     });
   } else {
@@ -254,7 +301,29 @@ for (const [url, h] of harvested) {
     cur.tier = mergeTier(cur.tier || 0, Number(h.tier));
     if (!cur.label && h.label) cur.label = h.label;
     cur.domain = cur.domain || hostOf(url);
-    cur.attempt_ledger = ledger; // refinement #12: refresh to THIS run's attempt snapshot
+    cur.attempt_ledger = appendToLedger(cur.attempt_ledger, runRecord); // #17: append + cap + accumulate
+  }
+}
+
+// #17: migrate any existing seed sites that still carry the old flat attempt_ledger format,
+// or have a partial ring (runs array present but individual records lack run_id).
+// Happens to sites not cited in THIS run's audit (harvest loop never touched them).
+for (const s of byUrl.values()) {
+  if (!s.attempt_ledger) continue;
+  if (!Array.isArray(s.attempt_ledger.runs)) {
+    // old flat format: full migration via appendToLedger (migration-only: newRecord=null)
+    s.attempt_ledger = appendToLedger(s.attempt_ledger, null);
+  } else {
+    // partial ring: inject run_id sentinel into any legacy run records that lack it
+    const needsInjection = s.attempt_ledger.runs.some((r) => !("run_id" in r));
+    if (needsInjection) {
+      s.attempt_ledger = {
+        ...s.attempt_ledger,
+        runs: s.attempt_ledger.runs.map((r) =>
+          ("run_id" in r) ? r : { run_id: "pre-#17-legacy", ...r }
+        ),
+      };
+    }
   }
 }
 
@@ -270,9 +339,8 @@ const SELECTION_POLICY = {
   provider_min: 2,
   // source-class cap: at most this many sites per (category, source_class) are "selected"; the
   // rest are DEMOTED (over-cap) — kept in storage, just flagged so the working set is not skewed by
-  // one over-represented (category, source_class) bucket. Tuned high enough not to fire on the lean
-  // current corpus (warn-not-fail spirit: a real over-skew trips it; a thin seed stays all-healthy).
-  source_class_cap: 8,
+  // one over-represented (category, source_class) bucket. (#3 fix: cap=3 per owner, down from 8.)
+  source_class_cap: 3,
 };
 {
   const allSites = [...byUrl.values()];
@@ -281,7 +349,7 @@ const SELECTION_POLICY = {
   const provCount = new Map();
   for (const s of allSites) {
     for (const c of s.categories || []) catCount.set(c, (catCount.get(c) || 0) + 1);
-    const fams = (s.attempt_ledger && s.attempt_ledger.provider_family) || [];
+    const fams = Object.keys((s.attempt_ledger && s.attempt_ledger.accumulated && s.attempt_ledger.accumulated.provider_family_counts) || {});
     for (const f of fams) provCount.set(f, (provCount.get(f) || 0) + 1);
   }
   // Bucket sites by (category, source_class); demote the weakest over the cap, never the scarce.
@@ -315,7 +383,7 @@ const SELECTION_POLICY = {
     // or a provider family below provider_min — the floors win over caps (demote-without-delete must
     // not erase scarce coverage even from the WORKING set).
     const protectsCategory = (s.categories || []).some((c) => (catCount.get(c) || 0) <= SELECTION_POLICY.category_min);
-    const fams = (s.attempt_ledger && s.attempt_ledger.provider_family) || [];
+    const fams = Object.keys((s.attempt_ledger && s.attempt_ledger.accumulated && s.attempt_ledger.accumulated.provider_family_counts) || {});
     const protectsProvider = fams.some((f) => (provCount.get(f) || 0) <= SELECTION_POLICY.provider_min);
     const floorProtected = protectsCategory || protectsProvider;
     const demoted = reasons.length > 0 && !floorProtected;
@@ -329,6 +397,26 @@ const SELECTION_POLICY = {
 }
 
 const sites = [...byUrl.values()].sort((a, b) => (a.url < b.url ? -1 : a.url > b.url ? 1 : 0));
+
+// #3d corpus-skew report: per-tier, per-domain, per-provider-family distribution.
+// Diagnostic only — never a gate. Helps surface citation-cartel skew from audit citations.
+function buildCorpusSkew(allSites) {
+  const byTier = {};
+  const byDomain = {};
+  const byProviderFamily = {};
+  for (const s of allSites) {
+    const t = String(s.tier || 0);
+    byTier[t] = (byTier[t] || 0) + 1;
+    const d = s.domain || "";
+    if (d) byDomain[d] = (byDomain[d] || 0) + 1;
+    const fams = Object.keys((s.attempt_ledger && s.attempt_ledger.accumulated && s.attempt_ledger.accumulated.provider_family_counts) || {});
+    for (const f of fams) byProviderFamily[f] = (byProviderFamily[f] || 0) + 1;
+  }
+  const demoted = allSites.filter((s) => s.selection && s.selection.demoted).length;
+  return { by_tier: byTier, by_domain: byDomain, by_provider_family: byProviderFamily, demoted_count: demoted };
+}
+const CORPUS_SKEW = buildCorpusSkew(sites);
+
 const out = {
   metadata: {
     author: "Lexi Blackburn",
@@ -340,8 +428,15 @@ const out = {
     // audit.metadata.run_manifest.run_id, so the seed and audit are provably from one run.
     run_id: RUN_ID,
     site_count: sites.length,
+    // #3d corpus-skew report (diagnostic, not a gate)
+    corpus_skew: CORPUS_SKEW,
   },
   sites,
 };
-writeFileSync(SEED_PATH, JSON.stringify(out, null, 2) + "\n", "utf8");
+// #25 atomic: stage to .tmp, validate parses, rename to final.
+const seedJson = JSON.stringify(out, null, 2) + "\n";
+const STAGE_SEED = SEED_PATH + ".tmp";
+writeFileSync(STAGE_SEED, seedJson, "utf8");
+JSON.parse(seedJson); // staged shape sanity
+renameSync(STAGE_SEED, SEED_PATH);
 console.log(`update_seed_sites: research-seed-sites.json now has ${sites.length} sites (run ${RUN_DATE}, run_id ${RUN_ID}).`);
