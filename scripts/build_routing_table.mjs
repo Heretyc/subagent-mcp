@@ -13,10 +13,12 @@
 // Timestamps come from env (BUILD_TS / RETRIEVED_AT) or the dataset date (DATASET_DATE, which is
 // REQUIRED — refinement #21 fails loud if unset rather than defaulting to a stale literal date).
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, isAbsolute } from "node:path";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -74,21 +76,36 @@ const DEFAULT_RETRIEVED_AT = process.env.RETRIEVED_AT || `${DATASET_DATE}T00:00:
 // The builder runs FIRST and WRITES the resolved run-id to the run-id file, so update_seed_sites
 // (which runs after) reads the IDENTICAL id even if its env differs. Pure offline, deterministic.
 const RUN_ID_PATH = resolve(tmpdir(), "model-profiler", "run-id");
+// #13: content-hash run-id. Default = run-<date>-<sha256[0:12]>(dataset). Both the human-readable
+// date AND the dataset content-hash are embedded so cross-run contamination is detectable
+// (a run-id whose date ≠ today is stale; same date but different hash = different dataset).
+// Env override (RUN_ID) and file override still take precedence for orchestrated runs.
 function resolveRunId() {
   if (process.env.RUN_ID) return process.env.RUN_ID;
   if (existsSync(RUN_ID_PATH)) {
     const fromFile = readFileSync(RUN_ID_PATH, "utf8").replace(/^﻿/, "").trim();
-    if (fromFile) return fromFile;
+    if (fromFile) {
+      // #13: ignore a stale run-id whose date doesn't match DATASET_DATE (cross-run contamination).
+      const match = /^run-(\d{4}-\d{2}-\d{2})-/.exec(fromFile);
+      if (match && match[1] !== DATASET_DATE) {
+        console.warn(`#13: stale run-id file (date ${match[1]} ≠ DATASET_DATE ${DATASET_DATE}); using fresh content-hash id.`);
+      } else if (fromFile) {
+        return fromFile;
+      }
+    }
   }
-  return `run-${DATASET_DATE}`;
+  return `run-${DATASET_DATE}-${DATASET_HASH_SHORT}`;
 }
 const RUN_ID = resolveRunId();
-// Persist the resolved run-id so the seed-updater binds to this exact run (best-effort; a write
-// failure must not fail the build — the seed-updater falls back to the same deterministic default).
+// #13: write run-id to both the legacy fixed path (for update_seed_sites backward compat) AND
+// the run-specific isolated path so cross-run contamination between audit and seed is detectable.
+const RUN_ID_DIR = resolve(tmpdir(), "model-profiler", RUN_ID);
 try {
+  mkdirSync(RUN_ID_DIR, { recursive: true });
+  writeFileSync(resolve(RUN_ID_DIR, "run-id"), RUN_ID + "\n", "utf8");
   writeFileSync(RUN_ID_PATH, RUN_ID + "\n", "utf8");
 } catch (e) {
-  console.warn(`refinement #21: could not persist run-id to ${RUN_ID_PATH}: ${e.message}`);
+  console.warn(`#13: could not persist run-id to ${RUN_ID_PATH}: ${e.message}`);
 }
 
 // ---- SOP / cost constants (cost-model.md §1/§3/§4) --------------------------------
@@ -114,6 +131,10 @@ const ASSUMED_EFFORTS = new Set(["null", "min", "light", "pro", "ultracode"]);
 // Tokenizer inflation: 1.35x worst-case (SOP-2) for opus 4-7/4-8; 1.4x DEPRECATED.
 const DEPRECATED_INFLATION = 1.4;
 const OPUS_INFLATION = 1.35;
+// #19: above-cliff rates for G_CTX_272 (gpt-5.5 ≥272K context; SOP-2 §74-76).
+// These are hardcoded from public OpenAI pricing; recorded audit-only in cost_blend.above_cliff_cost_figure.
+const G_CTX_272_CLIFF_INPUT_PER_MTOK = 10;  // $/MTok above 272K (post-cliff input rate)
+const G_CTX_272_CLIFF_OUTPUT_PER_MTOK = 45; // $/MTok (post-cliff output rate)
 
 // validator effort ladder (weakest -> strongest); index used for tie-breaks.
 const EFFORT_LADDER = [
@@ -166,8 +187,12 @@ function isLowerBetter(benchmark) {
 // list (so the scorer defaults to higher-is-better purely by absence of a match), we
 // record a WARNING in the audit so silent backwards-ranking risk is surfaced. Warnings
 // are deduped by benchmark+category. The live dataset carries no polarity field, so this
-// is purely additive (warn, never fail).
+// is purely additive (warn, never fail) — EXCEPT for high-risk categories (#24).
 const POLARITY_WARNINGS = new Map(); // `${benchmark}|${category}` -> {benchmark, category, assumed}
+// #24: hard-fail for high-risk categories when polarity is inferred (not explicit).
+// security_review/debugging/quality_review: a wrong polarity silently inverts ranking.
+const HIGH_RISK_POLARITY_CATEGORIES = new Set(["security_review", "debugging", "quality_review"]);
+const POLARITY_ERRORS = []; // {benchmark, category, assumed} — fail-on-any after scoring
 function parseExplicitPolarity(value) {
   if (value === undefined || value === null) return null;
   const v = String(value).toLowerCase();
@@ -183,6 +208,10 @@ function rowIsLowerBetter(category, row) {
     const key = `${row.benchmark}|${category}`;
     if (!POLARITY_WARNINGS.has(key)) {
       POLARITY_WARNINGS.set(key, { benchmark: row.benchmark, category, assumed: "higher_is_better" });
+    }
+    // #24: hard-fail accumulator for high-risk categories
+    if (HIGH_RISK_POLARITY_CATEGORIES.has(category)) {
+      POLARITY_ERRORS.push({ benchmark: row.benchmark, category, assumed: "higher_is_better" });
     }
   }
   return inferred;
@@ -204,6 +233,11 @@ const SENTIMENT_ADJ = 0; // no free-text corpus -> 0 for every pairing
 // and keeps the standard min-max result.
 const THIN_MIN_REPORTERS = 2; // <2 distinct rows in the normalization basis -> thin
 const THIN_NEUTRAL_N = 0.5; // neutralized normalized value for a thin single-obs population
+// #5 epsilon floor: a measured (non-thin) pairing must never normalize to exactly 0, which
+// collapses to 0^0.8 = 0 in powerScore — visually indistinguishable from a data-free sentinel.
+// Applied after min-max; z-score-then-squash (for >=3-reporter populations) is documented as
+// an alternative in NORMALIZATION.params but not yet activated.
+const NORM_EPSILON_FLOOR = 0.001;
 const NEUTRALIZED_BENCHMARKS = []; // {benchmark, category, model, reason} (audit-only)
 
 // ---- refinement #8: scale-anchor normalization sources -----------------------------
@@ -216,6 +250,11 @@ const NEUTRALIZED_BENCHMARKS = []; // {benchmark, category, model, reason} (audi
 // so those scale-defining sources are surfaced in the audit (and reach the seed as
 // source_class=scale_anchor). Additive audit-only; never affects scoring/ranking.
 const NORMALIZATION_SOURCES = []; // {category, benchmark, role, model, url, raw, tier} per anchor row
+// #18: per-benchmark normalization metadata — collected alongside NORMALIZATION_SOURCES.
+// Reports row_count, estimated independent_reporter_count (unique source-URL domains),
+// score_range, and is_thin. Audit-only. Rank bands deferred (Bradley-Terry MLE needs
+// pairwise win data not present in the per-pairing score structure).
+const BENCHMARK_META = []; // {category, benchmark, row_count, independent_reporter_count, score_range, is_thin}
 const _NEUTRALIZED_SEEN = new Set(); // dedupe by benchmark|category|model
 function recordNeutralized(benchmark, category, model, reason) {
   const key = `${benchmark}|${category}|${model}`;
@@ -231,6 +270,11 @@ const NORMALIZATION = {
     // refinement #3: single-observation (n<2 reporters) populations are neutralized.
     thin_min_reporters: THIN_MIN_REPORTERS,
     thin_neutral_n: THIN_NEUTRAL_N,
+    // #5 epsilon floor: applied post-normalization so a measured pairing never reaches exactly 0.
+    epsilon_floor: NORM_EPSILON_FLOOR,
+    // Alternative for >=3-reporter populations: z-score-then-squash (tanh(z/2) rescaled to (0,1)).
+    // Not yet activated; set method to "z-score" to enable. See tier-ranking-and-scoring.md §C.
+    alt_method_ge3: "z-score-then-squash",
   },
 };
 
@@ -250,7 +294,13 @@ function pairingId(model, effortK) {
 }
 
 // ---- load -------------------------------------------------------------------------
-const dataset = readJsonStripBom(DATASET_PATH);
+// #12/#13: compute SHA-256 hash of the raw dataset bytes for content-addressed run-id
+// and replay audit. Hash is computed from the raw bytes (BOM-stripped, UTF-8) so the
+// same dataset always hashes identically regardless of JSON key ordering.
+const _rawDataset = readFileSync(DATASET_PATH, "utf8").replace(/^﻿/, "");
+const DATASET_HASH_SHORT = createHash("sha256").update(_rawDataset).digest("hex").slice(0, 12);
+const DATASET_SHA256 = createHash("sha256").update(_rawDataset).digest("hex");
+const dataset = JSON.parse(_rawDataset);
 const spineRoot = readJsonStripBom(SPINE_PATH);
 // Post taxonomy-freeze, the provider routing-table spine is the canonical 10 categories
 // recorded in the machine-mirror `categories` object (== classification_precedence,
@@ -484,6 +534,23 @@ for (const p of UNIVERSE) {
 }
 // Aggregate cliff side for metadata: "below" if any member has a cliff (all sub-cliff), else "n/a".
 const PRICE_CLIFF_SIDE = [...COST.values()].some((c) => c.hasCliff) ? "below" : "n/a";
+// #19: above_cliff_cost_figure — audit-only blend cost at G_CTX_272 post-cliff rates, no hidden
+// multiplier (effort-agnostic baseline). Non-null only when at least one model has a cliff.
+const ABOVE_CLIFF_COST_FIGURE = PRICE_CLIFF_SIDE !== "n/a"
+  ? (() => {
+      const inputFrac = INPUT_TOK / 1e6;
+      const visibleOutFrac = VISIBLE_OUT_TOK / 1e6;
+      const perMTok = G_CTX_272_CLIFF_INPUT_PER_MTOK * inputFrac +
+        G_CTX_272_CLIFF_OUTPUT_PER_MTOK * visibleOutFrac;
+      return {
+        blend_per_mtok: Math.round(perMTok * 1e6) / 1e6,
+        blend_per_token: Math.round(perMTok / 1e6 * 1e12) / 1e12,
+        cliff_input_per_mtok: G_CTX_272_CLIFF_INPUT_PER_MTOK,
+        cliff_output_per_mtok: G_CTX_272_CLIFF_OUTPUT_PER_MTOK,
+        note: "above-cliff rate at reference blend (100K in / 20K out), hiddenMult=0 excluded; for G_CTX_272 routes only",
+      };
+    })()
+  : null;
 
 // ---- per-category composite scoring (design §1) -----------------------------------
 // For each category, build per-benchmark normalization population from ALL rows
@@ -511,6 +578,24 @@ function buildCategoryScores(category) {
     // not just the rows later selected for a universe pairing.
     rowIsLowerBetter(category, r);
   }
+  // #18: populate BENCHMARK_META for each benchmark in this category (audit-only metadata).
+  // independent_reporter_count = unique source-URL domains (best offline proxy; note: multiple
+  // rows from the same site still count as one independent reporter by this estimate).
+  for (const [benchmark, s] of stats) {
+    const domainRows = rows.filter((r) => r.benchmark === benchmark);
+    const uniqueDomains = new Set(domainRows.map((r) => {
+      try { return new URL(r.source_url || "").hostname.replace(/^www\./, ""); } catch { return ""; }
+    }).filter(Boolean));
+    BENCHMARK_META.push({
+      category,
+      benchmark,
+      row_count: s.count,
+      independent_reporter_count: uniqueDomains.size || null,
+      score_range: { min: s.min === Infinity ? null : s.min, max: s.max === -Infinity ? null : s.max },
+      is_thin: s.count < THIN_MIN_REPORTERS,
+    });
+  }
+
   // refinement #8: record the min/max anchor source rows for this category's benchmarks.
   // role distinguishes the lower (min) and upper (max) scale anchor. Single-observation
   // (thin) benchmarks have min==max (one row, both roles) — still scale-defining sources, so
@@ -551,6 +636,9 @@ function buildCategoryScores(category) {
       n = 1;
     } else {
       n = (row.raw - s.min) / (s.max - s.min);
+      // #5 epsilon floor: a measured pairing must never normalize to exactly 0 (collapses to 0
+      // in powerScore, indistinguishable from a data-free sentinel). Thin rows keep THIN_NEUTRAL_N.
+      n = Math.max(n, NORM_EPSILON_FLOOR);
     }
     if (rowIsLowerBetter(category, row)) n = 1 - n;
     return n;
@@ -1007,6 +1095,62 @@ function categoryUniverse(category) {
   return UNIVERSE.filter((p) => !NO_EFFORT_SENTINELS.has(p.effortK));
 }
 
+// #2 honest pairing-level coverage: per-category measured/positive ratios.
+// Owner thresholds: warn when measured_pairing_ratio < 0.50; reclassify completeness_state
+// as "thin_coverage" when overall measured_pairing_ratio < 0.30 (even if no DATA_MISSING cats).
+const COVERAGE_WARN_THRESHOLD = 0.50;
+const COVERAGE_BLOCK_THRESHOLD = 0.30;
+function computePairingCoverageRatios() {
+  const perCategory = {};
+  let totalPairings = 0, totalMeasured = 0, totalPositive = 0;
+  for (const category of SPINE) {
+    if (category === "fallback_default") continue;
+    const catUniverse = categoryUniverse(category);
+    const scores = perfScores.get(category);
+    const total = catUniverse.length;
+    let measured = 0, positive = 0;
+    for (const p of catUniverse) {
+      const s = scores && scores.get(p.id);
+      if (s && s.score !== null) {
+        measured++;
+        if (s.score > 0) positive++;
+      }
+    }
+    const mRatio = total > 0 ? measured / total : 0;
+    const pRatio = total > 0 ? positive / total : 0;
+    perCategory[category] = {
+      total_pairings: total,
+      measured_pairings: measured,
+      positive_score_pairings: positive,
+      measured_pairing_ratio: Math.round(mRatio * 10000) / 10000,
+      positive_score_pairing_ratio: Math.round(pRatio * 10000) / 10000,
+    };
+    if (!DATA_MISSING_CATEGORIES.has(category) && mRatio < COVERAGE_WARN_THRESHOLD) {
+      console.warn(
+        `#2 coverage: ${category} measured_pairing_ratio=${mRatio.toFixed(3)} < warn threshold ${COVERAGE_WARN_THRESHOLD}`
+      );
+    }
+    totalPairings += total;
+    totalMeasured += measured;
+    totalPositive += positive;
+  }
+  const oMRatio = totalPairings > 0 ? totalMeasured / totalPairings : 0;
+  const oPRatio = totalPairings > 0 ? totalPositive / totalPairings : 0;
+  return {
+    warn_threshold: COVERAGE_WARN_THRESHOLD,
+    block_threshold: COVERAGE_BLOCK_THRESHOLD,
+    overall: {
+      total_pairings: totalPairings,
+      measured_pairings: totalMeasured,
+      positive_score_pairings: totalPositive,
+      measured_pairing_ratio: Math.round(oMRatio * 10000) / 10000,
+      positive_score_pairing_ratio: Math.round(oPRatio * 10000) / 10000,
+    },
+    per_category: perCategory,
+  };
+}
+const PAIRING_COVERAGE_RATIOS = computePairingCoverageRatios();
+
 function buildFullBranch(branch, exponents) {
   const out = {};
   for (const category of SPINE) {
@@ -1058,6 +1202,16 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
   });
 
   items.sort((a, b) => {
+    // #1 fix (performance branch only): same model + equal measured perf_norm → effort descending
+    // (max-effort first), before cost can discriminate. Cost separates only ACROSS models here.
+    // Bound: non-null, non-interpolated scores; sentinels (null) stay last via SENTINEL constant.
+    if (
+      branch === "performance" &&
+      a.p.model === b.p.model &&
+      a.s.score !== null && b.s.score !== null &&
+      a.s.score === b.s.score &&
+      a.effIdx !== b.effIdx
+    ) return b.effIdx - a.effIdx;
     if (b.branchScore !== a.branchScore) return b.branchScore - a.branchScore;
     // refinement #2: data-missing category -> ALL sentinels tie on score; do NOT let the
     // version_rank/model-id chain below stand in as a fake capability ranking. Break the tie
@@ -1224,6 +1378,16 @@ function auditBranch(fullBranch) {
 }
 
 // refinement #10: polarity-by-absence warnings, deterministically ordered (SPINE category
+// #24: hard-fail if any high-risk category (security_review/debugging/quality_review) has a
+// benchmark with inferred polarity. Must be checked AFTER buildCategoryScores populates it.
+if (POLARITY_ERRORS.length > 0) {
+  const msgs = POLARITY_ERRORS.map((e) => `  ${e.category} benchmark "${e.benchmark}" assumed ${e.assumed}`).join("\n");
+  throw new Error(
+    `#24 polarity explicit-or-fail: ${POLARITY_ERRORS.length} benchmark(s) in high-risk categories ` +
+    `lack explicit row.polarity. Add polarity field or extend isLowerBetter():\n${msgs}`
+  );
+}
+
 // order, then benchmark name). Populated during buildCategoryScores; additive audit-only.
 const SPINE_ORDER = new Map(SPINE.map((c, i) => [c, i]));
 const polarityInferenceWarnings = [...POLARITY_WARNINGS.values()].sort((a, b) => {
@@ -1289,6 +1453,65 @@ const PROVIDER_COVERAGE = {
   realized: REALIZED_FAMILIES,
   degraded: REALIZED_FAMILIES.length < _requested.length,
 };
+// #30: neutral provider_mix field. Purely informational — invariant #5 guarantees single-family
+// is first-class, never a degrade. "partial" only when a multi-scope run realizes one family
+// (requires owner sign-off per the within-family adversary note in adversarial-loop.md).
+const PROVIDER_MIX = REALIZED_FAMILIES.length > 1
+  ? "multi_family"
+  : (PROVIDER_COVERAGE.degraded ? "partial" : "single_family");
+
+// #9 provider-bias metrics: computed from citation rows (via _detail.rows[].tier) rather than
+// seed rows. Diagnostic only — not a gate (gameable as a target). Audit-only; lean table lean.
+function computeProviderBiasMetrics(perfFull, costFull) {
+  const provRanks = {}; // provider -> {performance: [], cost_efficiency: []}
+  const provTierCounts = {}; // provider -> {tier: count}
+  const catBalance = {}; // category -> {provider: citation_count}
+  for (const [branch, full] of [["performance", perfFull], ["cost_efficiency", costFull]]) {
+    for (const [category, pairings] of Object.entries(full)) {
+      if (category === "fallback_default") continue;
+      for (const e of pairings) {
+        const prov = e.provider || providerOf(e.model);
+        if (!provRanks[prov]) provRanks[prov] = { performance: [], cost_efficiency: [] };
+        provRanks[prov][branch].push(e.rank);
+        if (!provTierCounts[prov]) provTierCounts[prov] = {};
+        for (const r of (e._detail && e._detail.rows) || []) {
+          const t = String(r.tier !== undefined ? Number(r.tier) : 0);
+          provTierCounts[prov][t] = (provTierCounts[prov][t] || 0) + 1;
+        }
+        if (branch === "performance") {
+          if (!catBalance[category]) catBalance[category] = {};
+          catBalance[category][prov] = (catBalance[category][prov] || 0) + 1;
+        }
+      }
+    }
+  }
+  const rankStats = {};
+  for (const [prov, brs] of Object.entries(provRanks)) {
+    rankStats[prov] = {};
+    for (const [branch, ranks] of Object.entries(brs)) {
+      if (!ranks.length) { rankStats[prov][branch] = null; continue; }
+      const mean = ranks.reduce((a, b) => a + b, 0) / ranks.length;
+      rankStats[prov][branch] = { mean: Math.round(mean * 100) / 100, count: ranks.length };
+    }
+  }
+  const asymmetryFlags = [];
+  for (const [prov, byTier] of Object.entries(provTierCounts)) {
+    const total = Object.values(byTier).reduce((a, b) => a + b, 0);
+    const tier1 = byTier["1"] || 0;
+    const indep = Object.entries(byTier).filter(([t]) => Number(t) >= 2).reduce((a, [, v]) => a + v, 0);
+    if (total > 0 && tier1 / total > 0.9) {
+      asymmetryFlags.push({ provider: prov, vendor_card_pct: Math.round(tier1 / total * 1000) / 10, independent_pct: Math.round(indep / total * 1000) / 10, total_citations: total });
+    }
+  }
+  return {
+    provider_rank_stats: rankStats,
+    provider_citations_by_tier: provTierCounts,
+    category_family_balance: catBalance,
+    asymmetry_flags: asymmetryFlags,
+    note: "diagnostic only — not a gate",
+  };
+}
+const PROVIDER_BIAS_METRICS = computeProviderBiasMetrics(performanceFull, costEfficiencyFull);
 
 // model-discovery diff (derivable): discovered = every model spec in the dataset; included =
 // models that actually appear in the ranked universe. Identical on this dataset (no model is
@@ -1328,20 +1551,28 @@ const DROPPED_PAIRINGS = {
   neutralized_count: neutralizedBenchmarks.length,
 };
 
-// #4 completeness_state in {full, bounded_reuse, gap_stubbed, phase2_deferred}, chosen HONESTLY
-// from build signals: any DATA_MISSING (sentinel-stubbed) category present => "gap_stubbed";
-// otherwise "full". bounded_reuse / phase2_deferred are not signalled by this offline build.
-const COMPLETENESS_STATE = _dataMissingCats.length > 0 ? "gap_stubbed" : "full";
-// validate_provider WARNs (not fails) when state != full ONLY if that warn can be added WITHOUT
-// flipping the validator red on the regenerated audit. On this dataset the regenerated state is
-// "gap_stubbed" (4 DATA_MISSING categories), so a hard validator warn would be noisy/at-risk;
-// per the keep-green principle we record the state audit-only and emit a build-time console.warn
-// that does NOT affect the build exit code (the deferral is noted here and in the handoff).
-if (COMPLETENESS_STATE !== "full") {
+// #4 completeness_state in {full, thin_coverage, bounded_reuse, gap_stubbed, phase2_deferred},
+// chosen HONESTLY: gap_stubbed when any DATA_MISSING category; thin_coverage when no DATA_MISSING
+// but overall measured_pairing_ratio < COVERAGE_BLOCK_THRESHOLD (0.30); otherwise "full".
+// "full" now requires BOTH category-level and pairing-level coverage. (#2 honest coverage fix)
+const _overallMeasuredRatio = PAIRING_COVERAGE_RATIOS.overall.measured_pairing_ratio;
+const COMPLETENESS_STATE =
+  _dataMissingCats.length > 0
+    ? "gap_stubbed"
+    : _overallMeasuredRatio < COVERAGE_BLOCK_THRESHOLD
+    ? "thin_coverage"
+    : "full";
+if (COMPLETENESS_STATE === "gap_stubbed") {
   console.warn(
-    `run_manifest.completeness_state=${COMPLETENESS_STATE} (${_dataMissingCats.length} DATA_MISSING ` +
+    `run_manifest.completeness_state=gap_stubbed (${_dataMissingCats.length} DATA_MISSING ` +
     `categor${_dataMissingCats.length === 1 ? "y" : "ies"}: ${_dataMissingCats.join(", ")}). ` +
     `Recorded audit-only; not gated (keep-green).`
+  );
+} else if (COMPLETENESS_STATE === "thin_coverage") {
+  console.warn(
+    `run_manifest.completeness_state=thin_coverage: overall measured_pairing_ratio=` +
+    `${_overallMeasuredRatio.toFixed(3)} < block threshold ${COVERAGE_BLOCK_THRESHOLD}. ` +
+    `Recorded audit-only; not gated (keep-green). (#2)`
   );
 }
 
@@ -1356,17 +1587,31 @@ const AGENT_PROVENANCE = {
   dataset: { produced_by: _agentEnv("DATASET_PRODUCER"), critiqued_by: _agentEnv("DATASET_CRITIC") },
 };
 
-// drift vs prior audit: if a prior src/routing-table-audit.json exists at build time (BEFORE we
-// overwrite it below), include a small drift summary (counts changed). Else null. Read defensively
-// — a malformed/absent prior audit yields a null drift block, never a build failure.
+// #21 drift vs prior: use the GIT-committed baseline (git show HEAD:path), not the working-tree
+// file which may already be from a prior build this session. Records prior/current SHA256 +
+// semantic diffs. Falls back gracefully on any error (git absent, no commit, unreadable — never a
+// build failure; drift block is null/status-annotated to signal degraded baseline honestly).
 function priorAuditDrift() {
-  if (!existsSync(OUT_AUDIT)) return null;
-  let prior;
+  const relPath = "src/routing-table-audit.json";
+  // Try to read the committed version via git
+  let priorRaw = null;
+  let priorGitRef = null;
   try {
-    prior = readJsonStripBom(OUT_AUDIT);
+    const r = spawnSync("git", ["show", `HEAD:${relPath}`], { cwd: ROOT, encoding: "buffer" });
+    if (r.status === 0 && r.stdout && r.stdout.length > 0) {
+      priorRaw = r.stdout.toString("utf8").replace(/^﻿/, "");
+      priorGitRef = "HEAD";
+    } else {
+      return { status: "no_committed_baseline", note: "HEAD does not contain src/routing-table-audit.json" };
+    }
   } catch {
-    return { status: "prior_audit_unreadable" };
+    return { status: "git_unavailable", note: "git not found or errored; drift baseline skipped" };
   }
+  let prior;
+  try { prior = JSON.parse(priorRaw); } catch {
+    return { status: "prior_baseline_unreadable", prior_git_ref: priorGitRef };
+  }
+  const priorSha = createHash("sha256").update(priorRaw).digest("hex");
   const pm = prior && prior.metadata ? prior.metadata : {};
   const priorUniverse = Array.isArray(pm.model_effort_universe) ? pm.model_effort_universe.length : null;
   const priorNeutralized = Array.isArray(pm.neutralized_benchmarks) ? pm.neutralized_benchmarks.length : null;
@@ -1374,6 +1619,8 @@ function priorAuditDrift() {
     ? Object.values(pm.category_completeness).filter((v) => v === "DATA_MISSING").length
     : null;
   return {
+    prior_git_ref: priorGitRef,
+    prior_sha256: priorSha,
     prior_generated_at: typeof pm.generated_at === "string" ? pm.generated_at : null,
     universe_count: { prior: priorUniverse, current: UNIVERSE_IDS.length },
     neutralized_count: { prior: priorNeutralized, current: neutralizedBenchmarks.length },
@@ -1403,10 +1650,15 @@ const RUN_MANIFEST = {
   budget_consumed: null,
   // per-category measured-vs-sentinel coverage (derivable)
   category_coverage: CATEGORY_COVERAGE,
+  // #2 honest pairing-level coverage: measured/positive ratios per category + overall.
+  // completeness_state="full" now requires overall measured_pairing_ratio >= block threshold (0.30).
+  pairing_coverage_ratios: PAIRING_COVERAGE_RATIOS,
   // dropped/neutralized pairings the builder already knows about (derivable)
   dropped_pairings: DROPPED_PAIRINGS,
   // #18 approach A provider coverage (transparency-only, no gating)
   provider_coverage: PROVIDER_COVERAGE,
+  // #30: neutral provider_mix — informational only; single_family|multi_family|partial; no degrade semantics
+  provider_mix: PROVIDER_MIX,
   // #16 agent provenance (structure; null/unavailable_offline when no agent context)
   agent_provenance: AGENT_PROVENANCE,
   // drift vs prior committed audit (null when no prior audit existed at build time)
@@ -1434,9 +1686,14 @@ const auditTable = {
     // These calibrate the scale even when not attached to a ranked pairing, so they are
     // surfaced here and harvested into the seed as source_class=scale_anchor. Additive only.
     normalization_sources: normalizationSources,
-    // refinement #14: benchmarks keyed under MORE THAN ONE category (single-category-keying
-    // rule violation). SURFACED for owner triage — NOT auto-reassigned to one category (the
-    // #15 lesson: which single category is most-diagnostic is the dataset owner's domain call).
+    // #18: per-benchmark normalization metadata (row_count, independent_reporter_count,
+    // score_range, is_thin). Rank-band Bradley-Terry CIs deferred (needs pairwise win data).
+    benchmark_normalization_meta: BENCHMARK_META,
+    // refinement #14 / #31: benchmarks keyed under MORE THAN ONE category (single-category-keying
+    // rule violation). SURFACED for owner adjudication — NEVER auto-reassigned or auto-failed
+    // (DO-NOT-ADOPT #3: hard-fail on cross-category reuse would break regen-green and is wrong
+    // because the dataset owner decides which category is most-diagnostic, not the builder).
+    // Rows are retained in all categories they appear under; the owner resolves at their cadence.
     cross_category_benchmarks: CROSS_CATEGORY_BENCHMARKS,
     // refinement #14: off-map rows (benchmark under a category whose canonical keying omits it).
     // The current dataset has none; a future off-map row THROWS (fail-loud). Recorded here only if
@@ -1449,6 +1706,31 @@ const auditTable = {
     // refinement #9: dataset.gaps surfaced into the audit (reason + affected model +
     // remediation), grouped per category with each DATA_MISSING category's coverage state.
     gaps: GAPS_AUDIT,
+    // #12 dataset hash + shape summary for replay. Owner decision: keep exactly 3 artifacts;
+    // hash + summary embedded in audit only (no 4th snapshot file). SHA-256 of raw bytes.
+    raw_inputs_hash: { algorithm: "sha256", hex: DATASET_SHA256, short: DATASET_HASH_SHORT, path: DATASET_PATH },
+    dataset_shape_summary: {
+      model_count: Object.keys(dataset.models || {}).length,
+      category_count: Object.keys(dataset.category_benchmarks || {}).length,
+      universe_count: Array.isArray(dataset.model_effort_universe) ? dataset.model_effort_universe.length : null,
+      gap_count: Array.isArray(dataset.gaps) ? dataset.gaps.length : 0,
+    },
+    // #4 per-judge rankings + adversarial passes: injected by the orchestrator via env vars
+    // (ADVERSARIAL_PASSES_JSON). The offline builder cannot run the adversarial loop itself;
+    // the structure below is the injection contract — all fields present, null when unavailable.
+    adversarial_passes: (() => {
+      const raw = process.env.ADVERSARIAL_PASSES_JSON;
+      if (raw) { try { return JSON.parse(raw); } catch {} }
+      return {
+        status: "unavailable_offline",
+        passes: null,
+        inter_judge_dissent: null,
+        reconciliation_note: null,
+      };
+    })(),
+    // #9 provider-bias metrics: per-provider citation counts by tier, mean rank per branch,
+    // per-category evidence-family balance, asymmetry flags. Diagnostic only, not a gate.
+    provider_bias_metrics: PROVIDER_BIAS_METRICS,
     // refinements #5/#4/#16/#18: run_manifest umbrella — additive audit metadata (run identity,
     // completeness_state, model-discovery diff, per-category coverage, dropped/neutralized
     // pairings, provider_coverage transparency, agent provenance, drift vs prior audit). Fields
@@ -1474,20 +1756,36 @@ const auditTable = {
       normalization: NORMALIZATION,
       composite_weights: compositeWeights,
       sentiment_cap: SENTIMENT_CAP,
+      performance_branch_tiebreak:
+        "same-model equal measured perf_norm → effort descending (max-effort first) before cost " +
+        "can discriminate. Cost separates only across models on the performance branch. (#1 fix)",
     },
     cost_blend: {
+      label: "reference-blend cost",
       input_tokens: COST_BLEND.input_tokens,
       output_tokens: COST_BLEND.output_tokens,
       price_cliff_side: PRICE_CLIFF_SIDE,
+      above_cliff_cost_figure: ABOVE_CLIFF_COST_FIGURE,
     },
   },
   performance: auditBranch(performanceFull),
   cost_efficiency: auditBranch(costEfficiencyFull),
 };
 
-// ---- write ------------------------------------------------------------------------
-writeFileSync(OUT_PROVIDER, JSON.stringify(providerTable, null, 2) + "\n", "utf8");
-writeFileSync(OUT_AUDIT, JSON.stringify(auditTable, null, 2) + "\n", "utf8");
+// ---- write (#25 atomic: stage to .tmp, validate set, rename to final) ----------------
+// Stage both artifacts before promoting to avoid a partial-write state.
+const STAGE_PROVIDER = OUT_PROVIDER + ".tmp";
+const STAGE_AUDIT = OUT_AUDIT + ".tmp";
+const providerJson = JSON.stringify(providerTable, null, 2) + "\n";
+const auditJson = JSON.stringify(auditTable, null, 2) + "\n";
+writeFileSync(STAGE_PROVIDER, providerJson, "utf8");
+writeFileSync(STAGE_AUDIT, auditJson, "utf8");
+// Staged shape sanity: both parse as JSON (if either throws, staged files remain for debug)
+JSON.parse(providerJson);
+JSON.parse(auditJson);
+// Promote (rename is atomic on the same filesystem; replaces existing final file)
+renameSync(STAGE_PROVIDER, OUT_PROVIDER);
+renameSync(STAGE_AUDIT, OUT_AUDIT);
 
 // ---- report -----------------------------------------------------------------------
 console.log("build_routing_table: emitted");

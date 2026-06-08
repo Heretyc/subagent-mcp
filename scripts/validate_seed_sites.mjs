@@ -23,9 +23,11 @@ try { root = JSON.parse(readFileSync(SEED_PATH, "utf8")); } catch (e) { fail(`un
 if (typeof root !== "object" || root === null) fail("root is not an object");
 const md = root.metadata;
 if (typeof md !== "object" || md === null) fail("missing metadata");
-for (const k of ["author","author_url","schema_version","generated","last_run_at","site_count"]) {
+for (const k of ["author","author_url","schema_version","generated","last_run_at","run_id","site_count"]) {
   if (!(k in md)) fail(`metadata missing key '${k}'`);
 }
+// #27: run_id must be a non-empty string.
+if (typeof md.run_id !== "string" || !md.run_id.trim()) fail("metadata.run_id must be a non-empty string");
 if (!Array.isArray(root.sites)) fail("sites is not an array");
 
 const seen = new Set();
@@ -47,29 +49,41 @@ for (let i = 0; i < root.sites.length; i++) {
   if (Array.isArray(s.benchmarks)) {
     for (const b of s.benchmarks) if (typeof b !== "string" || !b) at("benchmarks contains a non-string/empty entry");
   }
-  // refinement #12: attempt_ledger schema gate. The ledger is a per-site, per-run attempt snapshot.
-  // Every field is REQUIRED to be present (a missing field is a schema regression); fields that are
-  // not derivable offline are EXPLICIT null (honest unknown), not absent. We allow null where the
-  // spec marks a field null-for-now (http_status, last_checked) or honestly-unknown (attempted_at,
-  // provider_family, rejection_reason), and type-check the non-null shape.
+  // #17: attempt_ledger is now a bounded ring + accumulated counters object.
+  // Schema: { runs: [...], accumulated: { provider_family_counts, category_counts, total_runs } }
+  // Each run record in runs[] carries the per-run snapshot fields.
   if ("attempt_ledger" in s) {
     const L = s.attempt_ledger;
-    if (typeof L !== "object" || L === null || Array.isArray(L)) at("attempt_ledger not an object");
-    else {
-      for (const k of ["attempted_at","outcome","provider_family","categories","source_class","benchmark_names","rejection_reason","http_status","last_checked"]) {
-        if (!(k in L)) at(`attempt_ledger missing key '${k}'`);
+    if (typeof L !== "object" || L === null || Array.isArray(L)) {
+      at("attempt_ledger not an object");
+    } else if (!Array.isArray(L.runs)) {
+      at("attempt_ledger.runs not an array");
+    } else {
+      if (typeof L.accumulated !== "object" || L.accumulated === null || Array.isArray(L.accumulated)) {
+        at("attempt_ledger.accumulated not an object");
+      } else {
+        if (typeof L.accumulated.total_runs !== "number") at("attempt_ledger.accumulated.total_runs not a number");
+        if (typeof L.accumulated.provider_family_counts !== "object" || L.accumulated.provider_family_counts === null) at("attempt_ledger.accumulated.provider_family_counts not an object");
+        if (typeof L.accumulated.category_counts !== "object" || L.accumulated.category_counts === null) at("attempt_ledger.accumulated.category_counts not an object");
       }
-      if (L.attempted_at !== null && (typeof L.attempted_at !== "string" || !L.attempted_at)) at("attempt_ledger.attempted_at not null or non-empty string");
-      if (typeof L.outcome !== "string" || !L.outcome) at("attempt_ledger.outcome not a non-empty string");
-      if (L.provider_family !== null && !Array.isArray(L.provider_family)) at("attempt_ledger.provider_family not null or array");
-      if (!Array.isArray(L.categories)) at("attempt_ledger.categories not an array");
-      if (L.source_class !== null && !Array.isArray(L.source_class)) at("attempt_ledger.source_class not null or array");
-      if (!Array.isArray(L.benchmark_names)) at("attempt_ledger.benchmark_names not an array");
-      if (L.rejection_reason !== null && !Array.isArray(L.rejection_reason)) at("attempt_ledger.rejection_reason not null or array");
-      // http_status / last_checked are NULL-FOR-NOW by spec: must be null (no offline probe exists).
-      // Tolerate a future real value but require null today so a fabricated status is caught.
-      if (L.http_status !== null && !Number.isInteger(L.http_status)) at("attempt_ledger.http_status not null or integer");
-      if (L.last_checked !== null && (typeof L.last_checked !== "string" || !L.last_checked)) at("attempt_ledger.last_checked not null or non-empty string");
+      for (let ri = 0; ri < L.runs.length; ri++) {
+        const R = L.runs[ri];
+        const rl = `attempt_ledger.runs[${ri}]`;
+        if (typeof R !== "object" || R === null) { at(`${rl} not an object`); continue; }
+        for (const k of ["run_id","attempted_at","outcome","provider_family","categories","source_class","benchmark_names","rejection_reason","http_status","last_checked"]) {
+          if (!(k in R)) at(`${rl} missing key '${k}'`);
+        }
+        if (typeof R.run_id !== "string" || !R.run_id) at(`${rl}.run_id not a non-empty string`);
+        if (R.attempted_at !== null && (typeof R.attempted_at !== "string" || !R.attempted_at)) at(`${rl}.attempted_at not null or non-empty string`);
+        if (typeof R.outcome !== "string" || !R.outcome) at(`${rl}.outcome not a non-empty string`);
+        if (R.provider_family !== null && !Array.isArray(R.provider_family)) at(`${rl}.provider_family not null or array`);
+        if (!Array.isArray(R.categories)) at(`${rl}.categories not an array`);
+        if (R.source_class !== null && !Array.isArray(R.source_class)) at(`${rl}.source_class not null or array`);
+        if (!Array.isArray(R.benchmark_names)) at(`${rl}.benchmark_names not an array`);
+        if (R.rejection_reason !== null && !Array.isArray(R.rejection_reason)) at(`${rl}.rejection_reason not null or array`);
+        if (R.http_status !== null && !Number.isInteger(R.http_status)) at(`${rl}.http_status not null or integer`);
+        if (R.last_checked !== null && (typeof R.last_checked !== "string" || !R.last_checked)) at(`${rl}.last_checked not null or non-empty string`);
+      }
     }
   }
   // refinement #12: selection annotation schema gate (SEPARATE from storage; demote-without-delete).
@@ -113,6 +127,26 @@ if (root.sites.length > 0) {
       `validate_seed_sites: WARNING ${tier0}/${root.sites.length} sites (${(pct * 100).toFixed(1)}%) are tier 0 ` +
       `(>90%). Possible dead/masked tier signal — verify build_routing_table emits numeric citation ` +
       `tiers and update_seed_sites reads them (refinement #7). Not a hard failure (tier 0 is schema-valid).`
+    );
+  }
+}
+
+// #3f: hard-fail when any category present in the seed has ZERO independent sources.
+// "Independent" = tier >= 2 (tier 1 = vendor self-claim; tier 0 = unknown). Owner decision.
+// Only fires when the seed has >=1 site (pre-first-run tolerance: absent file exits 0 above).
+if (root.sites.length > 0) {
+  const catIndependent = new Map(); // category -> count of sites with tier >= 2
+  for (const s of root.sites) {
+    for (const c of s.categories || []) {
+      if (!catIndependent.has(c)) catIndependent.set(c, 0);
+      if ((s.tier || 0) >= 2) catIndependent.set(c, catIndependent.get(c) + 1);
+    }
+  }
+  const zeroCats = [...catIndependent.entries()].filter(([, count]) => count === 0).map(([c]) => c);
+  if (zeroCats.length > 0) {
+    fail(
+      `#3f zero independent sources (tier>=2) for categories: ${zeroCats.join(", ")}. ` +
+      `Add at least one non-vendor corroborating source per category before this run can pass.`
     );
   }
 }

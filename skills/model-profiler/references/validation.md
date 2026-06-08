@@ -42,13 +42,27 @@ below). It checks:
 
 ## 1b. Audit-mirror check (routing-table-audit.json)
 
-Confirm `src/routing-table-audit.json` exists and structurally mirrors `src/routing-table.json`:
-identical branch keys, identical category keys/order, identical per-pairing
-`model`/`effort` set per category. Every pairing carries a non-empty `citations` array; each
-citation has an ISO8601 `retrieved_at` and a single-sentence `annotation`. Source-backed citations
-have a non-empty `url`; data-free sentinel citations may use an empty `url` with label `[SENTINEL]`.
-A missing audit file, a structural drift from routing-table.json, or any pairing with zero citations
-FAILS validation (no silent default).
+Run the automated audit validator (#11):
+
+```powershell
+node scripts/validate_routing_audit.mjs
+```
+
+It must print `PASS`. It checks: `src/routing-table-audit.json` exists and structurally mirrors
+`src/routing-table.json` (identical branch keys, category keys/order, per-pairing model+effort sets);
+every pairing has a non-empty `citations` array; each citation has ISO8601 `retrieved_at`,
+single-sentence `annotation`, and `url` or `[SENTINEL]`/`[SOP-1]` label. Tier and label are checked
+(soft-warn if absent). **Sentinel-never-#1 (#16):** hard-fails if any category's rank=1 pairing is a
+no-effort sentinel (effort `null`/`"none"`/`"n/a"`). This validator does NOT require non-null
+run-manifest fields (those are honestly `unavailable_offline` in the offline build — DO-NOT-ADOPT #5).
+Wired into `npm test`.
+
+> **Runtime join (#16):** The lean `src/routing-table.json` carries no confidence metadata. At
+> dispatch-time, a router may join `src/routing-table-audit.json` to read
+> `metadata.category_completeness` (per-category completeness state: `"measured"` / `"gap_stubbed"`
+> / `"thin_coverage"`) and `metadata.pairing_coverage_ratios` for a confidence signal. If a category
+> is `"gap_stubbed"` or `"thin_coverage"`, the dispatcher should apply a fallback or escalation
+> strategy (owner's choice) rather than routing silently to an under-evidenced pick.
 
 ## 1c. Seed-sites existence + growth gate (run-level — NOT the npm-test skip path)
 

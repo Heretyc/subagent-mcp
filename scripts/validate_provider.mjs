@@ -30,17 +30,6 @@ const effortOrder = new Map([
   ["pro", 9],
   ["ultracode", 10],
 ]);
-// Closed real-model set. The single source of truth for valid model ids now that the
-// .spec KB validator is retired — update here whenever the model universe changes.
-const VALID_MODELS = new Set([
-  "claude-opus-4-8",
-  "claude-opus-4-7",
-  "claude-sonnet-4-6",
-  "claude-haiku-4-5",
-  "gpt-5.5",
-  "gpt-5.5-pro",
-  "gpt-5.4-mini",
-]);
 const NO_EFFORT_SENTINELS = new Set(["null", "none", "n/a"]);
 // Categories from which no-effort (null/none/n/a) pairings are excluded — they are not
 // ranked/listed here, so per-category coverage expects the universe MINUS no-effort pairings.
@@ -52,7 +41,20 @@ const NO_EFFORT_EXCLUDED_CATEGORIES = new Set([
   "quality_review",
   "knowledge_synthesis",
 ]);
-const MODEL_EFFORT_LADDERS = new Map([
+
+// #6: derive VALID_MODELS + MODEL_EFFORT_LADDERS from the audit's model_effort_universe at
+// runtime (single source of truth — no more hardcoded mirror to maintain). Falls back to a
+// hardcoded snapshot for pre-first-run / offline tolerance; warn for unknown provider prefixes.
+const _HARDCODED_MODELS = new Set([
+  "claude-opus-4-8",
+  "claude-opus-4-7",
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5",
+  "gpt-5.5",
+  "gpt-5.5-pro",
+  "gpt-5.4-mini",
+]);
+const _HARDCODED_LADDERS = new Map([
   ["claude-opus-4-8", ["low", "medium", "high", "xhigh", "max"]],
   ["claude-opus-4-7", ["low", "medium", "high", "xhigh", "max"]],
   ["claude-sonnet-4-6", ["low", "medium", "high", "max"]],
@@ -61,6 +63,29 @@ const MODEL_EFFORT_LADDERS = new Map([
   ["gpt-5.5-pro", ["low", "medium", "high", "xhigh"]],
   ["gpt-5.4-mini", ["low", "medium", "high", "xhigh"]],
 ]);
+function deriveRosterFromAudit() {
+  if (!existsSync(auditPath)) return null;
+  let auditData;
+  try { auditData = JSON.parse(readFileSync(auditPath, "utf8").replace(/^﻿/, "")); } catch { return null; }
+  const universe = auditData && auditData.metadata && auditData.metadata.model_effort_universe;
+  if (!Array.isArray(universe)) return null;
+  const models = new Set();
+  const ladders = new Map();
+  for (const key of universe) {
+    const at = key.lastIndexOf("@");
+    if (at < 1) continue;
+    const model = key.slice(0, at);
+    const effort = key.slice(at + 1);
+    models.add(model);
+    const arr = ladders.get(model) || [];
+    arr.push(effort);
+    ladders.set(model, arr);
+  }
+  return models.size > 0 ? { models, ladders } : null;
+}
+const _derivedRoster = deriveRosterFromAudit();
+const VALID_MODELS = _derivedRoster ? _derivedRoster.models : _HARDCODED_MODELS;
+const MODEL_EFFORT_LADDERS = _derivedRoster ? _derivedRoster.ladders : _HARDCODED_LADDERS;
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -349,21 +374,27 @@ function validatePairingArray(label, entries, universeSet, issues) {
       );
     }
     // provider in {claude, codex} and consistent with the model family.
+    // #22: catch impliedProvider throw (unknown prefix) and record as an issue rather than crash.
     if (typeof entry.provider !== "string" || !VALID_PROVIDERS.has(entry.provider)) {
       issues.push(`${label}[${index}].provider must be one of ${[...VALID_PROVIDERS].join("|")}`);
     } else if (typeof entry.model === "string") {
-      const expected = impliedProvider(entry.model);
+      let expected;
+      try { expected = impliedProvider(entry.model); } catch (e) {
+        issues.push(`${label}[${index}] impliedProvider error: ${e.message}`);
+      }
       if (expected && entry.provider !== expected) {
         issues.push(
           `${label}[${index}].provider '${entry.provider}' does not match model family of '${entry.model}' (expected '${expected}')`
         );
       }
     }
-    // model: non-empty + known real model id.
+    // model: non-empty + known real model id. Unknown ids are soft-warned (not failed) —
+    // the audit-derived VALID_MODELS is the SSOT; warn lets a brand-new model pass while still
+    // surfacing it. Hard-fail only for unknown provider prefixes (impliedProvider throw above). (#6)
     if (typeof entry.model !== "string" || entry.model.length === 0) {
       issues.push(`${label}[${index}].model must be a non-empty string`);
     } else if (!VALID_MODELS.has(entry.model)) {
-      issues.push(`${label}[${index}].model is not a known real model: ${entry.model}`);
+      console.warn(`validate_provider: WARN ${label}[${index}].model unknown id (soft-warn, not fail): ${entry.model}`);
     }
     // effort: present + known ladder tier.
     if (!Object.hasOwn(entry, "effort")) {

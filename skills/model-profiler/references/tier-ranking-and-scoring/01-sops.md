@@ -77,7 +77,11 @@ Per-model rates live in the dataset's `pricing` block; the blend/multiplier cons
 
 Records: the blend's cliff side is recorded as `cost_blend.price_cliff_side` (`"above"`/`"below"`/
 `"n/a"`) in the **audit** metadata (`routing-table-audit.json`) — the lean canonical table
-(`schema_version` 2) no longer carries `cost_blend` (see `../provider-json-emission.md`).
+(`schema_version` 2) no longer carries `cost_blend` (see `../provider-json-emission.md`). (#19)
+`cost_blend.above_cliff_cost_figure` is also recorded **audit-only**: the blend cost at the
+post-cliff rates ($10 in / $45 out), at the reference blend (100K in / 20K out), hiddenMult=0
+excluded. Non-null only when a cliff exists. This figure is for `G_CTX_272` route-time context — it
+is never used in the scoring formula, only in the audit for informational provenance.
 
 ---
 

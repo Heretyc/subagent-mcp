@@ -111,5 +111,27 @@ category is measured (strong / moderate / proxy).
 
 ---
 
+## Roster-only discovery checklist (#29)
+
+Agent 1 (model discovery) MUST check every item below before declaring the universe complete.
+HELM is NOT a model registry (DO-NOT-ADOPT #1) — use provider APIs + OpenRouter only.
+
+| # | Source | What to check |
+|---|--------|--------------|
+| 1 | Provider release blogs (Anthropic/OpenAI) | New model announcements in recency window |
+| 2 | Provider `/v1/models` API response | Live model IDs + availability flags |
+| 3 | OpenRouter `/api/v1/models` | Third-party hosted models, aliased IDs, availability |
+| 4 | Official system/model cards | Supported effort tiers, sampling locks, context in/out, modality |
+| 5 | Pricing pages (provider + cloud partner) | Per-model pricing tier, cliff thresholds |
+| 6 | Deprecation / EOL announcements | Models withdrawn within recency window (do NOT re-roster) |
+| 7 | Provider SDK changelogs (python/js) | New model ID strings or tier aliases added |
+| 8 | Cloud partner catalogs (AWS Bedrock, Azure AI, Vertex AI) | Partner-only IDs, regional availability |
+| 9 | Non-English mirrors / regional portals | Models available in certain regions only |
+| 10 | Alias canonicalization | Resolve aliased IDs (e.g. `gpt-4o` → `gpt-4o-2024-11-20`) to canonical ID before rostering |
+
+After completing the checklist, emit a per-provider inclusion/exclusion table with release dates and reasons (required in `STRICT_RELEASE_WINDOW=true` mode per #8).
+
+---
+
 *Provenance: derived from the ratified task-shape taxonomy consensus (§G canonical source list) +
 the per-category benchmark families. Provider-impartial; symmetric vendor set; no model endorsed.*

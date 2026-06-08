@@ -26,7 +26,7 @@ and returns only the JSON status.
 
 | Agent | Domain | Focus |
 |-------|--------|-------|
-| 1 | **Model discovery + specs** | Enumerate **every** model published in the in-scope recency window by **each** in-scope provider family; for each, capture supported effort/reasoning tiers, context in/out, modality, knowledge cutoff, sampling locks, pricing tier. Classify whether the model has selectable effort tiers or no selectable effort; never list `none` as a tier when selectable tiers exist. This roster is the authoritative model+effort universe every later agent maps onto. |
+| 1 | **Model discovery + specs** | Enumerate **every** model published in the in-scope recency window by **each** in-scope provider family; for each, capture supported effort/reasoning tiers, context in/out, modality, knowledge cutoff, sampling locks, pricing tier. Classify whether the model has selectable effort tiers or no selectable effort; never list `none` as a tier when selectable tiers exist. This roster is the authoritative model+effort universe every later agent maps onto. **#8 HARD RULE: Agent 1 MUST NEVER emit a `[DATA_MISSING]` GAP stub. A missing or failed roster is categorically worse than a missing benchmark — it silently drops entire models from the universe, making any "comprehensive" claim false. If roster discovery fails (access error, provider API down, unresolvable ambiguity), the run exits with status `blocked`, NOT `gap_stubbed`. A partial roster (some models found, others unresolvable) exits `blocked` with a full explanation; do not proceed with a partial universe.** |
 | 2 | **Benchmark capture — reasoning/correctness spine** | For each discovered pairing, gather all public scores + stats diagnostic of `math_proof`, `security_review`, `debugging`, `quality_review`. |
 | 3 | **Benchmark capture — build/execute spine** | Same, for `architecture`, `agentic_execution`, `data_analysis`, `coding`. |
 | 4 | **Benchmark capture — synthesis/leaf + modifier signals** | Same, for `knowledge_synthesis`, `mechanical`; plus the capability data the cross-cutting modifiers need (context-size, output-size, perception, long-horizon, data-sensitivity). |
@@ -152,6 +152,13 @@ binds the concrete member. The skill names no model here.
 fallback also fails, write an explicit GAP stub at `%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md`. Record the
 GAP in the run's `risks`; do not halt the run for a domain GAP. (Single-family is a supported path,
 not a risk to log — invariant #5.)
+
+**Exception: Agent 1 (model discovery) MUST NEVER be GAP-stubbed** — see #8 HARD RULE above.
+A roster failure exits `blocked`, not `gap_stubbed`. GAP stubs are only for benchmark agents (2–5).
+
+**#8 strict_release_window mode:** when `STRICT_RELEASE_WINDOW=true` is set, Agent 1 must output
+a per-provider inclusion/exclusion table listing every model considered, with release dates and the
+reason for inclusion or exclusion. A run without this table in strict mode exits `blocked`.
 
 **For bounded-continuation mode** (exact bare prompt with Phase 1 budget exceeded):
 - Check the `%TEMP%\model-profiler\<run-id>\` run dir for existing agents from today's run-id (e.g., `%TEMP%\model-profiler\2026-06-04-<run-id>\phase-1-agent-1.md`)
