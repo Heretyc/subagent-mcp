@@ -23,22 +23,22 @@ MCP server that launches and manages locally installed `claude` and `codex` CLI 
 
 ## Quick Start
 
-**Prerequisites:** Node.js >= 18, plus the `claude` and `codex` CLIs installed globally, authenticated, and on `PATH`. See [docs/registration.md](docs/registration.md) for full per-platform setup.
+**Prerequisites:** Node.js >= 18, plus the `claude` and/or `codex` CLIs installed globally and authenticated.
+
+Install from npm and auto-wire both Claude Code and Codex CLI in one command:
 
 ```bash
-git clone https://github.com/Heretyc/subagent-mcp
-cd subagent-mcp
-npm install
-npm run build
+npm install -g subagent-mcp
+subagent-mcp setup
 ```
 
-The server entry point after build is `dist/index.js`. Register it with Claude Code (macOS / Linux example):
+`setup` detects which vendors are present, registers the MCP server, and writes the `UserPromptSubmit` hook for orchestration-mode injection. It is idempotent — safe to re-run after updates. Pass `--dry-run` to print what it would do without making changes.
 
-```bash
-claude mcp add subagent-mcp -- node /abs/path/to/subagent-mcp/dist/index.js
-```
+After setup, restart your Claude Code or Codex session. On Codex, run `/hooks` and trust the new hook.
 
-On Windows, quote the absolute path to `dist\index.js`. For Codex, Gemini, `.mcp.json`, Claude Desktop config paths, and Windows specifics, see [docs/registration.md](docs/registration.md).
+**Updating:** re-run `npm install -g subagent-mcp && subagent-mcp setup` — the install overwrites the global copy; existing vendor config keeps pointing at the same path.
+
+For manual per-platform wiring, developer install from source, Gemini CLI, and Claude Desktop, see [docs/registration.md](docs/registration.md).
 
 ---
 

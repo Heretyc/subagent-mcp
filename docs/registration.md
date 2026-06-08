@@ -25,6 +25,18 @@ See [README.md](../README.md) for the project overview and
 
 ## Install
 
+**Recommended — npm global install (auto-wires Claude and Codex):**
+
+```bash
+npm install -g subagent-mcp
+subagent-mcp setup
+```
+
+`setup` writes the MCP server entry and `UserPromptSubmit` hook for each
+detected vendor. Re-run after upgrading. Pass `--dry-run` to preview.
+
+**Developer install from source:**
+
 ```bash
 git clone https://github.com/Heretyc/subagent-mcp
 cd subagent-mcp
@@ -32,7 +44,7 @@ npm install
 npm run build
 ```
 
-The server entry point after build: `dist/index.js`.
+Server entry point after build: `dist/index.js`. Wire manually per the sections below.
 
 ---
 
