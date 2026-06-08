@@ -23,11 +23,16 @@ leaves. Each leaf is <=200 lines (AGENTS.md cap).
 
 ## Required Runner (read first)
 
-**Never run this skill on Haiku, or any model lacking sub-agent-launch support or
-long-horizon reasoning.** It is orchestrator-only: the runner dispatches every
-research/judging/validation step via `mcp__subagent-mcp__launch_agent` and must
-sustain multi-phase reasoning across the run. Such a model silently degrades the
-pipeline — **halt and escalate to the owner**; do not run it.
+**Run ONLY on the highest available flagship model the operating provider offers (whatever
+that currently is), at its highest OR second-highest effort setting** (e.g. Opus 4.8 @
+`xhigh` or `high`; the provider-equivalent top model+effort otherwise). It is
+orchestrator-only: the runner dispatches every research/judging/validation step via
+`mcp__subagent-mcp__launch_agent` and must sustain multi-phase reasoning across the whole
+run. **Never run on Haiku, a non-flagship tier, an effort below second-highest, or any
+model lacking sub-agent-launch support or long-horizon reasoning** — these silently
+degrade the pipeline. If the runner does not meet this bar, **halt and escalate to the
+owner**; do not run it. (Runner requirement only — distinct from invariant #2's ban on the
+skill naming a preferred model for the JUDGED routing output.)
 
 ## Fixed Taxonomy (immutable input — never derived here)
 
@@ -46,6 +51,7 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
 
 | You are about to… | Load |
 |-------------------|------|
+| Set up the worktree/branch gate + run the full git lifecycle (setup → commit → push → PR → deliver) — DO THIS FIRST | `references/execution-lifecycle.md` |
 | Understand goal, I/O, hard invariants, orchestrator contract | `references/overview.md` |
 | Run Phase 0 consent gate or apply the standing repository profile | `references/phase-0-consent.md` |
 | Dispatch Phase 1 model-discovery + benchmark research / Phase 1.5 interview | `references/phase-1-research.md` |
@@ -63,23 +69,11 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
 
 ## Orchestration Entry Point: Phase 0 Detection
 
-**Exact prompt** (whitespace-trimmed): `Run the model-profiler skill.` → apply standing repository profile without consent prompts. Authorized bare default run.
+**Exact prompt** (whitespace-trimmed): `Run the model-profiler skill.` → apply the standing repository profile without consent prompts (authorized bare default run). **Pre-conditions:** CWD=repo root; prompt exact; no credentials/deletes/git-writes/taxonomy-changes/outbound-messages/out-of-allowlist requests.
 
-**Pre-conditions:** CWD=repo root; prompt exact; no credentials/deletes/git-writes/taxonomy-changes/outbound-messages/out-of-allowlist requests.
+**When matched:** apply the standing-profile answers (current-generation fleet, all reachable families, Fast mode, 90 min + session budget, provider mix optional), then follow the **bare-run dispatch sequence** (MANDATORY first-check → token-budget fallback → Phase 1.5→Phase 2 budget gate) in `references/phase-0-consent.md`. **Non-matching prompts:** load `references/phase-0-consent.md` and run the full AskUserQuestion consent flow.
 
-**When matched:**
-1. Use standing-profile answers: current-generation fleet, all reachable families, Fast mode, 90 min + session budget, provider mix optional (single-family and multi-family both fully supported; neither halts). Persist to `%TEMP%\model-profiler\<run-id>\phase-0-consent.md`.
-2. **MANDATORY FIRST CHECK — before Phase 1 dispatch:** does the `%TEMP%\model-profiler\<run-id>\` run dir contain all 5 valid `phase-1-agent-{1..5}.md`?
-   - **YES** → bounded-continuation mode: skip Phase 1 dispatch; jump to Phase 1.5 + Phase 2. Note: `Continuation mode: bounded (reusing current-day Phase 1)`.
-   - **NO** → proceed to dirty-tree check (§Dirty-tree policy) + Phase 1 dispatch as normal.
-3. **Token-budget fallback:** if Phase 1 fan-out exceeds session budget AND no reuse from step 2, enter bounded-continuation: reuse existing agents, write GAP stubs for missing, proceed to Phase 1.5 + Phase 2. Emit routing-table.json (bounded or full); block only on safety rules, never budget alone.
-4. **Phase 1.5→Phase 2 budget gate (exact bare prompt only):** After Phase 1.5 is complete (both `phase-1.5-pivotal-questions.md` and `phase-1.5-adjudications.md` exist), if Phase 2 synthesis would exceed remaining session budget, do **not** ask continue/checkpoint/hybrid. Instead, automatically:
-   - Run deterministic routing artifact emission: `node scripts/build_routing_table.mjs && node scripts/validate_provider.mjs`
-   - Emit/regenerate `src/routing-table.json` and `src/routing-table-audit.json`
-   - Record in the run note: Phase 2 synthesis deferred (budget constraint); routing table refreshed from Phase 1 data via deterministic builder
-   - Return completion status with Phase 2 synthesis debt clearly labeled deferred/non-blocking
-
-**Non-matching prompts:** load `references/phase-0-consent.md` and run full AskUserQuestion consent flow.
+(All of the above runs INSIDE the execution lifecycle — invariant #15: the worktree gate fires before Phase 0 detection, and the commit→push→PR→deliver lifecycle follows VALIDATE.)
 
 ## Hard Invariants (Always Active)
 
@@ -133,55 +127,32 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
     `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `scripts/update_seed_sites.mjs`,
     and `scripts/validate_seed_sites.mjs`.
 14. **No-effort exclusion (6 categories).** Models whose ONLY effort is a no-effort sentinel
-    (`null`/`none`/`n/a` — e.g. `claude-haiku-4-5`, `gpt-5.5-pro`, `gpt-5.4-mini`) are EXCLUDED from
+    (`null`/`none`/`n/a` — e.g. `claude-haiku-4-5`) are EXCLUDED from
     ranking in `agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
     `knowledge_synthesis` (those 6 carry a REDUCED per-category universe), but REMAIN ranked in the
     other 4 (`math_proof`, `data_analysis`, `coding`, `mechanical`, full universe).
     `build_routing_table.mjs` enforces this at ranking; `validate_provider.mjs` checks per-category
     coverage against the reduced set. **Distinct from #12** (which bans emitting `none` for
     EFFORT-CAPABLE models): #14 EXCLUDES genuinely no-effort models from 6 categories.
+    The authoritative effort ladder per model is the dataset's `model_effort_universe`; see
+    `audit.metadata.model_effort_universe` as the single source of truth.
+15. **Execution lifecycle + worktree gate (ABSOLUTE — precedes every other step).** Every
+    run executes inside ONE fixed, never-reordered, never-skipped lifecycle:
+    `worktree/branch gate → main skill execution → commit → push → PR → resolve merge
+    conflicts → PR ready → deliver PR link + change-summary`. The FIRST action of any run —
+    before Phase 0, before any read-for-write, before any dispatch — is the worktree gate:
+    `node scripts/check_worktree.mjs` MUST print `WORKTREE-GATE: PASS`. ALL mutating work is
+    FORBIDDEN in the primary tree; it happens only inside a compliant LINKED worktree on a
+    `<type>/<subject>` branch OUTSIDE the repo. Native `EnterWorktree` is NON-COMPLIANT — use
+    the manual `git worktree add`. The final deliverable is the PR hyperlink plus a concise
+    summary of what changed in `src/routing-table.json` since its last merged update. Full
+    steps: `references/execution-lifecycle.md`; mandate: `docs/spec/dev-loop/worktree-enforcement/`.
 
 ## Pipeline at a Glance
 
-```
-Phase 0   HARD GATE: AskUserQuestion or exact standing repository profile — scope? Fast/Full?
-   |          runtime/budget? provider mix? (impartial — do NOT preselect models/efforts;
-   |          no dispatch before consent/profile match)
-   |
-   v
-CHECK:    For exact bare prompt ONLY: are all 5 phase-1-agent-*.md files present + valid in
-   |       %TEMP%\model-profiler\<run-id>\? If YES → enter bounded-continuation mode;
-   |       skip Phase 1 dispatch; jump to Phase 1.5. If NO → proceed to Phase 1.
-   |
-   v
-Phase 1   [OPTIONAL] N domain-partitioned discovery+research agents (web-enabled; any provider mix):
-(skip)         DISCOVER every model published in the recent window by the in-scope provider families;
-or run         gather ALL public benchmark scores + stats, mapped onto the FIXED 10 categories.
-               Check references/benchmark-sources.md FIRST. -> %TEMP%\...\phase-1-agent-{1..N}.md
-   |
-   v
-Phase 1.5 1 agent derives pivotal questions -> AskUserQuestion, or standing-profile adjudication -> persist
-   |
-   v
-Phase 2   N flagship judges (elevated effort; any provider mix) independently ARBITRATE the discovered
-   |          research into per-category, per-pairing TIER rankings (best→worst) + a rationale each;
-   |          1 fresh flagship MERGES -> routing-table-audit.json (audit trail) -> routing-table.json
-   |
-   v
-EMIT      Assemble ephemeral structured-dataset.json under %TEMP%; run the deterministic builder ->
-   |          src/routing-table.json + src/routing-table-audit.json; run update_seed_sites.mjs ->
-   |          research-seed-sites.json (fixed spine — never re-derive). No .spec/references writes.
-   |
-   v
-3-PASS    Adversarial loop on the 3 artifacts: P1 coverage/activation; P2 citation honesty;
-   |          P3 structure/validation + scenario routing. Fresh critics; repair between.
-   |
-   v
-VALIDATE  Run scripts/validate_provider.mjs + audit-mirror + scripts/validate_seed_sites.mjs +
-          run-level existence/growth check (validation.md §1c) + spec checklist + scenario routing tests.
-```
-
-Full phase detail and dispatch how-to live in the `references/` leaves above; start with `references/overview.md`, then follow the decision tree per phase.
+The Phase 0 → VALIDATE pipeline — wrapped by the SETUP (worktree gate) and DELIVER (commit → push →
+PR → deliver link+summary) boxes of invariant #15 — is diagrammed in `references/overview.md`
+(§Pipeline at a Glance). Start there, then follow the decision tree per phase.
 
 ## Output Contract
 

@@ -112,6 +112,59 @@ domain-partitioned discovery+research agents, a pivotal-question interview, seve
 1 merge, a 3-pass adversarial loop. Full mode widens fan-out and adds passes; confirm the mode in
 Phase 0 and scale the agent counts accordingly without changing the phase structure or invariants.
 
+## Pipeline at a Glance
+
+The run is wrapped by the fixed execution lifecycle (SKILL.md invariant #15 /
+`references/execution-lifecycle.md`): the SETUP box (worktree gate) and the DELIVER box (commit ->
+push -> PR -> deliver) bracket the Phase 0 -> VALIDATE pipeline.
+
+```
+SETUP     Worktree/branch gate FIRST (before Phase 0): node scripts/check_worktree.mjs ->
+   |          WORKTREE-GATE: PASS. Compliant linked worktree, <type>/<subject>, OUTSIDE repo;
+   |          else STOP and create one. (references/execution-lifecycle.md)
+   |
+   v
+Phase 0   HARD GATE: AskUserQuestion or exact standing repository profile — scope? Fast/Full?
+   |          runtime/budget? provider mix? (impartial — do NOT preselect models/efforts;
+   |          no dispatch before consent/profile match)
+   |
+   v
+CHECK:    For exact bare prompt ONLY: are all 5 phase-1-agent-*.md files present + valid in
+   |       %TEMP%\model-profiler\<run-id>\? If YES -> enter bounded-continuation mode;
+   |       skip Phase 1 dispatch; jump to Phase 1.5. If NO -> proceed to Phase 1.
+   |
+   v
+Phase 1   [OPTIONAL] N domain-partitioned discovery+research agents (web-enabled; any provider mix):
+(skip)         DISCOVER every model published in the recent window by the in-scope provider families;
+or run         gather ALL public benchmark scores + stats, mapped onto the FIXED 10 categories.
+               Check references/benchmark-sources.md FIRST. -> %TEMP%\...\phase-1-agent-{1..N}.md
+   |
+   v
+Phase 1.5 1 agent derives pivotal questions -> AskUserQuestion, or standing-profile adjudication -> persist
+   |
+   v
+Phase 2   N flagship judges (elevated effort; any provider mix) independently ARBITRATE the discovered
+   |          research into per-category, per-pairing TIER rankings (best->worst) + a rationale each;
+   |          1 fresh flagship MERGES -> routing-table-audit.json (audit trail) -> routing-table.json
+   |
+   v
+EMIT      Assemble ephemeral structured-dataset.json under %TEMP%; run the deterministic builder ->
+   |          src/routing-table.json + src/routing-table-audit.json; run update_seed_sites.mjs ->
+   |          research-seed-sites.json (fixed spine — never re-derive). No .spec/references writes.
+   |
+   v
+3-PASS    Adversarial loop on the 3 artifacts: P1 coverage/activation; P2 citation honesty;
+   |          P3 structure/validation + scenario routing. Fresh critics; repair between.
+   |
+   v
+VALIDATE  Run scripts/validate_provider.mjs + audit-mirror + scripts/validate_seed_sites.mjs +
+   |          run-level existence/growth check (validation.md §1c) + spec checklist + scenario routing tests.
+   |
+   v
+DELIVER   commit (3 artifacts) -> push -> PR -> resolve merge conflicts -> PR ready ->
+          PR hyperlink + concise summary of src/routing-table.json changes since last merged update.
+```
+
 ---
 
 *Author: Lexi Blackburn — https://github.com/Heretyc/ — May 2026*

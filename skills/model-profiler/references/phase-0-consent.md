@@ -97,6 +97,28 @@ When Phase 1 fan-out would exceed the standing-profile budget cap (90 wall-clock
 
 This mode is **authorization-neutral** — it does not weaken the credential, taxonomy, git-write, or out-of-allowlist barriers. It only softens the token-budget hard gate for the exact bare prompt, allowing a partial run to continue rather than blocking entirely.
 
+## Bare-run dispatch sequence (exact bare prompt — first-check + budget gates)
+
+The SKILL.md entry point points here. After persisting the standing-profile consent record, follow
+this sequence (all within the worktree lifecycle of invariant #15 / `references/execution-lifecycle.md`):
+
+1. **MANDATORY FIRST CHECK — before Phase 1 dispatch:** does `%TEMP%\model-profiler\<run-id>\`
+   contain all 5 valid `phase-1-agent-{1..5}.md`?
+   - **YES** → bounded-continuation: skip Phase 1 dispatch; jump to Phase 1.5 + Phase 2. Note
+     `Continuation mode: bounded (reusing current-day Phase 1)`.
+   - **NO** → proceed to the standing dirty-tree policy above + Phase 1 dispatch as normal.
+2. **Token-budget fallback:** if Phase 1 fan-out exceeds session budget AND no reuse from step 1,
+   enter bounded-continuation (reuse existing agents, GAP-stub the rest), proceed to Phase 1.5 +
+   Phase 2. Emit routing-table.json (bounded or full); block only on safety rules, never budget alone.
+3. **Phase 1.5→Phase 2 budget gate:** after Phase 1.5 completes (both `phase-1.5-pivotal-questions.md`
+   and `phase-1.5-adjudications.md` exist), if Phase 2 synthesis would exceed remaining session
+   budget, do **not** ask continue/checkpoint/hybrid — automatically:
+   - Run `node scripts/build_routing_table.mjs ; if ($LASTEXITCODE -eq 0) { node scripts/validate_provider.mjs }`
+   - Emit/regenerate `src/routing-table.json` + `src/routing-table-audit.json`
+   - Record in the run note: Phase 2 synthesis deferred (budget constraint); routing table refreshed
+     from Phase 1 data via the deterministic builder
+   - Return completion with the Phase 2 synthesis debt labeled deferred/non-blocking
+
 ## The six parameters to confirm
 
 | # | Question | Why it matters |

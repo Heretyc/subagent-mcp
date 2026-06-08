@@ -63,6 +63,7 @@ function goodSeed() {
       schema_version: "1",
       generated: "2026-06",
       last_run_at: "2026-06-04T00:00:00Z",
+      run_id: "run-2026-06-04-test",
       site_count: 2,
     },
     sites: [
@@ -80,7 +81,7 @@ function goodSeed() {
       {
         url: "https://lmarena.ai/leaderboard",
         domain: "lmarena.ai",
-        tier: 1,
+        tier: 2,
         categories: ["coding"],
         first_seen: "2026-06-04",
         last_seen: "2026-06-04",
