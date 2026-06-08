@@ -119,6 +119,12 @@ Each branch is re-ranked dense 1..N by its composite (higher score = rank 1). On
 positionally spliced immediately above its same-effort predecessor). `cost_efficiency` keeps pure
 composite order (a pricier newer version is legitimately less cost-efficient than its predecessor).
 
+**Performance-branch same-model equal-perf tie-break (#1 fix):** when two pairings of the
+*same model* carry identical measured `perf_norm`, the performance branch ranks by **effort
+descending** (max-effort first) *before* cost can discriminate. Cost separates only *across*
+models on this branch. Bound: non-null scores only; sentinels are still placed last. Recorded in
+`audit.metadata.formula_definitions.performance_branch_tiebreak`.
+
 The realized exponents (`performance` 0.8/0.2; `cost_efficiency` 0.4/0.6), the performance-branch
 cost winsorization bound, and the cost-figure methodology are recorded in the **audit** metadata
 (`realized_exponents`, `performance_cost_winsorization`, `cost_figure_methodology`), not on the lean

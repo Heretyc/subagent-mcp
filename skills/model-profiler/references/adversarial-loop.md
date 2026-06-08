@@ -12,6 +12,10 @@ the emission from `decompose-update.md` ("Emit the 3 Artifacts") complete.
   FRESH within-family agents (provider mix is optional, invariant #5 — single-family is not a degrade).
   A critic never reviewed an earlier pass of the same artifact, and never reviews its own producer's
   output (self-review ban / Anti-Pattern D).
+- **Within-family adversary (#30):** when `run_manifest.provider_mix = "single_family"` or `"partial"`,
+  the adversarial loop MUST still run fresh within-family critics. A `"partial"` run (multi-scope intent,
+  single-family realization) additionally requires owner sign-off before shipping, surfaced via a
+  `needs_user` return noting which families were requested but unreachable.
 - **Repair between passes:** after each pass, dispatch a repair sub-agent (a research/build/repair
   member) to fix the findings, then re-validate before the next pass. Do not batch all three passes
   against the un-repaired artifacts.
@@ -52,6 +56,24 @@ Is `research-seed-sites.json` consistent with this run's audit?
 - Schema valid per `validate_seed_sites.mjs` (`tier` ∈ 0..5, `times_seen >= 1`,
   `site_count === sites.length`) — mirrors `validation.md §1c`.
 
+## Pass 2c — Semantic-Soundness Critic (#10)
+
+Do the rankings make sense? Run deterministic sanity asserts BEFORE any judgment-layer critique:
+
+- **Effort inversion check:** for each model on the performance branch, confirm that if a higher effort
+  pairing ranks ABOVE a lower effort of the same model, it genuinely has a higher or equal `perf_norm`
+  (not just a lower cost). A higher-effort pairing scoring lower would be an inversion. (#1 fix guards
+  this for equal-perf; flag any case where a lower-effort genuinely outperforms a higher-effort of
+  the same model as a suspicious data point requiring a citation audit.)
+- **Zero-score with high confidence:** any pairing showing `score = 0` or near-zero (< epsilon_floor)
+  with `confidence: "high"` or `"measured"` is implausible — this was the `opus-4-7` `math_proof`
+  bug. Flag for source review.
+- **Blog as sole #1 citation:** if rank=1 pairing has only a single citation and it is a blog or
+  vendor marketing copy (tier 0 or 1), flag as suspect.
+- **These are sign-off-required warnings, NOT silent auto-edits.** A critic finding a semantic
+  anomaly surfaces it for owner adjudication; the build does not auto-correct a ranking based on
+  the critic's opinion. Record findings in `adversarial_passes` metadata.
+
 ## Pass 3 — Structure / Validation + Scenario Routing
 
 Are the artifacts internally consistent and do they route real tasks correctly?
@@ -68,6 +90,35 @@ Are the artifacts internally consistent and do they route real tasks correctly?
   `math_proof` task must still route per `G_MATH`, and a security task must still trigger `G_SEC`
   cross-review rendered by a FRESH member distinct from the author (a different family when ≥2 are
   reachable; otherwise a fresh within-family member — never the author itself).
+
+## Adversarial-pass audit record (#4)
+
+The orchestrator must inject each pass result into the builder via `ADVERSARIAL_PASSES_JSON` env var
+so the offline builder can embed it in `audit.metadata.adversarial_passes`. The schema:
+
+```json
+{
+  "status": "complete",
+  "passes": [
+    {
+      "pass_name": "pass-1-coverage",
+      "critic_id": "<agent-id>",
+      "critic_model": "<model@effort>",
+      "producers_excluded": ["<agent-id>", ...],
+      "input_hash": "<sha256 of audit before pass>",
+      "output_hash": "<sha256 of critic output>",
+      "findings_count": 0,
+      "result": "pass"
+    }
+  ],
+  "inter_judge_dissent": {
+    "per_category": { "<category>": { "judges": [...], "variance": null } }
+  },
+  "reconciliation_note": "judge tier calls mapped to dataset via ..."
+}
+```
+
+If no adversarial loop ran (offline build), the audit emits `status: "unavailable_offline"` (honest).
 
 ## Exit criteria
 

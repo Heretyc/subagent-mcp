@@ -364,6 +364,173 @@
         "thin": false
       }
     ],
+    "benchmark_normalization_meta": [
+      {
+        "category": "math_proof",
+        "benchmark": "USAMO-2026",
+        "row_count": 2,
+        "independent_reporter_count": 2,
+        "score_range": {
+          "min": 69.3,
+          "max": 96.7
+        },
+        "is_thin": false
+      },
+      {
+        "category": "math_proof",
+        "benchmark": "FrontierMath",
+        "row_count": 1,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 51.7,
+          "max": 51.7
+        },
+        "is_thin": true
+      },
+      {
+        "category": "security_review",
+        "benchmark": "AISI Expert-tier CTF",
+        "row_count": 3,
+        "independent_reporter_count": 2,
+        "score_range": {
+          "min": 48.6,
+          "max": 71.4
+        },
+        "is_thin": false
+      },
+      {
+        "category": "debugging",
+        "benchmark": "SWE-bench Pro",
+        "row_count": 4,
+        "independent_reporter_count": 2,
+        "score_range": {
+          "min": 54.4,
+          "max": 69.2
+        },
+        "is_thin": false
+      },
+      {
+        "category": "quality_review",
+        "benchmark": "AA-Omniscience hallucination",
+        "row_count": 3,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 36,
+          "max": 86
+        },
+        "is_thin": false
+      },
+      {
+        "category": "quality_review",
+        "benchmark": "unavailable-tool hallucination",
+        "row_count": 2,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 5,
+          "max": 11
+        },
+        "is_thin": false
+      },
+      {
+        "category": "architecture",
+        "benchmark": "SWE-bench Pro",
+        "row_count": 4,
+        "independent_reporter_count": 2,
+        "score_range": {
+          "min": 54.4,
+          "max": 69.2
+        },
+        "is_thin": false
+      },
+      {
+        "category": "agentic_execution",
+        "benchmark": "Terminus-2 (shared harness)",
+        "row_count": 3,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 66.1,
+          "max": 78.2
+        },
+        "is_thin": false
+      },
+      {
+        "category": "agentic_execution",
+        "benchmark": "BenchLM Agentic composite",
+        "row_count": 1,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 65.1,
+          "max": 65.1
+        },
+        "is_thin": true
+      },
+      {
+        "category": "data_analysis",
+        "benchmark": "Finance Agent v2",
+        "row_count": 3,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 51.5,
+          "max": 53.9
+        },
+        "is_thin": false
+      },
+      {
+        "category": "coding",
+        "benchmark": "SWE-bench Pro",
+        "row_count": 2,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 54.4,
+          "max": 69.2
+        },
+        "is_thin": false
+      },
+      {
+        "category": "coding",
+        "benchmark": "SWE-bench Verified (held-out)",
+        "row_count": 2,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 82,
+          "max": 82.6
+        },
+        "is_thin": false
+      },
+      {
+        "category": "coding",
+        "benchmark": "SWE-bench Verified (self-report)",
+        "row_count": 2,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 73.3,
+          "max": 79.6
+        },
+        "is_thin": false
+      },
+      {
+        "category": "knowledge_synthesis",
+        "benchmark": "HLE (no-tools)",
+        "row_count": 3,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 41.4,
+          "max": 49.8
+        },
+        "is_thin": false
+      },
+      {
+        "category": "mechanical",
+        "benchmark": "OfficeQA Pro",
+        "row_count": 2,
+        "independent_reporter_count": 1,
+        "score_range": {
+          "min": 54.1,
+          "max": 66.2
+        },
+        "is_thin": false
+      }
+    ],
     "cross_category_benchmarks": [
       {
         "benchmark": "SWE-bench Pro",
@@ -595,6 +762,103 @@
         ]
       }
     ],
+    "raw_inputs_hash": {
+      "algorithm": "sha256",
+      "hex": "057e6cae2cf21aab7de762fd58b0f5096b9c2885027be19fd60c9ee1b8a89be5",
+      "short": "057e6cae2cf2",
+      "path": "C:\\Users\\Lexi\\AppData\\Local\\Temp\\model-profiler\\run-2026-06-06\\structured-dataset.json"
+    },
+    "dataset_shape_summary": {
+      "model_count": 7,
+      "category_count": 10,
+      "universe_count": 27,
+      "gap_count": 29
+    },
+    "adversarial_passes": {
+      "status": "unavailable_offline",
+      "passes": null,
+      "inter_judge_dissent": null,
+      "reconciliation_note": null
+    },
+    "provider_bias_metrics": {
+      "provider_rank_stats": {
+        "claude": {
+          "performance": {
+            "mean": 10.43,
+            "count": 144
+          },
+          "cost_efficiency": {
+            "mean": 10.48,
+            "count": 144
+          }
+        },
+        "codex": {
+          "performance": {
+            "mean": 17.63,
+            "count": 120
+          },
+          "cost_efficiency": {
+            "mean": 17.58,
+            "count": 120
+          }
+        }
+      },
+      "provider_citations_by_tier": {
+        "claude": {
+          "2": 98,
+          "3": 130
+        },
+        "codex": {
+          "1": 8,
+          "2": 48,
+          "3": 48
+        }
+      },
+      "category_family_balance": {
+        "math_proof": {
+          "claude": 15,
+          "codex": 12
+        },
+        "security_review": {
+          "codex": 12,
+          "claude": 14
+        },
+        "debugging": {
+          "claude": 14,
+          "codex": 12
+        },
+        "quality_review": {
+          "claude": 14,
+          "codex": 12
+        },
+        "architecture": {
+          "claude": 14,
+          "codex": 12
+        },
+        "agentic_execution": {
+          "codex": 12,
+          "claude": 14
+        },
+        "data_analysis": {
+          "claude": 15,
+          "codex": 12
+        },
+        "coding": {
+          "claude": 15,
+          "codex": 12
+        },
+        "knowledge_synthesis": {
+          "claude": 14,
+          "codex": 12
+        },
+        "mechanical": {
+          "claude": 15,
+          "codex": 12
+        }
+      },
+      "asymmetry_flags": [],
+      "note": "diagnostic only — not a gate"
+    },
     "run_manifest": {
       "run_id": "run-2026-06-06",
       "trigger": null,
@@ -649,6 +913,89 @@
         ],
         "data_missing": []
       },
+      "pairing_coverage_ratios": {
+        "warn_threshold": 0.5,
+        "block_threshold": 0.3,
+        "overall": {
+          "total_pairings": 264,
+          "measured_pairings": 156,
+          "positive_score_pairings": 152,
+          "measured_pairing_ratio": 0.5909,
+          "positive_score_pairing_ratio": 0.5758
+        },
+        "per_category": {
+          "math_proof": {
+            "total_pairings": 27,
+            "measured_pairings": 14,
+            "positive_score_pairings": 14,
+            "measured_pairing_ratio": 0.5185,
+            "positive_score_pairing_ratio": 0.5185
+          },
+          "security_review": {
+            "total_pairings": 26,
+            "measured_pairings": 14,
+            "positive_score_pairings": 14,
+            "measured_pairing_ratio": 0.5385,
+            "positive_score_pairing_ratio": 0.5385
+          },
+          "debugging": {
+            "total_pairings": 26,
+            "measured_pairings": 18,
+            "positive_score_pairings": 18,
+            "measured_pairing_ratio": 0.6923,
+            "positive_score_pairing_ratio": 0.6923
+          },
+          "quality_review": {
+            "total_pairings": 26,
+            "measured_pairings": 14,
+            "positive_score_pairings": 10,
+            "measured_pairing_ratio": 0.5385,
+            "positive_score_pairing_ratio": 0.3846
+          },
+          "architecture": {
+            "total_pairings": 26,
+            "measured_pairings": 18,
+            "positive_score_pairings": 18,
+            "measured_pairing_ratio": 0.6923,
+            "positive_score_pairing_ratio": 0.6923
+          },
+          "agentic_execution": {
+            "total_pairings": 26,
+            "measured_pairings": 18,
+            "positive_score_pairings": 18,
+            "measured_pairing_ratio": 0.6923,
+            "positive_score_pairing_ratio": 0.6923
+          },
+          "data_analysis": {
+            "total_pairings": 27,
+            "measured_pairings": 14,
+            "positive_score_pairings": 14,
+            "measured_pairing_ratio": 0.5185,
+            "positive_score_pairing_ratio": 0.5185
+          },
+          "coding": {
+            "total_pairings": 27,
+            "measured_pairings": 23,
+            "positive_score_pairings": 23,
+            "measured_pairing_ratio": 0.8519,
+            "positive_score_pairing_ratio": 0.8519
+          },
+          "knowledge_synthesis": {
+            "total_pairings": 26,
+            "measured_pairings": 14,
+            "positive_score_pairings": 14,
+            "measured_pairing_ratio": 0.5385,
+            "positive_score_pairing_ratio": 0.5385
+          },
+          "mechanical": {
+            "total_pairings": 27,
+            "measured_pairings": 9,
+            "positive_score_pairings": 9,
+            "measured_pairing_ratio": 0.3333,
+            "positive_score_pairing_ratio": 0.3333
+          }
+        }
+      },
       "dropped_pairings": {
         "withdrawn": [],
         "withdrawn_count": 0,
@@ -665,6 +1012,7 @@
         ],
         "degraded": false
       },
+      "provider_mix": "multi_family",
       "agent_provenance": {
         "status": "unavailable_offline",
         "routing_table": {
@@ -681,6 +1029,8 @@
         }
       },
       "drift_vs_prior_audit": {
+        "prior_git_ref": "HEAD",
+        "prior_sha256": "e71b6df4e2f42247e9f6fb510125289c717254f5436c9e6c75baff37328f9fbc",
         "prior_generated_at": "2026-06-06T00:00:00Z",
         "universe_count": {
           "prior": 27,
@@ -728,7 +1078,9 @@
           ],
           "empty_population": 1,
           "thin_min_reporters": 2,
-          "thin_neutral_n": 0.5
+          "thin_neutral_n": 0.5,
+          "epsilon_floor": 0.001,
+          "alt_method_ge3": "z-score-then-squash"
         }
       },
       "composite_weights": {
@@ -768,12 +1120,21 @@
           "OfficeQA Pro": 1
         }
       },
-      "sentiment_cap": 0.05
+      "sentiment_cap": 0.05,
+      "performance_branch_tiebreak": "same-model equal measured perf_norm → effort descending (max-effort first) before cost can discriminate. Cost separates only across models on the performance branch. (#1 fix)"
     },
     "cost_blend": {
+      "label": "reference-blend cost",
       "input_tokens": 100000,
       "output_tokens": 20000,
-      "price_cliff_side": "below"
+      "price_cliff_side": "below",
+      "above_cliff_cost_figure": {
+        "blend_per_mtok": 1.9,
+        "blend_per_token": 0.0000019,
+        "cliff_input_per_mtok": 10,
+        "cliff_output_per_mtok": 45,
+        "note": "above-cliff rate at reference blend (100K in / 20K out), hiddenMult=0 excluded; for G_CTX_272 routes only"
+      }
     }
   },
   "performance": {
@@ -781,10 +1142,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 1,
-        "score": 1.4394487526906279,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 1.2359405006650968,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -805,10 +1166,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 2,
-        "score": 1.4197228199882086,
-        "cost_figure_used": 0.00000151875,
+        "score": 1.29965013966476,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -853,10 +1214,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 4,
-        "score": 1.29965013966476,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.4197228199882086,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -877,10 +1238,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "low",
         "rank": 5,
-        "score": 1.2359405006650968,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.4394487526906279,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -901,33 +1262,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 6,
-        "score": 0.8605680672511985,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.5 FrontierMath 51.7/35.4, single vendor-sourced reporter (direction-only; SOP-3 thin -> neutralized).",
-            "label": "[UNVERIFIED]",
-            "tier": 1,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 7,
-        "score": 0.8478027522536067,
-        "cost_figure_used": 0.00000125,
+        "score": 0.7717396709899524,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "medium",
         "basis": [
@@ -948,7 +1286,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 8,
+        "rank": 7,
         "score": 0.8121018223944362,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -970,10 +1308,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 8,
+        "score": 0.8478027522536067,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "medium",
+        "basis": [
+          "[UNVERIFIED]"
+        ],
+        "citations": [
+          {
+            "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.5 FrontierMath 51.7/35.4, single vendor-sourced reporter (direction-only; SOP-3 thin -> neutralized).",
+            "label": "[UNVERIFIED]",
+            "tier": 1,
+            "source_id": "[UNVERIFIED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 9,
-        "score": 0.7717396709899524,
-        "cost_figure_used": 0.000002,
+        "score": 0.8605680672511985,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "medium",
         "basis": [
@@ -993,10 +1354,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
+        "effort": "max",
         "rank": 10,
-        "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.004920367756922544,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1017,10 +1378,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 11,
-        "score": 0,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.0051740003981139504,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1043,7 +1404,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 12,
-        "score": 0,
+        "score": 0.005429671158984439,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -1065,10 +1426,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 13,
-        "score": 0,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 0.005652018348357377,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1089,10 +1450,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
+        "effort": "low",
         "rank": 14,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
+        "score": 0.005730548700904265,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1115,7 +1476,7 @@
         "model": "claude-haiku-4-5",
         "effort": null,
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1137,7 +1498,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1158,7 +1519,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1179,7 +1540,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1200,7 +1561,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -1221,7 +1582,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1242,7 +1603,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1263,7 +1624,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1284,7 +1645,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1305,7 +1666,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -1326,7 +1687,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -1347,7 +1708,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -1368,7 +1729,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 27,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -1389,33 +1750,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 1,
-        "score": 1.4983360314003755,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.aisi.gov.uk/blog/our-evaluation-of-openais-gpt-5-5-cyber-capabilities",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "Independent AISI Expert-tier CTF gpt-5.5 71.4% vs opus-4-7 48.6% + TLO 2/10 (primary security discriminator).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 2,
-        "score": 1.4761103270767635,
-        "cost_figure_used": 0.00000125,
+        "score": 1.3436768105965373,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1436,7 +1774,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 3,
+        "rank": 2,
         "score": 1.413951397878571,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -1458,10 +1796,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 3,
+        "score": 1.4761103270767635,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.aisi.gov.uk/blog/our-evaluation-of-openais-gpt-5-5-cyber-capabilities",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "Independent AISI Expert-tier CTF gpt-5.5 71.4% vs opus-4-7 48.6% + TLO 2/10 (primary security discriminator).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 4,
-        "score": 1.3436768105965373,
-        "cost_figure_used": 0.000002,
+        "score": 1.4983360314003755,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1481,10 +1842,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 5,
-        "score": 0.3140736225601276,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.2696701147484986,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1505,10 +1866,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 6,
-        "score": 0.30976961720346197,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.28357093412481904,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1553,10 +1914,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 8,
-        "score": 0.28357093412481904,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 0.30976961720346197,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1577,10 +1938,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "low",
         "rank": 9,
-        "score": 0.2696701147484986,
-        "cost_figure_used": 0.0000030375,
+        "score": 0.3140736225601276,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1601,10 +1962,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
+        "effort": "max",
         "rank": 10,
-        "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.004920367756922544,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1625,10 +1986,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 11,
-        "score": 0,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.0051740003981139504,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1651,7 +2012,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 12,
-        "score": 0,
+        "score": 0.005429671158984439,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -1673,10 +2034,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 13,
-        "score": 0,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 0.005652018348357377,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1697,10 +2058,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
+        "effort": "low",
         "rank": 14,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
+        "score": 0.005730548700904265,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1723,7 +2084,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1744,7 +2105,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1765,7 +2126,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1786,7 +2147,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -1807,7 +2168,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1828,7 +2189,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1849,7 +2210,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1870,7 +2231,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -1891,7 +2252,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -1912,7 +2273,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -1933,7 +2294,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -1954,7 +2315,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -1975,10 +2336,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 1,
-        "score": 1.4394487526906279,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 1.2359405006650968,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -1999,10 +2360,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 2,
-        "score": 1.4197228199882086,
-        "cost_figure_used": 0.00000151875,
+        "score": 1.29965013966476,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2047,10 +2408,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 4,
-        "score": 1.29965013966476,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.4197228199882086,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2071,10 +2432,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "low",
         "rank": 5,
-        "score": 1.2359405006650968,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.4394487526906279,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2095,10 +2456,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
+        "effort": "max",
         "rank": 6,
-        "score": 1.0435060974251547,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.8959759394615397,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2119,10 +2480,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 7,
-        "score": 1.0292060877763938,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.9421612563313737,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2167,10 +2528,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 9,
-        "score": 0.9421612563313737,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.0292060877763938,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2191,10 +2552,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
+        "effort": "low",
         "rank": 10,
-        "score": 0.8959759394615397,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.0435060974251547,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2215,33 +2576,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 11,
-        "score": 0.5470150602887556,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.5 SWE-Pro 58.6; Verified 88.7/82.6 is self-claim upper bound only (not averaged).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 12,
-        "score": 0.5389008624481165,
-        "cost_figure_used": 0.00000125,
+        "score": 0.4905518095764613,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2262,7 +2600,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 13,
+        "rank": 12,
         "score": 0.516207775123069,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -2284,10 +2622,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 13,
+        "score": 0.5389008624481165,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.5 SWE-Pro 58.6; Verified 88.7/82.6 is self-claim upper bound only (not averaged).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 14,
-        "score": 0.4905518095764613,
-        "cost_figure_used": 0.000002,
+        "score": 0.5470150602887556,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2307,33 +2668,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 15,
-        "score": 0,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 thin measured proxy, below gpt-5.5.",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 16,
-        "score": 0,
-        "cost_figure_used": 1.875e-7,
+        "score": 0.007817656252290339,
+        "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2354,8 +2692,8 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 17,
-        "score": 0,
+        "rank": 16,
+        "score": 0.008226521362047356,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": false,
         "confidence": "high",
@@ -2376,10 +2714,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 17,
+        "score": 0.008554222306263414,
+        "cost_figure_used": 1.875e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 thin measured proxy, below gpt-5.5.",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "low",
         "rank": 18,
-        "score": 0,
-        "cost_figure_used": 3.0000000000000004e-7,
+        "score": 0.008554222306263414,
+        "cost_figure_used": 1.74e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2401,7 +2762,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -2422,7 +2783,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -2443,7 +2804,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -2464,7 +2825,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -2485,7 +2846,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -2506,7 +2867,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -2527,7 +2888,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -2548,7 +2909,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -2569,10 +2930,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 1,
-        "score": 1.4394487526906279,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 1.2349516493497528,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2601,10 +2962,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 2,
-        "score": 1.4197228199882086,
-        "cost_figure_used": 0.00000151875,
+        "score": 1.2986103155394053,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2635,7 +2996,7 @@
         "model": "claude-opus-4-8",
         "effort": "high",
         "rank": 3,
-        "score": 1.3638717311811912,
+        "score": 1.36278052464284,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -2665,10 +3026,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 4,
-        "score": 1.29965013966476,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.4185869281089363,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2697,10 +3058,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "low",
         "rank": 5,
-        "score": 1.2359405006650968,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.4382970784864875,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2729,10 +3090,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
+        "effort": "max",
         "rank": 6,
-        "score": 0.8267462071591289,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.7092934640544681,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2761,10 +3122,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 7,
-        "score": 0.8154166339361033,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.7458557666211477,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2795,7 +3156,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 8,
-        "score": 0.7833386070173962,
+        "score": 0.7827118734396131,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -2825,10 +3186,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 9,
-        "score": 0.7464529887522883,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 0.814764235369516,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2857,10 +3218,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
+        "effort": "low",
         "rank": 10,
-        "score": 0.7098614099941042,
-        "cost_figure_used": 0.0000030375,
+        "score": 0.8260847440272346,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2889,33 +3250,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 11,
         "score": 0,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.cometapi.com/gpt-5-5-vs-claude-opus-4-7-which-ai-to-use-when-hallucination-matters-2026-benchmark-data/",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.5 AA-Omniscience 86% = WORST after polarity inversion (lower_is_better) + 29% false-task-completion.",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 12,
-        "score": 0,
-        "cost_figure_used": 0.00000125,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -2936,7 +3274,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 13,
+        "rank": 12,
         "score": 0,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -2958,10 +3296,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 13,
+        "score": 0,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.cometapi.com/gpt-5-5-vs-claude-opus-4-7-which-ai-to-use-when-hallucination-matters-2026-benchmark-data/",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.5 AA-Omniscience 86% = WORST after polarity inversion (lower_is_better) + 29% false-task-completion.",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 14,
         "score": 0,
-        "cost_figure_used": 0.000002,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3235,10 +3596,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 1,
-        "score": 1.4394487526906279,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 1.2359405006650968,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3259,10 +3620,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 2,
-        "score": 1.4197228199882086,
-        "cost_figure_used": 0.00000151875,
+        "score": 1.29965013966476,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3307,10 +3668,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 4,
-        "score": 1.29965013966476,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.4197228199882086,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3331,10 +3692,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "low",
         "rank": 5,
-        "score": 1.2359405006650968,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.4394487526906279,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3355,10 +3716,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
+        "effort": "max",
         "rank": 6,
-        "score": 1.0435060974251547,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.8959759394615397,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3379,10 +3740,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 7,
-        "score": 1.0292060877763938,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.9421612563313737,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3427,10 +3788,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 9,
-        "score": 0.9421612563313737,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.0292060877763938,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3451,10 +3812,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
+        "effort": "low",
         "rank": 10,
-        "score": 0.8959759394615397,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.0435060974251547,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3475,33 +3836,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 11,
-        "score": 0.5470150602887556,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.5 SWE-Pro 58.6 architecture proxy — measured, ABOVE zero-data sonnet (A11/CR-5).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 12,
-        "score": 0.5389008624481165,
-        "cost_figure_used": 0.00000125,
+        "score": 0.4905518095764613,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3522,7 +3860,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 13,
+        "rank": 12,
         "score": 0.516207775123069,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -3544,10 +3882,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 13,
+        "score": 0.5389008624481165,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.5 SWE-Pro 58.6 architecture proxy — measured, ABOVE zero-data sonnet (A11/CR-5).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 14,
-        "score": 0.4905518095764613,
-        "cost_figure_used": 0.000002,
+        "score": 0.5470150602887556,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3567,33 +3928,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 15,
-        "score": 0,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 host-leg only, weak architecture proxy.",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 16,
-        "score": 0,
-        "cost_figure_used": 1.875e-7,
+        "score": 0.007817656252290339,
+        "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3614,8 +3952,8 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 17,
-        "score": 0,
+        "rank": 16,
+        "score": 0.008226521362047356,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": false,
         "confidence": "high",
@@ -3636,10 +3974,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 17,
+        "score": 0.008554222306263414,
+        "cost_figure_used": 1.875e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 host-leg only, weak architecture proxy.",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "low",
         "rank": 18,
-        "score": 0,
-        "cost_figure_used": 3.0000000000000004e-7,
+        "score": 0.008554222306263414,
+        "cost_figure_used": 1.74e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3661,7 +4022,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -3682,7 +4043,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -3703,7 +4064,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -3724,7 +4085,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -3745,7 +4106,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -3766,7 +4127,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -3787,7 +4148,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -3808,7 +4169,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.00781665625229034,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -3829,33 +4190,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 1,
-        "score": 1.4983360314003755,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "Terminus-2 (SHARED harness) gpt-5.5 78.2 vs opus-4-8 74.6 — shared-harness terminal leader (A9/CR-1).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 2,
-        "score": 1.4761103270767635,
-        "cost_figure_used": 0.00000125,
+        "score": 1.3436768105965373,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3876,7 +4214,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 3,
+        "rank": 2,
         "score": 1.413951397878571,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -3898,10 +4236,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 3,
+        "score": 1.4761103270767635,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "Terminus-2 (SHARED harness) gpt-5.5 78.2 vs opus-4-8 74.6 — shared-harness terminal leader (A9/CR-1).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 4,
-        "score": 1.3436768105965373,
-        "cost_figure_used": 0.000002,
+        "score": 1.4983360314003755,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3921,10 +4282,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 5,
-        "score": 1.085183175816782,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.9317607418293372,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3945,10 +4306,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 6,
-        "score": 1.0703120313901766,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.9797906756846165,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -3993,10 +4354,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 8,
-        "score": 0.9797906756846165,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.0703120313901766,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4011,62 +4372,16 @@
             "label": "[SEED]",
             "tier": 3,
             "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 9,
-        "score": 0.9723188711916895,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/llm-agent-benchmarks",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "sonnet-4-6 BenchLM Agentic composite 65.1 (composite != raw; must NOT define category max).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 10,
-        "score": 0.958994397789932,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/llm-agent-benchmarks",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "sonnet-4-6 BenchLM Agentic composite 65.1 (composite != raw; must NOT define category max).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
           }
         ]
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
-        "rank": 11,
-        "score": 0.9317607418293372,
-        "cost_figure_used": 0.0000030375,
+        "effort": "low",
+        "rank": 9,
+        "score": 1.085183175816782,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4081,6 +4396,29 @@
             "label": "[SEED]",
             "tier": 3,
             "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 10,
+        "score": 0.8348531131938526,
+        "cost_figure_used": 0.00000135,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://benchlm.ai/llm-agent-benchmarks",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "sonnet-4-6 BenchLM Agentic composite 65.1 (composite != raw; must NOT define category max).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
           }
         ]
       },
@@ -4088,7 +4426,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 12,
+        "rank": 11,
         "score": 0.9212681032468587,
         "cost_figure_used": 8.25e-7,
         "interpolated": false,
@@ -4110,10 +4448,33 @@
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
-        "effort": "max",
+        "effort": "medium",
+        "rank": 12,
+        "score": 0.958994397789932,
+        "cost_figure_used": 6.75e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://benchlm.ai/llm-agent-benchmarks",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "sonnet-4-6 BenchLM Agentic composite 65.1 (composite != raw; must NOT define category max).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "low",
         "rank": 13,
-        "score": 0.8348531131938526,
-        "cost_figure_used": 0.00000135,
+        "score": 0.9723188711916895,
+        "cost_figure_used": 6.3e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4133,10 +4494,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
+        "effort": "max",
         "rank": 14,
-        "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.004920367756922544,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4157,10 +4518,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 15,
-        "score": 0,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.0051740003981139504,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4183,7 +4544,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 16,
-        "score": 0,
+        "score": 0.005429671158984439,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -4205,10 +4566,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 17,
-        "score": 0,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 0.005652018348357377,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4229,10 +4590,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
+        "effort": "low",
         "rank": 18,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
+        "score": 0.005730548700904265,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4255,7 +4616,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4276,7 +4637,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4297,7 +4658,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4318,7 +4679,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4339,7 +4700,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -4360,7 +4721,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -4381,7 +4742,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -4402,7 +4763,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -4423,10 +4784,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 1,
-        "score": 1.4394487526906279,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 1.2359405006650968,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4447,10 +4808,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 2,
-        "score": 1.4197228199882086,
-        "cost_figure_used": 0.00000151875,
+        "score": 1.29965013966476,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4495,10 +4856,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 4,
-        "score": 1.29965013966476,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.4197228199882086,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4519,10 +4880,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "low",
         "rank": 5,
-        "score": 1.2359405006650968,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.4394487526906279,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4543,33 +4904,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 6,
-        "score": 0.2838815931241221,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.datacamp.com/blog/claude-opus-4-8-vs-gpt-5-5",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.5 Finance Agent v2 51.8 — narrowly below opus-4-8, above opus-4-7 (A10, low-confidence proxy).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 7,
-        "score": 0.27967060959341455,
-        "cost_figure_used": 0.00000125,
+        "score": 0.2545791502321264,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4590,7 +4928,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 8,
+        "rank": 7,
         "score": 0.26789369475063374,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -4612,10 +4950,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 8,
+        "score": 0.27967060959341455,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.datacamp.com/blog/claude-opus-4-8-vs-gpt-5-5",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.5 Finance Agent v2 51.8 — narrowly below opus-4-8, above opus-4-7 (A10, low-confidence proxy).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 9,
-        "score": 0.2545791502321264,
-        "cost_figure_used": 0.000002,
+        "score": 0.2838815931241221,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4635,10 +4996,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
+        "effort": "max",
         "rank": 10,
-        "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.004920367756922544,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4659,10 +5020,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 11,
-        "score": 0,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.0051740003981139504,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4685,7 +5046,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 12,
-        "score": 0,
+        "score": 0.005429671158984439,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -4707,10 +5068,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 13,
-        "score": 0,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 0.005652018348357377,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4731,10 +5092,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
+        "effort": "low",
         "rank": 14,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
+        "score": 0.005730548700904265,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4757,7 +5118,7 @@
         "model": "claude-haiku-4-5",
         "effort": null,
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4779,7 +5140,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4800,7 +5161,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4821,7 +5182,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4842,7 +5203,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -4863,7 +5224,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4884,7 +5245,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4905,7 +5266,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4926,7 +5287,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -4947,7 +5308,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -4968,7 +5329,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -4989,7 +5350,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -5010,7 +5371,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 27,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -5031,10 +5392,33 @@
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
-        "effort": "low",
+        "effort": "max",
         "rank": 1,
-        "score": 1.692905482038754,
-        "cost_figure_used": 6.3e-7,
+        "score": 1.4535636959208627,
+        "cost_figure_used": 0.00000135,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.marc0.dev/en/leaderboard",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "sonnet-4-6 SWE-V 79.6 + 87% (<15min) held-out — solid mid-tier coding.",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 2,
+        "score": 1.6040209324566097,
+        "cost_figure_used": 8.25e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5055,7 +5439,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "medium",
-        "rank": 2,
+        "rank": 3,
         "score": 1.6697062263877056,
         "cost_figure_used": 6.75e-7,
         "interpolated": false,
@@ -5077,79 +5461,10 @@
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
-        "effort": "high",
-        "rank": 3,
-        "score": 1.6040209324566097,
-        "cost_figure_used": 8.25e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.marc0.dev/en/leaderboard",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "sonnet-4-6 SWE-V 79.6 + 87% (<15min) held-out — solid mid-tier coding.",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
         "effort": "low",
         "rank": 4,
-        "score": 1.4983360314003755,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vals.ai/benchmarks/swebench",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "Independent held-out SWE-V gpt-5.5 82.6 / opus-4-7 82.0 (near-parity, contamination-resistant coding anchor).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 5,
-        "score": 1.4761103270767635,
-        "cost_figure_used": 0.00000125,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vals.ai/benchmarks/swebench",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "Independent held-out SWE-V gpt-5.5 82.6 / opus-4-7 82.0 (near-parity, contamination-resistant coding anchor).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
-        "rank": 6,
-        "score": 1.4535636959208627,
-        "cost_figure_used": 0.00000135,
+        "score": 1.692905482038754,
+        "cost_figure_used": 6.3e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5163,101 +5478,6 @@
             "label": "[INFERRED]",
             "tier": 2,
             "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
-        "rank": 7,
-        "score": 1.4394487526906279,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "opus-4-8 SWE-Pro 69.2 + held-out 93% (<15min); Verified 88.6 self = upper bound — resistant-metric leader, gpt-5.5 close (A14/CR-9).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
-        "rank": 8,
-        "score": 1.4197228199882086,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "opus-4-8 SWE-Pro 69.2 + held-out 93% (<15min); Verified 88.6 self = upper bound — resistant-metric leader, gpt-5.5 close (A14/CR-9).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
-        "rank": 9,
-        "score": 1.413951397878571,
-        "cost_figure_used": 0.00000155,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vals.ai/benchmarks/swebench",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "Independent held-out SWE-V gpt-5.5 82.6 / opus-4-7 82.0 (near-parity, contamination-resistant coding anchor).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
-        "rank": 10,
-        "score": 1.3638717311811912,
-        "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "opus-4-8 SWE-Pro 69.2 + held-out 93% (<15min); Verified 88.6 self = upper bound — resistant-metric leader, gpt-5.5 close (A14/CR-9).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
           }
         ]
       },
@@ -5265,7 +5485,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 11,
+        "rank": 5,
         "score": 1.3436768105965373,
         "cost_figure_used": 0.000002,
         "interpolated": false,
@@ -5285,10 +5505,103 @@
         ]
       },
       {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 6,
+        "score": 1.413951397878571,
+        "cost_figure_used": 0.00000155,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vals.ai/benchmarks/swebench",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "Independent held-out SWE-V gpt-5.5 82.6 / opus-4-7 82.0 (near-parity, contamination-resistant coding anchor).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 7,
+        "score": 1.4761103270767635,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vals.ai/benchmarks/swebench",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "Independent held-out SWE-V gpt-5.5 82.6 / opus-4-7 82.0 (near-parity, contamination-resistant coding anchor).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
+        "rank": 8,
+        "score": 1.4983360314003755,
+        "cost_figure_used": 0.00000116,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vals.ai/benchmarks/swebench",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "Independent held-out SWE-V gpt-5.5 82.6 / opus-4-7 82.0 (near-parity, contamination-resistant coding anchor).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 9,
+        "score": 1.2359405006650968,
+        "cost_figure_used": 0.0000030375,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "opus-4-8 SWE-Pro 69.2 + held-out 93% (<15min); Verified 88.6 self = upper bound — resistant-metric leader, gpt-5.5 close (A14/CR-9).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
-        "rank": 12,
+        "rank": 10,
         "score": 1.29965013966476,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
@@ -5311,10 +5624,58 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "high",
+        "rank": 11,
+        "score": 1.3638717311811912,
+        "cost_figure_used": 0.0000018562500000000002,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "opus-4-8 SWE-Pro 69.2 + held-out 93% (<15min); Verified 88.6 self = upper bound — resistant-metric leader, gpt-5.5 close (A14/CR-9).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 12,
+        "score": 1.4197228199882086,
+        "cost_figure_used": 0.00000151875,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "opus-4-8 SWE-Pro 69.2 + held-out 93% (<15min); Verified 88.6 self = upper bound — resistant-metric leader, gpt-5.5 close (A14/CR-9).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "low",
         "rank": 13,
-        "score": 1.2359405006650968,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.4394487526906279,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5337,7 +5698,7 @@
         "model": "claude-haiku-4-5",
         "effort": null,
         "rank": 14,
-        "score": 0,
+        "score": 0.008478027522536066,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": false,
         "confidence": "high",
@@ -5357,60 +5718,104 @@
         ]
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "xhigh",
         "rank": 15,
-        "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.007817656252290339,
+        "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": false,
         "confidence": "high",
         "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+          "[INFERRED]"
         ],
         "citations": [
           {
-            "url": "https://www.vals.ai/benchmarks/swebench",
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
             "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "Independent held-out SWE-V opus-4-7 82.0 (contamination-resistant); SWE-Pro 64.3.",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
           }
         ]
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 16,
-        "score": 0,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vals.ai/benchmarks/swebench",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "Independent held-out SWE-V opus-4-7 82.0 (contamination-resistant); SWE-Pro 64.3.",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
         "effort": "high",
+        "rank": 16,
+        "score": 0.008226521362047356,
+        "cost_figure_used": 2.3250000000000005e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "medium",
         "rank": 17,
-        "score": 0,
-        "cost_figure_used": 0.0000018562500000000002,
+        "score": 0.008554222306263414,
+        "cost_figure_used": 1.875e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "low",
+        "rank": 18,
+        "score": 0.008554222306263414,
+        "cost_figure_used": 1.74e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 19,
+        "score": 0.004920367756922544,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5432,8 +5837,8 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 18,
-        "score": 0,
+        "rank": 20,
+        "score": 0.0051740003981139504,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -5455,10 +5860,58 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
-        "rank": 19,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
+        "effort": "high",
+        "rank": 21,
+        "score": 0.005429671158984439,
+        "cost_figure_used": 0.0000018562500000000002,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vals.ai/benchmarks/swebench",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "Independent held-out SWE-V opus-4-7 82.0 (contamination-resistant); SWE-Pro 64.3.",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 22,
+        "score": 0.005652018348357377,
+        "cost_figure_used": 0.00000151875,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vals.ai/benchmarks/swebench",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "Independent held-out SWE-V opus-4-7 82.0 (contamination-resistant); SWE-Pro 64.3.",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "low",
+        "rank": 23,
+        "score": 0.005730548700904265,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5478,102 +5931,10 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 20,
-        "score": 0,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 21,
-        "score": 0,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "high",
-        "rank": 22,
-        "score": 0,
-        "cost_figure_used": 2.3250000000000005e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "xhigh",
-        "rank": 23,
-        "score": 0,
-        "cost_figure_used": 3.0000000000000004e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -5594,7 +5955,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -5615,7 +5976,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -5636,7 +5997,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 27,
-        "score": -0.000001,
+        "score": 0.004919367756922544,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -5657,10 +6018,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 1,
-        "score": 1.4394487526906279,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 1.2359405006650968,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5681,10 +6042,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 2,
-        "score": 1.4197228199882086,
-        "cost_figure_used": 0.00000151875,
+        "score": 1.29965013966476,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5729,10 +6090,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 4,
-        "score": 1.29965013966476,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.4197228199882086,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5753,10 +6114,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "low",
         "rank": 5,
-        "score": 1.2359405006650968,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.4394487526906279,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5777,10 +6138,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
+        "effort": "max",
         "rank": 6,
-        "score": 1.0258005568084954,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 0.8807735957216907,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5801,10 +6162,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 7,
-        "score": 1.0117431805303296,
-        "cost_figure_used": 0.00000151875,
+        "score": 0.9261752698262836,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5849,10 +6210,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 9,
-        "score": 0.9261752698262836,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.0117431805303296,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5873,10 +6234,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "max",
+        "effort": "low",
         "rank": 10,
-        "score": 0.8807735957216907,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.0258005568084954,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5897,33 +6258,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 11,
-        "score": 0,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[SEED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "HLE no-tools gpt-5.5 41.4 — below both opus tiers (knowledge_synthesis proxy).",
-            "label": "[SEED]",
-            "tier": 3,
-            "source_id": "[SEED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 12,
-        "score": 0,
-        "cost_figure_used": 0.00000125,
+        "score": 0.005349273732049348,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5944,8 +6282,8 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 13,
-        "score": 0,
+        "rank": 12,
+        "score": 0.005629041903096,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
         "confidence": "high",
@@ -5966,10 +6304,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 13,
+        "score": 0.0058765010573732755,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[SEED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "HLE no-tools gpt-5.5 41.4 — below both opus tiers (knowledge_synthesis proxy).",
+            "label": "[SEED]",
+            "tier": 3,
+            "source_id": "[SEED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 14,
-        "score": 0,
-        "cost_figure_used": 0.000002,
+        "score": 0.005964983179991594,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -5991,7 +6352,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6012,7 +6373,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6033,7 +6394,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6054,7 +6415,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -6075,7 +6436,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6096,7 +6457,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6117,7 +6478,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6138,7 +6499,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6159,7 +6520,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -6180,7 +6541,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -6201,7 +6562,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -6222,7 +6583,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -6243,10 +6604,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 1,
-        "score": 1.4394487526906279,
-        "cost_figure_used": 0.0000014174999999999998,
+        "score": 1.2359405006650968,
+        "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6267,10 +6628,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
+        "effort": "xhigh",
         "rank": 2,
-        "score": 1.4197228199882086,
-        "cost_figure_used": 0.00000151875,
+        "score": 1.29965013966476,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6315,10 +6676,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "medium",
         "rank": 4,
-        "score": 1.29965013966476,
-        "cost_figure_used": 0.0000023625000000000003,
+        "score": 1.4197228199882086,
+        "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6339,10 +6700,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
+        "effort": "low",
         "rank": 5,
-        "score": 1.2359405006650968,
-        "cost_figure_used": 0.0000030375,
+        "score": 1.4394487526906279,
+        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6363,33 +6724,10 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
+        "effort": "xhigh",
         "rank": 6,
-        "score": 0,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/compare/claude-opus-4-8-vs-gpt-5-5",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.5 OfficeQA Pro 54.1 orientation #2, below opus (mechanical proxy).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 7,
-        "score": 0,
-        "cost_figure_used": 0.00000125,
+        "score": 0.005349273732049348,
+        "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6410,8 +6748,8 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 8,
-        "score": 0,
+        "rank": 7,
+        "score": 0.005629041903096,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
         "confidence": "high",
@@ -6432,10 +6770,33 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "xhigh",
+        "effort": "medium",
+        "rank": 8,
+        "score": 0.0058765010573732755,
+        "cost_figure_used": 0.00000125,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://benchlm.ai/compare/claude-opus-4-8-vs-gpt-5-5",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.5 OfficeQA Pro 54.1 orientation #2, below opus (mechanical proxy).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "low",
         "rank": 9,
-        "score": 0,
-        "cost_figure_used": 0.000002,
+        "score": 0.005964983179991594,
+        "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -6457,7 +6818,7 @@
         "model": "claude-haiku-4-5",
         "effort": null,
         "rank": 10,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6479,7 +6840,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 11,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": true,
         "confidence": "low",
@@ -6501,7 +6862,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 12,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.00000151875,
         "interpolated": true,
         "confidence": "low",
@@ -6523,7 +6884,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 13,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
@@ -6545,7 +6906,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 14,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
@@ -6567,7 +6928,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
@@ -6589,7 +6950,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6610,7 +6971,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6631,7 +6992,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6652,7 +7013,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -6673,7 +7034,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6694,7 +7055,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6715,7 +7076,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6736,7 +7097,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -6757,7 +7118,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -6778,7 +7139,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -6799,7 +7160,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -6820,7 +7181,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 27,
-        "score": -0.000001,
+        "score": 0.005348273732049348,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -7057,7 +7418,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 10,
-        "score": 0,
+        "score": 0.22729762982608817,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -7081,7 +7442,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 11,
-        "score": 0,
+        "score": 0.21808056972380244,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -7105,7 +7466,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 12,
-        "score": 0,
+        "score": 0.19334229420235,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -7129,7 +7490,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 13,
-        "score": 0,
+        "score": 0.1672960385565335,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -7153,7 +7514,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 14,
-        "score": 0,
+        "score": 0.1438795184682085,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -7177,7 +7538,7 @@
         "model": "claude-haiku-4-5",
         "effort": null,
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7199,7 +7560,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7220,7 +7581,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7241,7 +7602,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7262,7 +7623,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -7283,7 +7644,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7304,7 +7665,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7325,7 +7686,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7346,7 +7707,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7367,7 +7728,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -7388,7 +7749,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -7409,7 +7770,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -7430,7 +7791,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 27,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -7665,7 +8026,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 10,
-        "score": 0,
+        "score": 0.22729762982608817,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -7689,7 +8050,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 11,
-        "score": 0,
+        "score": 0.21808056972380244,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -7713,7 +8074,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 12,
-        "score": 0,
+        "score": 0.19334229420235,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -7737,7 +8098,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 13,
-        "score": 0,
+        "score": 0.1672960385565335,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -7761,7 +8122,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 14,
-        "score": 0,
+        "score": 0.1438795184682085,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -7785,7 +8146,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7806,7 +8167,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7827,7 +8188,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7848,7 +8209,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -7869,7 +8230,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7890,7 +8251,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7911,7 +8272,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7932,7 +8293,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -7953,7 +8314,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -7974,7 +8335,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -7995,7 +8356,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -8016,7 +8377,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -8371,7 +8732,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 15,
-        "score": 0,
+        "score": 0.8001643508434639,
         "cost_figure_used": 1.74e-7,
         "interpolated": false,
         "confidence": "high",
@@ -8394,7 +8755,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 16,
-        "score": 0,
+        "score": 0.7650819998320294,
         "cost_figure_used": 1.875e-7,
         "interpolated": false,
         "confidence": "high",
@@ -8417,7 +8778,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 17,
-        "score": 0,
+        "score": 0.6724422200441917,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": false,
         "confidence": "high",
@@ -8440,7 +8801,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 18,
-        "score": 0,
+        "score": 0.5770799623628853,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": false,
         "confidence": "high",
@@ -8463,7 +8824,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -8484,7 +8845,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -8505,7 +8866,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -8526,7 +8887,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -8547,7 +8908,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -8568,7 +8929,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -8589,7 +8950,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -8610,7 +8971,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -8633,7 +8994,7 @@
         "model": "claude-opus-4-8",
         "effort": "low",
         "rank": 1,
-        "score": 3.6024246617391333,
+        "score": 3.600983259352773,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -8665,7 +9026,7 @@
         "model": "claude-opus-4-8",
         "effort": "medium",
         "rank": 2,
-        "score": 3.4563441036329574,
+        "score": 3.454961151008862,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -8697,7 +9058,7 @@
         "model": "claude-opus-4-8",
         "effort": "high",
         "rank": 3,
-        "score": 3.0642688589611837,
+        "score": 3.063042783509095,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -8729,7 +9090,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 4,
-        "score": 2.7301273697018105,
+        "score": 2.729034990963804,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -8761,7 +9122,7 @@
         "model": "claude-opus-4-8",
         "effort": "xhigh",
         "rank": 5,
-        "score": 2.6514635263396196,
+        "score": 2.6504026225836563,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -8793,7 +9154,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 6,
-        "score": 2.6194190087185025,
+        "score": 2.618370926616983,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -8825,7 +9186,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 7,
-        "score": 2.32228153688469,
+        "score": 2.3213523454474294,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -8857,7 +9218,7 @@
         "model": "claude-opus-4-8",
         "effort": "max",
         "rank": 8,
-        "score": 2.2803366935484677,
+        "score": 2.2794242850846085,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -8889,7 +9250,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 9,
-        "score": 2.00943359618552,
+        "score": 2.008629581486327,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -8921,7 +9282,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 10,
-        "score": 1.7281720518164785,
+        "score": 1.727480575504431,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -9631,7 +9992,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 15,
-        "score": 0,
+        "score": 0.8001643508434639,
         "cost_figure_used": 1.74e-7,
         "interpolated": false,
         "confidence": "high",
@@ -9654,7 +10015,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 16,
-        "score": 0,
+        "score": 0.7650819998320294,
         "cost_figure_used": 1.875e-7,
         "interpolated": false,
         "confidence": "high",
@@ -9677,7 +10038,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 17,
-        "score": 0,
+        "score": 0.6724422200441917,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": false,
         "confidence": "high",
@@ -9700,7 +10061,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 18,
-        "score": 0,
+        "score": 0.5770799623628853,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": false,
         "confidence": "high",
@@ -9723,7 +10084,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -9744,7 +10105,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -9765,7 +10126,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -9786,7 +10147,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -9807,7 +10168,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -9828,7 +10189,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -9849,7 +10210,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -9870,7 +10231,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.5770789623628853,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -10197,7 +10558,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 14,
-        "score": 0,
+        "score": 0.22729762982608817,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -10221,7 +10582,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 15,
-        "score": 0,
+        "score": 0.21808056972380244,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -10245,7 +10606,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 16,
-        "score": 0,
+        "score": 0.19334229420235,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -10269,7 +10630,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 17,
-        "score": 0,
+        "score": 0.1672960385565335,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -10293,7 +10654,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 18,
-        "score": 0,
+        "score": 0.1438795184682085,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -10317,7 +10678,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10338,7 +10699,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10359,7 +10720,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10380,7 +10741,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10401,7 +10762,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -10422,7 +10783,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -10443,7 +10804,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -10464,7 +10825,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -10699,7 +11060,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 10,
-        "score": 0,
+        "score": 0.22729762982608817,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -10723,7 +11084,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 11,
-        "score": 0,
+        "score": 0.21808056972380244,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -10747,7 +11108,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 12,
-        "score": 0,
+        "score": 0.19334229420235,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -10771,7 +11132,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 13,
-        "score": 0,
+        "score": 0.1672960385565335,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -10795,7 +11156,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 14,
-        "score": 0,
+        "score": 0.1438795184682085,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -10819,7 +11180,7 @@
         "model": "claude-haiku-4-5",
         "effort": null,
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10841,7 +11202,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10862,7 +11223,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10883,7 +11244,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10904,7 +11265,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -10925,7 +11286,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10946,7 +11307,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10967,7 +11328,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -10988,7 +11349,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -11009,7 +11370,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -11030,7 +11391,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -11051,7 +11412,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -11072,7 +11433,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 27,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -11395,11 +11756,57 @@
         ]
       },
       {
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "low",
+        "rank": 14,
+        "score": 0.8001643508434639,
+        "cost_figure_used": 1.74e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "medium",
+        "rank": 15,
+        "score": 0.7650819998320294,
+        "cost_figure_used": 1.875e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
         "provider": "claude",
         "model": "claude-haiku-4-5",
         "effort": null,
-        "rank": 14,
-        "score": 0,
+        "rank": 16,
+        "score": 0.7360219228178331,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": false,
         "confidence": "high",
@@ -11419,11 +11826,57 @@
         ]
       },
       {
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "high",
+        "rank": 17,
+        "score": 0.6724422200441917,
+        "cost_figure_used": 2.3250000000000005e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.4-mini",
+        "effort": "xhigh",
+        "rank": 18,
+        "score": 0.5770799623628853,
+        "cost_figure_used": 3.0000000000000004e-7,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "[INFERRED]"
+        ],
+        "citations": [
+          {
+            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
+            "retrieved_at": "2026-06-06T00:00:00Z",
+            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
+            "label": "[INFERRED]",
+            "tier": 2,
+            "source_id": "[INFERRED]"
+          }
+        ]
+      },
+      {
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "low",
-        "rank": 15,
-        "score": 0,
+        "rank": 19,
+        "score": 0.22729762982608817,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "high",
@@ -11446,8 +11899,8 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "medium",
-        "rank": 16,
-        "score": 0,
+        "rank": 20,
+        "score": 0.21808056972380244,
         "cost_figure_used": 0.00000151875,
         "interpolated": false,
         "confidence": "high",
@@ -11470,8 +11923,8 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 17,
-        "score": 0,
+        "rank": 21,
+        "score": 0.19334229420235,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
         "confidence": "high",
@@ -11494,8 +11947,8 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 18,
-        "score": 0,
+        "rank": 22,
+        "score": 0.1672960385565335,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
@@ -11518,8 +11971,8 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "max",
-        "rank": 19,
-        "score": 0,
+        "rank": 23,
+        "score": 0.1438795184682085,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
         "confidence": "high",
@@ -11540,102 +11993,10 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 20,
-        "score": 0,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 21,
-        "score": 0,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "high",
-        "rank": 22,
-        "score": 0,
-        "cost_figure_used": 2.3250000000000005e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "xhigh",
-        "rank": 23,
-        "score": 0,
-        "cost_figure_used": 3.0000000000000004e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[INFERRED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
-            "retrieved_at": "2026-06-06T00:00:00Z",
-            "annotation": "gpt-5.4-mini SWE-Pro 54.4 measured proxy, below sonnet (coding).",
-            "label": "[INFERRED]",
-            "tier": 2,
-            "source_id": "[INFERRED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -11656,7 +12017,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -11677,7 +12038,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -11698,7 +12059,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 27,
-        "score": -0.000001,
+        "score": 0.1438785184682085,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -11961,7 +12322,7 @@
         "model": "gpt-5.5",
         "effort": "low",
         "rank": 11,
-        "score": 0,
+        "score": 0.25635037323597887,
         "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
@@ -11984,7 +12345,7 @@
         "model": "gpt-5.5",
         "effort": "medium",
         "rank": 12,
-        "score": 0,
+        "score": 0.24511096502403235,
         "cost_figure_used": 0.00000125,
         "interpolated": false,
         "confidence": "high",
@@ -12007,7 +12368,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "rank": 13,
-        "score": 0,
+        "score": 0.21543175962069527,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
         "confidence": "high",
@@ -12030,7 +12391,7 @@
         "model": "gpt-5.5",
         "effort": "xhigh",
         "rank": 14,
-        "score": 0,
+        "score": 0.18488034812197066,
         "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
@@ -12053,7 +12414,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12074,7 +12435,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12095,7 +12456,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12116,7 +12477,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -12137,7 +12498,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12158,7 +12519,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12179,7 +12540,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12200,7 +12561,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12221,7 +12582,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -12242,7 +12603,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -12263,7 +12624,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -12284,7 +12645,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
@@ -12427,7 +12788,7 @@
         "model": "gpt-5.5",
         "effort": "low",
         "rank": 6,
-        "score": 0,
+        "score": 0.25635037323597887,
         "cost_figure_used": 0.00000116,
         "interpolated": false,
         "confidence": "high",
@@ -12450,7 +12811,7 @@
         "model": "gpt-5.5",
         "effort": "medium",
         "rank": 7,
-        "score": 0,
+        "score": 0.24511096502403235,
         "cost_figure_used": 0.00000125,
         "interpolated": false,
         "confidence": "high",
@@ -12473,7 +12834,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "rank": 8,
-        "score": 0,
+        "score": 0.21543175962069527,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
         "confidence": "high",
@@ -12496,7 +12857,7 @@
         "model": "gpt-5.5",
         "effort": "xhigh",
         "rank": 9,
-        "score": 0,
+        "score": 0.18488034812197066,
         "cost_figure_used": 0.000002,
         "interpolated": false,
         "confidence": "high",
@@ -12519,7 +12880,7 @@
         "model": "claude-haiku-4-5",
         "effort": null,
         "rank": 10,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 2.0000000000000002e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12541,7 +12902,7 @@
         "model": "claude-opus-4-7",
         "effort": "low",
         "rank": 11,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.0000014174999999999998,
         "interpolated": true,
         "confidence": "low",
@@ -12563,7 +12924,7 @@
         "model": "claude-opus-4-7",
         "effort": "medium",
         "rank": 12,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.00000151875,
         "interpolated": true,
         "confidence": "low",
@@ -12585,7 +12946,7 @@
         "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 13,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
@@ -12607,7 +12968,7 @@
         "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 14,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
@@ -12629,7 +12990,7 @@
         "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 15,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
@@ -12651,7 +13012,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "low",
         "rank": 16,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 6.3e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12672,7 +13033,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "medium",
         "rank": 17,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 6.75e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12693,7 +13054,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "high",
         "rank": 18,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12714,7 +13075,7 @@
         "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 19,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
         "confidence": "low",
@@ -12735,7 +13096,7 @@
         "model": "gpt-5.4-mini",
         "effort": "low",
         "rank": 20,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 1.74e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12756,7 +13117,7 @@
         "model": "gpt-5.4-mini",
         "effort": "medium",
         "rank": 21,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 1.875e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12777,7 +13138,7 @@
         "model": "gpt-5.4-mini",
         "effort": "high",
         "rank": 22,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12798,7 +13159,7 @@
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
         "rank": 23,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
         "confidence": "low",
@@ -12819,7 +13180,7 @@
         "model": "gpt-5.5-pro",
         "effort": "low",
         "rank": 24,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.00000696,
         "interpolated": true,
         "confidence": "low",
@@ -12840,7 +13201,7 @@
         "model": "gpt-5.5-pro",
         "effort": "medium",
         "rank": 25,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.0000075,
         "interpolated": true,
         "confidence": "low",
@@ -12861,7 +13222,7 @@
         "model": "gpt-5.5-pro",
         "effort": "high",
         "rank": 26,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
         "confidence": "low",
@@ -12882,7 +13243,7 @@
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
         "rank": 27,
-        "score": -0.000001,
+        "score": 0.18487934812197065,
         "cost_figure_used": 0.000012,
         "interpolated": true,
         "confidence": "low",
