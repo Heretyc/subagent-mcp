@@ -25,20 +25,27 @@ MCP server that launches and manages locally installed `claude` and `codex` CLI 
 
 **Prerequisites:** Node.js >= 18, plus the `claude` and/or `codex` CLIs installed globally and authenticated.
 
-Install from npm and auto-wire both Claude Code and Codex CLI in one command:
+Installed via [GitHub Packages](https://github.com/Heretyc/subagent-mcp/pkgs/npm/subagent-mcp). One-time `.npmrc` setup required (GitHub Packages requires auth even for public packages):
 
 ```bash
-npm install -g subagent-mcp
+# 1. Configure registry for @heretyc scope (once per machine)
+echo "@heretyc:registry=https://npm.pkg.github.com" >> ~/.npmrc
+
+# 2. Authenticate — use a classic PAT with read:packages scope
+echo "//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PAT" >> ~/.npmrc
+
+# 3. Install and wire
+npm install -g @heretyc/subagent-mcp
 subagent-mcp setup
 ```
 
-`setup` detects which vendors are present, registers the MCP server, and writes the `UserPromptSubmit` hook for orchestration-mode injection. It is idempotent — safe to re-run after updates. Pass `--dry-run` to print what it would do without making changes.
+`setup` detects which vendors are present, registers the MCP server, and writes the `UserPromptSubmit` hook for orchestration-mode injection. Idempotent — safe to re-run after updates. Pass `--dry-run` to preview.
 
 After setup, restart your Claude Code or Codex session. On Codex, run `/hooks` and trust the new hook.
 
-**Updating:** re-run `npm install -g subagent-mcp && subagent-mcp setup` — the install overwrites the global copy; existing vendor config keeps pointing at the same path.
+**Updating:** `npm install -g @heretyc/subagent-mcp && subagent-mcp setup`
 
-For manual per-platform wiring, developer install from source, Gemini CLI, and Claude Desktop, see [docs/registration.md](docs/registration.md).
+For manual wiring, developer install from source, Gemini CLI, and Claude Desktop, see [docs/registration.md](docs/registration.md).
 
 ---
 
