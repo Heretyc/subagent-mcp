@@ -906,6 +906,11 @@ const isMain =
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
 if (isMain) {
+  if (process.argv[2] === "setup") {
+    const { runSetup } = await import("./setup.js");
+    await runSetup();
+    process.exit(0);
+  }
   // ORCHESTRATION MODE PERSISTS across restarts/sessions: the server does NOT
   // clear the marker on startup. DEFAULT OFF now means ABSENCE of a marker — a
   // project never enabled stays OFF; a project explicitly enabled persists ON
