@@ -25,10 +25,14 @@ See [README.md](../README.md) for the project overview and
 
 ## Install
 
-**Recommended — npm global install (auto-wires Claude and Codex):**
+**Recommended — GitHub Packages install (auto-wires Claude and Codex):**
 
 ```bash
-npm install -g subagent-mcp
+# One-time: configure registry + auth (classic PAT with read:packages)
+echo "@heretyc:registry=https://npm.pkg.github.com" >> ~/.npmrc
+echo "//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PAT" >> ~/.npmrc
+
+npm install -g @heretyc/subagent-mcp
 subagent-mcp setup
 ```
 
