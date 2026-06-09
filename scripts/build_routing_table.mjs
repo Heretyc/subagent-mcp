@@ -373,6 +373,24 @@ validateDatasetShape(dataset);
 const MODELS = dataset.models;
 const UNIVERSE_MODELS = new Set(Object.keys(MODELS));
 
+// performance_rank_pin: Map<category, Set<model>> — performance branch only; no cost_efficiency effect.
+const SPINE_SET = new Set(SPINE);
+const PERF_RANK_PINS = new Map();
+for (const [model, spec] of Object.entries(MODELS)) {
+  const pin = spec.performance_rank_pin;
+  if (!pin) continue;
+  if (!Array.isArray(pin.categories)) {
+    throw new Error(`MODELS.${model}.performance_rank_pin.categories must be an array of SPINE categories`);
+  }
+  for (const cat of pin.categories) {
+    if (!SPINE_SET.has(cat)) {
+      throw new Error(`MODELS.${model}.performance_rank_pin.categories: unknown category '${cat}' (must be a known SPINE category)`);
+    }
+    if (!PERF_RANK_PINS.has(cat)) PERF_RANK_PINS.set(cat, new Set());
+    PERF_RANK_PINS.get(cat).add(model);
+  }
+}
+
 function modelSupportsSelectableEffort(model) {
   const ladder = MODELS[model]?.effort_ladder;
   return Array.isArray(ladder) && ladder.some((effort) => !NO_EFFORT_SENTINELS.has(effortKey(effort)));
@@ -531,6 +549,36 @@ function costFigureUsed(model, effortK) {
 const COST = new Map(); // pairingId -> cost detail
 for (const p of UNIVERSE) {
   COST.set(p.id, costFigureUsed(p.model, p.effortK));
+}
+// assumed_cost cost-pin: for models with assumed_cost.multiplier, override perToken to M * max(non-assumed).
+// Affects COST only; scoring/perf composite is never touched. Recompute MAX_COST/COST_NORM below.
+const ASSUMED_COST_PAIRINGS = new Map(); // pairingId -> audit note
+const REAL_PERTOKEN = new Map();
+for (const p of UNIVERSE) REAL_PERTOKEN.set(p.id, COST.get(p.id).perToken);
+{
+  for (const [model, spec] of Object.entries(MODELS)) {
+    if (spec.assumed_cost === undefined) continue;
+    const M = spec.assumed_cost?.multiplier;
+    if (typeof M !== "number" || M <= 0) {
+      throw new Error(`assumed_cost.multiplier must be a positive number for model '${model}'; got ${M}`);
+    }
+  }
+  const nonAssumedPerTokens = UNIVERSE
+    .filter(p => !MODELS[p.model].assumed_cost)
+    .map(p => COST.get(p.id).perToken);
+  if (nonAssumedPerTokens.length > 0) {
+    const baseMaxPerToken = Math.max(...nonAssumedPerTokens);
+    for (const p of UNIVERSE) {
+      const spec = MODELS[p.model];
+      if (!spec.assumed_cost) continue;
+      const M = spec.assumed_cost.multiplier;
+      COST.get(p.id).perToken = M * baseMaxPerToken;
+      ASSUMED_COST_PAIRINGS.set(
+        p.id,
+        `[ASSUMPTION] assumed_cost: cost pinned to ${M}x most-expensive incumbent (owner-directed; cost-only)`
+      );
+    }
+  }
 }
 // Aggregate cliff side for metadata: "below" if any member has a cliff (all sub-cliff), else "n/a".
 const PRICE_CLIFF_SIDE = [...COST.values()].some((c) => c.hasCliff) ? "below" : "n/a";
@@ -698,12 +746,14 @@ function buildCategoryScores(category) {
     else confidence = "medium";
 
     const tierFloor = Math.min(...selected.map((r) => Number(r.tier)).filter((t) => Number.isFinite(t)));
+    const perfOnly = selected.length > 0 && selected.every(r => r.performance_only === true);
     result.set(p.id, {
       score: performanceRaw,
       rows: selected,
       confidence,
       tierFloor: Number.isFinite(tierFloor) ? tierFloor : null,
       thinBasis, // refinement #3: score rests entirely on neutralized single-obs evidence
+      performanceOnly: perfOnly,
       basis: new Set(selected.map((r) => r.label).filter(Boolean)),
     });
   }
@@ -986,16 +1036,16 @@ function costPercentile(sortedAsc, p) {
   const hi = Math.ceil(idx);
   return sortedAsc[lo] + (sortedAsc[hi] - sortedAsc[lo]) * (idx - lo);
 }
-const _PERF_COST_SORTED = UNIVERSE.map((p) => COST.get(p.id).perToken).sort((a, b) => a - b);
+const _PERF_COST_SORTED = UNIVERSE.map((p) => REAL_PERTOKEN.get(p.id)).sort((a, b) => a - b);
 const PERF_COST_LOW = costPercentile(_PERF_COST_SORTED, PERF_COST_WINSOR.p_low);
 const PERF_COST_HIGH = costPercentile(_PERF_COST_SORTED, PERF_COST_WINSOR.p_high);
 function winsorizeCost(perToken) {
   return Math.min(Math.max(perToken, PERF_COST_LOW), PERF_COST_HIGH);
 }
 // Renormalize the winsorized cost by the winsorized universe max so cost_norm stays in (0,1].
-const PERF_MAX_COST = Math.max(...UNIVERSE.map((p) => winsorizeCost(COST.get(p.id).perToken)));
+const PERF_MAX_COST = Math.max(...UNIVERSE.map((p) => winsorizeCost(REAL_PERTOKEN.get(p.id))));
 const PERF_COST_NORM = new Map();
-for (const p of UNIVERSE) PERF_COST_NORM.set(p.id, winsorizeCost(COST.get(p.id).perToken) / PERF_MAX_COST);
+for (const p of UNIVERSE) PERF_COST_NORM.set(p.id, winsorizeCost(REAL_PERTOKEN.get(p.id)) / PERF_MAX_COST);
 const PERF_COST_WINSOR_AUDIT = {
   applies_to: "performance",
   method: "winsorize_percentile_window",
@@ -1062,6 +1112,16 @@ function buildFullPairingObject(item, category) {
   }
   if (COST.get(p.id).tokInflation === OPUS_INFLATION) {
     basis.push(`[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)`);
+  }
+  if (ASSUMED_COST_PAIRINGS.has(p.id)) {
+    basis.push(ASSUMED_COST_PAIRINGS.get(p.id));
+  }
+  if (item.costPerfOnly) {
+    basis.push("[ASSUMPTION] performance-only pin: excluded from cost_efficiency scoring (owner: exception is performance-branch only); ranked by cost");
+  }
+  if (item.perfPinned) {
+    const pin = MODELS[item.p.model]?.performance_rank_pin;
+    basis.push(pin?.basis ?? "[ASSUMPTION] owner-directed performance rank-pin; performance branch only; not a measured benchmark");
   }
   if (s.score === null) {
     basis.push("data-free sentinel (no measured rows; SOP-1 guard-blocked)");
@@ -1156,7 +1216,7 @@ function buildFullBranch(branch, exponents) {
   for (const category of SPINE) {
     const scores = perfScores.get(category);
     const dataMissing = DATA_MISSING_CATEGORIES.has(category);
-    const { items } = rankBranch(branch, scores, exponents, categoryUniverse(category), dataMissing);
+    const { items } = rankBranch(branch, scores, exponents, categoryUniverse(category), dataMissing, category);
     out[category] = items.map((item, idx) => {
       const obj = buildFullPairingObject(item, category);
       obj.rank = idx + 1;
@@ -1173,7 +1233,7 @@ function buildFullBranch(branch, exponents) {
 // de-facto, MEANINGLESS capability proxy. For such categories we instead order by the
 // canonical universe sequence (capability-NEUTRAL, documented, deterministic). The table
 // still ends up dense 1..N; only the ORDERING BASIS among the (tied) sentinels changes.
-function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing = false) {
+function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing = false, category = null) {
   // refinement #6: the performance branch scores against the winsorized $/token cost_norm;
   // cost_efficiency keeps the raw cost_norm (it is intentionally cost-dominant).
   const costNormMap = branch === "performance" ? PERF_COST_NORM : COST_NORM;
@@ -1181,6 +1241,8 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
   for (const p of universe) {
     const s = scores.get(p.id);
     if (s.score === null) continue;
+    // performance-only pairings are excluded from cost_efficiency scoring
+    if (branch === "cost_efficiency" && s.performanceOnly === true) continue;
     observed.push(powerScore(p, s, exponents, costNormMap));
   }
   const minObs = observed.length ? Math.min(...observed) : 0;
@@ -1188,20 +1250,29 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
 
   const items = universe.map((p) => {
     const s = scores.get(p.id);
-    const hasScore = s.score !== null;
+    const costPerfOnly = (branch === "cost_efficiency" && s.performanceOnly === true);
+    const hasScore = s.score !== null && !costPerfOnly;
     const branchScore = hasScore ? powerScore(p, s, exponents, costNormMap) : SENTINEL;
+    const perfPinned = branch === "performance" && (PERF_RANK_PINS.get(category)?.has(p.model) ?? false);
     return {
       p,
       s,
       hasScore,
+      costPerfOnly,
       branchScore,
       effIdx: EFFORT_INDEX.get(p.effortK) ?? 0,
       versionRank: MODELS[p.model].version_rank,
       lineage: MODELS[p.model].version_lineage,
+      perfPinned,
     };
   });
 
   items.sort((a, b) => {
+    // performance_rank_pin: pinned pairings sort above ALL non-pinned (performance branch only).
+    const aPin = a.perfPinned;
+    const bPin = b.perfPinned;
+    if (aPin !== bPin) return aPin ? -1 : 1;
+    if (aPin && bPin && a.effIdx !== b.effIdx) return b.effIdx - a.effIdx;
     // #1 fix (performance branch only): same model + equal measured perf_norm → effort descending
     // (max-effort first), before cost can discriminate. Cost separates only ACROSS models here.
     // Bound: non-null, non-interpolated scores; sentinels (null) stay last via SENTINEL constant.
@@ -1213,6 +1284,13 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
       a.effIdx !== b.effIdx
     ) return b.effIdx - a.effIdx;
     if (b.branchScore !== a.branchScore) return b.branchScore - a.branchScore;
+    // cost_efficiency sentinels: cheaper first = better cost_efficiency. Precedes dataMissing so
+    // DATA_MISSING categories (all sentinels) rank by cost, not universe order.
+    if (branch === "cost_efficiency" && a.branchScore === SENTINEL && b.branchScore === SENTINEL) {
+      const ca = COST.get(a.p.id)?.perToken ?? Infinity;
+      const cb = COST.get(b.p.id)?.perToken ?? Infinity;
+      if (ca !== cb) return ca - cb;
+    }
     // refinement #2: data-missing category -> ALL sentinels tie on score; do NOT let the
     // version_rank/model-id chain below stand in as a fake capability ranking. Break the tie
     // by canonical universe order only (capability-neutral, deterministic). Still dense 1..N.

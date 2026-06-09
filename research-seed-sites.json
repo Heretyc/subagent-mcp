@@ -4,45 +4,194 @@
     "author_url": "https://github.com/Heretyc/",
     "schema_version": "1",
     "generated": "2026-06",
-    "last_run_at": "2026-06-06T00:00:00Z",
-    "run_id": "run-2026-06-06",
-    "site_count": 30,
+    "last_run_at": "2026-06-09T00:00:00Z",
+    "run_id": "run-2026-06-09",
+    "site_count": 39,
     "corpus_skew": {
       "by_tier": {
-        "0": 12,
-        "2": 11,
-        "3": 7
+        "0": 11,
+        "2": 13,
+        "3": 9,
+        "5": 6
       },
       "by_domain": {
-        "artificialanalysis.ai": 3,
-        "benchlm.ai": 5,
+        "artificialanalysis.ai": 4,
+        "benchlm.ai": 7,
+        "bird-bench.github.io": 1,
         "buildfast.io": 1,
         "dev.to": 1,
+        "gorilla.cs.berkeley.edu": 1,
         "interestingengineering.com": 1,
         "kingy.ai": 1,
         "labs.scale.com": 1,
         "llm-stats.com": 2,
+        "morphllm.com": 1,
+        "spider2-sql.github.io": 1,
         "thezvi.wordpress.com": 1,
         "venturebeat.com": 1,
         "aisi.gov.uk": 1,
         "anthropic.com": 1,
         "cometapi.com": 1,
         "datacamp.com": 4,
-        "digitalapplied.com": 1,
+        "digitalapplied.com": 2,
         "hackerone.com": 1,
         "marc0.dev": 1,
         "mindstudio.ai": 1,
+        "tbench.ai": 1,
         "vals.ai": 1,
         "vellum.ai": 1
       },
       "by_provider_family": {
-        "claude": 14,
-        "codex": 10
+        "claude": 21,
+        "codex": 16
       },
-      "demoted_count": 19
+      "demoted_count": 25
     }
   },
   "sites": [
+    {
+      "url": "https://artificialanalysis.ai",
+      "domain": "artificialanalysis.ai",
+      "tier": 2,
+      "categories": [
+        "knowledge_synthesis"
+      ],
+      "benchmarks": [
+        "AA-Omniscience accuracy",
+        "AA-Omniscience hallucination",
+        "GPQA Diamond",
+        "HLE"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 4,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "knowledge_synthesis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "AA-Omniscience accuracy",
+              "AA-Omniscience hallucination",
+              "GPQA Diamond",
+              "HLE"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "knowledge_synthesis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "AA-Omniscience accuracy",
+              "AA-Omniscience hallucination",
+              "GPQA Diamond",
+              "HLE"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "knowledge_synthesis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "AA-Omniscience accuracy",
+              "AA-Omniscience hallucination",
+              "GPQA Diamond",
+              "HLE"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "knowledge_synthesis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "AA-Omniscience accuracy",
+              "AA-Omniscience hallucination",
+              "GPQA Diamond",
+              "HLE"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 4,
+            "codex": 4
+          },
+          "category_counts": {
+            "knowledge_synthesis": 4
+          },
+          "total_runs": 4
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
     {
       "url": "https://artificialanalysis.ai/articles/claude-opus-4-8-analysis-and-benchmarks",
       "domain": "artificialanalysis.ai",
@@ -103,6 +252,69 @@
         "demote_reasons": [
           "low_health_tier0"
         ]
+      }
+    },
+    {
+      "url": "https://benchlm.ai",
+      "domain": "benchlm.ai",
+      "tier": 5,
+      "categories": [
+        "mechanical"
+      ],
+      "benchmarks": [
+        "IFEval"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 1,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "mechanical"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "IFEval"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "IFEval",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1
+          },
+          "category_counts": {
+            "mechanical": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {
@@ -186,6 +398,127 @@
         "demote_reasons": [
           "over_source_class_cap"
         ]
+      }
+    },
+    {
+      "url": "https://benchlm.ai/coding",
+      "domain": "benchlm.ai",
+      "tier": 5,
+      "categories": [
+        "coding"
+      ],
+      "benchmarks": [
+        "SWE-bench Verified"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 4,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "coding"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Verified"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "coding"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Verified"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "coding"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Verified"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "coding"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Verified"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 4
+          },
+          "category_counts": {
+            "coding": 4
+          },
+          "total_runs": 4
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {
@@ -642,9 +975,11 @@
       },
       "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
@@ -710,6 +1045,147 @@
         "demote_reasons": [
           "over_source_class_cap"
         ]
+      }
+    },
+    {
+      "url": "https://bird-bench.github.io",
+      "domain": "bird-bench.github.io",
+      "tier": 3,
+      "categories": [
+        "data_analysis"
+      ],
+      "benchmarks": [
+        "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 4,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "data_analysis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "data_analysis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "data_analysis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "data_analysis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 4
+          },
+          "category_counts": {
+            "data_analysis": 4
+          },
+          "total_runs": 4
+        }
+      },
+      "label": "[VERIFIED-DOM]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {
@@ -784,6 +1260,149 @@
         "health": "demoted",
         "demote_reasons": [
           "low_health_tier0"
+        ]
+      }
+    },
+    {
+      "url": "https://gorilla.cs.berkeley.edu/leaderboard.html",
+      "domain": "gorilla.cs.berkeley.edu",
+      "tier": 2,
+      "categories": [
+        "mechanical"
+      ],
+      "benchmarks": [
+        "BFCL V4"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 4,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "mechanical"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "BFCL V4"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "BFCL V4",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "mechanical"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "BFCL V4"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "BFCL V4",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "mechanical"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "BFCL V4"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "BFCL V4",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "mechanical"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "BFCL V4"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "BFCL V4",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 4
+          },
+          "category_counts": {
+            "mechanical": 4
+          },
+          "total_runs": 4
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
         ]
       }
     },
@@ -1055,37 +1674,147 @@
         }
       },
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
       "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public",
       "domain": "labs.scale.com",
-      "tier": 0,
+      "tier": 2,
       "categories": [
         "architecture",
         "coding",
         "debugging"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "SWE-bench Pro (public set; Resolve Rate %)"
+      ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 3,
+      "last_seen": "2026-06-09",
+      "times_seen": 7,
       "label": "[INFERRED]",
       "selection": {
         "demoted": true,
         "health": "demoted",
         "demote_reasons": [
-          "low_health_tier0"
+          "over_source_class_cap"
         ]
+      },
+      "source_classes": [
+        "scale_anchor"
+      ],
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": null,
+            "outcome": "harvested",
+            "provider_family": null,
+            "categories": [
+              "architecture"
+            ],
+            "source_class": [
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Pro (public set; Resolve Rate %)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "SWE-bench Pro (public set; Resolve Rate %)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": null,
+            "outcome": "harvested",
+            "provider_family": null,
+            "categories": [
+              "architecture"
+            ],
+            "source_class": [
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Pro (public set; Resolve Rate %)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "SWE-bench Pro (public set; Resolve Rate %)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": null,
+            "outcome": "harvested",
+            "provider_family": null,
+            "categories": [
+              "architecture"
+            ],
+            "source_class": [
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Pro (public set; Resolve Rate %)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "SWE-bench Pro (public set; Resolve Rate %)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": null,
+            "outcome": "harvested",
+            "provider_family": null,
+            "categories": [
+              "architecture"
+            ],
+            "source_class": [
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Pro (public set; Resolve Rate %)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "SWE-bench Pro (public set; Resolve Rate %)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {},
+          "category_counts": {
+            "architecture": 4
+          },
+          "total_runs": 4
+        }
       }
     },
     {
       "url": "https://llm-stats.com/benchmarks/frontiermath",
       "domain": "llm-stats.com",
-      "tier": 2,
+      "tier": 5,
       "categories": [
         "math_proof"
       ],
@@ -1094,8 +1823,8 @@
         "FrontierMath Tier 4"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 9,
+      "last_seen": "2026-06-09",
+      "times_seen": 13,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -1133,24 +1862,106 @@
             ],
             "http_status": null,
             "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "codex": 1
+            "codex": 5
           },
           "category_counts": {
-            "math_proof": 1
+            "math_proof": 5
           },
-          "total_runs": 1
+          "total_runs": 5
         }
       },
       "selection": {
-        "demoted": true,
-        "health": "demoted",
-        "demote_reasons": [
-          "over_source_class_cap"
-        ]
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {
@@ -1172,6 +1983,268 @@
         "demote_reasons": [
           "low_health_tier0"
         ]
+      }
+    },
+    {
+      "url": "https://morphllm.com",
+      "domain": "morphllm.com",
+      "tier": 5,
+      "categories": [
+        "knowledge_synthesis"
+      ],
+      "benchmarks": [
+        "GPQA Diamond"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 4,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "knowledge_synthesis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "GPQA Diamond"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "knowledge_synthesis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "GPQA Diamond"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "knowledge_synthesis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "GPQA Diamond"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "knowledge_synthesis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "GPQA Diamond"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 4
+          },
+          "category_counts": {
+            "knowledge_synthesis": 4
+          },
+          "total_runs": 4
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
+    },
+    {
+      "url": "https://spider2-sql.github.io",
+      "domain": "spider2-sql.github.io",
+      "tier": 3,
+      "categories": [
+        "data_analysis"
+      ],
+      "benchmarks": [
+        "Spider 2.0-Snow (text-to-SQL; execution score %)"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 4,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "data_analysis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "Spider 2.0-Snow (text-to-SQL; execution score %)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "Spider 2.0-Snow (text-to-SQL; execution score %)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "data_analysis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "Spider 2.0-Snow (text-to-SQL; execution score %)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "Spider 2.0-Snow (text-to-SQL; execution score %)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "data_analysis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "Spider 2.0-Snow (text-to-SQL; execution score %)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "Spider 2.0-Snow (text-to-SQL; execution score %)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "data_analysis"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "Spider 2.0-Snow (text-to-SQL; execution score %)"
+            ],
+            "rejection_reason": [
+              {
+                "benchmark": "Spider 2.0-Snow (text-to-SQL; execution score %)",
+                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
+              }
+            ],
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 4
+          },
+          "category_counts": {
+            "data_analysis": 4
+          },
+          "total_runs": 4
+        }
+      },
+      "label": "[VERIFIED-DOM]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {
@@ -1984,9 +3057,11 @@
       "times_seen": 14,
       "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       },
       "source_classes": [
         "pairing_citation",
@@ -2258,9 +3333,11 @@
         }
       },
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
@@ -2281,6 +3358,148 @@
         "demote_reasons": [
           "low_health_tier0"
         ]
+      }
+    },
+    {
+      "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
+      "domain": "digitalapplied.com",
+      "tier": 5,
+      "categories": [
+        "debugging",
+        "security_review"
+      ],
+      "benchmarks": [
+        "ExploitBench (Cap%)",
+        "FrontierCode (Diamond)",
+        "SWE-Bench Pro"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 4,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "debugging",
+              "security_review"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "ExploitBench (Cap%)",
+              "FrontierCode (Diamond)",
+              "SWE-Bench Pro"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "debugging",
+              "security_review"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "ExploitBench (Cap%)",
+              "FrontierCode (Diamond)",
+              "SWE-Bench Pro"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "debugging",
+              "security_review"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "ExploitBench (Cap%)",
+              "FrontierCode (Diamond)",
+              "SWE-Bench Pro"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "debugging",
+              "security_review"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "ExploitBench (Cap%)",
+              "FrontierCode (Diamond)",
+              "SWE-Bench Pro"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 4,
+            "codex": 4
+          },
+          "category_counts": {
+            "debugging": 4,
+            "security_review": 4
+          },
+          "total_runs": 4
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {
@@ -2511,7 +3730,7 @@
     {
       "url": "https://www.marc0.dev/en/leaderboard",
       "domain": "marc0.dev",
-      "tier": 3,
+      "tier": 5,
       "categories": [
         "coding",
         "debugging"
@@ -2521,8 +3740,8 @@
         "SWE-bench Verified (self-report)"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-06",
-      "times_seen": 20,
+      "last_seen": "2026-06-09",
+      "times_seen": 24,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -2531,27 +3750,6 @@
       "attempt_ledger": {
         "runs": [
           {
-            "run_id": "pre-#17-legacy",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (self-report)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
             "run_id": "run-2026-06-06",
             "attempted_at": "2026-06-06T00:00:00Z",
             "outcome": "harvested",
@@ -2678,11 +3876,29 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "claude"
+              "codex"
+            ],
+            "categories": [
+              "coding"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
             ],
             "categories": [
               "coding"
@@ -2692,7 +3908,49 @@
               "scale_anchor"
             ],
             "benchmark_names": [
-              "SWE-bench Verified (self-report)"
+              "SWE-bench Verified"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "coding"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Verified"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "coding"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "SWE-bench Verified"
             ],
             "rejection_reason": null,
             "http_status": null,
@@ -2701,12 +3959,13 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8
+            "claude": 8,
+            "codex": 4
           },
           "category_counts": {
-            "coding": 8
+            "coding": 12
           },
-          "total_runs": 8
+          "total_runs": 12
         }
       },
       "selection": {
@@ -2733,6 +3992,132 @@
         "demote_reasons": [
           "low_health_tier0"
         ]
+      }
+    },
+    {
+      "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
+      "domain": "tbench.ai",
+      "tier": 3,
+      "categories": [
+        "agentic_execution"
+      ],
+      "benchmarks": [
+        "terminal-bench-2.0"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-09",
+      "last_seen": "2026-06-09",
+      "times_seen": 4,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "terminal-bench-2.0"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "terminal-bench-2.0"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "terminal-bench-2.0"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "run-2026-06-09",
+            "attempted_at": "2026-06-09T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "terminal-bench-2.0"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 4,
+            "codex": 4
+          },
+          "category_counts": {
+            "agentic_execution": 4
+          },
+          "total_runs": 4
+        }
+      },
+      "label": "primary-confirmed",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {
@@ -2944,9 +4329,11 @@
       },
       "label": "[SEED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
