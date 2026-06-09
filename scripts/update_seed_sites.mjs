@@ -53,6 +53,10 @@ function normalizeUrl(raw) {
   if (!raw || typeof raw !== "string") return "";
   let u;
   try { u = new URL(raw.trim()); } catch { return ""; }
+  // Seed registry holds EXTERNAL web sources only. Reject non-http(s) URLs (e.g.
+  // file://, skill://) — they carry no real domain and are internal/audit-only
+  // provenance (e.g. owner-directive [ASSUMPTION] rows cite file://...consent.md).
+  if (u.protocol !== "http:" && u.protocol !== "https:") return "";
   u.protocol = u.protocol.toLowerCase();
   u.hostname = u.hostname.toLowerCase();
   u.hash = "";
