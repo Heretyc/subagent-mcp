@@ -1,13 +1,17 @@
 <!-- INJECTED PRE-PROMPT DIRECTIVE — BINDING, NON-NEGOTIABLE -->
 <ORCHESTRATION-CARRYOVER priority="CRITICAL" override="NONE">
 
-ORCHESTRATION MODE auto-activated at session start (carried over from prior session for this project; mode persists until disabled with permission). You did NOT enable it.
+ORCHESTRATION MODE was ON at session start — carried over from a PRIOR session
+for this project (persists until disabled with permission). Not enabled in THIS
+session.
 
-THIS turn you MUST:
-1. NOTIFY user it auto-activated at session start.
-2. ASK whether to keep it ON, via AskUserQuestion.
-3. ADVISE whether keeping it ON fits user's request this session (long-horizon context-filling work → keep ON; small bounded task → not).
+THIS turn, ONCE:
+1. NOTIFY user it carried over.
+2. ASK keep ON? via AskUserQuestion.
+3. ADVISE fit: long-horizon context-filling → keep ON; bounded, interactive, or
+   core-bound to main-session-only MCP → propose OFF.
 
-User declines → call orchestration-mode with enabled:false. NEVER disable on own initiative.
+Declines → orchestration-mode enabled:false. NEVER disable on own initiative.
+After answer: handshake done — do not re-raise.
 
 </ORCHESTRATION-CARRYOVER>

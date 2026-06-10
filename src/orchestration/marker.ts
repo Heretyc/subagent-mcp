@@ -29,6 +29,8 @@ import { join, resolve } from "node:path";
 export interface MarkerState {
   owner_session: string | null;
   baseline_turn: number | null;
+  provenance: "user-enabled" | "carried-over" | null;
+  carryover_ack: boolean;
 }
 
 const markerDir = join(tmpdir(), "subagent-mcp");
@@ -82,7 +84,12 @@ export function enable(cwd: string): void {
     // session_id or enumerate which projects have orchestration enabled. mode is
     // ignored on Windows (harmless; tmpdir is already per-user there).
     mkdirSync(markerDir, { recursive: true, mode: 0o700 });
-    const state: MarkerState = { owner_session: null, baseline_turn: null };
+    const state: MarkerState = {
+      owner_session: null,
+      baseline_turn: null,
+      provenance: "user-enabled",
+      carryover_ack: false,
+    };
     writeFileSync(markerPath(cwd), JSON.stringify(state), { encoding: "utf8", mode: 0o600 });
   } catch {
     // Fail-safe: never throw to the caller.
@@ -127,15 +134,27 @@ export function readMarker(cwd: string): MarkerState {
   try {
     const raw = readFileSync(markerPath(cwd), "utf8");
     const parsed = JSON.parse(raw) as Partial<MarkerState>;
+    const provenance =
+      parsed.provenance === "user-enabled" || parsed.provenance === "carried-over"
+        ? parsed.provenance
+        : null;
     return {
       owner_session:
         typeof parsed.owner_session === "string" ? parsed.owner_session : null,
       baseline_turn:
         typeof parsed.baseline_turn === "number" ? parsed.baseline_turn : null,
+      provenance,
+      carryover_ack:
+        typeof parsed.carryover_ack === "boolean" ? parsed.carryover_ack : false,
     };
   } catch {
-    // Missing/corrupt marker -> safe default (unclaimed, no baseline).
-    return { owner_session: null, baseline_turn: null };
+    // Missing/corrupt marker -> safe default (unclaimed, no baseline/ack).
+    return {
+      owner_session: null,
+      baseline_turn: null,
+      provenance: null,
+      carryover_ack: false,
+    };
   }
 }
 

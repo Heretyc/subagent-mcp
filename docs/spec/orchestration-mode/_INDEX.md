@@ -8,14 +8,11 @@ contract only.
 
 ## What orchestration-mode is
 
-A toggle. When ON, every top-level (non-subagent) user turn in a CLI host that
-loads the bundled `UserPromptSubmit` hook gets an orchestrator-only directive
-injected ahead of the prompt — re-pinning "delegate, do not execute directly"
-so it survives long sessions and context drift. The MCP tool only flips the
-toggle; a **separate hook process** does the per-turn injection. This is a
-TypeScript port of the `~/nag` Python prototype; cadence and toggle semantics are
-preserved. The directive text has since been compressed and the heavy guidance
-moved to MCP metadata (see next section).
+A toggle. When ON, every top-level (non-subagent) user turn in a CLI host gets
+a delegate-default directive with inline-by-right partitions only for
+main-session-only capability. The MCP tool only flips the toggle; a **separate
+hook process** injects. This TypeScript port of `~/nag` preserves cadence and
+toggle semantics; heavy guidance moved to MCP metadata (see next section).
 
 ## Where the guidance lives (metadata vs per-turn)
 
@@ -31,7 +28,7 @@ caveman-ultra reminder**:
   is the operational summary and points at the instructions.
 - **Per-turn directives** (`directives/**`) are reduced to a compact reminder:
   the `<SUB-AGENT-INVARIANT>` wrapper + HTML comment marker + the
-  orchestrator-only / no-direct-execution invariant + temp-file IPC, all
+  delegate-default / inline-by-right partition invariant + temp-file IPC, all
   ultra-compressed, plus a one-line pointer that disabling needs explicit user
   permission via the provider tool. The long persistence/governance prose was
   dropped from the injection (now in metadata); carryover notices keep their
@@ -79,6 +76,10 @@ Marker location: `os.tmpdir()/subagent-mcp/orch-<cwdHash>.flag`, where
 lowercases on win32, and strips a trailing `/` — so `C:\X\` and `c:/x` key to
 the same marker on Windows.
 
+Marker fields: `enabled`, `cwd`, `owner_session`, `baseline_turn`,
+`provenance` (`user-enabled` / `carried-over` / `null`), and `carryover_ack`
+(missing fields default to `null` / `false` for backward compatibility).
+
 ## Cadence and toggle (mirrors the prototype)
 
 - `relTurn` is measured from toggle-ON. The first turn after enabling is the
@@ -92,9 +93,8 @@ the same marker on Windows.
   inherited from a prior session — see Persistence below); Codex
   `UserPromptSubmit` runs the normal `% 5` cadence.
 
-> The prototype carried stale inline "alternating / odd-turn" comments. The
-> operative cadence is `% 5`, matching the prototype's own `INSTALL.md`. The
-> stale comments are not reproduced in the port.
+> Stale prototype "alternating / odd-turn" comments are not reproduced; cadence
+> is `% 5`, matching the prototype's own `INSTALL.md`.
 
 ## Persistence and session-start carryover
 
@@ -105,33 +105,36 @@ the same marker on Windows.
 project never enabled stays OFF.
 
 **Persistence.** Orchestration mode PERSISTS across process restarts/sessions for
-a project: an explicitly enabled marker stays ON until it is disabled with
-explicit user permission. The `isMain` startup path no longer calls
-`clearForCwd`; `clearForCwd`/`disable` remain in use for the tool's
-`enabled:false` path.
+a project: an enabled marker stays ON until disabled with explicit user
+permission. `provenance` records user-enabled vs carried-over state, and
+`carryover_ack` makes the carryover notice ack-latched: it fires once per
+project marker and survives later re-claims. The `isMain` startup path no longer
+calls `clearForCwd`; `clearForCwd`/`disable` remain for `enabled:false`.
 
 **Carryover detection.** Because the marker persists, the first turn of a NEW
 session can inherit a marker an earlier session left ON. The hook classifies the
-claim from `owner_session` vs the current `session_id`:
+claim from `owner_session`, `provenance`, `carryover_ack`, and current
+`session_id`:
 
 - **FRESH** (`baseline_turn == null` OR `owner_session == null`): just enabled in
   THIS session via the tool. Claim (`owner_session = current ?? null`, baseline =
   current turn) and emit the normal turn-0 **FULL** directive.
 - **CARRYOVER** (`owner_session` is a real, *different* session — or current is
-  undefined so same-session cannot be confirmed): the mode was ON at session
-  start, carried from a prior session. **Re-claim** (owner = current, baseline =
-  current turn) and emit the provider **CARRYOVER notice prepended to FULL**.
+  undefined so same-session cannot be confirmed): stamp `provenance =
+  carried-over`; if `carryover_ack` is false, emit the provider **CARRYOVER
+  notice prepended to FULL** and set `carryover_ack = true`; then re-claim
+  (owner = current, baseline = current turn).
 - **SAME-SESSION** (`owner_session === current`): normal `% 5` cadence; no
   re-claim, no notice.
 
-The re-baseline on re-claim makes the carryover notice fire **exactly once** per
-session; subsequent turns are SAME-SESSION cadence. Whole body is fail-safe (any
-error → `''`). The Codex `SessionStart` path applies the same FRESH/CARRYOVER
-classification (subagent suppression first).
+The ack latch, not session-key stability, makes the carryover notice fire
+**exactly once** per project marker; subsequent turns are SAME-SESSION cadence.
+Whole body is fail-safe (any error → `''`). The Codex `SessionStart` path applies
+the same FRESH/CARRYOVER classification (subagent suppression first).
 
 **Carryover notice assets.** `directives/carryover-claude.md` and
 `directives/carryover-codex.md` instruct the agent to (1) notify the user the
-mode auto-activated at session start, (2) ask whether to keep it ON using the
+mode carried over at session start, (2) ask whether to keep it ON using the
 provider tool (`AskUserQuestion` for Claude, `request-user-input` for Codex —
 each variant names ONLY its own tool), and (3) advise whether keeping it ON fits
 the user's initial request. If the user declines, the agent calls
@@ -144,7 +147,8 @@ A subagent turn emits nothing. Claude treats a turn as a subagent when
 `local-agent`, `sdk-cli`, `sdk-ts`, `sdk-py`. Codex treats it as a subagent
 when `payload.source` carries a `subagent` key (0.131+) or is one of the known
 `subAgent*` source strings, or the prompt's first line contains
-`this is a request from a parent process`.
+`this is a request from a parent process`. `launch_agent` children carry
+`SUBAGENT_MCP_SUBAGENT=1`, and both provider hooks skip when it is set.
 
 ## Host capability matrix
 
@@ -167,15 +171,16 @@ flips, but with no hook host nothing is injected per turn.
 3. Split delivery: heavy operating-model + governance guidance lives in MCP
    server `instructions` (read once at initialize); the per-turn hook injects a
    compact caveman-ultra reminder (`<SUB-AGENT-INVARIANT>` wrapper, codex variant
-   keeps its leading self-deactivation SCOPE line, plus the off-turn one-liner).
+   keeps its leading self-deactivation SCOPE line, plus the off-turn one-liner)
+   with the delegate-default / inline-by-right partition invariant.
 4. Packaging: Claude Code CLI + Codex CLI bundle the hook AND the MCP server =
    full feature. Claude Desktop + Codex Desktop toggle but do not inject =
    documented degradation.
 5. Persistence (SUPERSEDES the earlier startup-clear decision): the marker is
    NOT cleared on startup. Default OFF = absence of a marker; an enabled marker
    persists ON across sessions/restarts until disabled with permission. A new
-   session that inherits an active marker re-claims it and emits a one-time
-   carryover notice (notify + confirm + advise).
+   session that inherits an active marker re-claims it and emits an ack-latched
+   one-time carryover notice (notify + confirm + advise).
 
 ## The four distinct "hooks" paths (do not confuse them)
 
@@ -186,13 +191,9 @@ flips, but with no hook host nothing is injected per turn.
 | `hooks/hooks.json` | **Claude** plugin hook registration (`UserPromptSubmit`). |
 | `codex/hooks.json` | **Codex** plugin hook registration (`SessionStart` + `UserPromptSubmit`). |
 
-`directives/` is a fifth, separate location: uncompiled `.md` directive assets
-at the repo root (the FULL claude/codex directives, the off-turn one-liner, and
-the `carryover-claude.md` / `carryover-codex.md` session-start notices), resolved
-at runtime via `CLAUDE_PLUGIN_ROOT` / `PLUGIN_ROOT` or `__dirname/../../directives`
-from the compiled hook.
+`directives/` is a fifth location: uncompiled directive assets resolved at
+runtime via `CLAUDE_PLUGIN_ROOT` / `PLUGIN_ROOT` or `__dirname/../../directives`.
 
 ## Leaves
 
-This directory currently has no leaf files; the contract is fully captured
-above. Add leaves here if any sub-area grows its own normative detail.
+No leaf files yet; the contract is fully captured above.

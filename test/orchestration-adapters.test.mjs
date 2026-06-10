@@ -137,25 +137,25 @@ test("codex currentTurn: unreadable transcript -> 0", () => {
 // Codex adapter: isSubagent signals
 // ---------------------------------------------------------------------------
 test("codex isSubagent: source object with 'subagent' key -> true (0.131+)", () => {
-  assert.equal(codexAdapter.isSubagent({ source: { subagent: "review" } }), true);
+  assert.equal(codexAdapter.isSubagent({ source: { subagent: "review" } }, {}), true);
 });
 
 test("codex isSubagent: source string enum -> true", () => {
   for (const s of ["subAgentReview", "subAgentCompact", "subAgentThreadSpawn", "subAgentOther"]) {
-    assert.equal(codexAdapter.isSubagent({ source: s }), true, `${s} marks a subagent`);
+    assert.equal(codexAdapter.isSubagent({ source: s }, {}), true, `${s} marks a subagent`);
   }
 });
 
 test("codex isSubagent: parent-process prompt sentinel -> true", () => {
   const prompt = "<this is a request from a parent process>\nDo the thing.";
-  assert.equal(codexAdapter.isSubagent({ prompt }), true,
+  assert.equal(codexAdapter.isSubagent({ prompt }, {}), true,
     "the parent-process handoff sentinel marks a subagent");
 });
 
 test("codex isSubagent: ordinary prompt / unknown source -> false", () => {
-  assert.equal(codexAdapter.isSubagent({ prompt: "just a normal user ask" }), false);
-  assert.equal(codexAdapter.isSubagent({ source: "interactive" }), false);
-  assert.equal(codexAdapter.isSubagent({}), false);
+  assert.equal(codexAdapter.isSubagent({ prompt: "just a normal user ask" }, {}), false);
+  assert.equal(codexAdapter.isSubagent({ source: "interactive" }, {}), false);
+  assert.equal(codexAdapter.isSubagent({}, {}), false);
 });
 
 // ---------------------------------------------------------------------------
