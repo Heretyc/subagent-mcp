@@ -125,8 +125,10 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
    Run `node scripts/check_worktree.mjs` to confirm compliance.
 3. Edit: keep changes scoped. Preserve user changes. Separate mechanical
    rewrites from behavior changes.
-4. Commit: inspect staged diff, run validation, then commit the smallest
-   coherent unit only when requested or workflow-required.
+4. Commit: inspect staged diff, run validation — including `node
+   scripts/check_mcp_compliance.mjs` (vendor metadata limits; FAIL blocks) and
+   the pre-commit contradiction-checker — then commit the smallest coherent unit
+   only when requested or workflow-required.
 5. PR: open draft PRs for early feedback and ready PRs only after self-review,
    validation, description, risks, and blockers are complete.
 6. Review: review purpose, correctness, tests, security, dependencies,

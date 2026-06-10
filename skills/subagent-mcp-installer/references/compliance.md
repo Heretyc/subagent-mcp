@@ -69,6 +69,31 @@ vendor changes its spec, update THIS file first, then the vendor guide.
 - **Prefer `~/.codex/hooks.json`** over a repo `.codex/hooks.json`: the user-level
   file fires regardless of project trust.
 
+## Vendor metadata limits (enforced by `scripts/check_mcp_compliance.mjs`)
+
+Five hard caps the addon's own metadata must stay under. The script is the
+single source of truth; it runs in `npm test` and is the contradiction-checker's
+mandatory first step (`AGENTS.md` Always Enforce).
+
+1. **Server `instructions` <= 2048 B** (Claude Code — MCP, "truncates tool
+   descriptions and server instructions at 2KB each"). Repo target **1950 B**
+   for tail-safety margin; Tool Search loads this field at session start, so a
+   truncated tail silently drops directives. Source: https://code.claude.com/docs/en/mcp
+2. **Every tool `description` <= 2048 B** (same 2KB Claude Code cap, same source).
+3. **Tool `name` matches `^[a-zA-Z0-9_-]{1,128}$`** — the MCP spec is silent on
+   charset, but the Anthropic/OpenAI function-name pattern is enforced
+   downstream and includes the hyphen (`orchestration-mode` complies). Sources:
+   https://modelcontextprotocol.io/specification/2025-06-18/server/tools ,
+   https://developers.openai.com/codex/config-reference
+4. **UserPromptSubmit hook injected output < 10000 chars** — each `directives/*.md`
+   asset AND each provider's carryover+full combined injection. Overflow is
+   saved to a file + previewed (truncated) by Claude Code. Source:
+   https://code.claude.com/docs/en/hooks
+5. **Directive asset byte budgets** — `orchestration-*.md` <= 1250 B,
+   `carryover-*.md` <= 800 B. Keeps the caveman-compressed per-turn injection
+   lean; limits sit just above current sizes (codex 1151 B / carryover 704 B)
+   with headroom. Internal repo budget, not a vendor cap.
+
 ## Cross-vendor invariants
 
 - Absolute paths everywhere; never a placeholder (`${CLAUDE_PLUGIN_ROOT}`,
