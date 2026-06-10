@@ -32,7 +32,9 @@ import {
   SPLIT_HINT,
   type Candidate,
   type SelectionMode,
+  type RoutingBranch,
 } from "./routing.js";
+import { createDeadlockWindow } from "./deadlock.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 
 interface AgentState {
@@ -50,6 +52,7 @@ interface AgentState {
   cwd: string;
   ucSettingsPath?: string;
   waitReported: boolean;
+  routingTier?: "cost_efficiency" | "performance" | "manual";
   // Rolling buffer of the last 3 parsed visible provider stream items.
   // Each item is stamped with its capture time (`at`, ms).
   visibleStream: VisibleStreamItem[];
@@ -62,6 +65,7 @@ interface AgentState {
 const agents = new Map<string, AgentState>();
 const MAX_CLAUDE = 5;
 const MAX_CODEX = 5;
+const deadlockWindow = createDeadlockWindow();
 
 // TASK_CATEGORIES, AUTO_HINT, SPLIT_HINT, and validatePresence are the pure,
 // side-effect-free presence layer — defined in ./routing.js and imported above
@@ -154,7 +158,7 @@ const ORCHESTRATION_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.2.0",
+    version: "2.3.0",
     description:
       "Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes. Does NOT call the Anthropic or OpenAI HTTP APIs directly (no API keys, no SDK) and there are no plans to — all model access is via the local CLIs.",
   },
@@ -187,7 +191,8 @@ function cleanupUcSettingsPath(ucSettingsPath?: string): void {
 async function tryLaunchCandidate(
   candidate: Candidate,
   prompt: string,
-  agentCwd: string
+  agentCwd: string,
+  routingTier?: "cost_efficiency" | "performance" | "manual"
 ): Promise<{ agentId: string } | { reason: string }> {
   // Concurrency cap for this provider.
   const running = countProcessing(candidate.provider);
@@ -269,6 +274,7 @@ async function tryLaunchCandidate(
     id: agentId,
     provider: candidate.provider,
     model: candidate.model,
+    routingTier,
     status: "processing",
     process: childProcess,
     stdout: "",
@@ -396,7 +402,7 @@ async function tryLaunchCandidate(
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent. AUTO MODE: pass just `prompt` + `task_category` and the server picks the best provider/model/effort for that category from its routing table, launching the best candidate and silently falling back to the next-best if a launch fails. `provider`/`model`/`effort` are OPTIONAL overrides and are usually unnecessary — omit them to get the auto-selected best combination (rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`). If you are unsure which task_category fits, do NOT submit one large amorphous task — break the work into smaller atomic steps that each map to a single category and launch one agent per step. Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes; does NOT call the Anthropic or OpenAI HTTP APIs (no API keys, no SDK). Note: ultracode effort is Opus-4.8+ only (induced via a temp `--settings {\"ultracode\":true}` file; the CLI rejects `--effort ultracode`). Status `processing` means ALIVE with visible provider activity in the last 10 minutes (counts against concurrency caps); `stalled` means ALIVE but no parsed visible provider stream item for 10 minutes (thinking or awaiting a temp-file handoff, NOT dead, does not count against caps) — wait or re-poll rather than killing.",
+  "Spawn a sub-agent. AUTO MODE: pass just `prompt` + `task_category` and the server picks the best provider/model/effort for that category from its routing table, launching the best candidate and silently falling back to the next-best if a launch fails. `provider`/`model`/`effort` are OPTIONAL overrides and are usually unnecessary — omit them to get the auto-selected best combination (rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`). If you are unsure which task_category fits, do NOT submit one large amorphous task — break the work into smaller atomic steps that each map to a single category and launch one agent per step. Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes; does NOT call the Anthropic or OpenAI HTTP APIs (no API keys, no SDK). Note: ultracode effort is Opus-4.8+ only (induced via a temp `--settings {\"ultracode\":true}` file; the CLI rejects `--effort ultracode`). Status `processing` means ALIVE with visible provider activity in the last 10 minutes (counts against concurrency caps); `stalled` means ALIVE but no parsed visible provider stream item for 10 minutes (thinking or awaiting a temp-file handoff, NOT dead, does not count against caps) — wait or re-poll rather than killing. DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when more than 2 launch attempts have already been made for the SAME atomic task (i.e. the 3rd attempt onward), and NEVER otherwise.",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
@@ -404,21 +410,22 @@ server.tool(
     model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "gpt-5.5"]).optional(),
     effort: z.enum(["low", "medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
+    deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, more than 2 launch attempts have already been made for the SAME atomic task — the 3rd attempt onward. NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort. Passing false is identical to omitting it."),
   },
   async (params) => {
-    const { task_category, provider, model, effort, prompt } = params;
+    const { task_category, provider, model, effort, prompt, deadlock } = params;
     const agentCwd = params.cwd || process.cwd();
 
-    // 1-4. Param-presence validation (zod already constrains task_category, but
+    // 1-5. Param-presence validation (zod already constrains task_category, but
     //       hard-validate so the spec error text — valid list + hints, and the
     //       effort-before-model ordering — is what the caller sees). Pure,
     //       exported, and unit-tested (test/handler-validation.test.mjs).
-    const presenceError = validatePresence({ task_category, provider, model, effort });
+    const presenceError = validatePresence({ task_category, provider, model, effort, deadlock });
     if (presenceError) {
       return errorResult(presenceError);
     }
 
-    // 5. Build the candidate list per mode.
+    // 6. Build the candidate list per mode.
     const overrides = { provider, model, effort };
     const isExplicit = !!(provider && model && effort);
 
@@ -428,6 +435,15 @@ server.tool(
       );
     }
 
+    // Arm window after all validation (including fallback_default rejection) passes.
+    if (deadlock === true) {
+      deadlockWindow.arm();
+    }
+
+    const pureAuto = !provider && !model && !effort;
+    const branch: RoutingBranch = (pureAuto && deadlockWindow.active()) ? "performance" : "cost_efficiency";
+    const routingTier = isExplicit ? "manual" : branch;
+
     // explicit mode never reads the table; all other modes do.
     const table = isExplicit ? null : loadRoutingTable();
     if (!isExplicit && table === null) {
@@ -436,7 +452,7 @@ server.tool(
       );
     }
 
-    const result = buildCandidates(table, task_category, overrides);
+    const result = buildCandidates(table, task_category, overrides, branch);
     const mode: SelectionMode = result.mode;
 
     if (!isExplicit && result.noCandidates) {
@@ -452,8 +468,11 @@ server.tool(
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
     const skipped: { model: string; effort: string; provider: string; reason: string }[] = [];
     for (const candidate of result.candidates) {
-      const outcome = await tryLaunchCandidate(candidate, prompt, agentCwd);
+      const outcome = await tryLaunchCandidate(candidate, prompt, agentCwd, routingTier);
       if ("agentId" in outcome) {
+        if (branch === "performance") {
+          deadlockWindow.consume();
+        }
         return {
           content: [
             {
@@ -465,8 +484,6 @@ server.tool(
                 model: candidate.model,
                 effort: candidate.effort,
                 task_category,
-                selection_mode: mode,
-                candidates_skipped: skipped.length,
               }),
             },
           ],
@@ -555,6 +572,7 @@ server.tool(
             last_activity: agent.lastActivity,
             cwd: agent.cwd,
             ...liveness,
+            ...(agent.routingTier !== undefined ? { routing_tier: agent.routingTier } : {}),
             recent_stream: agent.visibleStream.map((it) => ({
               type: it.type,
               text: it.text,

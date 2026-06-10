@@ -219,6 +219,106 @@ test("explicit mismatch: codex + sonnet -> Codex constraint message", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Deadlock validation (rule 2: after category, BEFORE effort-needs-both)
+// WHY: deadlock=true triggers the deadlock window; combining it with any
+// override is always wrong. The rule must fire before the effort rule so the
+// caller receives one clear fix message, not an effort message that hides the
+// deadlock constraint.
+// ---------------------------------------------------------------------------
+const DEADLOCK_ERROR =
+  "Error: deadlock cannot be combined with provider, model, or effort. If repeated attempts at this task have failed, switch to pure auto mode — pass only prompt + task_category and let the server select — unless your assignment explicitly demands a specific model. Omit provider/model/effort and retry.\n" +
+  AUTO_HINT;
+
+test("deadlock+provider → exact deadlock error text", () => {
+  const msg = validatePresence({ task_category: "coding", deadlock: true, provider: "claude" });
+  assert.equal(
+    msg,
+    DEADLOCK_ERROR,
+    "deadlock+provider must return exact deadlock error; wrong text means auto-hint suffix was dropped or message changed"
+  );
+});
+
+test("deadlock+provider+model → exact deadlock error text", () => {
+  const msg = validatePresence({
+    task_category: "coding",
+    deadlock: true,
+    provider: "claude",
+    model: "sonnet",
+  });
+  assert.equal(
+    msg,
+    DEADLOCK_ERROR,
+    "deadlock+provider+model must return exact deadlock error, not ERR_PROVIDER_MODEL or null"
+  );
+});
+
+test("deadlock+provider+model+effort → exact deadlock error text", () => {
+  const msg = validatePresence({
+    task_category: "coding",
+    deadlock: true,
+    provider: "claude",
+    model: "opus-4-8",
+    effort: "high",
+  });
+  assert.equal(
+    msg,
+    DEADLOCK_ERROR,
+    "deadlock+full explicit triple must return exact deadlock error, not pass through to explicit mode"
+  );
+});
+
+test("deadlock rule fires BEFORE effort-needs-both when both conditions hold", () => {
+  // deadlock=true + effort=high (no provider): both deadlock rule (rule 2) and
+  // effort-needs-both rule (rule 3) would fire. Rule 2 is checked first.
+  // WHY: if effort fires first, the caller must fix two separate issues instead
+  // of one, and the deadlock constraint remains hidden.
+  const msg = validatePresence({ task_category: "coding", deadlock: true, effort: "high" });
+  assert.ok(msg, "deadlock=true + effort must produce an error");
+  assert.equal(
+    msg,
+    DEADLOCK_ERROR,
+    "deadlock rule must fire before effort-needs-both; if ERR_EFFORT_NEEDS_BOTH appears, the rule order is wrong"
+  );
+});
+
+test("deadlock:true alone (no overrides) → valid (null error)", () => {
+  // WHY: deadlock:true without any override IS the correct usage — the window
+  // arms on successful validation in index.ts. Rejecting it here would make
+  // the deadlock window feature completely unusable.
+  const msg = validatePresence({ task_category: "coding", deadlock: true });
+  assert.equal(
+    msg,
+    null,
+    "deadlock:true with no overrides must pass validation; the window arms on success in index.ts"
+  );
+});
+
+test("deadlock:false with overrides → existing validation behavior (no deadlock error)", () => {
+  // WHY: deadlock:false is explicitly identical to omitting deadlock; it must
+  // not trigger rule 2, so provider+model with false must remain valid.
+  const msg = validatePresence({
+    task_category: "coding",
+    deadlock: false,
+    provider: "claude",
+    model: "sonnet",
+  });
+  assert.equal(
+    msg,
+    null,
+    "deadlock:false must behave identically to omitting deadlock; existing override combos must still be valid"
+  );
+});
+
+test("deadlock:false does not suppress other validation errors (normal path preserved)", () => {
+  // Verify deadlock:false does not short-circuit subsequent validation rules.
+  const msg = validatePresence({ task_category: "coding", deadlock: false, effort: "high" });
+  assert.ok(
+    msg && msg.startsWith("Error: effort requires both provider and model."),
+    "deadlock:false must not suppress ERR_EFFORT_NEEDS_BOTH; other validation rules must still fire"
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

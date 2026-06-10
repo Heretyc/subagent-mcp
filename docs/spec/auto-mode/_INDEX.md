@@ -9,11 +9,15 @@ is design + contract only.
 ## What auto-mode is
 
 `launch_agent` gains a required `task_category` param. When the caller supplies
-only `prompt` + `task_category`, the server reads the **performance** branch of
+only `prompt` + `task_category`, the server reads the **cost_efficiency** branch of
 the routing table, builds a best→worst candidate list for that category, and
 launches the first candidate that spawns successfully — silently falling back
 down the list on any launch-time failure. `provider`/`model`/`effort` become
 optional overrides that are usually unnecessary.
+
+Branch selection — the `cost_efficiency` default, the `performance` branch armed
+by the optional `deadlock` flag, and the window decrement/re-arm rules — is
+specified in `routing-table-contract.md`.
 
 This is a server-side capability change. It reuses the existing
 `buildCommand` + `resolveExe` + `spawn` path unchanged; it adds a resolver in
@@ -25,7 +29,7 @@ front of that path.
 |---|---|---|
 | `param-contract.md` | New `launch_agent` param schema; required/optional rules; selection modes. | Changing the tool's input schema or param semantics. |
 | `resolution-matrix.md` | Full presence→behavior matrix; every hard-error case with EXACT message text. | Implementing/validating param validation and candidate-list construction. |
-| `routing-table-contract.md` | Loader contract: path, branch, pairing schema ref, model→provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior. | Implementing the loader/resolver against the table. |
+| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window), pairing schema ref, model→provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior. | Implementing the loader/resolver against the table. |
 | `tool-description.md` | Verbatim rewritten tool description + the 11 caveman `task_category` metadata glosses. | Rewriting the MCP tool metadata strings. |
 | `build-and-test.md` | B2 file partition (non-overlapping ownership) + the fixture-based test plan. | Splitting build work or writing tests. |
 
