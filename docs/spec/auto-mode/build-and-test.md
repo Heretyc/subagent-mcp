@@ -80,5 +80,8 @@ attempt-loop/spawn behavior is out of unit-test scope (it reuses already-tested
 - `npm run build` then `npm test` (now includes `test/routing.test.mjs`).
 - Existing tests (`effort`, `platform`, `wait`, `status`, `output`,
   `validate_provider`) still pass — auto-mode does not change their inputs.
+- `node scripts/check_mcp_compliance.mjs` PASS — vendor metadata limits (server
+  instructions, tool names/descriptions, hook additionalContext, directive
+  budgets). Also runs inside `npm test` via `test/mcp-compliance.test.mjs`.
 - Dispatch the pre-commit contradiction-checker sub-agent per `AGENTS.md`
   "Always Enforce" before committing `src/**`.

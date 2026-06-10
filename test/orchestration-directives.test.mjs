@@ -71,8 +71,8 @@ test("both directives carry the disable-governance intent (no self-disable, expl
   for (const [name, body] of [["claude", claude], ["codex", codex]]) {
     assert.match(body, /never on own initiative/i,
       `${name} variant must forbid disabling on its own initiative`);
-    assert.match(body, /explicit user permission/i,
-      `${name} variant must require explicit user permission to disable`);
+    assert.match(body, /propose via (AskUserQuestion|request-user-input) only/i,
+      `${name} variant must gate disabling behind a propose-only provider-tool ask`);
   }
 });
 
@@ -121,8 +121,8 @@ test("carryover-codex names request-user-input and NOT AskUserQuestion", () => {
 // ---------------------------------------------------------------------------
 test("both carryover notices carry the notify/ask/advise intent", () => {
   for (const [name, body] of [["claude", carryoverClaude], ["codex", carryoverCodex]]) {
-    assert.match(body, /auto-activated/i,
-      `${name} carryover must state the mode auto-activated at session start`);
+    assert.match(body, /carried over/i,
+      `${name} carryover must state the mode carried over from a prior session`);
     assert.match(body, /enabled:false/,
       `${name} carryover must point at the enabled:false disable path`);
   }
