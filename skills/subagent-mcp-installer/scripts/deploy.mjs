@@ -48,14 +48,15 @@ function forbiddenReason(p) {
 
 // --- Locate the addon root under the source -------------------------------
 // The deploy script ships inside the package at skills/subagent-mcp-installer/scripts/,
-// but --source is the addon root (contains package.json with name subagent-mcp).
+// but --source is the addon root (package.json name "@heretyc/subagent-mcp",
+// or legacy unscoped "subagent-mcp").
 function addonRoot() {
   for (const cand of [SOURCE, resolve(SOURCE, "../../..")]) {
     const pj = join(cand, "package.json");
     if (existsSync(pj)) {
       try {
         const j = JSON.parse(readFileSync(pj, "utf8"));
-        if (j.name === "subagent-mcp") return { root: cand, pkg: j };
+        if (j.name === "subagent-mcp" || j.name === "@heretyc/subagent-mcp") return { root: cand, pkg: j };
       } catch { /* ignore */ }
     }
   }
@@ -81,7 +82,9 @@ function deploy(root, pkg) {
 
   console.error("==> pack (decoupled tarball)");
   run("npm", ["pack"], root);
-  const tarball = join(root, `${pkg.name}-${pkg.version}.tgz`);
+  // Scoped packages: @scope/name → scope-name-<ver>.tgz (npm strips @ and replaces / with -)
+  const tarballBase = pkg.name.replace(/^@/, "").replace(/\//, "-");
+  const tarball = join(root, `${tarballBase}-${pkg.version}.tgz`);
   if (!existsSync(tarball)) die(`expected tarball not found: ${tarball}`);
 
   console.error("==> global install");
@@ -89,7 +92,9 @@ function deploy(root, pkg) {
   try { unlinkSync(tarball); } catch { /* leave if locked */ }
 
   const gRoot = run("npm", ["root", "-g"], root).trim();
-  const install = join(gRoot, "subagent-mcp");
+  // Scoped packages install under <gRoot>/@scope/name, unscoped under <gRoot>/name.
+  // Derive from pkg.name so the install root matches npm's real layout either way.
+  const install = join(gRoot, ...pkg.name.split("/"));
   const t = forbiddenReason(install);
   if (t) die(`global install root is a forbidden location (${t}): ${install}`);
   return install;
