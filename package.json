@@ -1,6 +1,6 @@
 {
   "name": "@heretyc/subagent-mcp",
-  "version": "2.3.9",
+  "version": "2.4.0",
   "description": "MCP server that launches and manages local Claude Code and Codex CLI sub-agents as child processes (no direct Anthropic/OpenAI API).",
   "type": "module",
   "main": "dist/index.js",
@@ -43,6 +43,7 @@
     "node": ">=18"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
   }
 }

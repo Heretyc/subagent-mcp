@@ -1,16 +1,40 @@
-name: Publish to GitHub Packages
+name: Publish
+
+# Owner-approved publish workflow (not the Claude-routine dispatch bridge).
+# Dual-publishes each GitHub release to the public npm registry via OIDC
+# Trusted Publishing and to GitHub Packages. Documented exception to
+# git-collaboration.md directive 23 (Actions otherwise dispatch/bridge only).
 
 on:
   release:
     types: [published]
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
-  publish:
+  npm-public:
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      # publishConfig.registry targets GitHub Packages, so override to public npm
+      # explicitly. Trusted Publishing (OIDC) needs id-token: write and no token.
+      - run: npm publish --provenance --access public --registry https://registry.npmjs.org
+
+  github-packages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
