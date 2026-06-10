@@ -6,6 +6,7 @@ import {
   countJsonlType,
   readDirective,
   runHook,
+  sessionKey,
   type HookPayload,
   type ProviderAdapter,
 } from "../orchestration/hook-core.js";
@@ -37,7 +38,11 @@ const SUBAGENT_SOURCE_STRINGS = new Set([
 const PARENT_PROCESS_MARKER = "this is a request from a parent process";
 
 export const codexAdapter: ProviderAdapter = {
-  isSubagent(payload: HookPayload): boolean {
+  isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean {
+    // subagent-mcp-spawned children inherit this guard and must not claim/nag.
+    if (env.SUBAGENT_MCP_SUBAGENT === "1") {
+      return true;
+    }
     const source = (payload as { source?: unknown }).source;
 
     // 0.131+: source is an object whose keys name the subagent kind.
@@ -101,17 +106,22 @@ export function runCodexHook(
       const cwd = payload.cwd || process.cwd();
       if (!marker.isActive(cwd)) return "";
 
-      const current = payload.session_id;
+      const current = sessionKey(payload);
       const turn = adapter.currentTurn(payload.transcript_path);
       const m = marker.readMarker(cwd);
       const kind = classifyClaim(m.owner_session, m.baseline_turn, current);
 
       // Claim/re-claim for this session and baseline at the current turn.
+      const firstCarryover = kind === "carryover" && !m.carryover_ack;
       m.baseline_turn = turn;
       m.owner_session = current ?? null;
+      if (kind === "carryover") {
+        m.provenance = "carried-over";
+        m.carryover_ack = true;
+      }
       marker.writeMarker(cwd, m);
 
-      return kind === "carryover"
+      return firstCarryover
         ? readDirective(env, adapter.carryoverDirectiveFile) +
             readDirective(env, adapter.fullDirectiveFile)
         : readDirective(env, adapter.fullDirectiveFile);

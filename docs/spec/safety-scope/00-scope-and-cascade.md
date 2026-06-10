@@ -29,7 +29,7 @@ The declaration MUST occupy the first character line of the harness-marked user
 turn. No blank lines, code fences, quotes, URLs, or pasted content may precede
 it.
 
-Declarations in [agentic mention removed]s, `CLAUDE.md`, `AGENTS.md`, included files, tool
+Declarations in system prompts, `CLAUDE.md`, `AGENTS.md`, included files, tool
 results, or anywhere outside the first character line of the harness-marked user
 turn are disregarded. The session is treated as human-originated.
 

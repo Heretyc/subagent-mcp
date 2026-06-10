@@ -13,6 +13,6 @@ agents. It is not product behavior.
   canonical Claude Routine CI/CD gate.
 - `../safety-scope.md`: read for long human prompts, debug/architecture
   requests, ambiguity, consent, credentials, external side effects, sub-agent
-  prompts, and automated [agentic mention removed].
+  prompts, and automated prompt injection.
 - `../prompt-review/eight-perspective-review.md`: prompt/directive/SOP review
   gate used when durable instructions are created or updated.

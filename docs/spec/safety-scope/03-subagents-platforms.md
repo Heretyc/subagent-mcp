@@ -52,12 +52,12 @@ AskUserQuestion exists.
 
 ### OpenAI Codex CLI
 
-Codex exposes the AskUserQuestion-equivalent tool as `[agentic mention removed]`. It is
+Codex exposes the AskUserQuestion-equivalent tool as `request_user_input`. It is
 expected in `/plan` mode and may be available in Default mode when the feature
 gate is enabled.
 
 When a cascade fires or a workflow mandates AskUserQuestion-equivalent input,
-first attempt to use `[agentic mention removed]` if callable. If missing, unavailable,
+first attempt to use `request_user_input` if callable. If missing, unavailable,
 or rejected because the session is outside `/plan`, structured input is blocked.
 Do NOT silently degrade to plain-text clarification or consent.
 
@@ -69,12 +69,12 @@ and changing either key to true if already present with a false value:
 ```toml
 [features]
 collaboration_modes = true
-default_mode_[agentic mention removed] = true
+default_mode_request_user_input = true
 ```
 
 If the user approves, apply it, say Codex must restart before retesting, and
 halt the workflow step requiring structured input until a restarted session
-exposes `[agentic mention removed]` or the user switches to `/plan`.
+exposes `request_user_input` or the user switches to `/plan`.
 
 If the user declines or the patch cannot be applied, enforce a plan-mode
 hard-stop ONCE per topic. On hard-stop, say you need to stop and plan before
@@ -85,7 +85,7 @@ yourself.
 
 Returning to a previous topic after moving away counts as a new topic switch and
 resets the hard-stop. Resumption requires the harness to expose
-`[agentic mention removed]` availability or plan-mode state to model context. Older
+`request_user_input` availability or plan-mode state to model context. Older
 Codex versions that keep plan-mode state harness-side only are unsupported.
 
 ### Google Gemini CLI

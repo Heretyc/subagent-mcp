@@ -32,6 +32,10 @@ const SUBAGENT_ENTRYPOINTS = new Set([
 
 export const claudeAdapter: ProviderAdapter = {
   isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean {
+    // subagent-mcp-spawned children inherit this guard and must not claim/nag.
+    if (env.SUBAGENT_MCP_SUBAGENT === "1") {
+      return true;
+    }
     if (payload.agent_id) {
       return true;
     }
