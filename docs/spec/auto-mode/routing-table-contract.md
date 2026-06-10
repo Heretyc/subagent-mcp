@@ -70,8 +70,9 @@ in EITHER direction.
 Tool descriptions and error texts NEVER name tiers, branches, counters, or
 windows. The only agent-visible deadlock strings are the verbatim `DEADLOCK RULE:`
 tool-description line and the `deadlock` param MANDATE gloss (`tool-description.md`).
-`poll_agent.routing_tier` is the sole sanctioned tier/branch exposure (diagnostic
-output, not a description or error).
+Sanctioned diagnostic exposures (payload fields, never description/error text)
+are exactly: `routing_tier` (poll), plus `ruleset_applied` +
+`ruleset_original_selection` (`../advanced-ruleset/visibility-and-failover.md`).
 
 ## Pairing object schema (authoritative source)
 
@@ -173,16 +174,19 @@ For each candidate in order (best→worst):
    `AgentState`, stdout/stderr handlers, close handler, `agents.set`), and
    return the success payload (`param-contract.md`).
 
-CRITICAL — launch-time only: `launch_agent` returns immediately after a
-successful `spawn`; it does NOT await the sub-agent's task. The agent's eventual
-success/failure (exit code, `turn.completed`, a wrong answer) is observed later
-via `poll_agent`/`wait` and is NEVER a fallback trigger. The fallback chain is
-strictly over the act of starting a process.
+CRITICAL — launch-time only: a launch succeeds when the child spawns AND
+survives the post-spawn grace window; ANY exit inside that window (any code or
+signal) is a launch-time failure that silently advances the loop — sole
+exception: a codex child already finalized by its `turn.completed` marker, a
+legitimate fast completion (`../advanced-ruleset/visibility-and-failover.md`).
+`launch_agent` does NOT await the sub-agent's task: a later death is observed
+via `poll_agent`/`wait` and is NEVER a fallback trigger.
 
 If ALL candidates fail → `ERR_ALL_FAILED` listing each
 `<model>@<effort> (<provider>): <reason>` (`resolution-matrix.md`).
 
-`explicit` mode: one attempt; on failure → `ERR_EXPLICIT_FAILED` (no loop).
+`explicit` mode: one attempt; on failure → `ERR_EXPLICIT_FAILED` (no loop), unless
+the ruleset modified the list (`../advanced-ruleset/visibility-and-failover.md`).
 
 ## Empty / missing table behavior (summary)
 

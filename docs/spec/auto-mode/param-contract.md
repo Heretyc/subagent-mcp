@@ -79,8 +79,11 @@ JSON (string in the MCP text content):
   `buildCommand` (e.g. `"high"`, or the clamped value); for `haiku` it is the
   value `buildCommand` ignored — report the pairing's normalized effort.
 - `selection_mode` and `candidates_skipped` are NOT returned (removed): the
-  launch payload carries no routing-internal fields. Which branch/tier was used
-  is surfaced only via `poll_agent`'s `routing_tier` (`docs/tools.md`).
+  launch payload carries no routing-internal fields — with ONE deliberate
+  exception: when the advanced ruleset ALTERED the routing decision, the
+  conditional `ruleset_applied` + `ruleset_original_selection` pair is added
+  (`../advanced-ruleset/visibility-and-failover.md`). Which branch/tier was
+  used is still surfaced only via `poll_agent`'s `routing_tier` (`docs/tools.md`).
 
 ## Branch and deadlock
 

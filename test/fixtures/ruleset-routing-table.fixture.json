@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "version": "0.0.1",
+    "schema_version": "1",
+    "generated": "2026-06",
+    "author": "Lexi Blackburn",
+    "author_url": "https://github.com/Heretyc/",
+    "note": "Hand-authored minimal table for the advanced-ruleset and failover integration tests: exactly 2 launchable candidates per used branch, mixed providers, deterministic order. Copied over routing-table.json inside a private dist/ copy by the test harness.",
+    "model_effort_universe": [
+      "claude-sonnet-4-6@medium",
+      "claude-opus-4-8@high",
+      "gpt-5.5@xhigh"
+    ]
+  },
+  "performance": {
+    "coding": [
+      {
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 1,
+        "score": 0.95,
+        "cost_figure_used": 0.000015,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 2,
+        "score": 0.9,
+        "cost_figure_used": 0.00001,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ]
+  },
+  "cost_efficiency": {
+    "coding": [
+      {
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 1,
+        "score": 0.85,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 2,
+        "score": 0.7,
+        "cost_figure_used": 0.00001,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ]
+  }
+}

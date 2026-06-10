@@ -33,6 +33,15 @@ front of that path.
 | `tool-description.md` | Verbatim rewritten tool description + the 11 caveman `task_category` metadata glosses. | Rewriting the MCP tool metadata strings. |
 | `build-and-test.md` | B2 file partition (non-overlapping ownership) + the fixture-based test plan. | Splitting build work or writing tests. |
 
+Related leaf set: `../advanced-ruleset/` specifies the user-editable
+`advanced-ruleset.py` override hook, which runs between candidate-list
+construction and the attempt loop and deliberately AMENDS clauses of this set
+— the launch-payload no-routing-fields rule (`param-contract.md`), the
+every-error-hints convention and the task-failure anti-example
+(`resolution-matrix.md`), and the sanctioned-exposure list plus the
+launch-time-only clause (`routing-table-contract.md`). Read
+`../advanced-ruleset/_INDEX.md` before relying on those clauses.
+
 ## Invariants carried from `AGENTS.md`
 
 - Fail loud: every rejected input returns a clear MCP error, never a silent
@@ -59,3 +68,6 @@ B2 should add a load trigger to `AGENTS.md` "Load Triggers":
 
 Keep `AGENTS.md` <=100 lines when adding it; `src/routing-table.json` is the
 routing artifact; the fixed taxonomy lives in `.spec/references/work-categories.md`.
+That trigger line has since been EXTENDED in place (net 0 lines) to also route
+advanced-ruleset work to `docs/spec/advanced-ruleset/_INDEX.md`; the exact
+current text is quoted in `../advanced-ruleset/_INDEX.md`.

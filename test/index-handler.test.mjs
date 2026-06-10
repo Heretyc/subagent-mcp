@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const distIndex = join(repoRoot, "dist", "index.js");
+const preloadPath = join(repoRoot, "test", "fixtures", "fake-ruleset-preload.cjs");
 
 let passed = 0;
 let failed = 0;
@@ -213,19 +214,9 @@ await test("server exposes orchestration guidance via MCP instructions (no ultra
 });
 
 await test("bare PATH executable is not rejected before spawn", async () => {
-  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-index-path-"));
-  const fakeBin = join(tempRoot, "bin");
-  const workDir = join(tempRoot, "work");
-  const fakePrefix = join(tempRoot, "empty-prefix");
-  mkdirSync(fakeBin);
-  mkdirSync(workDir);
-  mkdirSync(fakePrefix);
-  writeFakePathTools(fakeBin);
-
-  const env = prependPath({
-    ...process.env,
-    FAKE_NPM_PREFIX: fakePrefix,
-  }, fakeBin);
+  // makeTempEnv carries the ruleset-disabled fake + grace-window off — this
+  // test launches for real, so it needs the same neutralization as 4b-4f.
+  const { tempRoot, workDir, env } = makeTempEnv();
 
   const session = createMcpSession(distIndex, { cwd: workDir, env });
   try {
@@ -343,7 +334,29 @@ function makeTempEnv() {
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
   writeFakePathTools(fakeBin);
-  const env = prependPath({ ...process.env, FAKE_NPM_PREFIX: fakePrefix }, fakeBin);
+  // Advanced-ruleset + grace-window neutralization, so every legacy assertion
+  // stays valid unchanged: SUBAGENT_RULESET_PYTHON=node plus the preload make
+  // the env-check answer load-rules:false deterministically (the host may have
+  // no python at all — without this the whole suite would hard-fail), and
+  // SUBAGENT_SPAWN_GRACE_MS=0 keeps spawn-event-only success because the fake
+  // PATH CLIs above exit instantly by design (failover.test.mjs owns the
+  // grace-window behavior). Forward slashes: node's NODE_OPTIONS parser treats
+  // backslash as an escape inside double quotes.
+  const modeFile = join(tempRoot, "ruleset-mode.txt");
+  writeFileSync(modeFile, "ok-disabled");
+  const env = prependPath(
+    {
+      ...process.env,
+      FAKE_NPM_PREFIX: fakePrefix,
+      SUBAGENT_SPAWN_GRACE_MS: "0",
+      SUBAGENT_RULESET_PYTHON: process.execPath,
+      NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require "${preloadPath.replace(/\\/g, "/")}"`]
+        .filter(Boolean)
+        .join(" "),
+      FAKE_RULESET_MODE_FILE: modeFile,
+    },
+    fakeBin
+  );
   return { tempRoot, workDir, env };
 }
 

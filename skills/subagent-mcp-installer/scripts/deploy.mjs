@@ -87,16 +87,37 @@ function deploy(root, pkg) {
   const tarball = join(root, `${tarballBase}-${pkg.version}.tgz`);
   if (!existsSync(tarball)) die(`expected tarball not found: ${tarball}`);
 
-  console.error("==> global install");
-  run("npm", ["install", "-g", tarball], root);
-  try { unlinkSync(tarball); } catch { /* leave if locked */ }
-
+  // Resolve the prospective install root BEFORE installing: npm install -g
+  // replaces the package dir in place, so a user-edited advanced-ruleset.py
+  // must be snapshotted now or it is gone with the old dir.
   const gRoot = run("npm", ["root", "-g"], root).trim();
   // Scoped packages install under <gRoot>/@scope/name, unscoped under <gRoot>/name.
   // Derive from pkg.name so the install root matches npm's real layout either way.
   const install = join(gRoot, ...pkg.name.split("/"));
+  const live = join(install, "dist", "advanced-ruleset.py");
+  let userRuleset = null;
+  if (existsSync(live)) {
+    userRuleset = readFileSync(live, "utf8");
+    const snap = join(tmpdir(), `advanced-ruleset.py.bak-deploy-${Date.now()}`);
+    try { writeFileSync(snap, userRuleset); console.error(`  backed up user advanced-ruleset.py -> ${snap}`); } catch { /* in-memory copy still restores */ }
+  }
+
+  console.error("==> global install");
+  run("npm", ["install", "-g", tarball], root);
+  try { unlinkSync(tarball); } catch { /* leave if locked */ }
+
   const t = forbiddenReason(install);
   if (t) die(`global install root is a forbidden location (${t}): ${install}`);
+
+  if (userRuleset !== null) {
+    const shipped = existsSync(live) ? readFileSync(live, "utf8") : null;
+    if (shipped === userRuleset) {
+      console.error("  advanced-ruleset.py unchanged — left as-is");
+    } else {
+      writeFileSync(live, userRuleset);
+      console.error("  restored user advanced-ruleset.py (package update never overwrites user edits)");
+    }
+  }
   return install;
 }
 
@@ -106,6 +127,7 @@ function verify(install) {
     "dist/index.js",
     "dist/hooks/orchestration-claude.js",
     "dist/hooks/orchestration-codex.js",
+    "dist/advanced-ruleset.py",
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
     "node_modules/@modelcontextprotocol/sdk/package.json",
