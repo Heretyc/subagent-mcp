@@ -176,8 +176,8 @@ test("readMarker on a missing marker returns safe defaults (no throw)", () => {
   const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
   try {
     const m = readMarker(dir);
-    assert.deepEqual(m, { owner_session: null, baseline_turn: null },
-      "missing marker reads as unclaimed/un-baselined, never throws");
+    assert.deepEqual(m, { owner_session: null, baseline_turn: null, provenance: null, carryover_ack: false },
+      "missing marker reads as unclaimed/un-baselined/no-provenance/un-acked, never throws");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

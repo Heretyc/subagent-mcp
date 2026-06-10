@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   closeSync,
   openSync,
@@ -19,7 +20,8 @@ import * as marker from "./marker.js";
  * directive every 5th relative turn, otherwise a one-line off-turn reminder
  * (LOCKED DECISION 2). The marker PERSISTS across sessions/restarts, so the
  * first turn of a new session that inherits an already-ON marker emits a
- * one-time CARRYOVER notice (prepended to FULL) and re-claims for that session.
+ * CARRYOVER notice (prepended to FULL) once per project marker, ack-latched in
+ * marker state, and re-claims for that session.
  *
  * The entire run is wrapped in try/catch: on ANY error we emit nothing. A hook
  * must never crash or stall the host turn. "Emit" means RETURN the string; the
@@ -164,6 +166,30 @@ export function countJsonlType(
 }
 
 /**
+ * Return the stable key used to compare hook claims. Some hosts omit
+ * session_id; transcript_path is per-session, so a short hash keeps the claim
+ * sticky without changing classifyClaim's string/undefined contract.
+ */
+export function sessionKey(payload: HookPayload): string | undefined {
+  if (typeof payload.session_id === "string") {
+    return payload.session_id;
+  }
+  if (
+    typeof payload.transcript_path === "string" &&
+    payload.transcript_path.length > 0
+  ) {
+    return (
+      "tp-" +
+      createHash("sha256")
+        .update(payload.transcript_path, "utf8")
+        .digest("hex")
+        .slice(0, 16)
+    );
+  }
+  return undefined;
+}
+
+/**
  * Decide whether a marker that is already active is being seen by a FRESH claim
  * or by a CARRYOVER from a prior/other session. Orchestration mode now PERSISTS
  * across process restarts/sessions (absence of a marker = OFF; an explicitly
@@ -173,14 +199,14 @@ export function countJsonlType(
  * FRESH: the marker has never been claimed (baseline_turn == null OR
  *   owner_session == null) — i.e. it was just enabled in THIS session via the
  *   tool. Emit the normal turn-0 FULL directive.
- * CARRYOVER: the marker carries a real owner_session that is NOT the current
- *   session — it was ON at session start, carried from a prior/other session.
- *   Prepend the one-time CARRYOVER notice to FULL and re-claim.
+ * CARRYOVER: the marker carries a real owner_session that is NOT the stable
+ *   current session key — it was ON at session start, carried from a prior/
+ *   other session. Prepend the ack-gated CARRYOVER notice to FULL and re-claim.
  * SAME-SESSION: owner_session === current — run the normal % 5 cadence.
  *
- * Null-safety: a real owner_session string with an UNDEFINED current session is
- * treated as CARRYOVER (we cannot confirm same-session); both null/undefined is
- * FRESH.
+ * Null-safety: a real owner_session string with an UNDEFINED current session key
+ * is treated as CARRYOVER (we cannot confirm same-session); both null/undefined
+ * is FRESH.
  */
 export type ClaimKind = "fresh" | "carryover" | "same";
 
@@ -209,7 +235,8 @@ export function classifyClaim(
  *  4. FRESH (never claimed) -> claim + baseline at this turn, persist, emit FULL
  *     (this is the freshly-enabled turn, relTurn 0).
  *  5. CARRYOVER (owned by another/prior session) -> re-claim + re-baseline at
- *     this turn, persist, emit the CARRYOVER notice prepended to FULL.
+ *     this turn, persist, emit the CARRYOVER notice prepended to FULL only
+ *     before the marker's carryover_ack has latched.
  *  6. SAME-SESSION -> rel = turn - baseline; FULL when rel % 5 === 0, else
  *     off-turn.
  */
@@ -228,7 +255,7 @@ export function runHook(
       return "";
     }
 
-    const current = payload.session_id;
+    const current = sessionKey(payload);
     const turn = adapter.currentTurn(payload.transcript_path);
     const m = marker.readMarker(cwd);
     const kind = classifyClaim(m.owner_session, m.baseline_turn, current);
@@ -242,14 +269,18 @@ export function runHook(
 
     if (kind === "carryover") {
       // Re-claim for the current session and re-baseline at this turn so the
-      // notice fires exactly once; subsequent turns are SAME-SESSION cadence.
+      // notice fires once per project marker. The ack survives re-claims, so
+      // sub-agent/parallel-session marker ping-pong cannot re-fire it.
+      const firstTime = !m.carryover_ack;
       m.baseline_turn = turn;
       m.owner_session = current ?? null;
+      m.provenance = "carried-over";
+      m.carryover_ack = true;
       marker.writeMarker(cwd, m);
-      return (
-        readDirective(env, adapter.carryoverDirectiveFile) +
-        readDirective(env, adapter.fullDirectiveFile)
-      );
+      return firstTime
+        ? readDirective(env, adapter.carryoverDirectiveFile) +
+            readDirective(env, adapter.fullDirectiveFile)
+        : readDirective(env, adapter.fullDirectiveFile);
     }
 
     const rel = turn - (m.baseline_turn as number);
