@@ -111,6 +111,9 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
     per-clone — every clone must run `node scripts/install_worktree_hooks.mjs`);
     Tier-3 = the agent-run pre-action gate. Full spec + naming + provider notes:
     `docs/spec/dev-loop/worktree-enforcement/`.
+41. Before opening any PR, ask the owner using the provider-appropriate
+    interactive question tool (AskUserQuestion on Claude, request-user-input on
+    Codex) whether they wish to increment the package version number.
 
 ## SOP
 
