@@ -46,7 +46,8 @@ const FULL_TO_SHORT: Record<string, LaunchModel | Set<LaunchModel>> = {
 };
 
 export interface RoutingTable {
-  performance: Record<string, PairingEntry[]>;
+  performance?: Record<string, PairingEntry[]>;
+  cost_efficiency?: Record<string, PairingEntry[]>;
   [key: string]: unknown;
 }
 
@@ -58,6 +59,9 @@ interface PairingEntry {
 }
 
 export type SelectionMode = "auto" | "provider" | "provider_model" | "explicit";
+
+export type RoutingBranch = "cost_efficiency" | "performance";
+export const DEFAULT_BRANCH: RoutingBranch = "cost_efficiency";
 
 export interface Candidate {
   provider: Provider;
@@ -185,7 +189,8 @@ export function normalizeEffort(
 export function buildCandidates(
   table: RoutingTable | null,
   taskCategory: string,
-  overrides: Overrides
+  overrides: Overrides,
+  branch: RoutingBranch = DEFAULT_BRANCH
 ): CandidateResult {
   const { provider, model, effort } = overrides;
 
@@ -199,7 +204,7 @@ export function buildCandidates(
 
   const mode: SelectionMode = provider && model ? "provider_model" : provider ? "provider" : "auto";
 
-  const pairings = readPairings(table, taskCategory);
+  const pairings = readPairings(table, taskCategory, branch);
 
   const candidates: Candidate[] = [];
   for (const entry of pairings) {
@@ -242,10 +247,10 @@ export function buildCandidates(
   return { mode, candidates };
 }
 
-/** Read performance.<category> as the pairings array, sorted by rank asc. */
-function readPairings(table: RoutingTable | null, taskCategory: string): PairingEntry[] {
+/** Read <branch>.<category> as the pairings array, sorted by rank asc. */
+function readPairings(table: RoutingTable | null, taskCategory: string, branch: RoutingBranch = DEFAULT_BRANCH): PairingEntry[] {
   if (!table || typeof table !== "object") return [];
-  const perf = table.performance;
+  const perf = table[branch];
   if (!perf || typeof perf !== "object") return [];
 
   let raw = (perf as Record<string, unknown>)[taskCategory];
@@ -300,8 +305,9 @@ export function validatePresence(p: {
   provider?: string;
   model?: string;
   effort?: string;
+  deadlock?: boolean;
 }): string | null {
-  const { task_category, provider, model, effort } = p;
+  const { task_category, provider, model, effort, deadlock } = p;
 
   // 1. task_category valid?
   if (!task_category || !(TASK_CATEGORIES as readonly string[]).includes(task_category)) {
@@ -309,17 +315,22 @@ export function validatePresence(p: {
     return `Error: task_category is required and must be one of: math_proof, security_review, debugging, quality_review, architecture, agentic_execution, data_analysis, coding, knowledge_synthesis, mechanical, fallback_default. Got: ${got}.\n${SPLIT_HINT}\n${AUTO_HINT}`;
   }
 
-  // 2. effort present must come with provider AND model (checked before model rule).
+  // 2. deadlock cannot be combined with provider/model/effort.
+  if (deadlock === true && (provider || model || effort)) {
+    return `Error: deadlock cannot be combined with provider, model, or effort. If repeated attempts at this task have failed, switch to pure auto mode — pass only prompt + task_category and let the server select — unless your assignment explicitly demands a specific model. Omit provider/model/effort and retry.\n${AUTO_HINT}`;
+  }
+
+  // 3. effort present must come with provider AND model (checked before model rule).
   if (effort && !(provider && model)) {
     return `Error: effort requires both provider and model. You passed effort=${effort} without a complete provider+model. Either pass provider+model+effort for a fully explicit launch, or omit all three.\n${AUTO_HINT}`;
   }
 
-  // 3. model present must come with provider.
+  // 4. model present must come with provider.
   if (model && !provider) {
     return `Error: provider is required when model is given. You passed model=${model} without provider. Either also pass provider, or omit both.\n${AUTO_HINT}`;
   }
 
-  // 4. explicit mode only: provider+model must satisfy the existing match rule.
+  // 5. explicit mode only: provider+model must satisfy the existing match rule.
   if (provider && model) {
     if (provider === "claude" && !["haiku", "sonnet", "opus", "opus-4-8"].includes(model)) {
       return `Error: Claude provider only supports haiku, sonnet, opus, or opus-4-8. Got: ${model}`;

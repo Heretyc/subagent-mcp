@@ -7,7 +7,7 @@ notes; carry a caveman self-classification gloss on `task_category`.
 ## Rewritten tool description (verbatim)
 
 ```
-Spawn a sub-agent. AUTO MODE: pass just `prompt` + `task_category` and the server picks the best provider/model/effort for that category from its routing table, launching the best candidate and silently falling back to the next-best if a launch fails. `provider`/`model`/`effort` are OPTIONAL overrides and are usually unnecessary — omit them to get the auto-selected best combination (rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`). If you are unsure which task_category fits, do NOT submit one large amorphous task — break the work into smaller atomic steps that each map to a single category and launch one agent per step. Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes; does NOT call the Anthropic or OpenAI HTTP APIs (no API keys, no SDK). Note: ultracode effort is Opus-4.8+ only (induced via a temp `--settings {"ultracode":true}` file; the CLI rejects `--effort ultracode`). Status `processing` means ALIVE with visible provider activity in the last 10 minutes (counts against concurrency caps); `stalled` means ALIVE but no parsed visible provider stream item for 10 minutes (thinking or awaiting a temp-file handoff, NOT dead, does not count against caps) — wait or re-poll rather than killing.
+Spawn a sub-agent. AUTO MODE: pass just `prompt` + `task_category` and the server picks the best provider/model/effort for that category from its routing table, launching the best candidate and silently falling back to the next-best if a launch fails. `provider`/`model`/`effort` are OPTIONAL overrides and are usually unnecessary — omit them to get the auto-selected best combination (rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`). If you are unsure which task_category fits, do NOT submit one large amorphous task — break the work into smaller atomic steps that each map to a single category and launch one agent per step. Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes; does NOT call the Anthropic or OpenAI HTTP APIs (no API keys, no SDK). Note: ultracode effort is Opus-4.8+ only (induced via a temp `--settings {"ultracode":true}` file; the CLI rejects `--effort ultracode`). Status `processing` means ALIVE with visible provider activity in the last 10 minutes (counts against concurrency caps); `stalled` means ALIVE but no parsed visible provider stream item for 10 minutes (thinking or awaiting a temp-file handoff, NOT dead, does not count against caps) — wait or re-poll rather than killing. DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when more than 2 launch attempts have already been made for the SAME atomic task (i.e. the 3rd attempt onward), and NEVER otherwise.
 ```
 
 Rationale (Structure/Clarity reviewers): auto mode leads; the override rule is
@@ -15,6 +15,18 @@ stated once, compactly; the "split amorphous work" guidance appears here AND in
 the error hints (`resolution-matrix.md`) so it survives whether the caller reads
 docs or only hits an error. The CLI-not-API and `processing!=dead` facts are
 preserved verbatim from the current description.
+
+## `deadlock` param metadata gloss (verbatim)
+
+The `deadlock` param `.describe(...)` string. This and the `DEADLOCK RULE:`
+sentence appended to the tool description are the ONLY two agent-visible deadlock
+strings; per the tool-surface opacity invariant
+(`routing-table-contract.md §Branch selection`) NEITHER may name tiers, branches,
+counters, or windows — only attempts and task identity.
+
+```
+MANDATE: ALWAYS set deadlock=true when, and ONLY when, more than 2 launch attempts have already been made for the SAME atomic task — the 3rd attempt onward. NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort. Passing false is identical to omitting it.
+```
 
 ## `task_category` param metadata gloss (verbatim)
 

@@ -51,7 +51,7 @@ function test(name, fn) {
 //    first; un-launchable ids must never reach the spawn path.
 // ---------------------------------------------------------------------------
 test("auto mode: pairings ordered rank asc; non-launchable pairings skipped", () => {
-  const result = buildCandidates(fixtureTable, "architecture", {});
+  const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
   assert.equal(result.mode, "auto", "mode must be 'auto' when no overrides given");
 
   const ids = result.candidates.map((c) => c.model);
@@ -81,7 +81,7 @@ test("auto mode: pairings ordered rank asc; non-launchable pairings skipped", ()
 //    provider; mixing providers would defeat the constraint.
 // ---------------------------------------------------------------------------
 test("provider filter: codex returns only codex-provider pairings in rank order", () => {
-  const result = buildCandidates(fixtureTable, "architecture", { provider: "codex" });
+  const result = buildCandidates(fixtureTable, "architecture", { provider: "codex" }, "performance");
   assert.equal(result.mode, "provider", "mode must be 'provider'");
   assert.ok(result.candidates.length > 0, "architecture has a gpt-5.5 pairing");
   for (const c of result.candidates) {
@@ -103,7 +103,7 @@ test("provider_model filter: claude+sonnet returns only sonnet pairings", () => 
   const result = buildCandidates(fixtureTable, "architecture", {
     provider: "claude",
     model: "sonnet",
-  });
+  }, "performance");
   assert.equal(result.mode, "provider_model", "mode must be 'provider_model'");
   assert.ok(result.candidates.length > 0, "architecture has a sonnet pairing");
   for (const c of result.candidates) {
@@ -205,7 +205,7 @@ test("mapModelToProvider: unknown id returns null (skip signal)", () => {
 //    Silently falling through to a default would defeat the fail-loud principle.
 // ---------------------------------------------------------------------------
 test("empty category: buildCandidates signals no-candidates (not an error throw)", () => {
-  const result = buildCandidates(fixtureTable, "debugging", {});
+  const result = buildCandidates(fixtureTable, "debugging", {}, "performance");
   // The resolver must return a value (not throw); the handler converts it to ERR_NO_CANDIDATES.
   // The no-candidates signal is either noCandidates:true OR an empty candidates array.
   const hasNoCandidatesFlag = result && result.noCandidates === true;
@@ -239,7 +239,7 @@ test("loadRoutingTable: valid fixture path returns an object with performance br
 //    not coerced to a known model. Silent coercion would launch the wrong model.
 // ---------------------------------------------------------------------------
 test("unknown model id in table is skipped, not coerced", () => {
-  const result = buildCandidates(fixtureTable, "architecture", {});
+  const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
   const ids = result.candidates.map((c) => c.model);
   assert.ok(!ids.includes("unknown-model-xyz"),
     "unknown-model-xyz must not appear in candidates; coercing it would silently launch the wrong model");
@@ -293,7 +293,7 @@ test("explicit mode with codex: null table works, single candidate returned", ()
 // ---------------------------------------------------------------------------
 test("all-non-launchable category: buildCandidates signals no-candidates", () => {
   // 'only_nonlaunchable' contains only gpt-5.5-pro, claude-opus-4-7, unknown-model-xyz
-  const result = buildCandidates(fixtureTable, "only_nonlaunchable", {});
+  const result = buildCandidates(fixtureTable, "only_nonlaunchable", {}, "performance");
   const hasNoCandidatesFlag = result && result.noCandidates === true;
   const hasEmptyArray = result && Array.isArray(result.candidates) && result.candidates.length === 0;
   assert.ok(hasNoCandidatesFlag || hasEmptyArray,
@@ -307,7 +307,7 @@ test("all-non-launchable category: buildCandidates signals no-candidates", () =>
 // ---------------------------------------------------------------------------
 test("gpt-5.5-pro sibling is skipped in auto mode (not coerced to gpt-5.5)", () => {
   // architecture fixture has gpt-5.5-pro at rank 5
-  const result = buildCandidates(fixtureTable, "architecture", { provider: "codex" });
+  const result = buildCandidates(fixtureTable, "architecture", { provider: "codex" }, "performance");
   // Only gpt-5.5 should appear; gpt-5.5-pro must be absent
   for (const c of result.candidates) {
     assert.notEqual(c.model, "gpt-5.5-pro",
@@ -316,7 +316,7 @@ test("gpt-5.5-pro sibling is skipped in auto mode (not coerced to gpt-5.5)", () 
 });
 
 test("claude-opus-4-7 sibling is skipped in auto mode (not coerced to opus-4-8)", () => {
-  const result = buildCandidates(fixtureTable, "architecture", { provider: "claude" });
+  const result = buildCandidates(fixtureTable, "architecture", { provider: "claude" }, "performance");
   for (const c of result.candidates) {
     assert.notEqual(c.model, "claude-opus-4-7",
       "claude-opus-4-7 must never appear; coercing it to opus-4-8 would misrepresent the ranked choice");
@@ -330,7 +330,7 @@ test("claude-opus-4-7 sibling is skipped in auto mode (not coerced to opus-4-8)"
 //     If candidates are pre-filtered without tracking, the count is wrong.
 // ---------------------------------------------------------------------------
 test("auto mode: returned candidate list has correct launchable count for architecture", () => {
-  const result = buildCandidates(fixtureTable, "architecture", {});
+  const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
   // architecture has: opus-4-8(launchable), gpt-5.5(launchable), sonnet(launchable),
   // haiku(launchable), gpt-5.5-pro(skip), claude-opus-4-7(skip), unknown-model-xyz(skip)
   assert.equal(result.candidates.length, 4,
@@ -343,7 +343,7 @@ test("auto mode: returned candidate list has correct launchable count for archit
 //     knows buildCommand did not receive an effort argument.
 // ---------------------------------------------------------------------------
 test("haiku pairing in auto mode produces effort 'none' in candidate triple", () => {
-  const result = buildCandidates(fixtureTable, "architecture", {});
+  const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
   const haikuCandidate = result.candidates.find((c) => c.model === "haiku");
   assert.ok(haikuCandidate,
     "architecture fixture must include a haiku pairing");
@@ -358,7 +358,7 @@ test("haiku pairing in auto mode produces effort 'none' in candidate triple", ()
 //     haiku, gpt-5.5). Wrong mapping causes 'model not found' in the CLI.
 // ---------------------------------------------------------------------------
 test("full model id claude-opus-4-8 maps to short launch id opus-4-8", () => {
-  const result = buildCandidates(fixtureTable, "architecture", {});
+  const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
   const opusCandidate = result.candidates.find(
     (c) => c.model === "opus-4-8"
   );
@@ -367,14 +367,14 @@ test("full model id claude-opus-4-8 maps to short launch id opus-4-8", () => {
 });
 
 test("full model id claude-sonnet-4-6 maps to short launch id sonnet", () => {
-  const result = buildCandidates(fixtureTable, "architecture", {});
+  const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
   const sonnetCandidate = result.candidates.find((c) => c.model === "sonnet");
   assert.ok(sonnetCandidate,
     "claude-sonnet-4-6 in table must map to short id sonnet for buildCommand");
 });
 
 test("full model id claude-haiku-4-5 maps to short launch id haiku", () => {
-  const result = buildCandidates(fixtureTable, "architecture", {});
+  const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
   const haikuCandidate = result.candidates.find((c) => c.model === "haiku");
   assert.ok(haikuCandidate,
     "claude-haiku-4-5 in table must map to short id haiku for buildCommand");
@@ -393,7 +393,7 @@ test("effort normalization: codex@none returns null (skip invalid effort-capable
 
 test("auto mode with gpt-5.5@xhigh: candidate retained with concrete selectable effort", () => {
   // math_proof category has gpt-5.5@xhigh as rank-1 entry.
-  const result = buildCandidates(fixtureTable, "math_proof", {});
+  const result = buildCandidates(fixtureTable, "math_proof", {}, "performance");
   assert.ok(result.candidates.length > 0, "math_proof has gpt-5.5@xhigh pairing");
   const gpt55Candidate = result.candidates[0];
   assert.equal(gpt55Candidate.provider, "codex",
@@ -416,7 +416,7 @@ test("provider_model filter: claude+opus returns opus-4-8 pairings (opus alias)"
   const result = buildCandidates(fixtureTable, "architecture", {
     provider: "claude",
     model: "opus",
-  });
+  }, "performance");
   assert.ok(result.candidates.length > 0,
     "provider_model filter with model:'opus' must return candidates (opus is a valid alias)");
   assert.equal(result.mode, "provider_model", "mode must be 'provider_model'");
@@ -427,6 +427,65 @@ test("provider_model filter: claude+opus returns opus-4-8 pairings (opus alias)"
     assert.equal(c.provider, "claude",
       "every returned candidate must have provider=claude");
   }
+});
+
+// ---------------------------------------------------------------------------
+// 17. branch routing — default reads cost_efficiency
+//     WHY: the default branch changed from performance to cost_efficiency.
+//     cost_efficiency.architecture ranks haiku first; performance ranks opus-4-8
+//     first. If the default silently stayed performance, this test catches it.
+// ---------------------------------------------------------------------------
+test("branch default: no branch arg reads cost_efficiency; architecture rank-1 is haiku not opus", () => {
+  const result = buildCandidates(fixtureTable, "architecture", {});
+  assert.equal(result.mode, "auto");
+  assert.ok(result.candidates.length > 0, "cost_efficiency.architecture must have pairings");
+  assert.equal(
+    result.candidates[0].model,
+    "haiku",
+    "cost_efficiency.architecture rank-1 is haiku; if opus-4-8 appears the default is still reading performance branch"
+  );
+});
+
+test("branch explicit 'cost_efficiency' produces identical list to default (no branch arg)", () => {
+  // WHY: explicit and implicit cost_efficiency must be identical; divergence
+  // would mean the default is reading a different branch than declared.
+  const resultDefault = buildCandidates(fixtureTable, "architecture", {});
+  const resultExplicit = buildCandidates(fixtureTable, "architecture", {}, "cost_efficiency");
+  assert.deepEqual(
+    resultExplicit.candidates.map((c) => `${c.model}@${c.effort}`),
+    resultDefault.candidates.map((c) => `${c.model}@${c.effort}`),
+    "explicit 'cost_efficiency' must produce identical candidate list to the no-branch-arg default"
+  );
+});
+
+test("branch default: missing cost_efficiency in table → no-candidates (no silent fallback to performance)", () => {
+  // WHY: if cost_efficiency branch is absent, the resolver must NOT fall back to
+  // performance. Silent fallback would produce candidates from the wrong ranking,
+  // defeating the cost_efficiency-default invariant.
+  const tableNoEfficiencyBranch = {
+    performance: {
+      architecture: [
+        {
+          model: "claude-opus-4-8",
+          effort: "high",
+          rank: 1,
+          score: 0.95,
+          cost_figure_used: 0.000015,
+          interpolated: false,
+          confidence: "measured",
+          basis: ["[MEASURED]"],
+        },
+      ],
+    },
+  };
+  const result = buildCandidates(tableNoEfficiencyBranch, "architecture", {});
+  const hasNoCandidatesFlag = result && result.noCandidates === true;
+  const hasEmptyArray =
+    result && Array.isArray(result.candidates) && result.candidates.length === 0;
+  assert.ok(
+    hasNoCandidatesFlag || hasEmptyArray,
+    "missing cost_efficiency branch must signal no-candidates; if opus-4-8 appears, the resolver fell back to performance silently"
+  );
 });
 
 // ---------------------------------------------------------------------------

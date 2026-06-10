@@ -20,19 +20,62 @@ list, normalizes effort, and runs the attempt loop with silent fallback.
   infrequent, so a freshly-emitted table needs no restart — a profiler run that
   writes the table AFTER server start is picked up on the next launch.
 
-## Branch consumed
+## Branch selection
 
-Only `performance`. Read `performance.<task_category>` — it IS the pairings
-array directly (no `.pairings` wrapper). This matches the emitted/validated
-runtime artifact: `scripts/validate_provider.mjs` (`validateCategoryEntries`)
-requires `performance[<category>]` to be an Array of pairing objects, and
-`provider-json-emission.md` states "Each category value is an array of pairing
-objects". The `cost_efficiency` branch is ignored by this feature (future work,
-`param-contract.md §Out of scope`).
+The table holds two branches: `cost_efficiency` (canonical default) and
+`performance`. Each branch's `<task_category>` value is a direct array of pairing
+objects (no `.pairings` wrapper), per `provider-json-emission.md`. The resolver
+reads exactly ONE branch per launch and NEVER merges or crosses over: every
+table-backed launch reads `cost_efficiency.<task_category>` by default;
+`performance` is reached ONLY by a PURE-AUTO launch (no provider/model/effort)
+while a deadlock window is armed.
+
+### Deadlock window (in-memory, per-process)
+
+A single integer counter scoped to the server PROCESS and shared across all
+concurrent callers. Starts at 0 (disarmed); not persisted; a restart resets it.
+
+- `deadlock=true` arms it (counter = 3) — ONLY after full validation passes
+  (`resolution-matrix.md` step 7); a rejected call never arms.
+- `deadlock=true` while armed RE-ARMS to 3 (not additive).
+- `deadlock=false` is identical to omitting it: neither arms nor disarms.
+- Cannot be cancelled; survives until consumed to 0 (or process exit).
+
+A PURE-AUTO launch reads `performance.<task_category>` when counter > 0, else
+`cost_efficiency.<task_category>`. The counter decrements by 1 ONLY on a
+SUCCESSFUL pure-auto launch that read `performance`. The `deadlock=true` call is
+itself pure-auto, routes `performance`, and consumes 1 of 3 on its own success —
+so one `deadlock=true` covers up to 3 successful pure-auto `performance` launches
+(trigger + 2 followers), then pure-auto reverts to `cost_efficiency`.
+
+NEVER decrement (window stays ARMED) on: validation errors; table errors
+(`ERR_TABLE_MISSING`/`ERR_NO_CANDIDATES`); all-candidates-failed
+(`ERR_ALL_FAILED`); or any override launch. `provider`/`provider_model` ALWAYS
+read `cost_efficiency` (a window never diverts them) and never decrement;
+`explicit` reads no branch. None of the three may pass `deadlock`
+(→ `ERR_DEADLOCK_WITH_OVERRIDES`).
+
+Shared-scope caveat (stated honestly): the counter is per-PROCESS, not per-task
+or per-caller. A window armed for one atomic task is consumed by ANY concurrent
+pure-auto launch in the same process — including unrelated tasks from other
+callers; no task affinity, no cancellation. Under concurrency the 3 `performance`
+launches are not guaranteed to be the arming caller's own.
+
+No cross-branch fallback: if the selected branch's `<task_category>` is
+empty/missing → `ERR_NO_CANDIDATES`; the resolver does NOT retry the other branch
+in EITHER direction.
+
+### Tool-surface opacity (INVARIANT)
+
+Tool descriptions and error texts NEVER name tiers, branches, counters, or
+windows. The only agent-visible deadlock strings are the verbatim `DEADLOCK RULE:`
+tool-description line and the `deadlock` param MANDATE gloss (`tool-description.md`).
+`poll_agent.routing_tier` is the sole sanctioned tier/branch exposure (diagnostic
+output, not a description or error).
 
 ## Pairing object schema (authoritative source)
 
-Each element of the `performance.<task_category>` array conforms to
+Each element of the selected branch's `<task_category>` array conforms to
 `skills/model-profiler/references/provider-json-emission.md` (the authoritative
 contract). The fields THIS resolver consumes:
 
@@ -94,7 +137,7 @@ a launch failure and advances (auto/partial modes) — defense in depth.
 
 ## Candidate-list construction (by mode)
 
-From the `performance.<task_category>` array, sorted by `rank` asc:
+From the selected branch's `<task_category>` array (per §Branch selection), sorted by `rank` asc:
 
 - `auto`: all pairings.
 - `provider`: pairings whose mapped provider == the supplied provider.
@@ -128,8 +171,7 @@ For each candidate in order (best→worst):
    to the next candidate. Do not surface intermediate failures to the caller.
 4. On the FIRST successful spawn: register the agent exactly as today (same
    `AgentState`, stdout/stderr handlers, close handler, `agents.set`), and
-   return the success payload (`param-contract.md`) including
-   `candidates_skipped` = number of prior failures.
+   return the success payload (`param-contract.md`).
 
 CRITICAL — launch-time only: `launch_agent` returns immediately after a
 successful `spawn`; it does NOT await the sub-agent's task. The agent's eventual
