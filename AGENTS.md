@@ -34,10 +34,8 @@ agentic collaboration.
   merging, resetting, cleaning, pruning, or opening/reviewing/merging PRs; and
   protected/default-branch work. Skip for read-only `status`/`diff`/`log` or
   file inspection.
-- `agents/GIT_COLLABORATION.md`: after the git SOP, read when doing git writes
-  and a compact checklist helps. Skip for read-only review or non-git tasks.
-- `docs/spec/dev-loop/claude-routine-prompt.md`: read before creating or
-  changing the exact Claude Routine Instructions text.
+- `agents/GIT_COLLABORATION.md`: compact git-write checklist; read after the git SOP; skip for read-only or non-git tasks.
+- `docs/spec/dev-loop/claude-routine-prompt.md`: read before changing the exact Claude Routine Instructions text.
 - `docs/spec/dev-loop/claude-routines-cicd.md`: read before editing
   `.github/workflows/*`, required-check names, workflow permissions,
   `workflow_dispatch` I/O, dispatch bridge logic, or any GitHub event/status
@@ -55,6 +53,7 @@ agentic collaboration.
   the fixed 10-category task taxonomy (immutable) or its provenance, not routing.
 - `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior; for the advanced-ruleset.py override hook, its python execution/IO contract, launch visibility fields, or the post-spawn failover window, read `docs/spec/advanced-ruleset/_INDEX.md` first.
 - `docs/spec/dev-loop/worktree-enforcement/_INDEX.md`: read before ANY mutating or repo-affecting action — creating/naming a branch or worktree, editing/writing/deleting a file, staging, committing, merging, rebasing, resetting, or pushing — to run the pre-action worktree gate. Not for read-only status/log/diff/inspection.
+- `docs/spec/dev-loop/release-publishing.md`: read before `npm publish`, npm-registry auth refresh, or diagnosing a publish failure.
 
 ## Always Enforce
 
