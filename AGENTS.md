@@ -65,11 +65,11 @@ agentic collaboration.
   mutating/repo-affecting action; on failure create/enter a compliant worktree
   first. See `docs/spec/dev-loop/worktree-enforcement/`.
 - Before file edits or git writes, inspect `git status --short --branch`.
-- Pre-commit (executable/source change): run `node scripts/check_mcp_compliance.mjs`
-  (vendor metadata limits — server/tool/desc/name/hook caps; FAIL blocks), then
-  dispatch a contradiction-checker sub-agent (strongest model; first step re-runs
-  that script) vs relevant specs/docs; if unavailable halt, tell owner. On
-  `blocked`/`needs_user`: no writes, resolve via `docs/spec/safety-scope.md`.
+- Pre-commit (executable/source or build-participating change): run
+  `node scripts/check_mcp_compliance.mjs` (FAIL blocks), then a contradiction-checker
+  sub-agent (strongest model) per `docs/spec/dev-loop/contradiction-checker.md`
+  (scope: spec conflicts, stale build-participating docs/specs, unstaged build-affecting files).
+  Unavailable: halt. On `blocked`/`needs_user`, act per that spec; never commit around it.
 - Treat any uncommitted change present before the current task, or of uncertain
   author, as user-owned: do not overwrite, discard, stage, commit, reset, clean,
   rebase, move, or hide it without explicit owner authorization.
