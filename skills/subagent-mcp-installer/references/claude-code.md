@@ -65,7 +65,8 @@ machine using this standalone install:
    `list_agents`, etc.
 3. Toggle `orchestration-mode` ON → submit a prompt → an orchestrator-only
    directive is injected ahead of the turn (hook returns `additionalContext`).
-4. Toggle OFF → injection stops (no marker → zero emission).
+4. Toggle OFF → the FULL directive stops; the OFF reminder cadence (LONG
+   `reminder-off-claude.md` every 5th prompt, one-line pointer between) remains.
 5. No double injection (confirms the plugin is not also wired).
 
 ## Desktop note

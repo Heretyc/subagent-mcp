@@ -31,6 +31,16 @@ const effortOrder = new Map([
   ["ultracode", 10],
 ]);
 const NO_EFFORT_SENTINELS = new Set(["null", "none", "n/a"]);
+// Owner directive (2026-06-11, FINAL AND BINDING — NO EXCEPTIONS): the performance branch
+// carries ONLY pairings at effort >= 'high'. Low/medium (and weaker) reasoning-effort
+// variants are a widely-bad choice for performance/deadlock situations and are
+// hard-rejected from that branch. cost_efficiency is unaffected.
+const PERFORMANCE_MIN_EFFORT = "high";
+const PERFORMANCE_MIN_EFFORT_INDEX = effortOrder.get(PERFORMANCE_MIN_EFFORT);
+function meetsPerformanceEffortFloor(effortK) {
+  const idx = effortOrder.get(effortK);
+  return idx !== undefined && idx >= PERFORMANCE_MIN_EFFORT_INDEX;
+}
 // Categories from which no-effort (null/none/n/a) pairings are excluded — they are not
 // ranked/listed here, so per-category coverage expects the universe MINUS no-effort pairings.
 const NO_EFFORT_EXCLUDED_CATEGORIES = new Set([
@@ -222,8 +232,18 @@ function deriveUniverse(provider, spine) {
   return set;
 }
 
-// Per-category expected coverage: excluded categories omit the no-effort pairings.
-function expectedUniverseForCategory(category, universeSet) {
+// Per-branch, per-category expected coverage: the performance branch keeps only
+// effort >= 'high' pairings (owner directive — the floor subsumes the no-effort
+// exclusion there); cost_efficiency omits no-effort pairings in the excluded
+// categories only.
+function expectedUniverseForCategory(branch, category, universeSet) {
+  if (branch === "performance") {
+    return new Set(
+      [...universeSet].filter((key) =>
+        meetsPerformanceEffortFloor(key.slice(key.lastIndexOf("@") + 1))
+      )
+    );
+  }
   if (!NO_EFFORT_EXCLUDED_CATEGORIES.has(category)) return universeSet;
   return new Set(
     [...universeSet].filter((key) => {
@@ -350,7 +370,21 @@ function validateCategoryEntries(provider, spine, universeSet, issues) {
         issues.push(`${label} must be an array`);
         continue;
       }
-      validatePairingArray(label, entries, expectedUniverseForCategory(category, universeSet), issues);
+      validatePairingArray(label, entries, expectedUniverseForCategory(branch, category, universeSet), issues);
+      // Performance effort floor: an explicit, specific failure for any below-floor
+      // entry (the universe check above would only say "not in derived universe").
+      if (branch === "performance") {
+        for (const [index, entry] of entries.entries()) {
+          if (!isObject(entry) || !Object.hasOwn(entry, "effort")) continue;
+          if (!meetsPerformanceEffortFloor(effortKey(entry.effort))) {
+            issues.push(
+              `${label}[${index}] ${pairingKey(entry.model, entry.effort)} is below the performance ` +
+              `effort floor ('${PERFORMANCE_MIN_EFFORT}'): below-high efforts are banned from the ` +
+              `performance branch (owner directive, FINAL)`
+            );
+          }
+        }
+      }
     }
   }
 }

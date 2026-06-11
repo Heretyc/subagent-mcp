@@ -2,9 +2,9 @@ import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 import {
+  claimAndEmit,
   classifyClaim,
   countJsonlType,
-  readDirective,
   runHook,
   sessionKey,
   type HookPayload,
@@ -14,14 +14,10 @@ import * as marker from "../orchestration/marker.js";
 
 /**
  * Codex CLI hook entry. Branches on payload.hook_event_name:
- *   - 'SessionStart'     -> if active and not a subagent, emit FULL (covers the
- *                           turn-0 directive before the first UserPromptSubmit).
- *   - 'UserPromptSubmit' -> the normal %5 runHook cadence.
- *
- * NOTE: the Python prototype carried inline 'alternating/odd-turn' comments;
- * those were STALE. The operative cadence is every 5th relative turn (%5),
- * matching INSTALL.md. The stale alternating comments are intentionally NOT
- * reproduced here.
+ *   - 'SessionStart'     -> if active and not a subagent, emit FULL + the ON
+ *                           reminder block (covers the turn-0 directive before
+ *                           the first UserPromptSubmit).
+ *   - 'UserPromptSubmit' -> the normal per-prompt reminder cadence (runHook).
  *
  * Compiles to dist/hooks/orchestration-codex.js and is invoked as:
  *   node "<PLUGIN_ROOT>/dist/hooks/orchestration-codex.js"
@@ -72,7 +68,8 @@ export const codexAdapter: ProviderAdapter = {
   // Count JSONL lines whose parsed object.type === 'turn_context'. Delegates to
   // the bounded counter (reads at most the trailing window so a huge/
   // attacker-supplied transcript can't stall the inline host turn). Unreadable
-  // -> 0 (fail-safe: emits FULL rather than silently suppressing).
+  // -> 0 (fail-safe: the claim baseline stamps at 0; cadence is counter-driven
+  // and unaffected). Read on claim turns only.
   currentTurn(transcriptPath: string | undefined): number {
     return countJsonlType(transcriptPath, "turn_context");
   },
@@ -80,6 +77,8 @@ export const codexAdapter: ProviderAdapter = {
   fullDirectiveFile: "orchestration-codex.md",
   offTurnFile: "off-turn-reminder.md",
   carryoverDirectiveFile: "carryover-codex.md",
+  reminderOnFile: "reminder-on.md",
+  reminderOffFile: "reminder-off-codex.md",
 };
 
 /**
@@ -111,20 +110,11 @@ export function runCodexHook(
       const m = marker.readMarker(cwd);
       const kind = classifyClaim(m.owner_session, m.baseline_turn, current);
 
-      // Claim/re-claim for this session and baseline at the current turn.
-      const firstCarryover = kind === "carryover" && !m.carryover_ack;
-      m.baseline_turn = turn;
-      m.owner_session = current ?? null;
-      if (kind === "carryover") {
-        m.provenance = "carried-over";
-        m.carryover_ack = true;
-      }
-      marker.writeMarker(cwd, m);
-
-      return firstCarryover
-        ? readDirective(env, adapter.carryoverDirectiveFile) +
-            readDirective(env, adapter.fullDirectiveFile)
-        : readDirective(env, adapter.fullDirectiveFile);
+      // Claim/re-claim + emit via the SHARED claim path (one copy of the
+      // semantics — FULL + ON reminder, ack-latched CARRYOVER prepend, counter
+      // re-baseline). SessionStart claims even on SAME-SESSION (resume) so
+      // turn 0 is always covered.
+      return claimAndEmit(cwd, current, turn, m, kind, env, adapter);
     }
     // UserPromptSubmit (and any other event) -> normal cadence.
     return runHook(payload, env, adapter);

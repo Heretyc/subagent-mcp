@@ -261,6 +261,9 @@ export function verifyInstall(root: string = INSTALL_ROOT): string[] {
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
     "directives/off-turn-reminder.md",
+    "directives/reminder-on.md",
+    "directives/reminder-off-claude.md",
+    "directives/reminder-off-codex.md",
   ];
   return required.filter((f) => !existsSync(join(root, ...f.split("/"))));
 }

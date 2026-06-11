@@ -84,15 +84,16 @@ The standalone checker enforces all of the following; any failure exits non-zero
 1. **Two branches only** — root keys are exactly `metadata`, `performance`, `cost_efficiency`.
 2. **Category keys match RAG spine** — category ids in both branches equal the spine derived from
    the machine-mirror asset (`assets/routing-table.json`), in the same order.
-3. **Per-category coverage (table-derived, invariant #14)** — the model@effort universe is the union
-   of all pairings across both branches. Coverage is checked **per category** against a reduced
-   expected set: in the 6 no-effort-exclusion categories (`agentic_execution`, `architecture`,
-   `security_review`, `debugging`, `quality_review`, `knowledge_synthesis`) the expected set is the
-   universe MINUS pairings of no-effort-only models (whose only effort is `null`/`none`/`n/a`); in the
-   other 4 (`math_proof`, `data_analysis`, `coding`, `mechanical`) the expected set is the full
-   universe. Each category in BOTH branches must contain exactly its expected set, each pairing once
-   (no duplicates, no omissions, no no-effort-only model present in the 6 excluded categories).
-   `metadata.model_effort_universe` is NOT consulted (it no longer exists on the canonical table).
+3. **Per-branch, per-category coverage (table-derived; invariants #14 + #16)** — the model@effort
+   universe is the union of all pairings across both branches. **`performance`**: the expected set
+   per category is the universe filtered to **effort >= `high`** (the performance effort floor,
+   invariant #16 — below-high pairings, including all no-effort sentinels, are hard-rejected).
+   **`cost_efficiency`**: in the 6 no-effort-exclusion categories (`agentic_execution`,
+   `architecture`, `security_review`, `debugging`, `quality_review`, `knowledge_synthesis`) the
+   expected set is the universe MINUS pairings of no-effort-only models (whose only effort is
+   `null`/`none`/`n/a`); in the other 4 (`math_proof`, `data_analysis`, `coding`, `mechanical`) it
+   is the full universe. Each category must contain exactly its branch's expected set, each pairing
+   once. `metadata.model_effort_universe` is NOT consulted (it no longer exists on the lean table).
 4. **Dense ranks** — within each category array, ranks are 1, 2, … N with no gaps, and
    `rank[i]` equals ordered array position `i`. (No score-monotonicity check — `score` is gone.)
 5. **Lean pairing keys** — every pairing has EXACTLY `{provider, model, effort, rank}`.

@@ -15,12 +15,12 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 //                             charset everyone downstream enforces).
 //   C4 hook additionalContext: < 10000 chars (Claude Code UserPromptSubmit cap)
 //                             for each directive asset AND each provider's
-//                             carryover+full combined injection.
-//   C5 directive asset budget: orchestration-*.md <= 1250 B, carryover-*.md <=
-//                             800 B — keep the caveman-compressed per-turn
-//                             injection lean (limits set just above current
-//                             sizes with headroom; current max codex 1151 B /
-//                             carryover 704 B).
+//                             combined claim-turn injection (carryover + full
+//                             + reminder-on — the largest single emission).
+//   C5 directive asset budget: per-prefix byte budgets (orchestration-* and
+//                             reminder-* <= 1250 B, carryover-* <= 800 B; any
+//                             other directive .md defaults to 1250 B) — keep
+//                             the caveman-compressed per-turn injection lean.
 
 const indexPath = new URL("../src/index.ts", import.meta.url);
 const directivesDir = new URL("../directives/", import.meta.url);
@@ -32,6 +32,14 @@ const TOOL_NAME_RE = /^[a-zA-Z0-9_-]{1,128}$/;
 const ADDITIONAL_CONTEXT_CAP = 10000;
 const ORCHESTRATION_ASSET_MAX = 1250;
 const CARRYOVER_ASSET_MAX = 800;
+// Prefix -> C5 byte budget. Files matching no prefix get the default budget so
+// a NEW directive family can never ship with zero C5 coverage.
+const C5_BUDGETS = [
+  ["orchestration-", ORCHESTRATION_ASSET_MAX],
+  ["carryover-", CARRYOVER_ASSET_MAX],
+  ["reminder-", ORCHESTRATION_ASSET_MAX],
+];
+const C5_DEFAULT_BUDGET = ORCHESTRATION_ASSET_MAX;
 
 const bytes = (s) => Buffer.byteLength(s, "utf8");
 
@@ -156,30 +164,23 @@ function main() {
       fail: len >= ADDITIONAL_CONTEXT_CAP,
       detail: `${len} chars`,
     });
-    if (f.startsWith("orchestration-")) {
-      results.push({
-        name: `C5 asset[${f}] <= ${ORCHESTRATION_ASSET_MAX} B`,
-        fail: b > ORCHESTRATION_ASSET_MAX,
-        detail: `${b} B`,
-      });
-    } else if (f.startsWith("carryover-")) {
-      results.push({
-        name: `C5 asset[${f}] <= ${CARRYOVER_ASSET_MAX} B`,
-        fail: b > CARRYOVER_ASSET_MAX,
-        detail: `${b} B`,
-      });
-    }
+    const [, budget] = C5_BUDGETS.find(([prefix]) => f.startsWith(prefix)) ?? [null, C5_DEFAULT_BUDGET];
+    results.push({
+      name: `C5 asset[${f}] <= ${budget} B`,
+      fail: b > budget,
+      detail: `${b} B`,
+    });
   }
 
-  // C4 — combined carryover+full injection per provider (hook prepends the
-  // carryover notice to the full directive once per marker).
+  // C4 — combined claim-turn injection per provider: the hook's largest single
+  // emission is carryover notice + full directive + ON reminder block.
   for (const provider of ["claude", "codex"]) {
-    const cf = `carryover-${provider}.md`;
-    const of = `orchestration-${provider}.md`;
-    if (dirFiles.includes(cf) && dirFiles.includes(of)) {
-      const combinedLen = (read(cf) + read(of)).length;
+    const parts = [`carryover-${provider}.md`, `orchestration-${provider}.md`, "reminder-on.md"]
+      .filter((f) => dirFiles.includes(f));
+    if (parts.length > 1) {
+      const combinedLen = parts.map(read).join("").length;
       results.push({
-        name: `C4 combined[${provider} carryover+full] < ${ADDITIONAL_CONTEXT_CAP} chars`,
+        name: `C4 combined[${provider} carryover+full+reminder-on] < ${ADDITIONAL_CONTEXT_CAP} chars`,
         fail: combinedLen >= ADDITIONAL_CONTEXT_CAP,
         detail: `${combinedLen} chars`,
       });

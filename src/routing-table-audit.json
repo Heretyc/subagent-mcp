@@ -650,8 +650,8 @@
       "provider_rank_stats": {
         "codex": {
           "performance": {
-            "mean": 21.6,
-            "count": 120
+            "mean": 11.98,
+            "count": 60
           },
           "cost_efficiency": {
             "mean": 14.08,
@@ -660,8 +660,8 @@
         },
         "claude": {
           "performance": {
-            "mean": 12.87,
-            "count": 194
+            "mean": 7.37,
+            "count": 110
           },
           "cost_efficiency": {
             "mean": 17.52,
@@ -672,55 +672,55 @@
       "provider_citations_by_tier": {
         "codex": {
           "2": 8,
-          "3": 18,
-          "5": 42
+          "3": 14,
+          "5": 32
         },
         "claude": {
-          "2": 38,
-          "3": 20,
-          "5": 58
+          "2": 32,
+          "3": 16,
+          "5": 46
         }
       },
       "category_family_balance": {
         "math_proof": {
-          "codex": 12,
-          "claude": 20
+          "codex": 6,
+          "claude": 11
         },
         "security_review": {
-          "claude": 19,
-          "codex": 12
+          "claude": 11,
+          "codex": 6
         },
         "debugging": {
-          "claude": 19,
-          "codex": 12
+          "claude": 11,
+          "codex": 6
         },
         "quality_review": {
-          "claude": 19,
-          "codex": 12
+          "claude": 11,
+          "codex": 6
         },
         "architecture": {
-          "claude": 19,
-          "codex": 12
+          "claude": 11,
+          "codex": 6
         },
         "agentic_execution": {
-          "codex": 12,
-          "claude": 19
+          "codex": 6,
+          "claude": 11
         },
         "data_analysis": {
-          "codex": 12,
-          "claude": 20
+          "codex": 6,
+          "claude": 11
         },
         "coding": {
-          "codex": 12,
-          "claude": 20
+          "codex": 6,
+          "claude": 11
         },
         "knowledge_synthesis": {
-          "claude": 19,
-          "codex": 12
+          "claude": 11,
+          "codex": 6
         },
         "mechanical": {
-          "claude": 20,
-          "codex": 12
+          "claude": 11,
+          "codex": 6
         }
       },
       "asymmetry_flags": [],
@@ -900,18 +900,18 @@
       },
       "drift_vs_prior_audit": {
         "prior_git_ref": "HEAD",
-        "prior_sha256": "b6d9c5201461247e8cb144492155e4039e0f674c996428deca8f23aefc7fb2c8",
-        "prior_generated_at": "2026-06-06T00:00:00Z",
+        "prior_sha256": "cfccf5d99ce47feee7020f27f064634ef11c6a48889a1afdeb33b2952ec3b04f",
+        "prior_generated_at": "2026-06-09T00:00:00Z",
         "universe_count": {
-          "prior": 27,
+          "prior": 32,
           "current": 32
         },
         "neutralized_count": {
-          "prior": 2,
+          "prior": 4,
           "current": 4
         },
         "data_missing_categories": {
-          "prior": 0,
+          "prior": 1,
           "current": 1
         }
       }
@@ -1055,55 +1055,9 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 3,
-        "score": 1.0199064601933399,
-        "cost_figure_used": 0.0000075,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://llm-stats.com/benchmarks/frontiermath",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "FrontierMath overall accuracy via llm-stats tracker board (Tier-5 per benchmark-sources; resolve-to-primary advised). epoch.ai (FrontierMath home, Tier-2) dashboard is JS-gated and was not machine-extractable for corroboration. No per-tier (1-4) or per-effort split shown for this model on the board -> effort 'any'. Board is OpenAI-heavy; ranked #3 overall (47.6 GPT-5.4 / 40.3 GPT-5.2 / 39.6 GPT-5.5-Pro / 35.4 GPT-5.5).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 4,
-        "score": 1.035263130359648,
-        "cost_figure_used": 0.00000696,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://llm-stats.com/benchmarks/frontiermath",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "FrontierMath overall accuracy via llm-stats tracker board (Tier-5 per benchmark-sources; resolve-to-primary advised). epoch.ai (FrontierMath home, Tier-2) dashboard is JS-gated and was not machine-extractable for corroboration. No per-tier (1-4) or per-effort split shown for this model on the board -> effort 'any'. Board is OpenAI-heavy; ranked #3 overall (47.6 GPT-5.4 / 40.3 GPT-5.2 / 39.6 GPT-5.5-Pro / 35.4 GPT-5.5).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 5,
+        "rank": 3,
         "score": 0.005293150051171697,
         "cost_figure_used": 0.000002,
         "interpolated": false,
@@ -1126,7 +1080,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 6,
+        "rank": 4,
         "score": 0.005569982941591846,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -1146,63 +1100,107 @@
         ]
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 7,
-        "score": 0.005814845796015985,
-        "cost_figure_used": 0.00000125,
-        "interpolated": false,
-        "confidence": "medium",
+        "provider": "claude",
+        "model": "claude-fable-5",
+        "effort": "high",
+        "rank": 5,
+        "score": 0.005292150051171697,
+        "cost_figure_used": 0.000024,
+        "interpolated": true,
+        "confidence": "low",
         "basis": [
-          "[UNVERIFIED]"
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
+          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
+          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
           {
-            "url": "https://llm-stats.com/benchmarks/frontiermath",
+            "url": "",
             "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "FrontierMath overall accuracy via llm-stats tracker (Tier-5); epoch.ai primary JS-gated, not machine-verified. No per-tier/effort split -> 'any'. Two FrontierMath competitor rows (gpt-5.5, gpt-5.5-pro) give math_proof >=2 scored entrants -> restores semantic order among them; Fable + Claude fleet + gpt-5.4-mini remain math_proof sentinels (no published FrontierMath row).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 8,
-        "score": 0.005902399579076083,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://llm-stats.com/benchmarks/frontiermath",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "FrontierMath overall accuracy via llm-stats tracker (Tier-5); epoch.ai primary JS-gated, not machine-verified. No per-tier/effort split -> 'any'. Two FrontierMath competitor rows (gpt-5.5, gpt-5.5-pro) give math_proof >=2 scored entrants -> restores semantic order among them; Fable + Claude fleet + gpt-5.4-mini remain math_proof sentinels (no published FrontierMath row).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
+            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+            "label": "[SENTINEL]"
           }
         ]
       },
       {
         "provider": "claude",
         "model": "claude-fable-5",
-        "effort": "low",
+        "effort": "xhigh",
+        "rank": 6,
+        "score": 0.005292150051171697,
+        "cost_figure_used": 0.000024,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": [
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
+          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
+          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
+        ],
+        "citations": [
+          {
+            "url": "",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+            "label": "[SENTINEL]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5",
+        "effort": "max",
+        "rank": 7,
+        "score": 0.005292150051171697,
+        "cost_figure_used": 0.000024,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": [
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
+          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
+          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
+        ],
+        "citations": [
+          {
+            "url": "",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+            "label": "[SENTINEL]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 8,
+        "score": 0.005292150051171697,
+        "cost_figure_used": 0.0000018562500000000002,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": [
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
+          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
+        ],
+        "citations": [
+          {
+            "url": "",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+            "label": "[SENTINEL]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
         "rank": 9,
         "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -1216,16 +1214,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
+        "model": "claude-opus-4-8",
+        "effort": "max",
         "rank": 10,
         "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -1239,16 +1236,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-4-7",
         "effort": "high",
         "rank": 11,
         "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -1262,16 +1258,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-4-7",
         "effort": "xhigh",
         "rank": 12,
         "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -1285,16 +1280,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-4-7",
         "effort": "max",
         "rank": 13,
         "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -1308,293 +1302,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
         "rank": 14,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 2.0000000000000002e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] effort 'null' hidden-mult via nearest-lower documented tier",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
-        "rank": 15,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
-        "rank": 16,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
-        "rank": 17,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
-        "rank": 18,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
-        "rank": 19,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 20,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 21,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "high",
-        "rank": 22,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "xhigh",
-        "rank": 23,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "max",
-        "rank": 24,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 25,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 26,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
-        "rank": 27,
         "score": 0.005292150051171697,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
@@ -1615,7 +1325,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 28,
+        "rank": 15,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
@@ -1635,50 +1345,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 29,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 30,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 31,
+        "rank": 16,
         "score": 0.005292150051171697,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -1699,7 +1367,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 32,
+        "rank": 17,
         "score": 0.005292150051171697,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -1791,58 +1459,10 @@
         ]
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
-        "rank": 4,
-        "score": 1.4037033524987776,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "ExploitBench capture-rate; third-party aggregation of a leaked/purported system card with public skepticism; no Cybench/CyberSecEval/NYU-CTF independent corroboration. Thin/contested.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
-        "rank": 5,
-        "score": 1.4232067072914976,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "ExploitBench capture-rate; third-party aggregation of a leaked/purported system card with public skepticism; no Cybench/CyberSecEval/NYU-CTF independent corroboration. Thin/contested.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 6,
+        "rank": 4,
         "score": 0.005293150051171697,
         "cost_figure_used": 0.000002,
         "interpolated": false,
@@ -1865,7 +1485,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 7,
+        "rank": 5,
         "score": 0.005569982941591846,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -1885,102 +1505,10 @@
         ]
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 8,
-        "score": 0.005814845796015985,
-        "cost_figure_used": 0.00000125,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "ExploitBench capture-rate; third-party aggregation, uncorroborated; UK-AISI GPT-5.5 cyber eval exists but is not this benchmark. Thin/contested.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 9,
-        "score": 0.005902399579076083,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "ExploitBench capture-rate; third-party aggregation, uncorroborated; UK-AISI GPT-5.5 cyber eval exists but is not this benchmark. Thin/contested.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "low",
-        "rank": 10,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
-        "rank": 11,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "high",
-        "rank": 12,
+        "rank": 6,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -2003,7 +1531,7 @@
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "xhigh",
-        "rank": 13,
+        "rank": 7,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -2026,7 +1554,7 @@
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "max",
-        "rank": 14,
+        "rank": 8,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -2048,52 +1576,8 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 15,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 16,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 17,
+        "rank": 9,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
@@ -2115,7 +1599,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 18,
+        "rank": 10,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
@@ -2137,7 +1621,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "max",
-        "rank": 19,
+        "rank": 11,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.0000030375,
         "interpolated": true,
@@ -2158,50 +1642,8 @@
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 20,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 21,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 22,
+        "rank": 12,
         "score": 0.005292150051171697,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
@@ -2222,7 +1664,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 23,
+        "rank": 13,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
@@ -2242,50 +1684,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 24,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 25,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 26,
+        "rank": 14,
         "score": 0.005292150051171697,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -2306,7 +1706,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 27,
+        "rank": 15,
         "score": 0.005292150051171697,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -2326,50 +1726,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 28,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 29,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 30,
+        "rank": 16,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -2390,7 +1748,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 31,
+        "rank": 17,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.000012,
         "interpolated": true,
@@ -2483,57 +1841,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
-        "rank": 4,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "Owner-directed single-time exception (assume Anthropic launch claims true): claude-fable-5 is pinned to PERFORMANCE rank 1 in these categories ONLY. Performance branch only; NOT a measured benchmark and NOT applied to cost_efficiency. No fabricated benchmark score is emitted — this is a transparent owner routing directive.",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "low",
-        "rank": 5,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "Owner-directed single-time exception (assume Anthropic launch claims true): claude-fable-5 is pinned to PERFORMANCE rank 1 in these categories ONLY. Performance branch only; NOT a measured benchmark and NOT applied to cost_efficiency. No fabricated benchmark score is emitted — this is a transparent owner routing directive.",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 6,
+        "rank": 4,
         "score": 1.2219947442184687,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
@@ -2557,7 +1867,7 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
-        "rank": 7,
+        "rank": 5,
         "score": 1.2860144288477713,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
@@ -2589,57 +1899,9 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 8,
+        "rank": 6,
         "score": 1.3484824604377705,
         "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "SWE-Bench Pro, third-party aggregation; uncorroborated against swebench.com primary.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
-        "rank": 9,
-        "score": 1.4037033524987776,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "SWE-Bench Pro, third-party aggregation; uncorroborated against swebench.com primary.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
-        "rank": 10,
-        "score": 1.4232067072914976,
-        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "medium",
         "basis": [
@@ -2661,7 +1923,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 11,
+        "rank": 7,
         "score": 0.005293150051171697,
         "cost_figure_used": 0.000002,
         "interpolated": false,
@@ -2692,7 +1954,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 12,
+        "rank": 8,
         "score": 0.005569982941591846,
         "cost_figure_used": 0.00000155,
         "interpolated": false,
@@ -2712,100 +1974,10 @@
         ]
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 13,
-        "score": 0.005814845796015985,
-        "cost_figure_used": 0.00000125,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "SWE-Bench Pro, third-party aggregation; uncorroborated.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 14,
-        "score": 0.005902399579076083,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.digitalapplied.com/blog/claude-fable-5-mythos-5-release-benchmarks-2026",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "SWE-Bench Pro, third-party aggregation; uncorroborated.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 15,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 16,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 17,
+        "rank": 9,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
@@ -2827,7 +1999,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 18,
+        "rank": 10,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
@@ -2849,7 +2021,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "max",
-        "rank": 19,
+        "rank": 11,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.0000030375,
         "interpolated": true,
@@ -2870,50 +2042,8 @@
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 20,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 21,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 22,
+        "rank": 12,
         "score": 0.005292150051171697,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
@@ -2934,7 +2064,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 23,
+        "rank": 13,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
@@ -2954,50 +2084,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 24,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 25,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 26,
+        "rank": 14,
         "score": 0.005292150051171697,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -3018,7 +2106,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 27,
+        "rank": 15,
         "score": 0.005292150051171697,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -3038,50 +2126,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 28,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 29,
-        "score": 0.005292150051171697,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 30,
+        "rank": 16,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -3102,7 +2148,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 31,
+        "rank": 17,
         "score": 0.005292150051171697,
         "cost_figure_used": 0.000012,
         "interpolated": true,
@@ -3201,17 +2247,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
+        "model": "claude-opus-4-8",
+        "effort": "high",
         "rank": 4,
         "score": 0,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "Owner-directed single-time exception (assume Anthropic launch claims true): claude-fable-5 is pinned to PERFORMANCE rank 1 in these categories ONLY. Performance branch only; NOT a measured benchmark and NOT applied to cost_efficiency. No fabricated benchmark score is emitted — this is a transparent owner routing directive.",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
           "order non-semantic: data-missing category (canonical universe order, not capability)",
           "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
@@ -3227,17 +2271,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "low",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
         "rank": 5,
         "score": 0,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "Owner-directed single-time exception (assume Anthropic launch claims true): claude-fable-5 is pinned to PERFORMANCE rank 1 in these categories ONLY. Performance branch only; NOT a measured benchmark and NOT applied to cost_efficiency. No fabricated benchmark score is emitted — this is a transparent owner routing directive.",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
           "order non-semantic: data-missing category (canonical universe order, not capability)",
           "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
@@ -3254,10 +2296,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 6,
         "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -3277,11 +2319,11 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
+        "model": "claude-opus-4-7",
+        "effort": "high",
         "rank": 7,
         "score": 0,
-        "cost_figure_used": 0.00000151875,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -3301,11 +2343,11 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
         "rank": 8,
         "score": 0,
-        "cost_figure_used": 0.0000018562500000000002,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -3325,11 +2367,11 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-opus-4-7",
+        "effort": "max",
         "rank": 9,
         "score": 0,
-        "cost_figure_used": 0.0000023625000000000003,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -3349,199 +2391,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
         "rank": 10,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 11,
-        "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 12,
-        "score": 0,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "high",
-        "rank": 13,
-        "score": 0,
-        "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "xhigh",
-        "rank": 14,
-        "score": 0,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "max",
-        "rank": 15,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 16,
-        "score": 0,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 17,
-        "score": 0,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
-        "rank": 18,
         "score": 0,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
@@ -3564,7 +2416,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 19,
+        "rank": 11,
         "score": 0,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
@@ -3586,54 +2438,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 20,
-        "score": 0,
-        "cost_figure_used": 0.00000116,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 21,
-        "score": 0,
-        "cost_figure_used": 0.00000125,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 22,
+        "rank": 12,
         "score": 0,
         "cost_figure_used": 0.00000155,
         "interpolated": true,
@@ -3656,7 +2462,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 23,
+        "rank": 13,
         "score": 0,
         "cost_figure_used": 0.000002,
         "interpolated": true,
@@ -3678,54 +2484,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 24,
-        "score": 0,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 25,
-        "score": 0,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 26,
+        "rank": 14,
         "score": 0,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -3748,7 +2508,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 27,
+        "rank": 15,
         "score": 0,
         "cost_figure_used": 0.000012,
         "interpolated": true,
@@ -3770,54 +2530,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 28,
-        "score": 0,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 29,
-        "score": 0,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)",
-          "order non-semantic: data-missing category (canonical universe order, not capability)",
-          "[GAP] No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it."
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-missing category (rank order non-semantic: canonical universe order, not capability). Gap reason: No measured judge/reward benchmark (RewardBench/JudgeBench/CriticBench/MT-Bench) exists for ANY fleet model incl. Fable. Fable rank-1 here is an owner-directed [ASSUMPTION] (performance branch ONLY, via performance_rank_pin), NOT a measurement; all non-Fable models have no in-category data -> sentinel. In cost_efficiency the exception does NOT apply: Fable carries no score and is the most-expensive model, so it lands near the bottom of cost_efficiency and a cheaper model (gpt-5.4-mini) tops it.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 30,
+        "rank": 16,
         "score": 0,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -3840,7 +2554,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 31,
+        "rank": 17,
         "score": 0,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -3935,17 +2649,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
+        "model": "claude-opus-4-8",
+        "effort": "high",
         "rank": 4,
         "score": 0,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "Owner-directed single-time exception (assume Anthropic launch claims true): claude-fable-5 is pinned to PERFORMANCE rank 1 in these categories ONLY. Performance branch only; NOT a measured benchmark and NOT applied to cost_efficiency. No fabricated benchmark score is emitted — this is a transparent owner routing directive.",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -3959,17 +2671,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "low",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
         "rank": 5,
         "score": 0,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "Owner-directed single-time exception (assume Anthropic launch claims true): claude-fable-5 is pinned to PERFORMANCE rank 1 in these categories ONLY. Performance branch only; NOT a measured benchmark and NOT applied to cost_efficiency. No fabricated benchmark score is emitted — this is a transparent owner routing directive.",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -3984,10 +2694,10 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "low",
+        "effort": "max",
         "rank": 6,
         "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -4005,11 +2715,11 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
+        "model": "claude-opus-4-7",
+        "effort": "high",
         "rank": 7,
         "score": 0,
-        "cost_figure_used": 0.00000151875,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -4027,11 +2737,11 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
         "rank": 8,
         "score": 0,
-        "cost_figure_used": 0.0000018562500000000002,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -4049,11 +2759,11 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-opus-4-7",
+        "effort": "max",
         "rank": 9,
         "score": 0,
-        "cost_figure_used": 0.0000023625000000000003,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -4071,183 +2781,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
         "rank": 10,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 11,
-        "score": 0,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 12,
-        "score": 0,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "high",
-        "rank": 13,
-        "score": 0,
-        "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "xhigh",
-        "rank": 14,
-        "score": 0,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "max",
-        "rank": 15,
-        "score": 0,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 16,
-        "score": 0,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 17,
-        "score": 0,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
-        "rank": 18,
         "score": 0,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
@@ -4268,7 +2804,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 19,
+        "rank": 11,
         "score": 0,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
@@ -4288,50 +2824,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 20,
-        "score": 0,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 21,
-        "score": 0,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 22,
+        "rank": 12,
         "score": 0,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -4352,7 +2846,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 23,
+        "rank": 13,
         "score": 0,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -4372,50 +2866,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 24,
-        "score": 0,
-        "cost_figure_used": 0.00000116,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 25,
-        "score": 0,
-        "cost_figure_used": 0.00000125,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 26,
+        "rank": 14,
         "score": 0,
         "cost_figure_used": 0.00000155,
         "interpolated": true,
@@ -4436,7 +2888,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 27,
+        "rank": 15,
         "score": 0,
         "cost_figure_used": 0.000002,
         "interpolated": true,
@@ -4456,50 +2908,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 28,
-        "score": 0,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 29,
-        "score": 0,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 30,
+        "rank": 16,
         "score": 0,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -4520,7 +2930,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 31,
+        "rank": 17,
         "score": 0,
         "cost_figure_used": 0.000012,
         "interpolated": true,
@@ -4586,221 +2996,10 @@
         ]
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 3,
-        "score": 1.4606232256333078,
-        "cost_figure_used": 0.00000125,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "primary-confirmed"
-        ],
-        "citations": [
-          {
-            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold NexAU-AHE; +/-2.1. Agent-harness-dependent capability proxy.",
-            "label": "primary-confirmed",
-            "tier": 3,
-            "source_id": "primary-confirmed"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 4,
-        "score": 1.4826157416029073,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "primary-confirmed"
-        ],
-        "citations": [
-          {
-            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold NexAU-AHE; +/-2.1. Agent-harness-dependent capability proxy.",
-            "label": "primary-confirmed",
-            "tier": 3,
-            "source_id": "primary-confirmed"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
-        "rank": 5,
-        "score": 0.005670424747139018,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "primary-confirmed",
-          "version-promotion(SOP-1) from claude-opus-4-7@low",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold WOZCODE; +/-2.1. opus-4-8 absent from board -> builder SOP-1 may version-promote opus-4-8 immediately above opus-4-7 here.",
-            "label": "primary-confirmed",
-            "tier": 3,
-            "source_id": "primary-confirmed"
-          },
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Score inherited via SOP-1 version-promotion from claude-opus-4-7@low; predecessor rows cited above.",
-            "label": "[SOP-1]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 6,
-        "score": 0.005670424747139018,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "primary-confirmed",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold WOZCODE; +/-2.1. opus-4-8 absent from board -> builder SOP-1 may version-promote opus-4-8 immediately above opus-4-7 here.",
-            "label": "primary-confirmed",
-            "tier": 3,
-            "source_id": "primary-confirmed"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
-        "rank": 7,
-        "score": 0.0048687440854443586,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "primary-confirmed",
-          "version-promotion(SOP-1) from claude-opus-4-7@max",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold WOZCODE; +/-2.1. opus-4-8 absent from board -> builder SOP-1 may version-promote opus-4-8 immediately above opus-4-7 here.",
-            "label": "primary-confirmed",
-            "tier": 3,
-            "source_id": "primary-confirmed"
-          },
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Score inherited via SOP-1 version-promotion from claude-opus-4-7@max; predecessor rows cited above.",
-            "label": "[SOP-1]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "max",
-        "rank": 8,
-        "score": 0.0048687440854443586,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "primary-confirmed",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold WOZCODE; +/-2.1. opus-4-8 absent from board -> builder SOP-1 may version-promote opus-4-8 immediately above opus-4-7 here.",
-            "label": "primary-confirmed",
-            "tier": 3,
-            "source_id": "primary-confirmed"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
-        "rank": 9,
-        "score": 0.00511971565559558,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "primary-confirmed",
-          "version-promotion(SOP-1) from claude-opus-4-7@xhigh",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold WOZCODE; +/-2.1. opus-4-8 absent from board -> builder SOP-1 may version-promote opus-4-8 immediately above opus-4-7 here.",
-            "label": "primary-confirmed",
-            "tier": 3,
-            "source_id": "primary-confirmed"
-          },
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Score inherited via SOP-1 version-promotion from claude-opus-4-7@xhigh; predecessor rows cited above.",
-            "label": "[SOP-1]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "xhigh",
-        "rank": 10,
-        "score": 0.00511971565559558,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "primary-confirmed",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold WOZCODE; +/-2.1. opus-4-8 absent from board -> builder SOP-1 may version-promote opus-4-8 immediately above opus-4-7 here.",
-            "label": "primary-confirmed",
-            "tier": 3,
-            "source_id": "primary-confirmed"
-          }
-        ]
-      },
-      {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 11,
+        "rank": 3,
         "score": 0.005372703961816782,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
@@ -4831,7 +3030,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 12,
+        "rank": 4,
         "score": 0.005372703961816782,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
@@ -4854,15 +3053,15 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "medium",
-        "rank": 13,
-        "score": 0.005592718321851479,
-        "cost_figure_used": 0.00000151875,
+        "effort": "max",
+        "rank": 5,
+        "score": 0.0048687440854443586,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "primary-confirmed",
-          "version-promotion(SOP-1) from claude-opus-4-7@medium",
+          "version-promotion(SOP-1) from claude-opus-4-7@max",
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
         ],
         "citations": [
@@ -4877,7 +3076,7 @@
           {
             "url": "",
             "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Score inherited via SOP-1 version-promotion from claude-opus-4-7@medium; predecessor rows cited above.",
+            "annotation": "Score inherited via SOP-1 version-promotion from claude-opus-4-7@max; predecessor rows cited above.",
             "label": "[SOP-1]"
           }
         ]
@@ -4885,10 +3084,65 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 14,
-        "score": 0.005592718321851479,
-        "cost_figure_used": 0.00000151875,
+        "effort": "max",
+        "rank": 6,
+        "score": 0.0048687440854443586,
+        "cost_figure_used": 0.0000030375,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": [
+          "primary-confirmed",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold WOZCODE; +/-2.1. opus-4-8 absent from board -> builder SOP-1 may version-promote opus-4-8 immediately above opus-4-7 here.",
+            "label": "primary-confirmed",
+            "tier": 3,
+            "source_id": "primary-confirmed"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 7,
+        "score": 0.00511971565559558,
+        "cost_figure_used": 0.0000023625000000000003,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": [
+          "primary-confirmed",
+          "version-promotion(SOP-1) from claude-opus-4-7@xhigh",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+        ],
+        "citations": [
+          {
+            "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Terminal-Bench 2.0, Tier-3 primary (directly fetched 2026-06-09); winning scaffold WOZCODE; +/-2.1. opus-4-8 absent from board -> builder SOP-1 may version-promote opus-4-8 immediately above opus-4-7 here.",
+            "label": "primary-confirmed",
+            "tier": 3,
+            "source_id": "primary-confirmed"
+          },
+          {
+            "url": "",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Score inherited via SOP-1 version-promotion from claude-opus-4-7@xhigh; predecessor rows cited above.",
+            "label": "[SOP-1]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 8,
+        "score": 0.00511971565559558,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
         "confidence": "high",
         "basis": [
@@ -4909,54 +3163,8 @@
       {
         "provider": "claude",
         "model": "claude-fable-5",
-        "effort": "low",
-        "rank": 15,
-        "score": 0.004867744085444358,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
-        "rank": 16,
-        "score": 0.004867744085444358,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
         "effort": "high",
-        "rank": 17,
+        "rank": 9,
         "score": 0.004867744085444358,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -4979,7 +3187,7 @@
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "xhigh",
-        "rank": 18,
+        "rank": 10,
         "score": 0.004867744085444358,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -5002,7 +3210,7 @@
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "max",
-        "rank": 19,
+        "rank": 11,
         "score": 0.004867744085444358,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -5024,50 +3232,8 @@
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 20,
-        "score": 0.004867744085444358,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 21,
-        "score": 0.004867744085444358,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 22,
+        "rank": 12,
         "score": 0.004867744085444358,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
@@ -5088,7 +3254,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 23,
+        "rank": 13,
         "score": 0.004867744085444358,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
@@ -5108,50 +3274,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 24,
-        "score": 0.004867744085444358,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 25,
-        "score": 0.004867744085444358,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 26,
+        "rank": 14,
         "score": 0.004867744085444358,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -5172,7 +3296,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 27,
+        "rank": 15,
         "score": 0.004867744085444358,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -5192,50 +3316,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 28,
-        "score": 0.004867744085444358,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 29,
-        "score": 0.004867744085444358,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 30,
+        "rank": 16,
         "score": 0.004867744085444358,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -5256,7 +3338,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 31,
+        "rank": 17,
         "score": 0.004867744085444358,
         "cost_figure_used": 0.000012,
         "interpolated": true,
@@ -5323,55 +3405,9 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 3,
-        "score": 1.2172173300017506,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[VERIFIED-DOM]"
-        ],
-        "citations": [
-          {
-            "url": "https://spider2-sql.github.io/",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "DOM-read verbatim from the Spider 2.0 official leaderboard, Spider 2.0-Snow split (547 tasks): rank-31 entry 'GD-TTS Agent + GPT-5.4-mini' (dated 2026-05-29) = 50.46. SCAFFOLD-ASSISTED: Spider 2.0 entries are method+model; this is gpt-5.4-mini inside the third-party 'GD-TTS Agent' harness, NOT a bare-model score -> treat as scaffold-assisted upper bound. effort 'any' (no effort suffix on the entry). spider2-sql.github.io = Tier-3 per-benchmark official board per legend. Only fleet model on Spider 2.0-Snow; all other entries use non-fleet models (Claude-Sonnet-4.5, Claude-Opus-4.6, GPT-5, GPT-5-mini, Claude-4-Sonnet). SUPERSEDES round-1 'Spider 2.0 top Claude is pre-fleet' gap note.",
-            "label": "[VERIFIED-DOM]",
-            "tier": 3,
-            "source_id": "[VERIFIED-DOM]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 4,
-        "score": 1.2172173300017506,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[VERIFIED-DOM]"
-        ],
-        "citations": [
-          {
-            "url": "https://spider2-sql.github.io/",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "DOM-read verbatim from the Spider 2.0 official leaderboard, Spider 2.0-Snow split (547 tasks): rank-31 entry 'GD-TTS Agent + GPT-5.4-mini' (dated 2026-05-29) = 50.46. SCAFFOLD-ASSISTED: Spider 2.0 entries are method+model; this is gpt-5.4-mini inside the third-party 'GD-TTS Agent' harness, NOT a bare-model score -> treat as scaffold-assisted upper bound. effort 'any' (no effort suffix on the entry). spider2-sql.github.io = Tier-3 per-benchmark official board per legend. Only fleet model on Spider 2.0-Snow; all other entries use non-fleet models (Claude-Sonnet-4.5, Claude-Opus-4.6, GPT-5, GPT-5-mini, Claude-4-Sonnet). SUPERSEDES round-1 'Spider 2.0 top Claude is pre-fleet' gap note.",
-            "label": "[VERIFIED-DOM]",
-            "tier": 3,
-            "source_id": "[VERIFIED-DOM]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 5,
+        "rank": 3,
         "score": 0.7636427080778171,
         "cost_figure_used": 0.000002,
         "interpolated": false,
@@ -5393,7 +3429,53 @@
       {
         "provider": "claude",
         "model": "claude-fable-5",
-        "effort": "low",
+        "effort": "high",
+        "rank": 4,
+        "score": 0.7636417080778171,
+        "cost_figure_used": 0.000024,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": [
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
+          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
+          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
+        ],
+        "citations": [
+          {
+            "url": "",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+            "label": "[SENTINEL]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5",
+        "effort": "xhigh",
+        "rank": 5,
+        "score": 0.7636417080778171,
+        "cost_figure_used": 0.000024,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": [
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
+          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
+          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
+        ],
+        "citations": [
+          {
+            "url": "",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+            "label": "[SENTINEL]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5",
+        "effort": "max",
         "rank": 6,
         "score": 0.7636417080778171,
         "cost_figure_used": 0.000024,
@@ -5415,16 +3497,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
+        "model": "claude-opus-4-8",
+        "effort": "high",
         "rank": 7,
         "score": 0.7636417080778171,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -5438,16 +3519,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
         "rank": 8,
         "score": 0.7636417080778171,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -5461,16 +3541,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "model": "claude-opus-4-8",
+        "effort": "max",
         "rank": 9,
         "score": 0.7636417080778171,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -5484,16 +3563,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-opus-4-7",
+        "effort": "high",
         "rank": 10,
         "score": 0.7636417080778171,
-        "cost_figure_used": 0.000024,
+        "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
         "confidence": "low",
         "basis": [
           "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -5507,15 +3585,15 @@
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
         "rank": 11,
         "score": 0.7636417080778171,
-        "cost_figure_used": 2.0000000000000002e-7,
+        "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
         "confidence": "low",
         "basis": [
-          "[ASSUMPTION] effort 'null' hidden-mult via nearest-lower documented tier",
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
           "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
@@ -5529,11 +3607,11 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
+        "model": "claude-opus-4-7",
+        "effort": "max",
         "rank": 12,
         "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000014174999999999998,
+        "cost_figure_used": 0.0000030375,
         "interpolated": true,
         "confidence": "low",
         "basis": [
@@ -5551,249 +3629,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
         "rank": 13,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
-        "rank": 14,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
-        "rank": 15,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
-        "rank": 16,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 17,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 18,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "high",
-        "rank": 19,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "xhigh",
-        "rank": 20,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000023625000000000003,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "max",
-        "rank": 21,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000030375,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 22,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 23,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
-        "rank": 24,
         "score": 0.7636417080778171,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
@@ -5814,7 +3652,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 25,
+        "rank": 14,
         "score": 0.7636417080778171,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
@@ -5834,50 +3672,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 26,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.00000116,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 27,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.00000125,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 28,
+        "rank": 15,
         "score": 0.7636417080778171,
         "cost_figure_used": 0.00000155,
         "interpolated": true,
@@ -5897,50 +3693,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 29,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 30,
-        "score": 0.7636417080778171,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 31,
+        "rank": 16,
         "score": 0.7636417080778171,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -5961,7 +3715,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 32,
+        "rank": 17,
         "score": 0.7636417080778171,
         "cost_figure_used": 0.000012,
         "interpolated": true,
@@ -6004,56 +3758,10 @@
         ]
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 2,
-        "score": 1.4594546101561774,
-        "cost_figure_used": 0.00000125,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.marc0.dev/en/leaderboard",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "marc0.dev SWE-bench leaderboard ('GPT-5.5 Leads at 88.7%', May 2026), Tier-5 tracker. Direct fetch returned HTTP 402; figure taken from the search-index snippet and independently corroborated by this run's own prior coding-gap note (gpt-5.5 88.7). swebench.com primary not machine-verified. CROSS-CATEGORY (see Fable row).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 3,
-        "score": 1.4814295303528957,
-        "cost_figure_used": 0.00000116,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://www.marc0.dev/en/leaderboard",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "marc0.dev SWE-bench leaderboard ('GPT-5.5 Leads at 88.7%', May 2026), Tier-5 tracker. Direct fetch returned HTTP 402; figure taken from the search-index snippet and independently corroborated by this run's own prior coding-gap note (gpt-5.5 88.7). swebench.com primary not machine-verified. CROSS-CATEGORY (see Fable row).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 4,
+        "rank": 2,
         "score": 1.2122099407545268,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
@@ -6077,7 +3785,7 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
-        "rank": 5,
+        "rank": 3,
         "score": 1.2746963287932023,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
@@ -6101,57 +3809,9 @@
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 6,
+        "rank": 4,
         "score": 1.3376848396522614,
         "cost_figure_used": 0.0000018562500000000002,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/coding",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "benchlm.ai/coding 2026-06-09, Tier-5 aggregator. swebench.com primary not machine-verified. CROSS-CATEGORY — owner triage (debugging/coding/agentic). Matches this run's prior gap-note value (88.6).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
-        "rank": 7,
-        "score": 1.3924635648557784,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/coding",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "benchlm.ai/coding 2026-06-09, Tier-5 aggregator. swebench.com primary not machine-verified. CROSS-CATEGORY — owner triage (debugging/coding/agentic). Matches this run's prior gap-note value (88.6).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
-        "rank": 8,
-        "score": 1.411810751633507,
-        "cost_figure_used": 0.0000014174999999999998,
         "interpolated": false,
         "confidence": "medium",
         "basis": [
@@ -6173,7 +3833,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 9,
+        "rank": 5,
         "score": 1.32851540959586,
         "cost_figure_used": 0.000002,
         "interpolated": false,
@@ -6196,7 +3856,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "max",
-        "rank": 10,
+        "rank": 6,
         "score": 1.103203988151117,
         "cost_figure_used": 0.0000030375,
         "interpolated": false,
@@ -6220,7 +3880,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 11,
+        "rank": 7,
         "score": 1.1600713921970838,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": false,
@@ -6244,7 +3904,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 12,
+        "rank": 8,
         "score": 1.217395766508155,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": false,
@@ -6266,57 +3926,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 13,
-        "score": 1.2672486064153567,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/coding",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "benchlm.ai/coding 2026-06-09 ('Claude Opus 4.7 (Adaptive)' = 87.6), Tier-5 aggregator. swebench.com primary not machine-verified. CROSS-CATEGORY — owner triage.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 14,
-        "score": 1.284856029762677,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/coding",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "benchlm.ai/coding 2026-06-09 ('Claude Opus 4.7 (Adaptive)' = 87.6), Tier-5 aggregator. swebench.com primary not machine-verified. CROSS-CATEGORY — owner triage.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 15,
+        "rank": 9,
         "score": 0.005726027784932187,
         "cost_figure_used": 0.00000135,
         "interpolated": false,
@@ -6339,7 +3951,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 16,
+        "rank": 10,
         "score": 0.006318724423727922,
         "cost_figure_used": 8.25e-7,
         "interpolated": false,
@@ -6360,101 +3972,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 17,
-        "score": 0.006577478697218919,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/coding",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "benchlm.ai/coding 2026-06-09, Tier-5 aggregator. swebench.com primary not machine-verified. CROSS-CATEGORY — owner triage. Cheapest scored coding entrant present -> with these rows coding has >=2 scored models and Fable does NOT top coding cost_efficiency (cheaper sonnet/opus carry scores).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 18,
-        "score": 0.0066688675939149756,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://benchlm.ai/coding",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "benchlm.ai/coding 2026-06-09, Tier-5 aggregator. swebench.com primary not machine-verified. CROSS-CATEGORY — owner triage. Cheapest scored coding entrant present -> with these rows coding has >=2 scored models and Fable does NOT top coding cost_efficiency (cheaper sonnet/opus carry scores).",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "low",
-        "rank": 19,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
-        "rank": 20,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
         "model": "claude-fable-5",
         "effort": "high",
-        "rank": 21,
+        "rank": 11,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -6477,7 +3997,7 @@
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "xhigh",
-        "rank": 22,
+        "rank": 12,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -6500,7 +4020,7 @@
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "max",
-        "rank": 23,
+        "rank": 13,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -6520,74 +4040,10 @@
         ]
       },
       {
-        "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
-        "rank": 24,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 2.0000000000000002e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] effort 'null' hidden-mult via nearest-lower documented tier",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 25,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 26,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 27,
+        "rank": 14,
         "score": 0.005725027784932187,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -6608,7 +4064,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 28,
+        "rank": 15,
         "score": 0.005725027784932187,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -6628,50 +4084,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 29,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 30,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 31,
+        "rank": 16,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -6692,7 +4106,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 32,
+        "rank": 17,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.000012,
         "interpolated": true,
@@ -6856,74 +4270,10 @@
         ]
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
-        "rank": 5,
-        "score": 0.8068614196700679,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://artificialanalysis.ai/",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "AA-Omniscience accuracy, Artificial Analysis.",
-            "label": "[UNVERIFIED]",
-            "tier": 2,
-            "source_id": "[UNVERIFIED]"
-          },
-          {
-            "url": "https://artificialanalysis.ai/",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "AA-Omniscience hallucination rate; LOWER is better. knowledge_synthesis is faithfulness-verified, so this counts as a positive for Opus.",
-            "label": "[UNVERIFIED]",
-            "tier": 2,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
-        "rank": 6,
-        "score": 0.8180721249151397,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://artificialanalysis.ai/",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "AA-Omniscience accuracy, Artificial Analysis.",
-            "label": "[UNVERIFIED]",
-            "tier": 2,
-            "source_id": "[UNVERIFIED]"
-          },
-          {
-            "url": "https://artificialanalysis.ai/",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "AA-Omniscience hallucination rate; LOWER is better. knowledge_synthesis is faithfulness-verified, so this counts as a positive for Opus.",
-            "label": "[UNVERIFIED]",
-            "tier": 2,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 7,
+        "rank": 5,
         "score": 0.7548172567347422,
         "cost_figure_used": 0.000002,
         "interpolated": false,
@@ -6970,7 +4320,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 8,
+        "rank": 6,
         "score": 0.005726027784932187,
         "cost_figure_used": 0.00000135,
         "interpolated": false,
@@ -6993,7 +4343,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 9,
+        "rank": 7,
         "score": 0.006318724423727922,
         "cost_figure_used": 8.25e-7,
         "interpolated": false,
@@ -7014,101 +4364,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 10,
-        "score": 0.006577478697218919,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://morphllm.com/",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "GPQA Diamond via morphllm (tracker); single-source, orientation-grade.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 11,
-        "score": 0.0066688675939149756,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": false,
-        "confidence": "medium",
-        "basis": [
-          "[UNVERIFIED]"
-        ],
-        "citations": [
-          {
-            "url": "https://morphllm.com/",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "GPQA Diamond via morphllm (tracker); single-source, orientation-grade.",
-            "label": "[UNVERIFIED]",
-            "tier": 5,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "low",
-        "rank": 12,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
-        "rank": 13,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
         "model": "claude-fable-5",
         "effort": "high",
-        "rank": 14,
+        "rank": 8,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -7131,7 +4389,7 @@
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "xhigh",
-        "rank": 15,
+        "rank": 9,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -7154,7 +4412,7 @@
         "provider": "claude",
         "model": "claude-fable-5",
         "effort": "max",
-        "rank": 16,
+        "rank": 10,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.000024,
         "interpolated": true,
@@ -7176,52 +4434,8 @@
       {
         "provider": "claude",
         "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 17,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 18,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 19,
+        "rank": 11,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
@@ -7243,7 +4457,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 20,
+        "rank": 12,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
@@ -7264,50 +4478,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 21,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 22,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 23,
+        "rank": 13,
         "score": 0.005725027784932187,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -7328,7 +4500,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 24,
+        "rank": 14,
         "score": 0.005725027784932187,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -7348,50 +4520,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 25,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.00000116,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 26,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.00000125,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 27,
+        "rank": 15,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.00000155,
         "interpolated": true,
@@ -7411,50 +4541,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 28,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 29,
-        "score": 0.005725027784932187,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 30,
+        "rank": 16,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -7475,7 +4563,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 31,
+        "rank": 17,
         "score": 0.005725027784932187,
         "cost_figure_used": 0.000012,
         "interpolated": true,
@@ -7568,56 +4656,54 @@
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "medium",
+        "model": "claude-fable-5",
+        "effort": "high",
         "rank": 4,
-        "score": 0.8068614196700679,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": false,
-        "confidence": "high",
+        "score": 0.7024126633956879,
+        "cost_figure_used": 0.000024,
+        "interpolated": true,
+        "confidence": "low",
         "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
+          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
+          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
         ],
         "citations": [
           {
-            "url": "https://gorilla.cs.berkeley.edu/leaderboard.html",
+            "url": "",
             "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Berkeley Function-Calling Leaderboard V4, 2nd on board. Single fleet row -> builder thin-neutralizes to 0.5. (BFCL is also the agentic_execution floor; recorded here for the mechanical AST/single-call leg.)",
-            "label": "[UNVERIFIED]",
-            "tier": 2,
-            "source_id": "[UNVERIFIED]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "low",
-        "rank": 5,
-        "score": 0.8180721249151397,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": false,
-        "confidence": "high",
-        "basis": [
-          "[UNVERIFIED]",
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)"
-        ],
-        "citations": [
-          {
-            "url": "https://gorilla.cs.berkeley.edu/leaderboard.html",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Berkeley Function-Calling Leaderboard V4, 2nd on board. Single fleet row -> builder thin-neutralizes to 0.5. (BFCL is also the agentic_execution floor; recorded here for the mechanical AST/single-call leg.)",
-            "label": "[UNVERIFIED]",
-            "tier": 2,
-            "source_id": "[UNVERIFIED]"
+            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+            "label": "[SENTINEL]"
           }
         ]
       },
       {
         "provider": "claude",
         "model": "claude-fable-5",
-        "effort": "low",
+        "effort": "xhigh",
+        "rank": 5,
+        "score": 0.7024126633956879,
+        "cost_figure_used": 0.000024,
+        "interpolated": true,
+        "confidence": "low",
+        "basis": [
+          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
+          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
+          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
+        ],
+        "citations": [
+          {
+            "url": "",
+            "retrieved_at": "2026-06-09T00:00:00Z",
+            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
+            "label": "[SENTINEL]"
+          }
+        ]
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5",
+        "effort": "max",
         "rank": 6,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.000024,
@@ -7639,167 +4725,9 @@
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "medium",
+        "model": "claude-opus-4-7",
+        "effort": "high",
         "rank": 7,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
-        "rank": 8,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
-        "rank": 9,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
-        "rank": 10,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.000024,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "[ASSUMPTION] assumed_cost: cost pinned to 2x most-expensive incumbent (owner-directed; cost-only)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
-        "rank": 11,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 2.0000000000000002e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] effort 'null' hidden-mult via nearest-lower documented tier",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "low",
-        "rank": 12,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.0000014174999999999998,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "medium",
-        "rank": 13,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.00000151875,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)",
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-7",
-        "effort": "high",
-        "rank": 14,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.0000018562500000000002,
         "interpolated": true,
@@ -7821,7 +4749,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 15,
+        "rank": 8,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.0000023625000000000003,
         "interpolated": true,
@@ -7843,7 +4771,7 @@
         "provider": "claude",
         "model": "claude-opus-4-7",
         "effort": "max",
-        "rank": 16,
+        "rank": 9,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.0000030375,
         "interpolated": true,
@@ -7864,50 +4792,8 @@
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
-        "effort": "low",
-        "rank": 17,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 6.3e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "medium",
-        "rank": 18,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 6.75e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 19,
+        "rank": 10,
         "score": 0.7024126633956879,
         "cost_figure_used": 8.25e-7,
         "interpolated": true,
@@ -7928,7 +4814,7 @@
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 20,
+        "rank": 11,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.00000135,
         "interpolated": true,
@@ -7948,50 +4834,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.4-mini",
-        "effort": "low",
-        "rank": 21,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 1.74e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
-        "effort": "medium",
-        "rank": 22,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 1.875e-7,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.4-mini",
         "effort": "high",
-        "rank": 23,
+        "rank": 12,
         "score": 0.7024126633956879,
         "cost_figure_used": 2.3250000000000005e-7,
         "interpolated": true,
@@ -8012,7 +4856,7 @@
         "provider": "codex",
         "model": "gpt-5.4-mini",
         "effort": "xhigh",
-        "rank": 24,
+        "rank": 13,
         "score": 0.7024126633956879,
         "cost_figure_used": 3.0000000000000004e-7,
         "interpolated": true,
@@ -8032,50 +4876,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5",
-        "effort": "low",
-        "rank": 25,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.00000116,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "medium",
-        "rank": 26,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.00000125,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 27,
+        "rank": 14,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.00000155,
         "interpolated": true,
@@ -8096,7 +4898,7 @@
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 28,
+        "rank": 15,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.000002,
         "interpolated": true,
@@ -8116,50 +4918,8 @@
       {
         "provider": "codex",
         "model": "gpt-5.5-pro",
-        "effort": "low",
-        "rank": 29,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.00000696,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
-        "effort": "medium",
-        "rank": 30,
-        "score": 0.7024126633956879,
-        "cost_figure_used": 0.0000075,
-        "interpolated": true,
-        "confidence": "low",
-        "basis": [
-          "data-free sentinel (no measured rows; SOP-1 guard-blocked)"
-        ],
-        "citations": [
-          {
-            "url": "",
-            "retrieved_at": "2026-06-09T00:00:00Z",
-            "annotation": "Data-free sentinel: no measured benchmark rows for this pairing in this category.",
-            "label": "[SENTINEL]"
-          }
-        ]
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.5-pro",
         "effort": "high",
-        "rank": 31,
+        "rank": 16,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.0000093,
         "interpolated": true,
@@ -8180,7 +4940,7 @@
         "provider": "codex",
         "model": "gpt-5.5-pro",
         "effort": "xhigh",
-        "rank": 32,
+        "rank": 17,
         "score": 0.7024126633956879,
         "cost_figure_used": 0.000012,
         "interpolated": true,

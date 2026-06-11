@@ -36,6 +36,13 @@ export interface MarkerState {
 const markerDir = join(tmpdir(), "subagent-mcp");
 
 /**
+ * Shared per-project state dir for ALL hook state files (marker + reminder
+ * counter). Exported so sibling state modules key off the SAME location — a
+ * future move edits one constant, not N copies.
+ */
+export const stateDir = markerDir;
+
+/**
  * Canonicalize a working directory so two spellings of the same path hash
  * identically. Strip a leading Windows \\?\ extended-length prefix FIRST (on
  * the raw input) — resolve() canonicalizes that prefix away, so stripping after

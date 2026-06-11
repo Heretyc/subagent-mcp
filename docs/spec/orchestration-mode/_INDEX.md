@@ -11,8 +11,8 @@ contract only.
 A toggle. When ON, every top-level (non-subagent) user turn in a CLI host gets
 a delegate-default directive with inline-by-right partitions only for
 main-session-only capability. The MCP tool only flips the toggle; a **separate
-hook process** injects. This TypeScript port of `~/nag` preserves cadence and
-toggle semantics; heavy guidance moved to MCP metadata (see next section).
+hook process** injects. The hook also emits a per-prompt reminder cadence while
+OFF (see Cadence); heavy guidance lives in MCP metadata (see next section).
 
 ## Where the guidance lives (metadata vs per-turn)
 
@@ -26,13 +26,14 @@ caveman-ultra reminder**:
   model, temp-file handoff, persistence, carryover, and the disable-governance
   rule naming both provider tools. The `orchestration-mode` **tool description**
   is the operational summary and points at the instructions.
-- **Per-turn directives** (`directives/**`) are reduced to a compact reminder:
-  the `<SUB-AGENT-INVARIANT>` wrapper + HTML comment marker + the
-  delegate-default / inline-by-right partition invariant + temp-file IPC, all
-  ultra-compressed, plus a one-line pointer that disabling needs explicit user
-  permission via the provider tool. The long persistence/governance prose was
-  dropped from the injection (now in metadata); carryover notices keep their
-  event-specific notify/ask/advise instruction, ultra-compressed.
+- **Per-turn directives** (`directives/**`): the FULL `<SUB-AGENT-INVARIANT>`
+  block (delegate-default / inline-by-right partition + temp-file IPC +
+  disable-governance pointer, ultra-compressed) injects on CLAIM turns only;
+  steady state is the per-prompt reminder cadence — the LONG mode-specific
+  `<ORCHESTRATION-REMINDER-INVARIANT>` block (`reminder-on.md` /
+  `reminder-off-<provider>.md`) every 5th prompt, the one-line pointer
+  (`off-turn-reminder.md`) between. The long persistence/governance prose lives
+  in metadata; carryover notices keep their notify/ask/advise instruction.
 
 **`ultracode` references removed.** The operating-model phrasing is now generic
 "workflow orchestration / delegate to sub-agents and workflows" across the
@@ -80,28 +81,32 @@ Marker fields: `enabled`, `cwd`, `owner_session`, `baseline_turn`,
 `provenance` (`user-enabled` / `carried-over` / `null`), and `carryover_ack`
 (missing fields default to `null` / `false` for backward compatibility).
 
-## Cadence and toggle (mirrors the prototype)
+## Cadence and toggle (per-prompt reminder counter)
 
-- `relTurn` is measured from toggle-ON. The first turn after enabling is the
-  **baseline** (`relTurn 0`) and emits the **FULL** directive.
-- For each later turn: `rel = turn - baseline`. Emit **FULL** when
-  `rel % 5 == 0`, otherwise emit the **one-line off-turn reminder**.
-- `turn` is counted from the transcript, fail-safe to `0` (which forces FULL,
-  i.e. the failure is visible, not silent).
-- Codex `SessionStart` covers turn 0 directly (when active and not a subagent:
-  emits FULL on a FRESH claim, or the CARRYOVER notice + FULL when the marker was
-  inherited from a prior session — see Persistence below); Codex
-  `UserPromptSubmit` runs the normal `% 5` cadence.
-
-> Stale prototype "alternating / odd-turn" comments are not reproduced; cadence
-> is `% 5`, matching the prototype's own `INSTALL.md`.
+- A per-prompt counter (`src/orchestration/reminder.ts`, state file
+  `remind-<cwdHash>.json`, owner-stamped by session; a session change restarts
+  it) drives the cadence in BOTH marker states. Every 5th counted prompt emits
+  the LONG mode-specific `<ORCHESTRATION-REMINDER-INVARIANT>` block
+  (`reminder-on.md` when ON, `reminder-off-<provider>.md` when OFF); every
+  prompt between emits the one-line pointer (`off-turn-reminder.md`).
+- ON claim turns (FRESH enable / CARRYOVER re-claim) emit the **FULL**
+  directive plus the ON reminder block and re-baseline the counter to the
+  period boundary, so the next LONG fires exactly 5 prompts later. FULL fires
+  on claim turns only; steady state is the leaner tagged reminder.
+- The OFF variant carries the 5-CALL RULE (ask via the provider question tool
+  whether to switch ON when work outgrows ~5 tool calls) and advises
+  subagent-mcp full-auto routing even while OFF.
+- Codex `SessionStart` covers turn 0 directly when active (FULL + ON reminder
+  on FRESH, CARRYOVER notice prepended when inherited; counter re-baselined);
+  Codex `UserPromptSubmit` runs the normal counter cadence.
 
 ## Persistence and session-start carryover
 
 > **SUPERSEDES** the earlier "default-off-on-startup" decision. The server NO
 > LONGER clears the marker on startup.
 
-**Default OFF = no marker.** Absence of a marker = OFF = **zero emission**. A
+**Default OFF = no marker.** Absence of a marker = OFF = no orchestration
+claim or FULL directive (the per-prompt OFF reminder cadence still runs). A
 project never enabled stays OFF.
 
 **Persistence.** Orchestration mode PERSISTS across process restarts/sessions for
@@ -124,7 +129,7 @@ claim from `owner_session`, `provenance`, `carryover_ack`, and current
   carried-over`; if `carryover_ack` is false, emit the provider **CARRYOVER
   notice prepended to FULL** and set `carryover_ack = true`; then re-claim
   (owner = current, baseline = current turn).
-- **SAME-SESSION** (`owner_session === current`): normal `% 5` cadence; no
+- **SAME-SESSION** (`owner_session === current`): normal counter cadence; no
   re-claim, no notice.
 
 The ack latch, not session-key stability, makes the carryover notice fire
@@ -165,14 +170,14 @@ flips, but with no hook host nothing is injected per turn.
 ## The five locked decisions
 
 1. Per-project temp marker file keyed by a hash of the working directory.
-2. Cadence mirrors the prototype: FULL when `relTurn % 5 == 0`, else a one-line
-   reminder; `relTurn` measured from toggle-ON (the toggle-ON turn is
-   `relTurn 0` → FULL).
+2. (SUPERSEDED 2026-06-11 by the per-prompt reminder counter — see Cadence.)
+   Originally: FULL when `relTurn % 5 == 0`, else a one-line reminder. Now FULL
+   fires on claim turns only; the counter drives LONG/pointer in both states.
 3. Split delivery: heavy operating-model + governance guidance lives in MCP
-   server `instructions` (read once at initialize); the per-turn hook injects a
-   compact caveman-ultra reminder (`<SUB-AGENT-INVARIANT>` wrapper, codex variant
-   keeps its leading self-deactivation SCOPE line, plus the off-turn one-liner)
-   with the delegate-default / inline-by-right partition invariant.
+   server `instructions` (read once at initialize); the hook injects the compact
+   `<SUB-AGENT-INVARIANT>` directive on claim turns (codex variant keeps its
+   leading self-deactivation SCOPE line) and the
+   `<ORCHESTRATION-REMINDER-INVARIANT>`/pointer cadence on all other prompts.
 4. Packaging: Claude Code CLI + Codex CLI bundle the hook AND the MCP server =
    full feature. Claude Desktop + Codex Desktop toggle but do not inject =
    documented degradation.

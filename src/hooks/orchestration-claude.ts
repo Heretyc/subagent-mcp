@@ -46,8 +46,8 @@ export const claudeAdapter: ProviderAdapter = {
   // Count JSONL lines in the transcript whose parsed object.type === 'user'.
   // Delegates to the bounded counter (reads at most the trailing window so a
   // huge/attacker-supplied transcript can't stall the inline host turn).
-  // Unreadable/missing transcript -> 0, so the hook emits FULL (fail-safe: a
-  // visible directive rather than silent suppression).
+  // Unreadable/missing transcript -> 0 (fail-safe: the claim baseline stamps
+  // at 0; cadence is counter-driven and unaffected). Read on claim turns only.
   currentTurn(transcriptPath: string | undefined): number {
     return countJsonlType(transcriptPath, "user");
   },
@@ -55,6 +55,8 @@ export const claudeAdapter: ProviderAdapter = {
   fullDirectiveFile: "orchestration-claude.md",
   offTurnFile: "off-turn-reminder.md",
   carryoverDirectiveFile: "carryover-claude.md",
+  reminderOnFile: "reminder-on.md",
+  reminderOffFile: "reminder-off-claude.md",
 };
 
 function readStdin(): Promise<string> {

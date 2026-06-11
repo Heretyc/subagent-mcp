@@ -148,8 +148,9 @@ disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "l
    confirm the orchestrator-only directive injects on cadence. If nothing
    injects, re-check that the path is absolute (not `${PLUGIN_ROOT}`) and that
    `~/.codex/hooks.json` (not an untrusted repo file) is in use.
-6. **Hook silent when OFF:** toggle `orchestration-mode` OFF and confirm
-   injection stops.
+6. **Hook downgrades when OFF:** toggle `orchestration-mode` OFF and confirm
+   the FULL directive stops; the OFF reminder cadence remains (LONG
+   `reminder-off-codex.md` every 5th prompt, one-line pointer between).
 7. **Field-name sanity:** if the hook behaves on a 600s timeout instead of
    ~10s, you likely left `timeoutSec` instead of `timeout`.
 

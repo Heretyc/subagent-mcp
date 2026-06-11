@@ -10,23 +10,33 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import * as marker from "./marker.js";
+import * as reminder from "./reminder.js";
 
 /**
  * Provider-agnostic core of the UserPromptSubmit / SessionStart hook.
  *
  * The MCP tool only ever WRITES the marker. A SEPARATE hook process (one per
- * turn) READS the marker here and decides what to inject. Cadence mirrors the
- * prototype: the claim turn is relTurn 0 -> FULL directive; thereafter a FULL
- * directive every 5th relative turn, otherwise a one-line off-turn reminder
- * (LOCKED DECISION 2). The marker PERSISTS across sessions/restarts, so the
- * first turn of a new session that inherits an already-ON marker emits a
- * CARRYOVER notice (prepended to FULL) once per project marker, ack-latched in
- * marker state, and re-claims for that session.
+ * turn) READS the marker here and decides what to inject. The hook now emits in
+ * BOTH marker states, on a per-prompt counter (reminder.ts): every
+ * REMINDER_PERIOD-th prompt injects the LONG mode-specific
+ * <ORCHESTRATION-REMINDER-INVARIANT> block, every prompt between injects the
+ * one-line pointer at it. Marker ON adds the claim machinery: the claim turn
+ * (fresh enable or carryover re-claim) emits the FULL directive plus the ON
+ * reminder block and re-baselines the counter. (Supersedes LOCKED DECISION 2's
+ * same-session rel%5 FULL re-emission — owner directive 2026-06-11: steady
+ * state is the leaner tagged reminder, FULL fires on claim turns only.) The
+ * marker PERSISTS across sessions/restarts, so the first turn of a new session
+ * that inherits an already-ON marker emits a CARRYOVER notice (prepended to
+ * FULL) once per project marker, ack-latched in marker state, and re-claims
+ * for that session.
  *
  * The entire run is wrapped in try/catch: on ANY error we emit nothing. A hook
  * must never crash or stall the host turn. "Emit" means RETURN the string; the
  * entry shim is what writes it to process.stdout.
  */
+
+/** Long-reminder cadence: every Nth counted prompt is a LONG turn. */
+export const REMINDER_PERIOD = 5;
 
 export interface HookPayload {
   cwd?: string;
@@ -47,6 +57,11 @@ export interface ProviderAdapter {
   // session (see runHook's CARRYOVER branch). Names the provider's own
   // interactive permission tool only.
   carryoverDirectiveFile: string;
+  // LONG per-prompt reminder blocks (<ORCHESTRATION-REMINDER-INVARIANT>), one
+  // per marker state. The OFF variant names the provider's own interactive
+  // question tool only (5-call-rule ask); the ON variant is provider-neutral.
+  reminderOnFile: string;
+  reminderOffFile: string;
 }
 
 /**
@@ -202,7 +217,7 @@ export function sessionKey(payload: HookPayload): string | undefined {
  * CARRYOVER: the marker carries a real owner_session that is NOT the stable
  *   current session key — it was ON at session start, carried from a prior/
  *   other session. Prepend the ack-gated CARRYOVER notice to FULL and re-claim.
- * SAME-SESSION: owner_session === current — run the normal % 5 cadence.
+ * SAME-SESSION: owner_session === current — run the normal counter cadence.
  *
  * Null-safety: a real owner_session string with an UNDEFINED current session key
  * is treated as CARRYOVER (we cannot confirm same-session); both null/undefined
@@ -226,19 +241,76 @@ export function classifyClaim(
 }
 
 /**
+ * Per-prompt reminder cadence emission: the LONG block (longFile) on every
+ * REMINDER_PERIOD-th counted prompt, the one-line pointer between. When the
+ * counter could NOT persist, emit the LONG block — fail VISIBLE: a host whose
+ * temp dir cannot hold the state file would otherwise inject the pointer on
+ * every prompt at a block that never arrives.
+ */
+function cadenceEmit(
+  env: NodeJS.ProcessEnv,
+  adapter: ProviderAdapter,
+  longFile: string,
+  count: number,
+  persisted: boolean
+): string {
+  return !persisted || count % REMINDER_PERIOD === 0
+    ? readDirective(env, longFile)
+    : readDirective(env, adapter.offTurnFile);
+}
+
+/**
+ * Claim (or re-claim) an active marker for the current session and emit the
+ * claim-turn payload: FULL directive + ON reminder block, with the CARRYOVER
+ * notice prepended on the first foreign-owner claim of a marker (ack-latched,
+ * so sub-agent/parallel-session marker ping-pong cannot re-fire it). The
+ * reminder counter re-baselines to 0 — the claim turn IS a LONG turn, so the
+ * next LONG fires exactly REMINDER_PERIOD prompts later. Shared by runHook's
+ * claim branch and the Codex SessionStart dispatcher (one copy of the claim
+ * semantics, no drift).
+ */
+export function claimAndEmit(
+  cwd: string,
+  current: string | undefined,
+  turn: number,
+  m: marker.MarkerState,
+  kind: ClaimKind,
+  env: NodeJS.ProcessEnv,
+  adapter: ProviderAdapter
+): string {
+  const firstCarryover = kind === "carryover" && !m.carryover_ack;
+  m.baseline_turn = turn;
+  m.owner_session = current ?? null;
+  if (kind === "carryover") {
+    m.provenance = "carried-over";
+    m.carryover_ack = true;
+  }
+  marker.writeMarker(cwd, m);
+  reminder.rebase(cwd, current, 0);
+  const full =
+    readDirective(env, adapter.fullDirectiveFile) +
+    readDirective(env, adapter.reminderOnFile);
+  return firstCarryover
+    ? readDirective(env, adapter.carryoverDirectiveFile) + full
+    : full;
+}
+
+/**
  * Core hook logic. Returns the string to inject, or '' to inject nothing.
  *
  * Order:
- *  1. subagent -> '' (a subagent must never be nagged to delegate).
- *  2. marker not active for cwd -> '' (OFF; zero emission).
- *  3. read current turn + marker state, classify the claim.
- *  4. FRESH (never claimed) -> claim + baseline at this turn, persist, emit FULL
- *     (this is the freshly-enabled turn, relTurn 0).
- *  5. CARRYOVER (owned by another/prior session) -> re-claim + re-baseline at
- *     this turn, persist, emit the CARRYOVER notice prepended to FULL only
- *     before the marker's carryover_ack has latched.
- *  6. SAME-SESSION -> rel = turn - baseline; FULL when rel % 5 === 0, else
- *     off-turn.
+ *  1. subagent -> '' (a subagent must never be nagged to delegate; the counter
+ *     does not advance).
+ *  2. marker not active for cwd -> OFF cadence: advance the session's counter
+ *     (per-owner; a new session starts its own), LONG OFF-variant reminder when
+ *     count % REMINDER_PERIOD === 0, else the one-line pointer.
+ *  3. marker active: classify the claim from marker state.
+ *  4. FRESH / CARRYOVER -> claimAndEmit (FULL + ON reminder; CARRYOVER notice
+ *     prepended once per marker; counter re-baselined). The transcript turn is
+ *     read ONLY here — claim turns are the only consumer of the baseline, and
+ *     the tail read is too expensive for the per-prompt steady state.
+ *  5. SAME-SESSION -> ON cadence: LONG ON-variant reminder when
+ *     count % REMINDER_PERIOD === 0, else the one-line pointer.
  */
 export function runHook(
   payload: HookPayload,
@@ -251,42 +323,25 @@ export function runHook(
     }
 
     const cwd = payload.cwd || process.cwd();
+    const current = sessionKey(payload);
+
     if (!marker.isActive(cwd)) {
-      return "";
+      // OFF: no claim machinery — just the per-prompt reminder cadence.
+      const r = reminder.advance(cwd, current);
+      return cadenceEmit(env, adapter, adapter.reminderOffFile, r.count, r.persisted);
     }
 
-    const current = sessionKey(payload);
-    const turn = adapter.currentTurn(payload.transcript_path);
     const m = marker.readMarker(cwd);
     const kind = classifyClaim(m.owner_session, m.baseline_turn, current);
 
-    if (kind === "fresh") {
-      m.baseline_turn = turn;
-      m.owner_session = current ?? null;
-      marker.writeMarker(cwd, m);
-      return readDirective(env, adapter.fullDirectiveFile);
+    if (kind === "fresh" || kind === "carryover") {
+      const turn = adapter.currentTurn(payload.transcript_path);
+      return claimAndEmit(cwd, current, turn, m, kind, env, adapter);
     }
 
-    if (kind === "carryover") {
-      // Re-claim for the current session and re-baseline at this turn so the
-      // notice fires once per project marker. The ack survives re-claims, so
-      // sub-agent/parallel-session marker ping-pong cannot re-fire it.
-      const firstTime = !m.carryover_ack;
-      m.baseline_turn = turn;
-      m.owner_session = current ?? null;
-      m.provenance = "carried-over";
-      m.carryover_ack = true;
-      marker.writeMarker(cwd, m);
-      return firstTime
-        ? readDirective(env, adapter.carryoverDirectiveFile) +
-            readDirective(env, adapter.fullDirectiveFile)
-        : readDirective(env, adapter.fullDirectiveFile);
-    }
-
-    const rel = turn - (m.baseline_turn as number);
-    return rel % 5 === 0
-      ? readDirective(env, adapter.fullDirectiveFile)
-      : readDirective(env, adapter.offTurnFile);
+    // SAME-SESSION: per-prompt reminder cadence, ON variant.
+    const r = reminder.advance(cwd, current);
+    return cadenceEmit(env, adapter, adapter.reminderOnFile, r.count, r.persisted);
   } catch {
     // Any failure -> inject nothing. Never crash or stall the host turn.
     return "";

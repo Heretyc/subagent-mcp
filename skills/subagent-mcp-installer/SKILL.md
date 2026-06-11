@@ -78,8 +78,10 @@ Run the steps in order. Each is detailed in the linked reference.
      exec-form `UserPromptSubmit` hook in `~/.claude/settings.json`).
    - Codex CLI: `references/codex-cli.md` (`[mcp_servers.subagent-mcp]` +
      `~/.codex/hooks.json` with `commandWindows`).
-5. **Verify** per the vendor guide (server connects; tools present; hook fires
-   when `orchestration-mode` is ON and is silent when OFF).
+5. **Verify** per the vendor guide (server connects; tools present; hook emits
+   the FULL directive when `orchestration-mode` is ON and downgrades to the OFF
+   reminder cadence — LONG block every 5th prompt, one-line pointer between —
+   when OFF).
 6. **Report** the install root, the per-vendor wiring, what was skipped, and any
    required user follow-up (session restart; Codex `/hooks` re-trust).
 

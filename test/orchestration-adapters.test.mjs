@@ -24,6 +24,7 @@ import { join } from "node:path";
 import { claudeAdapter } from "../dist/hooks/orchestration-claude.js";
 import { codexAdapter, runCodexHook } from "../dist/hooks/orchestration-codex.js";
 import { enable, disable } from "../dist/orchestration/marker.js";
+import { readReminder, reminderPath } from "../dist/orchestration/reminder.js";
 
 let passed = 0;
 let failed = 0;
@@ -161,20 +162,25 @@ test("codex isSubagent: ordinary prompt / unknown source -> false", () => {
 // ---------------------------------------------------------------------------
 // Codex SessionStart dispatch (turn-0 coverage)
 // ---------------------------------------------------------------------------
-test("codex SessionStart: active + not subagent -> FULL directive", () => {
+test("codex SessionStart: active + not subagent -> FULL + ON reminder, counter re-based", () => {
   const cwd = mkdtempSync(join(tmpdir(), "orch-cx-cwd-"));
-  // Point the resolver at a temp directives dir with a known FULL body.
+  // Point the resolver at a temp directives dir with known bodies.
   const root = mkdtempSync(join(tmpdir(), "orch-cx-root-"));
   const ddir = join(root, "directives");
   mkdirSync(ddir, { recursive: true });
   writeFileSync(join(ddir, "orchestration-codex.md"), "CODEX-FULL", "utf8");
+  writeFileSync(join(ddir, "reminder-on.md"), "CODEX-REM-ON", "utf8");
   const env = { PLUGIN_ROOT: root };
   try {
     enable(cwd);
     const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, env);
-    assert.equal(out, "CODEX-FULL", "SessionStart emits FULL when active (turn 0)");
+    assert.equal(out, "CODEX-FULL" + "CODEX-REM-ON",
+      "SessionStart emits FULL plus the ON reminder block when active (turn 0)");
+    assert.equal(readReminder(cwd).counts["null"], 0,
+      "SessionStart re-baselines the session's reminder count to 0 (claim IS a LONG turn)");
   } finally {
     disable(cwd);
+    rmSync(reminderPath(cwd), { force: true });
     rmSync(cwd, { recursive: true, force: true });
     rmSync(root, { recursive: true, force: true });
   }

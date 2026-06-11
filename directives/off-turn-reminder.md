@@ -1,1 +1,1 @@
-Reminder: <SUB-AGENT-INVARIANT> and <sanity-rules> apply. HALT if unknown.
+Follow the directives in the last <ORCHESTRATION-REMINDER-INVARIANT> block; if none has appeared yet this session, await it — do not infer its content.
