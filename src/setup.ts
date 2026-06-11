@@ -32,6 +32,8 @@ import { execFileSync, execSync } from "node:child_process";
 const cliArgs = process.argv.slice(3); // argv[2]='setup', flags start at [3]
 const DRY_RUN = cliArgs.includes("--dry-run");
 
+export const SERVER_NAME = "subagent-mcp";
+
 // Install root: dist/setup.js -> dist/ -> <install-root>
 const INSTALL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -287,13 +289,36 @@ function runCmd(cmd: string, cmdArgs: string[]): boolean {
   return runCmdCapture(cmd, cmdArgs).ok;
 }
 
-function quoteWinShellArg(arg: string): string {
-  if (!/[ \t"]/.test(arg)) return arg;
-  return `"${arg.replace(/"/g, '\\"')}"`;
+/**
+ * Parse an npm cmd-shim (.cmd) for its dp0-relative node script.
+ * Matches both modern `"%dp0%\node_modules\...\cli.js"` and legacy
+ * `"%~dp0\..."` forms. Returns the absolute JS path or null.
+ */
+export function resolveCmdShimNodeScript(cmdPath: string): string | null {
+  try {
+    const text = readFileSync(cmdPath, "utf8");
+    const m = text.match(/"%(?:~dp0|dp0%)\\([^"]+\.(?:js|cjs|mjs))"/i);
+    if (!m) return null;
+    const js = join(dirname(cmdPath), m[1]);
+    return existsSync(js) ? js : null;
+  } catch {
+    return null;
+  }
 }
 
-function quoteWinShellExe(exe: string): string {
-  return `"${exe.replace(/"/g, '\\"')}"`;
+// Conservative safe-charset: quote on ANYTHING else, including the cmd.exe
+// metachars & | < > ^ ( ) % ! plus space, tab, and ".
+const WIN_SAFE_ARG = /^[A-Za-z0-9_.,:=@+\/\\-]+$/;
+
+export function quoteWinShellArg(arg: string): string {
+  if (arg !== "" && WIN_SAFE_ARG.test(arg)) return arg;
+  // "" doubling: quote-state-safe at the cmd parse stage, a literal " at the
+  // final MSVCRT argv stage (\" would close the quote and expose metachars).
+  return `"${arg.replace(/"/g, '""')}"`;
+}
+
+export function quoteWinShellExe(exe: string): string {
+  return `"${exe.replace(/"/g, '""')}"`;
 }
 
 function runCmdCapture(cmd: string, cmdArgs: string[]): { ok: boolean; stdout: string } {
@@ -305,9 +330,30 @@ function runCmdCapture(cmd: string, cmdArgs: string[]): { ok: boolean; stdout: s
   try {
     const exe = findOnPath(cmd) ?? cmd;
     const isWinCmdShim = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(exe);
-    const stdout = isWinCmdShim
-      ? execSync([quoteWinShellExe(exe), ...cmdArgs.map(quoteWinShellArg)].join(" "), { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
-      : execFileSync(exe, cmdArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    let stdout: string;
+    if (!isWinCmdShim) {
+      stdout = execFileSync(exe, cmdArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } else {
+      // Primary: bypass cmd.exe by invoking node on the shim's JS entry —
+      // execFileSync without a shell does correct argv quoting, so cmd.exe
+      // metachar/percent expansion never applies.
+      const js = resolveCmdShimNodeScript(exe);
+      if (js) {
+        stdout = execFileSync(process.execPath, [js, ...cmdArgs], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      } else {
+        // Fallback for non-npm shims: hardened cmd.exe quoting. '%' is the one
+        // channel cmd cannot neutralize on a /c line — warn, don't reject.
+        if ([exe, ...cmdArgs].some((a) => a.includes("%"))) {
+          console.log(
+            "    note: an argument contains '%' — cmd.exe may expand it as an env var; if this command fails, check for name collisions."
+          );
+        }
+        stdout = execSync([quoteWinShellExe(exe), ...cmdArgs.map(quoteWinShellArg)].join(" "), {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+      }
+    }
     return { ok: true, stdout };
   } catch {
     return { ok: false, stdout: "" };
@@ -330,18 +376,36 @@ export function codexRemoveArgs(): string[] {
   return ["mcp", "remove", "subagent-mcp"];
 }
 
-function claudeRegisteredViaCli(): boolean {
-  const get = runCmdCapture("claude", ["mcp", "get", "subagent-mcp"]);
-  if (get.ok && get.stdout.includes("subagent-mcp")) return true;
-  const list = runCmdCapture("claude", ["mcp", "list"]);
-  return list.ok && list.stdout.includes("subagent-mcp");
+/**
+ * True iff CLI output mentions `name` as a standalone token: the chars
+ * immediately around it must not be server-name chars [A-Za-z0-9._-].
+ * Robust to `claude mcp list` / `codex mcp list` / `mcp get` formats
+ * ("name: cmd - ✓ Connected", table rows, "Name: x" detail views), and
+ * rejects sibling names like `subagent-mcp-dev` / `my-subagent-mcp`.
+ */
+export function outputListsServer(stdout: string, name: string = SERVER_NAME): boolean {
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^A-Za-z0-9._-])${esc}($|[^A-Za-z0-9._-])`, "m").test(stdout);
 }
 
-function codexRegisteredViaCli(): boolean {
-  const get = runCmdCapture("codex", ["mcp", "get", "subagent-mcp"]);
-  if (get.ok && get.stdout.includes("subagent-mcp")) return true;
-  const list = runCmdCapture("codex", ["mcp", "list"]);
-  return list.ok && list.stdout.includes("subagent-mcp");
+/** Exec seams, injectable for unit tests. */
+export interface ExecDeps {
+  run(cmd: string, args: string[]): boolean;
+  capture(cmd: string, args: string[]): { ok: boolean; stdout: string };
+  dryRun: boolean;
+}
+
+const defaultExecDeps: ExecDeps = {
+  run: runCmd,
+  capture: runCmdCapture,
+  dryRun: DRY_RUN,
+};
+
+function registeredViaCli(cli: string, deps: ExecDeps = defaultExecDeps): boolean {
+  const get = deps.capture(cli, ["mcp", "get", SERVER_NAME]);
+  if (get.ok && outputListsServer(get.stdout)) return true;
+  const list = deps.capture(cli, ["mcp", "list"]);
+  return list.ok && outputListsServer(list.stdout);
 }
 
 // ---------------------------------------------------------------------------
@@ -394,42 +458,115 @@ function describe(status: WireStatus, what: string): void {
   else console.log(`  ${what}: pointed at a stale path — repaired.`);
 }
 
+/** Everything vendor-specific about wiring the MCP server, in one descriptor. */
+export interface VendorWireSpec {
+  vendor: "claude" | "codex";
+  cli: string;
+  configFile: string;
+  addArgs: string[];
+  removeArgs: string[];
+  read(): unknown; // JsonObj (claude) | toml string, "" if absent (codex)
+  reconcile(cfg: unknown): { status: WireStatus; changed: boolean; out: unknown };
+  serialize(out: unknown): string;
+  ensureDir?(): void;
+  cliFailMsg: string; // fail() text when CLI verify fails and no fallback applies
+}
+
+export function vendorWireSpecs(
+  p = serverPaths(),
+  home = homedir()
+): { claude: VendorWireSpec; codex: VendorWireSpec } {
+  const claudeFile = join(home, ".claude.json");
+  const codexDir = join(home, ".codex");
+  const codexFile = join(codexDir, "config.toml");
+  return {
+    claude: {
+      vendor: "claude",
+      cli: "claude",
+      configFile: claudeFile,
+      addArgs: claudeAddArgs(),
+      removeArgs: claudeRemoveArgs(),
+      read: () => readJson(claudeFile, {}),
+      reconcile: (cfg) => {
+        const r = reconcileClaudeJson(cfg as JsonObj, p.server);
+        return { status: r.status, changed: r.changed, out: cfg };
+      },
+      serialize: (out) => JSON.stringify(out, null, 2),
+      cliFailMsg:
+        "MCP server file shape is correct, but 'claude mcp add' failed to register it with the CLI",
+    },
+    codex: {
+      vendor: "codex",
+      cli: "codex",
+      configFile: codexFile,
+      addArgs: codexAddArgs(p.server),
+      removeArgs: codexRemoveArgs(),
+      read: () => (existsSync(codexFile) ? readFileSync(codexFile, "utf8") : ""),
+      reconcile: (cfg) => {
+        const r = reconcileCodexToml(cfg as string, p.server);
+        return { status: r.status, changed: r.changed, out: r.toml };
+      },
+      serialize: (out) => out as string,
+      ensureDir: () => mkdirSync(codexDir, { recursive: true }),
+      cliFailMsg:
+        "MCP server file shape is correct, but 'codex mcp add' failed to register it with the CLI",
+    },
+  };
+}
+
+/**
+ * Single wiring driver for both vendors. Policy: CLI-first -> read-back ->
+ * reconcile -> unconditional canonical write on divergence -> fail only when
+ * neither the CLI registration nor the file fallback took.
+ */
+export function wireMcpServer(
+  spec: VendorWireSpec,
+  deps: ExecDeps = defaultExecDeps
+): { status: WireStatus; registered: boolean; wroteFile: boolean; failure: string | null } {
+  const initial = spec.reconcile(spec.read());
+  if (initial.status === "repaired") {
+    console.log("  MCP server registration points at a stale path — re-registering.");
+    deps.run(spec.cli, spec.removeArgs);
+  }
+  let registered = initial.status === "ok" && registeredViaCli(spec.cli, deps);
+  if (!registered) {
+    deps.run(spec.cli, spec.addArgs);
+    registered = registeredViaCli(spec.cli, deps);
+  }
+  if (deps.dryRun) {
+    // Never verify/fail/write in dry-run: capture() returns empty stdout, so
+    // any verification below would fail spuriously.
+    if (initial.changed) console.log("    (dry-run: not written)");
+    return { status: initial.status, registered: true, wroteFile: false, failure: null };
+  }
+  const after = spec.reconcile(spec.read()); // read-back: what is ACTUALLY on disk now
+  let wroteFile = false;
+  if (after.status !== "ok") {
+    spec.ensureDir?.();
+    backup(spec.configFile);
+    writeFileSync(spec.configFile, spec.serialize(after.out));
+    wroteFile = true;
+    console.log(
+      registered
+        ? `  NOTE: ${spec.cli} CLI registration diverged from the canonical config — rewrote ${spec.configFile} to the canonical form.`
+        : `  '${spec.cli} mcp add' failed — writing ${spec.configFile} directly.`
+    );
+  }
+  const failure = registered || wroteFile ? null : spec.cliFailMsg;
+  return { status: initial.status, registered, wroteFile, failure };
+}
+
 function wireClaude(): void {
   console.log("\n--- Claude Code CLI ---");
   const p = serverPaths();
-  const cjFile = join(homedir(), ".claude.json");
+  const specs = vendorWireSpecs(p);
 
-  // 1) MCP server (user scope). Reconcile against ~/.claude.json; prefer the
-  //    official CLI for writes, fall back to a direct (schema-identical) edit.
+  // 1) MCP server (user scope). CLI-first, read-back verified, with a direct
+  //    (schema-identical) ~/.claude.json write whenever the file diverges.
   try {
-    const cj = readJson(cjFile, {});
-    const probe = JSON.parse(JSON.stringify(cj)) as JsonObj;
-    const { status } = reconcileClaudeJson(probe, p.server);
-    if (status === "ok") {
-      let registered = claudeRegisteredViaCli();
-      if (!registered) {
-        runCmd("claude", claudeAddArgs());
-        registered = claudeRegisteredViaCli();
-      }
-      if (registered) describe("ok", "MCP server (user scope)");
-      else fail("claude", "MCP server file shape is correct, but 'claude mcp add' failed to register it with the CLI");
-    } else {
-      if (status === "repaired") {
-        console.log("  MCP server registration points at a stale path — re-registering.");
-        runCmd("claude", claudeRemoveArgs());
-      }
-      const cliOk = runCmd("claude", claudeAddArgs());
-      const cliVerified = cliOk && claudeRegisteredViaCli();
-      // Read back; if the CLI failed or didn't take, write the entry directly.
-      const after = readJson(cjFile, {});
-      const verify = reconcileClaudeJson(after, p.server);
-      if (!cliVerified && verify.status !== "ok" && !DRY_RUN) {
-        if (!cliOk) console.log("  'claude mcp add' failed — writing ~/.claude.json directly.");
-        backup(cjFile);
-        writeFileSync(cjFile, JSON.stringify(after, null, 2));
-      }
-      describe(status, "MCP server (user scope)");
-    }
+    const r = wireMcpServer(specs.claude);
+    if (r.failure) fail("claude", r.failure);
+    else describe(r.status, "MCP server (user scope)");
   } catch (e) {
     fail("claude", `could not register the MCP server: ${(e as Error).message}`);
   }
@@ -454,25 +591,14 @@ function wireCodex(): void {
   console.log("\n--- Codex CLI ---");
   const p = serverPaths();
   const codexDir = join(homedir(), ".codex");
+  const specs = vendorWireSpecs(p);
 
   // 1) config.toml — MCP server block (created if the file is missing).
   try {
-    const cfg = join(codexDir, "config.toml");
-    const toml = existsSync(cfg) ? readFileSync(cfg, "utf8") : "";
-    const r = reconcileCodexToml(toml, p.server);
-    if (r.status === "repaired") {
-      console.log("  MCP server registration points at a stale path — re-registering.");
-      runCmd("codex", codexRemoveArgs());
-    }
-    const cliOk = r.status === "ok" && codexRegisteredViaCli() ? true : runCmd("codex", codexAddArgs(p.server));
-    if (!cliOk && r.changed && !DRY_RUN) {
-      console.log("  'codex mcp add' failed — writing ~/.codex/config.toml directly.");
-      mkdirSync(codexDir, { recursive: true });
-      backup(cfg);
-      writeFileSync(cfg, r.toml);
-    }
-    describe(r.status, toml === "" ? "config.toml (created) MCP server block" : "config.toml MCP server block");
-    if (r.changed && DRY_RUN) console.log("    (dry-run: not written)");
+    const existed = existsSync(specs.codex.configFile);
+    const r = wireMcpServer(specs.codex);
+    if (r.failure) fail("codex", r.failure);
+    else describe(r.status, existed ? "config.toml MCP server block" : "config.toml (created) MCP server block");
   } catch (e) {
     fail("codex", `could not write config.toml: ${(e as Error).message}`);
   }
@@ -508,6 +634,31 @@ export interface CheckResult {
   detail: string;
 }
 
+/** Detail string for a CLI registration check; "CLI repair failed" only when a
+ *  repair was actually attempted. */
+export function registrationDetail(registered: boolean, attemptedRepair: boolean): string {
+  if (registered) return attemptedRepair ? "repaired" : "registered";
+  return attemptedRepair
+    ? "not registered; CLI repair failed"
+    : "not registered — run: subagent-mcp doctor";
+}
+
+function checkCliRegistration(
+  cli: string,
+  addArgs: string[],
+  repair: boolean,
+  deps: ExecDeps = defaultExecDeps
+): { registered: boolean; attemptedRepair: boolean } {
+  let registered = registeredViaCli(cli, deps);
+  let attemptedRepair = false;
+  if (!registered && repair) {
+    deps.run(cli, addArgs);
+    attemptedRepair = true;
+    registered = registeredViaCli(cli, deps);
+  }
+  return { registered, attemptedRepair };
+}
+
 export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = false): CheckResult[] {
   const p = serverPaths(root);
   const results: CheckResult[] = [];
@@ -524,18 +675,12 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
   const hasClaudeConfig = existsSync(join(home, ".claude.json"));
   if (hasClaude) {
     const sj = readJson(join(home, ".claude", "settings.json"), {});
-    let registered = claudeRegisteredViaCli();
-    let repaired = false;
-    if (!registered && repair) {
-      runCmd("claude", claudeAddArgs());
-      repaired = true;
-      registered = claudeRegisteredViaCli();
-    }
-    const hk = reconcileClaudeSettings(JSON.parse(JSON.stringify(sj)) as JsonObj, p.claudeHook);
+    const { registered, attemptedRepair } = checkCliRegistration("claude", claudeAddArgs(), repair);
+    const hk = reconcileClaudeSettings(sj, p.claudeHook);
     results.push({
       label: "claude: MCP server (user scope)",
       ok: registered,
-      detail: registered ? (repaired ? "repaired" : "registered") : "not registered; CLI repair failed",
+      detail: registrationDetail(registered, attemptedRepair),
     });
     results.push({
       label: "claude: UserPromptSubmit hook",
@@ -545,12 +690,12 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
   } else if (hasClaudeConfig) {
     const cj = readJson(join(home, ".claude.json"), {});
     const sj = readJson(join(home, ".claude", "settings.json"), {});
-    const srv = reconcileClaudeJson(JSON.parse(JSON.stringify(cj)) as JsonObj, p.server);
-    const hk = reconcileClaudeSettings(JSON.parse(JSON.stringify(sj)) as JsonObj, p.claudeHook);
+    const srv = reconcileClaudeJson(cj, p.server);
+    const hk = reconcileClaudeSettings(sj, p.claudeHook);
     results.push({
       label: "claude: MCP server (user scope)",
       ok: srv.status === "ok",
-      detail: srv.status === "ok" ? "registered (file fallback)" : "not registered; claude CLI not on PATH",
+      detail: srv.status === "ok" ? "registered (file fallback)" : "config stale — run: subagent-mcp setup",
     });
     results.push({
       label: "claude: UserPromptSubmit hook",
@@ -568,21 +713,19 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
     const hj = readJson(join(home, ".codex", "hooks.json"), { hooks: {} });
     const hkR = reconcileCodexHooks(hj, `node "${p.codexHook}"`);
     let registered = false;
-    let repaired = false;
+    let detail: string;
     if (hasCodexCli) {
-      registered = codexRegisteredViaCli();
-      if (!registered && repair) {
-        runCmd("codex", codexAddArgs(p.server));
-        repaired = true;
-        registered = codexRegisteredViaCli();
-      }
+      const r = checkCliRegistration("codex", codexAddArgs(p.server), repair);
+      registered = r.registered;
+      detail = registrationDetail(r.registered, r.attemptedRepair);
     } else {
       registered = tomlR.status === "ok";
+      detail = registered ? "registered" : "config stale — run: subagent-mcp setup";
     }
     results.push({
       label: "codex: config.toml MCP server block",
       ok: registered,
-      detail: registered ? (repaired ? "repaired" : "registered") : "not registered; CLI repair failed",
+      detail,
     });
     const allOk = Object.values(hkR.statuses).every((s) => s === "ok");
     results.push({
