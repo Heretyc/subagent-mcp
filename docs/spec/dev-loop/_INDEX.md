@@ -16,6 +16,6 @@ agents. It is not product behavior.
   build-participating docs, unstaged build-affecting files), JSON return shape.
 - `../safety-scope.md`: read for long human prompts, debug/architecture
   requests, ambiguity, consent, credentials, external side effects, sub-agent
-  prompts, and automated [agentic mention removed].
+  prompts, and automated session declarations.
 - `../prompt-review/eight-perspective-review.md`: prompt/directive/SOP review
   gate used when durable instructions are created or updated.

@@ -5,7 +5,7 @@ in one plugin. Do the [build prerequisite](_INDEX.md) first.
 
 ---
 
-## Preferred path: local-marketplace plugin (hook + server together)
+## Option A — local-marketplace plugin (hook + server together)
 
 The repo ships a single-plugin marketplace whose plugin source is the repo root
 itself, bundling both `.mcp.json` (server) and `hooks/hooks.json` (hook). The
@@ -15,7 +15,7 @@ must **not** re-declare `mcpServers` or `hooks` — re-declaring them collides w
 auto-discovery and the plugin fails to load with a duplicate-hooks error
 (`Hook load failed: Duplicate hooks file detected`). Only the plugin loader
 resolves `${CLAUDE_PLUGIN_ROOT}` and loads both together, so this is the
-canonical path.
+plugin path.
 
 **macOS / Linux:**
 
@@ -40,9 +40,9 @@ Restart the session, then toggle with the `orchestration-mode` tool
 
 ---
 
-## Manual fallback (no plugin): `claude mcp add` + settings.json hook
+## Option B — manual wiring (no plugin): `claude mcp add` + settings.json hook
 
-Use this only if you skip the plugin. It wires the server and hook separately.
+Use this when wiring the server and hook separately.
 `${CLAUDE_PLUGIN_ROOT}` is **not** available outside a plugin, so use an
 absolute path (the compiled hook falls back to its own `../../directives` for
 directive assets, so no extra env wiring is needed).
@@ -98,7 +98,7 @@ On Windows use a doubled-backslash or forward-slash absolute path in `args`.
    the turn (the hook returns `additionalContext`).
 5. **Hook silent when OFF:** toggle `orchestration-mode` OFF and confirm
    injection stops (no marker → zero emission).
-6. **Manual fallback only:** `claude mcp get subagent-mcp` shows the
+6. **Manual wiring only:** `claude mcp get subagent-mcp` shows the
    `node dist/index.js` command, and the settings.json `UserPromptSubmit` hook
    fires on the same ON/OFF rule.
 

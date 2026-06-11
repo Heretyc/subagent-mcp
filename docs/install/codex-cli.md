@@ -105,6 +105,33 @@ matcher to `UserPromptSubmit` — it does not accept one.
 
 ---
 
+## Project-local Codex config
+
+A repo-level `.codex/config.toml` is honored only when the project is trusted
+in the user config (`~/.codex/config.toml`):
+
+```toml
+[projects.'<abs repo path>']
+trust_level = "trusted"
+```
+
+Project-local values override the user config for the keys they set. For a
+server defined in the user config, project config can toggle it:
+
+```toml
+[mcp_servers.subagent-mcp]
+enabled = true  # or false
+```
+
+Granular alternative — keep the server enabled but hide specific tools:
+
+```toml
+[mcp_servers.subagent-mcp]
+disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "list_agents", "wait"]
+```
+
+---
+
 ## Verification
 
 1. **Build present:** confirm `dist/index.js` and

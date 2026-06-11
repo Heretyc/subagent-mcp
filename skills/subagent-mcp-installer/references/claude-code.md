@@ -42,13 +42,13 @@ Add (do not duplicate an existing entry; back the file up first):
 Exec form (`command: "node"` + `args`) is the docs-preferred Windows pattern for
 a Node script. Use a forward-slash or doubled-backslash absolute path in `args`.
 
-## 3) Do NOT also enable the repo plugin
+## 3) Choose one Claude Code install path per workspace
 
-The repo ships a local-marketplace plugin that bundles the same server + hook
-from `${CLAUDE_PLUGIN_ROOT}` (the checkout). Enabling it alongside this install
-causes (a) a repo dependency you just removed and (b) a **double** hook
-injection (plugin hook + settings.json hook both fire). On a machine using this
-standalone install:
+The repo's local-marketplace plugin is a co-equal supported Claude Code install
+path. It bundles the same server + hook from `${CLAUDE_PLUGIN_ROOT}` (the
+checkout). Running both paths in one workspace duplicates the server and causes
+a **double** hook injection (plugin hook + settings.json hook both fire). On a
+machine using this standalone install:
 
 - Ensure `subagent-mcp@subagent-mcp` is NOT in `~/.claude/settings.json`
   `enabledPlugins`, and the repo is NOT in `extraKnownMarketplaces` /

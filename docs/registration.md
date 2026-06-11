@@ -6,7 +6,7 @@ cloned the repo.
 
 This page is the MCP-only registration reference. To install the
 **orchestration-mode hook together with the server** on each host (the
-preferred plugin path, manual fallbacks, and per-host verification), see
+plugin path, npm path, manual wiring, and per-host verification), see
 [docs/install/_INDEX.md](install/_INDEX.md).
 
 See [README.md](../README.md) for the project overview and
@@ -25,7 +25,7 @@ See [README.md](../README.md) for the project overview and
 
 ## Install
 
-**Recommended — GitHub Packages install (auto-wires Claude and Codex):**
+**GitHub Packages install (auto-wires Claude and Codex):**
 
 ```bash
 # One-time: configure registry + auth (classic PAT with read:packages)
@@ -81,18 +81,8 @@ To make it available across all projects (user scope), add `--scope user`. Or ad
 }
 ```
 
-**Windows `.mcp.json`:**
-
-```json
-{
-  "mcpServers": {
-    "subagent-mcp": {
-      "command": "node",
-      "args": ["C:\\Users\\YourName\\Dropbox\\subagent-mcp\\dist\\index.js"]
-    }
-  }
-}
-```
+**Windows `.mcp.json`:** same shape with a double-backslash path, e.g.
+`"args": ["C:\\Users\\YourName\\Dropbox\\subagent-mcp\\dist\\index.js"]`.
 
 The Claude Desktop config lives at:
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -122,6 +112,11 @@ args = ["C:/Users/YourName/Dropbox/subagent-mcp/dist/index.js"]
 ```
 
 Forward or double-backslash paths both work in TOML. Verify with `/mcp` inside a Codex session.
+
+### Project-local Codex config
+
+Repo-level `.codex/config.toml` (trust requirement, `enabled` toggle,
+`disabled_tools` deny-list): see [docs/install/codex-cli.md](install/codex-cli.md).
 
 ---
 
