@@ -11,6 +11,9 @@ agents. It is not product behavior.
   GitHub Actions dispatch bridge contract.
 - `claude-routine-prompt.md`: exact copy/paste Instructions field text for the
   canonical Claude Routine CI/CD gate.
+- `contradiction-checker.md`: pre-commit contradiction-checker sub-agent
+  contract — dispatch rules, contradiction classes (spec conflicts, stale
+  build-participating docs, unstaged build-affecting files), JSON return shape.
 - `../safety-scope.md`: read for long human prompts, debug/architecture
   requests, ambiguity, consent, credentials, external side effects, sub-agent
   prompts, and automated [agentic mention removed].
