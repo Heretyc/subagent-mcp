@@ -43,7 +43,7 @@ questions, then issue a new final confirmation block. No work beyond read-only
 investigation, question construction, and required consent handling begins until
 the user selects `This is correct.`
 
-Codex `[agentic mention removed]` may add an automatic free-form option. A free-form
+Codex `request_user_input` may add an automatic free-form option. A free-form
 final-confirmation response is not confirmation. Treat it as `This is not
 right`, ask exactly 5 more clarification questions, then issue a new final
 confirmation block.
