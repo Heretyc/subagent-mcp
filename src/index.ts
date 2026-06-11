@@ -35,6 +35,11 @@ import {
   type RoutingBranch,
 } from "./routing.js";
 import { createDeadlockWindow } from "./deadlock.js";
+import {
+  createRulesetGate,
+  RULESET_HARD_FAIL_MSG,
+  type RulesetStdinPayload,
+} from "./ruleset.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 
 interface AgentState {
@@ -53,6 +58,14 @@ interface AgentState {
   ucSettingsPath?: string;
   waitReported: boolean;
   routingTier?: "cost_efficiency" | "performance" | "manual";
+  // Set ONLY when the advanced ruleset actually ALTERED the routing decision
+  // for this launch (ran-but-passthrough and disabled leave both fields absent).
+  rulesetApplied?: boolean;
+  rulesetOriginalSelection?: { provider: string; model: string; effort: string };
+  // Set ONLY by the codex turn.completed marker scan (stdout data + close
+  // flush handlers). The grace window's sole success exception keys on this
+  // flag — NOT on status, which any code-0 exit also sets to "finished".
+  turnCompleted?: boolean;
   // Rolling buffer of the last 3 parsed visible provider stream items.
   // Each item is stamped with its capture time (`at`, ms).
   visibleStream: VisibleStreamItem[];
@@ -66,6 +79,25 @@ const agents = new Map<string, AgentState>();
 const MAX_CLAUDE = 5;
 const MAX_CODEX = 5;
 const deadlockWindow = createDeadlockWindow();
+// Advanced-ruleset gate: per-process latch with exactly the deadlock-window
+// scoping. The env-check runs lazily at the FIRST launch_agent call; success
+// latches enabled/disabled for the process lifetime, failure never latches.
+const rulesetGate = createRulesetGate();
+
+// Post-spawn grace window (ms). A child that exits within this window after a
+// successful spawn never launched (codex installed but not logged in, expired
+// auth, instant crash) — the attempt loop silently advances instead of falsely
+// reporting success. ANY exit within the window counts, even code 0, EXCEPT a
+// codex child already finalized by its turn.completed marker (legitimate fast
+// completion). SUBAGENT_SPAWN_GRACE_MS overrides (non-negative int; 0 disables
+// detection = legacy spawn-event-only success) — a test seam; production never
+// sets it.
+const SPAWN_GRACE_MS = (() => {
+  const raw = process.env.SUBAGENT_SPAWN_GRACE_MS;
+  if (raw === undefined || raw === "") return 1500;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 1500;
+})();
 
 // TASK_CATEGORIES, AUTO_HINT, SPLIT_HINT, and validatePresence are the pure,
 // side-effect-free presence layer — defined in ./routing.js and imported above
@@ -192,7 +224,11 @@ async function tryLaunchCandidate(
   candidate: Candidate,
   prompt: string,
   agentCwd: string,
-  routingTier?: "cost_efficiency" | "performance" | "manual"
+  routingTier?: "cost_efficiency" | "performance" | "manual",
+  rulesetInfo?: {
+    applied: true;
+    originalSelection: { provider: string; model: string; effort: string };
+  }
 ): Promise<{ agentId: string } | { reason: string }> {
   // Concurrency cap for this provider.
   const running = countProcessing(candidate.provider);
@@ -276,6 +312,9 @@ async function tryLaunchCandidate(
     provider: candidate.provider,
     model: candidate.model,
     routingTier,
+    ...(rulesetInfo
+      ? { rulesetApplied: true, rulesetOriginalSelection: rulesetInfo.originalSelection }
+      : {}),
     status: "processing",
     process: childProcess,
     stdout: "",
@@ -302,6 +341,11 @@ async function tryLaunchCandidate(
   });
 
   if (candidate.provider === "claude" && childProcess.stdin) {
+    // EPIPE if the child dies before draining the prompt (the grace-window
+    // early-exit class) — fold into stderr, never crash the server.
+    childProcess.stdin.on("error", (err) => {
+      agentState.stderr += `\n[stdin error] ${err instanceof Error ? err.message : String(err)}`;
+    });
     childProcess.stdin.write(prompt);
     childProcess.stdin.end();
   }
@@ -340,6 +384,7 @@ async function tryLaunchCandidate(
         agentState.provider === "codex" &&
         lines.some((l) => l.includes('"type":"turn.completed"'))
       ) {
+        agentState.turnCompleted = true;
         agentState.status = "finished";
         agentState.exitCode = 0;
         if (agentState.exitedAt === null) agentState.exitedAt = at;
@@ -365,6 +410,14 @@ async function tryLaunchCandidate(
       agentState.streamBuf = "";
       for (const line of lines) {
         agentState.stdout += line + "\n";
+      }
+      // A turn.completed marker may arrive only in this final flush (no
+      // trailing newline) — the grace window's success exception needs it.
+      if (
+        agentState.provider === "codex" &&
+        lines.some((l) => l.includes('"type":"turn.completed"'))
+      ) {
+        agentState.turnCompleted = true;
       }
       if (items.length > 0) {
         agentState.lastActivity = at;
@@ -396,8 +449,65 @@ async function tryLaunchCandidate(
     agentState.status = code === 0 ? "finished" : "errored";
   });
 
+  // Resolves after the close handler above has fully run (attach order):
+  // streams flushed and any final turn.completed marker scanned. Pre-created
+  // because 'close' can fire in the same frame as 'exit', before the grace
+  // race's await continuation could attach a listener.
+  const closedAfterFlush = new Promise<void>((resolve) => {
+    childProcess.once("close", () => resolve());
+  });
+
+  // Post-spawn grace window: a 'spawn' win alone is NOT success — a binary that
+  // spawns then dies immediately (codex installed but not logged in) must
+  // advance the attempt loop, not falsely conclude it. AgentState is fully
+  // wired and the claude prompt already written above, so a surviving child
+  // loses no stream output during the wait. Exception: a codex child already
+  // finalized by its turn.completed marker (dedicated turnCompleted flag — the
+  // SOLE in-window success exception; visibility-and-failover.md) completed
+  // the task legitimately fast — that is a success, never a launch failure.
+  // The close handler above cleans up a condemned child (uc settings, stream
+  // flush); the agent is simply never registered.
+  if (SPAWN_GRACE_MS > 0) {
+    const earlyExit = await new Promise<{ code: number | null; signal: string | null } | null>(
+      (resolve) => {
+        const timer = setTimeout(() => {
+          childProcess.removeListener("exit", onExit);
+          resolve(null);
+        }, SPAWN_GRACE_MS);
+        const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+          clearTimeout(timer);
+          resolve({ code, signal });
+        };
+        childProcess.once("exit", onExit);
+      }
+    );
+    if (earlyExit) {
+      // 'exit' can be delivered before the final stdout chunk, so wait for
+      // 'close' (streams drained, flush scanned) before deciding — a
+      // turn.completed fast completion must never be misread as a launch
+      // failure and the task silently re-executed on the next candidate.
+      await closedAfterFlush;
+      if (!agentState.turnCompleted) {
+        const tail = agentState.stderr.trim().split("\n").slice(-1)[0] ?? "";
+        return {
+          reason: `process exited (code ${earlyExit.code ?? earlyExit.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`,
+        };
+      }
+    }
+  }
+
   agents.set(agentId, agentState);
   return { agentId };
+}
+
+// Order-sensitive (provider, model, effort) list equality. Detects whether the
+// advanced ruleset actually ALTERED the routing decision — visibility fields
+// are persisted/exposed only then (passthrough looks identical to disabled).
+function sameTriples(a: Candidate[], b: Candidate[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every(
+    (c, i) => c.provider === b[i].provider && c.model === b[i].model && c.effort === b[i].effort
+  );
 }
 
 // Tool 1: launch_agent
@@ -465,11 +575,74 @@ server.tool(
       );
     }
 
+    // Advanced-ruleset hook (docs/spec/advanced-ruleset/). Env-check gate runs
+    // at the first launch_agent of this process (success latches for the
+    // process lifetime; failure NEVER latches — re-run next call so an admin
+    // fix recovers without a restart). When enabled, routing mode runs ONCE per
+    // launch_agent — in ALL selection modes, explicit included — and is never
+    // re-run per failover attempt: the attempt loop consumes the returned list
+    // verbatim. Deadlock/branch state is never exposed to the script. The
+    // hard-fail message deliberately carries no hints (admin must intervene).
+    const gateResult = await rulesetGate.ensureReady();
+    if (!gateResult.ok) {
+      return errorResult(RULESET_HARD_FAIL_MSG);
+    }
+
+    let candidates = result.candidates;
+    let rulesetApplied = false;
+    let rulesetOriginalSelection: { provider: string; model: string; effort: string } | undefined;
+
+    if (gateResult.active) {
+      const payload: RulesetStdinPayload = {
+        candidates: candidates.map((c, i) => ({
+          provider: c.provider,
+          model: c.model,
+          effort: c.effort,
+          // Dense positional rank 1..N over the already-filtered list (raw
+          // table ranks gap after launchability filtering; explicit has none).
+          rank: i + 1,
+        })),
+        context: {
+          task_category,
+          cwd: agentCwd,
+          selection_mode: mode,
+          provider: provider ?? null,
+          model: model ?? null,
+          effort: effort ?? null,
+        },
+      };
+      const applied = await rulesetGate.applyRules(payload);
+      if (!applied.ok) {
+        return errorResult(RULESET_HARD_FAIL_MSG);
+      }
+      if (applied.candidates.length === 0) {
+        // Empty list = deliberate policy veto (the limit case of the allowed
+        // filter operation), NOT a malfunction — clean error, never the
+        // hard-fail message, never latched.
+        return errorResult(
+          `Error: advanced ruleset returned zero candidates for task_category ${task_category}; launch vetoed by ruleset.\n${AUTO_HINT}`
+        );
+      }
+      rulesetApplied = !sameTriples(candidates, applied.candidates);
+      if (rulesetApplied) {
+        rulesetOriginalSelection = { ...candidates[0] };
+      }
+      candidates = applied.candidates;
+    }
+
     // 6. Attempt loop: best→worst. Register on first successful spawn; silently
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
     const skipped: { model: string; effort: string; provider: string; reason: string }[] = [];
-    for (const candidate of result.candidates) {
-      const outcome = await tryLaunchCandidate(candidate, prompt, agentCwd, routingTier);
+    for (const candidate of candidates) {
+      const outcome = await tryLaunchCandidate(
+        candidate,
+        prompt,
+        agentCwd,
+        routingTier,
+        rulesetApplied && rulesetOriginalSelection !== undefined
+          ? { applied: true, originalSelection: rulesetOriginalSelection }
+          : undefined
+      );
       if ("agentId" in outcome) {
         if (branch === "performance") {
           deadlockWindow.consume();
@@ -485,6 +658,12 @@ server.tool(
                 model: candidate.model,
                 effort: candidate.effort,
                 task_category,
+                ...(rulesetApplied
+                  ? {
+                      ruleset_applied: true,
+                      ruleset_original_selection: rulesetOriginalSelection,
+                    }
+                  : {}),
               }),
             },
           ],
@@ -498,8 +677,10 @@ server.tool(
       });
     }
 
-    // 7. All candidates failed.
-    if (isExplicit) {
+    // 7. All candidates failed. A ruleset-modified explicit launch may have
+    //    attempted N≠1 candidates — only the numbered ALL_FAILED shape can
+    //    report that, so the explicit shape is reserved for unmodified launches.
+    if (isExplicit && !rulesetApplied) {
       const f = skipped[0];
       return errorResult(
         `Error: explicit launch ${f.model}@${f.effort} (${f.provider}) failed: ${f.reason}.\n${AUTO_HINT}`
@@ -574,6 +755,12 @@ server.tool(
             cwd: agent.cwd,
             ...liveness,
             ...(agent.routingTier !== undefined ? { routing_tier: agent.routingTier } : {}),
+            ...(agent.rulesetApplied
+              ? {
+                  ruleset_applied: true,
+                  ruleset_original_selection: agent.rulesetOriginalSelection,
+                }
+              : {}),
             recent_stream: agent.visibleStream.map((it) => ({
               type: it.type,
               text: it.text,

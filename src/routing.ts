@@ -16,15 +16,15 @@ import { fileURLToPath } from "node:url";
 import type { Provider } from "./effort.js";
 
 /** Launch model enum accepted by buildCommand. */
-const LAUNCH_MODELS = ["haiku", "sonnet", "opus", "opus-4-8", "gpt-5.5"] as const;
+export const LAUNCH_MODELS = ["haiku", "sonnet", "opus", "opus-4-8", "gpt-5.5"] as const;
 type LaunchModel = (typeof LAUNCH_MODELS)[number];
 
 /** Launch effort enum accepted by buildCommand/resolveEffort. */
-const LAUNCH_EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultracode"] as const;
+export const LAUNCH_EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultracode"] as const;
 type LaunchEffort = (typeof LAUNCH_EFFORTS)[number];
 
 /** Sentinel reported (and passed-through harmlessly) for haiku, whose effort is ignored. */
-const HAIKU_EFFORT = "none";
+export const HAIKU_EFFORT = "none";
 
 /**
  * FULL table model id -> SHORT launch id. Only launchable models appear here.
@@ -194,11 +194,16 @@ export function buildCandidates(
 ): CandidateResult {
   const { provider, model, effort } = overrides;
 
-  // explicit: all three present — single direct attempt, no table read.
+  // explicit: all three present — single direct attempt, no table read. The
+  // effort is normalized exactly like table rows (haiku -> "none", codex
+  // max -> xhigh, non-opus ultracode -> xhigh) so the candidate list is
+  // always validator-legal for the advanced-ruleset payload (io-contract.md).
   if (provider && model && effort) {
     return {
       mode: "explicit",
-      candidates: [{ provider, model, effort }],
+      candidates: [
+        { provider, model, effort: normalizeEffort(provider, model, effort) ?? effort },
+      ],
     };
   }
 

@@ -30,10 +30,13 @@ decoupled copy). When they disagree, **this skill wins**.
    dev checkout. See `references/locations.md` for the full forbidden list and
    the rationale (these get garbage-collected, moved, or rebuilt under you).
 2. **Ship ALL parts.** Server (`dist/index.js`), both hooks
-   (`dist/hooks/orchestration-claude.js`, `orchestration-codex.js`), and the
-   `directives/` dir must all land in the install. The compiled hooks resolve
-   their directive assets via `../../directives`, so `directives/` must sit
-   beside `dist/` in the install root.
+   (`dist/hooks/orchestration-claude.js`, `orchestration-codex.js`), the ruleset
+   scaffold (`dist/advanced-ruleset.py`), and the `directives/` dir must all
+   land in the install. The compiled hooks resolve their directive assets via
+   `../../directives`, so `directives/` must sit beside `dist/` in the install
+   root. A user-edited `dist/advanced-ruleset.py` is NEVER overwritten on
+   update: `deploy.mjs` snapshots it before `npm install -g` and restores it
+   after.
 3. **Standards-compliant per vendor.** Use each vendor's official registration
    path and config schema, verbatim from the specs in
    `references/compliance.md`. No bespoke shims.

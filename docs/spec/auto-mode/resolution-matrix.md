@@ -13,6 +13,11 @@ crash.
 Tip: omit provider/model/effort entirely and the server auto-selects the best provider/model/effort for this task_category, with automatic silent fallback.
 ```
 
+Sole exception to "append to EVERY error": the advanced-ruleset HARD-FAIL
+message carries NO hints and is never modified
+(`../advanced-ruleset/io-contract.md`). The ruleset VETO error does carry
+`<AUTO_HINT>`; its exact text also lives in that leaf.
+
 `SPLIT_HINT` (append to category errors AND to the all-candidates-failed error):
 
 ```
@@ -171,5 +176,9 @@ Error: explicit launch <model>@<effort> (<provider>) failed: <reason>.
   — return `ERR_TABLE_MISSING`.
 - Do NOT fall back past a fully-explicit (`explicit` mode) attempt — one try
   only, then `ERR_EXPLICIT_FAILED`.
-- Do NOT treat a sub-agent's eventual TASK failure as a fallback trigger — only
-  launch-time failures fall back (`routing-table-contract.md`).
+- Do NOT treat a sub-agent's eventual TASK failure as a fallback trigger —
+  only launch-time failures fall back (`routing-table-contract.md`).
+  Launch-time failure INCLUDES any exit within the post-spawn grace window
+  EXCEPT a child already finalized by `turn.completed` (legitimate fast
+  completion — `../advanced-ruleset/visibility-and-failover.md`); only deaths
+  AFTER that window are task outcomes.

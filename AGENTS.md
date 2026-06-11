@@ -53,7 +53,7 @@ agentic collaboration.
   models via the `model-profiler` skill.
 - `docs/spec/task-taxonomy/_INDEX.md`: read when defining, citing, or changing
   the fixed 10-category task taxonomy (immutable) or its provenance, not routing.
-- `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior.
+- `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior; for the advanced-ruleset.py override hook, its python execution/IO contract, launch visibility fields, or the post-spawn failover window, read `docs/spec/advanced-ruleset/_INDEX.md` first.
 - `docs/spec/dev-loop/worktree-enforcement/_INDEX.md`: read before ANY mutating or repo-affecting action — creating/naming a branch or worktree, editing/writing/deleting a file, staging, committing, merging, rebasing, resetting, or pushing — to run the pre-action worktree gate. Not for read-only status/log/diff/inspection.
 
 ## Always Enforce

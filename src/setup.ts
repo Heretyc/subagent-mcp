@@ -42,6 +42,7 @@ function verifyInstall(): void {
     "dist/index.js",
     "dist/hooks/orchestration-claude.js",
     "dist/hooks/orchestration-codex.js",
+    "dist/advanced-ruleset.py",
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
   ];
