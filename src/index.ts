@@ -3,10 +3,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { spawn, execSync, ChildProcess } from "child_process";
-import { unlinkSync, existsSync, realpathSync } from "node:fs";
+import { spawn, spawnSync, execSync, ChildProcess } from "child_process";
+import { unlinkSync, existsSync, realpathSync, readFileSync } from "node:fs";
 import { randomUUID } from "crypto";
-import { isAbsolute, basename } from "node:path";
+import { isAbsolute, basename, join, dirname } from "node:path";
 import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
 import { resolveExeFor } from "./platform.js";
@@ -1112,14 +1112,85 @@ const isMain =
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
 if (isMain) {
-  if (process.argv[2] === "setup") {
+  // CLI argument guard — runs BEFORE the stdio transport connects. Any argv[2]
+  // other than the known commands used to fall through and silently start the
+  // MCP server, which blocks forever waiting on stdin (`subagent-mcp --version`
+  // hung indefinitely). Only a bare invocation may reach the server below.
+  const arg = process.argv[2];
+  const usage = [
+    "Usage: subagent-mcp [command]",
+    "",
+    "  (no command)       start the MCP stdio server (how vendor CLIs run it)",
+    "  setup [--dry-run]  wire Claude Code CLI / Codex CLI (--dry-run: preview only)",
+    "  doctor             check install and wiring health",
+    "  --update           update to the latest release (npm install -g)",
+    "  --version, -v      print the installed version",
+    "  --help, -h         show this help",
+  ].join("\n");
+  // dist/index.js -> ../package.json (the installed package manifest).
+  const readPkg = () =>
+    JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8")
+    ) as { name: string; version: string };
+  if (arg === "--version" || arg === "-v") {
+    console.log(readPkg().version);
+    process.exit(0);
+  }
+  if (arg === "--help" || arg === "-h") {
+    console.log(usage);
+    process.exit(0);
+  }
+  if (arg === "--update") {
+    const pkg = readPkg();
+    const npmArgs = ["install", "-g", `${pkg.name}@latest`];
+    console.log(`subagent-mcp ${pkg.version} -> npm ${npmArgs.join(" ")}`);
+    // npm on Windows is npm.cmd; spawning a .cmd without a shell fails
+    // (EINVAL on modern Node). Resolve the underlying npm-cli.js and run it
+    // with this same node binary: cmd-shim layout first (npm installed into a
+    // prefix), then the official Node-for-Windows layout (npm.cmd sitting
+    // next to node_modules\npm). POSIX spawns the npm executable directly.
+    const { findOnPath, resolveCmdShimNodeScript } = await import(
+      "./setup.js"
+    );
+    const npm = findOnPath("npm") ?? "npm";
+    let r;
+    if (process.platform === "win32" && /\.(?:cmd|bat)$/i.test(npm)) {
+      const sibling = join(dirname(npm), "node_modules", "npm", "bin", "npm-cli.js");
+      const js =
+        resolveCmdShimNodeScript(npm) ?? (existsSync(sibling) ? sibling : null);
+      r = js
+        ? spawnSync(process.execPath, [js, ...npmArgs], { stdio: "inherit" })
+        : // Last resort: cmd.exe via shell. The arg vector is a fixed literal
+          // list (safe charset only), so there is no quoting/injection surface.
+          spawnSync("npm", npmArgs, { stdio: "inherit", shell: true });
+    } else {
+      r = spawnSync(npm, npmArgs, { stdio: "inherit" });
+    }
+    if (r.error) {
+      console.error(`update failed to start npm: ${r.error.message}`);
+      process.exit(1);
+    }
+    const code = r.status ?? 1;
+    if (code === 0) {
+      console.log(
+        "Update complete. Restart your CLI sessions so the MCP server picks up the new build."
+      );
+    }
+    process.exit(code);
+  }
+  if (arg === "setup") {
     const { runSetup } = await import("./setup.js");
     await runSetup();
     process.exit(0);
   }
-  if (process.argv[2] === "doctor") {
+  if (arg === "doctor") {
     const { runDoctor } = await import("./doctor.js");
     process.exit(await runDoctor());
+  }
+  if (arg !== undefined && arg !== "") {
+    console.error(`unknown argument: ${arg}`);
+    console.error(usage);
+    process.exit(1);
   }
   // ORCHESTRATION MODE PERSISTS across restarts/sessions: the server does NOT
   // clear the marker on startup. DEFAULT OFF now means ABSENCE of a marker — a
