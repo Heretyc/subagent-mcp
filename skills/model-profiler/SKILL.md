@@ -126,8 +126,8 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
     routing logic. The only code it may touch: `package.json`, `scripts/copy-provider.mjs`,
     `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `scripts/update_seed_sites.mjs`,
     and `scripts/validate_seed_sites.mjs`.
-14. **No-effort exclusion (6 categories).** Models whose ONLY effort is a no-effort sentinel
-    (`null`/`none`/`n/a` — e.g. `claude-haiku-4-5`) are EXCLUDED from
+14. **No-effort exclusion (6 categories; cost_efficiency branch).** Models whose ONLY effort is a
+    no-effort sentinel (`null`/`none`/`n/a` — e.g. `claude-haiku-4-5`) are EXCLUDED from
     ranking in `agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
     `knowledge_synthesis` (those 6 carry a REDUCED per-category universe), but REMAIN ranked in the
     other 4 (`math_proof`, `data_analysis`, `coding`, `mechanical`, full universe).
@@ -135,7 +135,8 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
     coverage against the reduced set. **Distinct from #12** (which bans emitting `none` for
     EFFORT-CAPABLE models): #14 EXCLUDES genuinely no-effort models from 6 categories.
     The authoritative effort ladder per model is the dataset's `model_effort_universe`; see
-    `audit.metadata.model_effort_universe` as the single source of truth.
+    `audit.metadata.model_effort_universe` as the single source of truth. On the `performance`
+    branch, invariant #16's effort floor subsumes this rule (no-effort = below `high`).
 15. **Execution lifecycle + worktree gate (ABSOLUTE — precedes every other step).** Every
     run executes inside ONE fixed, never-reordered, never-skipped lifecycle:
     `worktree/branch gate → main skill execution → commit → push → PR → resolve merge
@@ -147,6 +148,15 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
     the manual `git worktree add`. The final deliverable is the PR hyperlink plus a concise
     summary of what changed in `src/routing-table.json` since its last merged update. Full
     steps: `references/execution-lifecycle.md`; mandate: `docs/spec/dev-loop/worktree-enforcement/`.
+16. **Performance effort floor (owner directive 2026-06-11 — FINAL AND BINDING, NO EXCEPTIONS).**
+    The `performance` branch must NEVER rank a pairing whose effort sits below `high` on the
+    ladder (`null`/`none`/`min`/`light`/`low`/`medium`). Rationale: low/medium-effort variants
+    are a widely-bad choice for performance/deadlock situations — never add them to performance
+    rankings, regardless of benchmark results, vendor claims, or research consensus.
+    `build_routing_table.mjs` hard-rejects below-floor pairings on EVERY build (blocks new
+    entries AND purges existing ones on rebuild, with a fail-loud post-build assertion);
+    `validate_provider.mjs` and `test/performance-tier-effort.test.mjs` reject any committed
+    table that violates it. `cost_efficiency` is unaffected.
 
 ## Pipeline at a Glance
 

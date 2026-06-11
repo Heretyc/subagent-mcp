@@ -77,11 +77,13 @@ repointing `hooks.json` invalidates the stored `trusted_hash`** (in
 1. `codex mcp list` (or `/mcp`) → `subagent-mcp` + tools (`orchestration-mode`,
    `launch_agent`, …).
 2. `directives/orchestration-codex.md`, `off-turn-reminder.md`,
-   `carryover-codex.md` exist at `<INSTALL>/directives`.
+   `carryover-codex.md`, `reminder-on.md`, `reminder-off-codex.md` exist at
+   `<INSTALL>/directives`.
 3. `/hooks` shows the hook **trusted**.
 4. Toggle `orchestration-mode` ON → start a fresh session (`SessionStart` fires
    turn 0) → directive injects on cadence. If silent: confirm the path is
    absolute (not `${PLUGIN_ROOT}`) and `~/.codex/hooks.json` is in use & trusted.
-5. Toggle OFF → injection stops.
+5. Toggle OFF → the FULL directive stops; the OFF reminder cadence (LONG
+   `reminder-off-codex.md` every 5th prompt, one-line pointer between) remains.
 6. If the hook acts on a 600 s timeout instead of ~10 s, you left `timeoutSec`
    instead of `timeout`.

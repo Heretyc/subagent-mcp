@@ -96,8 +96,9 @@ On Windows use a doubled-backslash or forward-slash absolute path in `args`.
 4. **Hook fires when ON:** toggle `orchestration-mode` ON via the tool, submit
    any prompt, and confirm an orchestrator-only directive is injected ahead of
    the turn (the hook returns `additionalContext`).
-5. **Hook silent when OFF:** toggle `orchestration-mode` OFF and confirm
-   injection stops (no marker → zero emission).
+5. **Hook downgrades when OFF:** toggle `orchestration-mode` OFF and confirm
+   the FULL directive stops; the OFF reminder cadence remains (LONG
+   `reminder-off-claude.md` every 5th prompt, one-line pointer between).
 6. **Manual wiring only:** `claude mcp get subagent-mcp` shows the
    `node dist/index.js` command, and the settings.json `UserPromptSubmit` hook
    fires on the same ON/OFF rule.

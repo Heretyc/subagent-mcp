@@ -153,6 +153,21 @@ const EFFORT_LADDER = [
 const EFFORT_INDEX = new Map(EFFORT_LADDER.map((e, i) => [e, i]));
 const NO_EFFORT_SENTINELS = new Set(["n/a", "null", "none"]);
 
+// Owner directive (2026-06-11, FINAL AND BINDING — NO EXCEPTIONS): the performance
+// branch must never rank a pairing whose effort sits below 'high' on the ladder
+// (null/none/min/light/low/medium). Low/medium-effort variants are a widely-bad
+// choice for performance/deadlock situations. Enforced on EVERY build: the branch
+// filter blocks new below-floor entries AND purges existing ones on rebuild; the
+// post-build assertion fails loud if one ever slips through. cost_efficiency is
+// unaffected. For the performance branch this overrides invariant #14's 4-category
+// retention of no-effort models (they stay ranked there in cost_efficiency only).
+const PERFORMANCE_MIN_EFFORT = "high";
+const PERFORMANCE_MIN_EFFORT_INDEX = EFFORT_INDEX.get(PERFORMANCE_MIN_EFFORT);
+function meetsPerformanceEffortFloor(effortK) {
+  const idx = EFFORT_INDEX.get(effortK);
+  return idx !== undefined && idx >= PERFORMANCE_MIN_EFFORT_INDEX;
+}
+
 // Owner directive: models with NO selectable effort (null/none/n/a) are EXCLUDED from
 // ranking/listing in these higher-reasoning task categories. They remain ranked in the
 // other 4 (math_proof, data_analysis, coding, mechanical).
@@ -1216,7 +1231,14 @@ function buildFullBranch(branch, exponents) {
   for (const category of SPINE) {
     const scores = perfScores.get(category);
     const dataMissing = DATA_MISSING_CATEGORIES.has(category);
-    const { items } = rankBranch(branch, scores, exponents, categoryUniverse(category), dataMissing, category);
+    let universe = categoryUniverse(category);
+    // Performance effort floor (owner directive, FINAL): drop every below-'high'
+    // pairing from the performance branch before ranking. Purges existing
+    // entries on every rebuild; cost_efficiency keeps the full universe.
+    if (branch === "performance") {
+      universe = universe.filter((p) => meetsPerformanceEffortFloor(p.effortK));
+    }
+    const { items } = rankBranch(branch, scores, exponents, universe, dataMissing, category);
     out[category] = items.map((item, idx) => {
       const obj = buildFullPairingObject(item, category);
       obj.rank = idx + 1;
@@ -1341,6 +1363,35 @@ function spliceVersionPromotions(items) {
 // now rank by the same power law at fixed a:b ratios, so there is no exponent to search.
 const performanceFull = buildFullBranch("performance", PERF_EXP);
 const costEfficiencyFull = buildFullBranch("cost_efficiency", COST_EXP);
+
+// Performance effort floor vs performance_rank_pin: the floor is FINAL and
+// wins, but a pin whose model has NO surviving >=high pairing in a pinned
+// category would otherwise no-op silently — surface the directive conflict.
+for (const [category, models] of PERF_RANK_PINS) {
+  for (const model of models) {
+    if (!performanceFull[category]?.some((e) => e.model === model)) {
+      console.warn(
+        `performance effort floor purged ALL pairings of rank-pinned model '${model}' from ` +
+        `performance.${category} — the pin no-ops (floor is FINAL and overrides the pin)`
+      );
+    }
+  }
+}
+
+// Performance effort floor — post-build hard assertion (belt to the filter's
+// suspenders). A single below-'high' pairing in any performance category fails
+// the build loud; nothing may re-introduce one downstream of the filter.
+for (const [category, entries] of Object.entries(performanceFull)) {
+  for (const e of entries) {
+    const ek = effortKey(e.effort);
+    if (!meetsPerformanceEffortFloor(ek)) {
+      throw new Error(
+        `performance effort floor violated: ${e.model}@${ek} ranked in performance.${category} ` +
+        `(below '${PERFORMANCE_MIN_EFFORT}'; owner directive FINAL — no exceptions)`
+      );
+    }
+  }
+}
 
 // ---- citations for audit ----------------------------------------------------------
 function citationsFor(detail, category) {

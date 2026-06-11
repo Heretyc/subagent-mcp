@@ -67,7 +67,17 @@ no-effort sentinel (`null`/`none`/`n/a`) is excluded from the ranked universe in
 `agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
 `knowledge_synthesis` — so those carry a REDUCED per-category universe. It REMAINS ranked in the other
 4: `math_proof`, `data_analysis`, `coding`, `mechanical`. `build_routing_table.mjs` applies this at
-ranking; distinct from the effort-capable `@none` ban above.
+ranking; distinct from the effort-capable `@none` ban above. On the `performance` branch the
+effort floor below subsumes this exclusion.
+
+**Performance effort floor (SKILL.md invariant #16 — owner directive 2026-06-11, FINAL AND
+BINDING, NO EXCEPTIONS):** the `performance` branch ranks ONLY pairings at effort >= `high` on the
+ladder. Every below-floor effort (`null`/`none`/`min`/`light`/`low`/`medium`) is hard-rejected on
+EVERY build — the branch filter blocks new entries AND purges existing ones on rebuild, and a
+post-build assertion fails loud if one slips through. Never add low/medium reasoning-effort
+variants to performance rankings: they are a widely-bad choice for performance/deadlock
+situations, and no benchmark result, vendor claim, or research consensus overrides this.
+`cost_efficiency` is unaffected (it keeps the full universe rules above).
 
 ---
 

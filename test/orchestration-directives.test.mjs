@@ -26,6 +26,12 @@ const codex = readFileSync(join(directivesDir, "orchestration-codex.md"), "utf8"
 const carryoverClaude = readFileSync(join(directivesDir, "carryover-claude.md"), "utf8");
 const carryoverCodex = readFileSync(join(directivesDir, "carryover-codex.md"), "utf8");
 const offTurn = readFileSync(join(directivesDir, "off-turn-reminder.md"), "utf8");
+const reminderOn = readFileSync(join(directivesDir, "reminder-on.md"), "utf8");
+const reminderOffClaude = readFileSync(join(directivesDir, "reminder-off-claude.md"), "utf8");
+const reminderOffCodex = readFileSync(join(directivesDir, "reminder-off-codex.md"), "utf8");
+
+const REMINDER_OPEN = "<ORCHESTRATION-REMINDER-INVARIANT>";
+const REMINDER_CLOSE = "</ORCHESTRATION-REMINDER-INVARIANT>";
 
 let passed = 0;
 let failed = 0;
@@ -88,10 +94,76 @@ test("no directive file contains 'ultracode' (case-insensitive)", () => {
     ["carryover-claude", carryoverClaude],
     ["carryover-codex", carryoverCodex],
     ["off-turn-reminder", offTurn],
+    ["reminder-on", reminderOn],
+    ["reminder-off-claude", reminderOffClaude],
+    ["reminder-off-codex", reminderOffCodex],
   ]) {
     assert.ok(!/ultracode/i.test(body),
       `${name} directive must not reference "ultracode"`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Per-prompt reminder blocks: exact tag wrapper + mode-specific content
+//
+// WHY (Rule 9): the <ORCHESTRATION-REMINDER-INVARIANT> tag is the UNAMBIGUOUS
+// callout the one-line pointer references — if the tag drifts (typo, rename,
+// missing close), every interceding prompt points at a block that never
+// arrives, and the agent free-associates the directive content instead of
+// reading it. The OFF variants must each name only THEIR provider's question
+// tool (same provider-split invariant as the full directives), and the long
+// blocks must carry the 5-call-rule / delegate-default intent they exist for.
+// ---------------------------------------------------------------------------
+test("reminder blocks are wrapped in exact <ORCHESTRATION-REMINDER-INVARIANT> tags", () => {
+  for (const [name, body] of [
+    ["reminder-on", reminderOn],
+    ["reminder-off-claude", reminderOffClaude],
+    ["reminder-off-codex", reminderOffCodex],
+  ]) {
+    assert.ok(body.includes(REMINDER_OPEN),
+      `${name} must open with the exact reminder tag`);
+    assert.ok(body.includes(REMINDER_CLOSE),
+      `${name} must close the exact reminder tag`);
+    assert.ok(body.indexOf(REMINDER_OPEN) < body.indexOf(REMINDER_CLOSE),
+      `${name} must open the tag before closing it`);
+  }
+});
+
+test("reminder-off variants are provider-split on the question tool", () => {
+  assert.ok(reminderOffClaude.includes("AskUserQuestion"),
+    "reminder-off-claude must name the AskUserQuestion tool");
+  assert.ok(!reminderOffClaude.includes("request-user-input"),
+    "reminder-off-claude must NOT leak the Codex request-user-input tool");
+  assert.ok(reminderOffCodex.includes("request-user-input"),
+    "reminder-off-codex must name the request-user-input tool");
+  assert.ok(!reminderOffCodex.includes("AskUserQuestion"),
+    "reminder-off-codex must NOT leak the Claude AskUserQuestion tool");
+  assert.ok(!reminderOn.includes("AskUserQuestion") && !reminderOn.includes("request-user-input"),
+    "reminder-on is provider-neutral and names no question tool");
+});
+
+test("reminder blocks carry their mode-specific intent", () => {
+  for (const [name, body] of [
+    ["reminder-off-claude", reminderOffClaude],
+    ["reminder-off-codex", reminderOffCodex],
+  ]) {
+    assert.match(body, /5-CALL RULE/,
+      `${name} must state the 5-call rule`);
+    assert.match(body, /full-auto routing/i,
+      `${name} must advise subagent-mcp full-auto routing while OFF`);
+  }
+  assert.match(reminderOn, /[Dd]elegate-default/,
+    "reminder-on must reinforce delegate-default");
+  assert.match(reminderOn, /5-CALL RULE/,
+    "reminder-on must state that delegation satisfies the 5-call rule");
+});
+
+test("off-turn pointer is a single line referencing the reminder tag", () => {
+  const lines = offTurn.split("\n").filter((l) => l.trim().length > 0);
+  assert.equal(lines.length, 1,
+    "the interceding-prompt pointer must be exactly one non-empty line");
+  assert.ok(lines[0].includes("<ORCHESTRATION-REMINDER-INVARIANT>"),
+    "the pointer must reference the exact reminder tag");
 });
 
 // ---------------------------------------------------------------------------
@@ -137,6 +209,9 @@ test("all directive files stay <= 200 lines", () => {
     ["codex", codex],
     ["carryover-claude", carryoverClaude],
     ["carryover-codex", carryoverCodex],
+    ["reminder-on", reminderOn],
+    ["reminder-off-claude", reminderOffClaude],
+    ["reminder-off-codex", reminderOffCodex],
   ]) {
     const lineCount = body.split("\n").length;
     assert.ok(lineCount <= 200,
