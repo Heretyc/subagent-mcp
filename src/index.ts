@@ -1117,6 +1117,10 @@ if (isMain) {
     await runSetup();
     process.exit(0);
   }
+  if (process.argv[2] === "doctor") {
+    const { runDoctor } = await import("./doctor.js");
+    process.exit(await runDoctor());
+  }
   // ORCHESTRATION MODE PERSISTS across restarts/sessions: the server does NOT
   // clear the marker on startup. DEFAULT OFF now means ABSENCE of a marker — a
   // project never enabled stays OFF; a project explicitly enabled persists ON
