@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 // `subagent-mcp doctor` — read-only health check for the installed addon.
 //
-// Diagnoses without touching any file: install completeness, vendor presence,
-// and whether each vendor's wiring (MCP server + hooks) points at THIS install.
-// The fixer is always `subagent-mcp setup` (idempotent, self-repairing); doctor
-// just tells you whether you need it and what exactly is wrong.
+// Diagnoses install completeness, vendor presence, and whether each vendor's
+// wiring (MCP server + hooks) points at THIS install. Doctor self-repairs
+// missing MCP registrations via vendor CLIs; use `subagent-mcp setup` for
+// config-file and hook repairs.
 //
 // Exit code: 0 = everything healthy, 1 = at least one check failed.
 
 import { verifyWiring } from "./setup.js";
 
 export async function runDoctor(): Promise<number> {
-  console.log("subagent-mcp doctor (read-only — changes nothing)\n");
+  console.log("subagent-mcp doctor (checks wiring; repairs missing MCP registrations via vendor CLIs)\n");
 
   const major = Number(process.versions.node.split(".")[0]);
   console.log(
@@ -20,7 +20,7 @@ export async function runDoctor(): Promise<number> {
   );
   let failed = major < 18 ? 1 : 0;
 
-  for (const r of verifyWiring()) {
+  for (const r of verifyWiring(undefined, true)) {
     console.log(`  ${r.ok ? "PASS" : "FAIL"}  ${r.label} — ${r.detail}`);
     if (!r.ok) failed++;
   }

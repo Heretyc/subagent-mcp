@@ -23,6 +23,8 @@ import {
   reconcileClaudeJson,
   reconcileCodexToml,
   reconcileCodexHooks,
+  claudeAddArgs,
+  codexAddArgs,
 } from "../dist/setup.js";
 
 let passed = 0;
@@ -100,7 +102,7 @@ test("claude.json: absent -> added with CLI-compatible schema", () => {
   const r = reconcileClaudeJson(cj, SERVER);
   assert.equal(r.status, "added");
   assert.deepEqual(cj.mcpServers["subagent-mcp"], {
-    type: "stdio", command: "node", args: [SERVER], env: {},
+    type: "stdio", command: "subagent-mcp", args: [], env: {},
   });
 });
 
@@ -108,14 +110,16 @@ test("claude.json: exact -> ok; stale path -> repaired; other servers preserved"
   const cj = {
     mcpServers: {
       "other-server": { command: "python", args: ["x.py"] },
-      "subagent-mcp": { type: "stdio", command: "node", args: [SERVER], env: {} },
+      "subagent-mcp": { type: "stdio", command: "subagent-mcp", args: [], env: {} },
     },
   };
   assert.equal(reconcileClaudeJson(cj, SERVER).status, "ok");
-  cj.mcpServers["subagent-mcp"].args = ["C:/stale/dist/index.js"];
+  cj.mcpServers["subagent-mcp"] = { type: "stdio", command: "node", args: [SERVER], env: {} };
   const r = reconcileClaudeJson(cj, SERVER);
   assert.equal(r.status, "repaired");
-  assert.deepEqual(cj.mcpServers["subagent-mcp"].args, [SERVER]);
+  assert.deepEqual(cj.mcpServers["subagent-mcp"], {
+    type: "stdio", command: "subagent-mcp", args: [], env: {},
+  });
   assert.deepEqual(cj.mcpServers["other-server"], { command: "python", args: ["x.py"] },
     "unrelated server untouched");
 });
@@ -133,6 +137,13 @@ test("codex toml: absent block -> appended, existing content preserved", () => {
 
 test("codex toml: exact block -> ok, text unchanged", () => {
   const toml = `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${SERVER}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 60\n`;
+  const r = reconcileCodexToml(toml, SERVER);
+  assert.equal(r.status, "ok");
+  assert.equal(r.toml, toml);
+});
+
+test("codex toml: CLI-written block without timeouts -> ok, text unchanged", () => {
+  const toml = `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${SERVER}"]\n`;
   const r = reconcileCodexToml(toml, SERVER);
   assert.equal(r.status, "ok");
   assert.equal(r.toml, toml);
@@ -233,6 +244,17 @@ test("findOnPath: posix lookup misses -> null (colon-free fake paths)", () => {
 test("findOnPath: empty PATH -> null (never throws)", () => {
   assert.equal(findOnPath("anything", {}, "linux"), null);
   assert.equal(findOnPath("anything", {}, "win32"), null);
+});
+
+// ---------------------------------------------------------------------------
+// vendor CLI argv contracts
+// ---------------------------------------------------------------------------
+test("claudeAddArgs: official user-scope shim registration argv", () => {
+  assert.deepEqual(claudeAddArgs(), ["mcp", "add", "subagent-mcp", "subagent-mcp", "-s", "user"]);
+});
+
+test("codexAddArgs: official node server registration argv", () => {
+  assert.deepEqual(codexAddArgs(SERVER), ["mcp", "add", "subagent-mcp", "--", "node", SERVER]);
 });
 
 // ---------------------------------------------------------------------------
