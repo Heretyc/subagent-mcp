@@ -12,7 +12,9 @@ It does two things, and only these two:
 
 1. **Discover + measure.** Discover every model published in the recent window by the in-scope
    provider families (operator-specified at consent time), and gather ALL public benchmark scores
-   and statistics for each model+effort pairing, mapped onto the **FIXED 10 categories**.
+   and statistics for each model+effort pairing, mapped onto the **directly benchmarked parent
+   categories**; the 4 composite-inferred categories carry no direct benchmark and are composed from
+   their parents downstream (never directly benchmarked).
 2. **Judge.** Arbitrate that discovered research into per-category tier rankings (best→worst) for
    each model+effort pairing, with a recorded rationale per tier placement, and emit the audit
    trail + routing JSON.
@@ -22,7 +24,8 @@ It does two things, and only these two:
   exact trigger matches.
 - **Output — EXACTLY 3 persisted artifacts** (nothing else persists to the repo):
   1. `src/routing-table.json` — lean canonical routing table, `performance` + `cost_efficiency`
-     branches → 10 fixed categories → ordered model+effort pairings (copied to `dist/routing-table.json`
+     branches → 14 fixed categories (directly benchmarked parents + 4 composite-inferred) →
+     ordered model+effort pairings (copied to `dist/routing-table.json`
      at build by `copy-provider.mjs`).
   2. `src/routing-table-audit.json` — full-provenance audit trail of the rankings (per-pairing source
      URLs, ISO8601 retrieval times, one-sentence annotations, tier rationale). The SOLE provenance
@@ -34,7 +37,8 @@ Phase research is EPHEMERAL — written to `%TEMP%\model-profiler\<run-id>\` scr
 builder, and never persisted to the repo. The audit carries provenance; `routing-table.json` carries
 scores/ranks/metadata only. Both share the one fixed taxonomy.
 
-**Fixed-taxonomy mandate.** The 10 categories + `fallback_default`@99 are **immutable**. This skill
+**Fixed-taxonomy mandate.** The 14 categories (directly benchmarked parents + 4 composite-inferred)
++ `fallback_default`@99 are **immutable**. This skill
 profiles models **against** them — it never derives, chooses, renames, reorders, merges, or
 reshuffles categories. Operational definitions live in `.spec/references/work-categories.md`;
 determination methodology + rationale (incl. debate provenance) in `docs/spec/task-taxonomy/`. If a
@@ -136,7 +140,8 @@ CHECK:    For exact bare prompt ONLY: are all 5 phase-1-agent-*.md files present
    v
 Phase 1   [OPTIONAL] N domain-partitioned discovery+research agents (web-enabled; any provider mix):
 (skip)         DISCOVER every model published in the recent window by the in-scope provider families;
-or run         gather ALL public benchmark scores + stats, mapped onto the FIXED 10 categories.
+or run         gather ALL public benchmark scores + stats, mapped onto the directly benchmarked
+               parent categories (composites inferred from parents, never directly benchmarked).
                Check references/benchmark-sources.md FIRST. -> %TEMP%\...\phase-1-agent-{1..N}.md
    |
    v

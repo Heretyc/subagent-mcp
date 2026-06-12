@@ -74,7 +74,13 @@ For manual wiring, developer install from source, Gemini CLI, and Claude Desktop
 | `coding` | bounded runnable code artifact, one-pass (implement, test, refactor) |
 | `knowledge_synthesis` | novel integrated prose over sources (synthesize, summarize, draft) |
 | `mechanical` | deterministic single-pass transform, exact-match checkable (grep, rename, reformat) |
+| `prompt_engineering` | designed/optimized prompt or prompt-system steering an LLM/agent (composite-inferred) |
+| `vulnerability_research` | discovery + PoC of a novel vulnerability (composite-inferred) |
+| `molecular_biology` | reasoned molecular/computational-biology result over sequences, structures, or -omics data (composite-inferred) |
+| `ml_accelerator_design` | hardware/software design for ML acceleration — dataflow, kernel, roofline (composite-inferred) |
 | `fallback_default` | no category matches with confidence; prefer splitting work instead |
+
+The last four are **composite-inferred**: they carry no dedicated benchmark and their routing competency is composed from parent categories rather than measured directly.
 
 **Atomic-split guidance:** if you are unsure which category fits, do NOT submit one large amorphous task. Break the work into smaller atomic steps each mapping to a single category and launch one agent per step.
 

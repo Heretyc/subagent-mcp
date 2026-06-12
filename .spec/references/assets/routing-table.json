@@ -23,7 +23,11 @@
                                       "data_analysis",
                                       "coding",
                                       "knowledge_synthesis",
-                                      "mechanical"
+                                      "mechanical",
+                                      "prompt_engineering",
+                                      "vulnerability_research",
+                                      "molecular_biology",
+                                      "ml_accelerator_design"
                                   ],
     "classification_rule":  "walk_precedence_first_match_wins; on_adjacent_tie_escalate_one_tier_up; if_no_match -\u003e fallback_default",
     "fallback_default":  {
@@ -94,6 +98,58 @@
                                           "id":  "mechanical",
                                           "precedence":  10,
                                           "status":  "pending_impartial_profiling",
+                                          "rag_pointer":  ".spec/references/work-categories.md"
+                                      },
+                       "prompt_engineering":  {
+                                          "id":  "prompt_engineering",
+                                          "precedence":  11,
+                                          "status":  "composite_inferred",
+                                          "composite_inferred":  true,
+                                          "benchmark_alias":  null,
+                                          "parents":  [
+                                                          "knowledge_synthesis",
+                                                          "coding",
+                                                          "quality_review"
+                                                      ],
+                                          "rag_pointer":  ".spec/references/work-categories.md"
+                                      },
+                       "vulnerability_research":  {
+                                          "id":  "vulnerability_research",
+                                          "precedence":  12,
+                                          "status":  "composite_inferred",
+                                          "composite_inferred":  true,
+                                          "benchmark_alias":  null,
+                                          "parents":  [
+                                                          "security_review",
+                                                          "debugging",
+                                                          "coding"
+                                                      ],
+                                          "rag_pointer":  ".spec/references/work-categories.md"
+                                      },
+                       "molecular_biology":  {
+                                          "id":  "molecular_biology",
+                                          "precedence":  13,
+                                          "status":  "composite_inferred",
+                                          "composite_inferred":  true,
+                                          "benchmark_alias":  null,
+                                          "parents":  [
+                                                          "knowledge_synthesis",
+                                                          "data_analysis",
+                                                          "math_proof"
+                                                      ],
+                                          "rag_pointer":  ".spec/references/work-categories.md"
+                                      },
+                       "ml_accelerator_design":  {
+                                          "id":  "ml_accelerator_design",
+                                          "precedence":  14,
+                                          "status":  "composite_inferred",
+                                          "composite_inferred":  true,
+                                          "benchmark_alias":  null,
+                                          "parents":  [
+                                                          "architecture",
+                                                          "coding",
+                                                          "math_proof"
+                                                      ],
                                           "rag_pointer":  ".spec/references/work-categories.md"
                                       }
                    },
@@ -187,6 +243,50 @@
                                            "pairings":  [
 
                                                         ]
+                                       },
+                        "prompt_engineering":  {
+                                           "id":  "prompt_engineering",
+                                           "precedence":  11,
+                                           "status":  "composite_inferred",
+                                           "composite_inferred":  true,
+                                           "parents":  [ "knowledge_synthesis", "coding", "quality_review" ],
+                                           "rag_pointer":  ".spec/references/retrieval-map.md",
+                                           "pairings":  [
+
+                                                        ]
+                                       },
+                        "vulnerability_research":  {
+                                           "id":  "vulnerability_research",
+                                           "precedence":  12,
+                                           "status":  "composite_inferred",
+                                           "composite_inferred":  true,
+                                           "parents":  [ "security_review", "debugging", "coding" ],
+                                           "rag_pointer":  ".spec/references/retrieval-map.md",
+                                           "pairings":  [
+
+                                                        ]
+                                       },
+                        "molecular_biology":  {
+                                           "id":  "molecular_biology",
+                                           "precedence":  13,
+                                           "status":  "composite_inferred",
+                                           "composite_inferred":  true,
+                                           "parents":  [ "knowledge_synthesis", "data_analysis", "math_proof" ],
+                                           "rag_pointer":  ".spec/references/retrieval-map.md",
+                                           "pairings":  [
+
+                                                        ]
+                                       },
+                        "ml_accelerator_design":  {
+                                           "id":  "ml_accelerator_design",
+                                           "precedence":  14,
+                                           "status":  "composite_inferred",
+                                           "composite_inferred":  true,
+                                           "parents":  [ "architecture", "coding", "math_proof" ],
+                                           "rag_pointer":  ".spec/references/retrieval-map.md",
+                                           "pairings":  [
+
+                                                        ]
                                        }
                     },
     "cost_efficiency":  {
@@ -275,6 +375,50 @@
                                                "id":  "mechanical",
                                                "precedence":  10,
                                                "status":  "pending_impartial_profiling",
+                                               "rag_pointer":  ".spec/references/retrieval-map.md",
+                                               "pairings":  [
+
+                                                            ]
+                                           },
+                            "prompt_engineering":  {
+                                               "id":  "prompt_engineering",
+                                               "precedence":  11,
+                                               "status":  "composite_inferred",
+                                               "composite_inferred":  true,
+                                               "parents":  [ "knowledge_synthesis", "coding", "quality_review" ],
+                                               "rag_pointer":  ".spec/references/retrieval-map.md",
+                                               "pairings":  [
+
+                                                            ]
+                                           },
+                            "vulnerability_research":  {
+                                               "id":  "vulnerability_research",
+                                               "precedence":  12,
+                                               "status":  "composite_inferred",
+                                               "composite_inferred":  true,
+                                               "parents":  [ "security_review", "debugging", "coding" ],
+                                               "rag_pointer":  ".spec/references/retrieval-map.md",
+                                               "pairings":  [
+
+                                                            ]
+                                           },
+                            "molecular_biology":  {
+                                               "id":  "molecular_biology",
+                                               "precedence":  13,
+                                               "status":  "composite_inferred",
+                                               "composite_inferred":  true,
+                                               "parents":  [ "knowledge_synthesis", "data_analysis", "math_proof" ],
+                                               "rag_pointer":  ".spec/references/retrieval-map.md",
+                                               "pairings":  [
+
+                                                            ]
+                                           },
+                            "ml_accelerator_design":  {
+                                               "id":  "ml_accelerator_design",
+                                               "precedence":  14,
+                                               "status":  "composite_inferred",
+                                               "composite_inferred":  true,
+                                               "parents":  [ "architecture", "coding", "math_proof" ],
                                                "rag_pointer":  ".spec/references/retrieval-map.md",
                                                "pairings":  [
 

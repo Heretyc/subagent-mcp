@@ -1,8 +1,10 @@
 # Category Rationale
 
-Per-category rationale, benchmark families, and findability for the fixed 10. For the determination
-process, disputes, old→new mapping, and weaknesses, see `determination-rationale.md`. For
-operational definitions (signals, examples, boundaries), see `.spec/references/work-categories.md`.
+Per-category rationale, benchmark families, and findability for the directly benchmarked parent
+tiles (precedence 1–10). The 4 composite-inferred tiles (precedence 11–14) carry no benchmark family
+and are covered in `composite-inferred-tiles.md`. For the determination process, disputes, old→new
+mapping, and weaknesses, see `determination-rationale.md`. For operational definitions (signals,
+examples, boundaries), see `.spec/references/work-categories.md`.
 
 ---
 
@@ -10,10 +12,15 @@ operational definitions (signals, examples, boundaries), see `.spec/references/w
 
 ```
 math_proof > security_review > debugging > quality_review > architecture >
-agentic_execution > data_analysis > coding > knowledge_synthesis > mechanical
+agentic_execution > data_analysis > coding > knowledge_synthesis > mechanical >
+prompt_engineering > vulnerability_research > molecular_biology > ml_accelerator_design
 ```
 
-`fallback_default` @ 99 — off-spine no-match catch-all; never one of the 10; never overrides a gate.
+Composite-inferred tiles 11–14 (`prompt_engineering`, `vulnerability_research`, `molecular_biology`,
+`ml_accelerator_design`) extend the chain after `mechanical`; see `composite-inferred-tiles.md`.
+
+`fallback_default` @ 99 — off-spine no-match catch-all; never one of the 14 spine tiles; never
+overrides a gate.
 
 ---
 

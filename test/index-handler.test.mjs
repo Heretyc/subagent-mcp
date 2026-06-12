@@ -192,7 +192,14 @@ await test("server exposes orchestration guidance via MCP instructions (no ultra
   // hook and ONTO the server `instructions` field, read once at initialize. This
   // asserts the channel is actually emitted, names both provider permission
   // tools, and carries zero "ultracode" wording.
-  const session = createMcpSession(distIndex);
+  //
+  // Run explicitly as a TOP-LEVEL host: strip any inherited SUBAGENT_MCP_SUBAGENT
+  // (e.g. when this suite itself runs inside a subagent-mcp child) so the server
+  // emits ORCHESTRATION_INSTRUCTIONS, not the neutral subagent variant. Mirrors
+  // the sibling test below, which explicitly SETS the marker for the child case.
+  const topLevelEnv = { ...process.env };
+  delete topLevelEnv.SUBAGENT_MCP_SUBAGENT;
+  const session = createMcpSession(distIndex, { env: topLevelEnv });
   try {
     const response = await session.initialize();
     const instructions = response.result.instructions;

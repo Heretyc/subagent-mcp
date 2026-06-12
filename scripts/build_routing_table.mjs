@@ -170,7 +170,8 @@ function meetsPerformanceEffortFloor(effortK) {
 
 // Owner directive: models with NO selectable effort (null/none/n/a) are EXCLUDED from
 // ranking/listing in these higher-reasoning task categories. They remain ranked in the
-// other 4 (math_proof, data_analysis, coding, mechanical).
+// full-universe parent categories (math_proof, data_analysis, coding, mechanical).
+// Composite categories inherit parent eligibility and average eligible parent ranks only.
 const NO_EFFORT_EXCLUDED_CATEGORIES = new Set([
   "agentic_execution",
   "architecture",
@@ -317,11 +318,30 @@ const DATASET_HASH_SHORT = createHash("sha256").update(_rawDataset).digest("hex"
 const DATASET_SHA256 = createHash("sha256").update(_rawDataset).digest("hex");
 const dataset = JSON.parse(_rawDataset);
 const spineRoot = readJsonStripBom(SPINE_PATH);
-// Post taxonomy-freeze, the provider routing-table spine is the canonical 10 categories
-// recorded in the machine-mirror `categories` object (== classification_precedence,
-// ordered math_proof…mechanical). `fallback_default` is the precedence sentinel only and
-// is NOT a branch category in the provider table (matches validate_provider buildSpine).
-const SPINE = Object.keys(spineRoot.categories); // 10 keys
+// Post taxonomy-freeze, the provider routing-table spine is the canonical 14 categories
+// recorded in the machine-mirror `categories` object (== classification_precedence):
+// The parent set has ten directly benchmarked categories, plus 4 composite-inferred categories.
+// `fallback_default` is the precedence sentinel only and is NOT a branch category in
+// the provider table (matches validate_provider buildSpine).
+const SPINE = Object.keys(spineRoot.categories); // 14 keys
+const COMPOSITE_PARENT_CATEGORIES = Object.freeze({
+  prompt_engineering: ["knowledge_synthesis", "coding", "quality_review"],
+  vulnerability_research: ["security_review", "debugging", "coding"],
+  molecular_biology: ["knowledge_synthesis", "data_analysis", "math_proof"],
+  ml_accelerator_design: ["architecture", "coding", "math_proof"],
+});
+const COMPOSITE_CATEGORIES = new Set(Object.keys(COMPOSITE_PARENT_CATEGORIES));
+const BASE_SPINE = SPINE.filter((category) => !COMPOSITE_CATEGORIES.has(category));
+for (const [category, parents] of Object.entries(COMPOSITE_PARENT_CATEGORIES)) {
+  if (!SPINE.includes(category)) {
+    throw new Error(`composite category '${category}' is missing from routing spine`);
+  }
+  for (const parent of parents) {
+    if (!SPINE.includes(parent) || COMPOSITE_CATEGORIES.has(parent)) {
+      throw new Error(`composite category '${category}' has invalid parent '${parent}'`);
+    }
+  }
+}
 
 // ---- refinement #25: dataset-shape preflight --------------------------------------
 // Fail LOUD and SPECIFIC before any field is dereferenced below. Requires ONLY the
@@ -345,10 +365,10 @@ function validateDatasetShape(ds) {
   if (!isObj(ds.category_benchmarks)) {
     errs.push("dataset.category_benchmarks: missing or not an object");
   } else {
-    for (const category of SPINE) {
+    for (const category of BASE_SPINE) {
       const rows = ds.category_benchmarks[category];
       if (!Array.isArray(rows)) {
-        errs.push(`dataset.category_benchmarks.${category}: missing or not an array (required for taxonomy category)`);
+        errs.push(`dataset.category_benchmarks.${category}: missing or not an array (required for directly benchmarked taxonomy category)`);
         continue;
       }
       rows.forEach((row, i) => {
@@ -491,7 +511,7 @@ function isWithdrawn(category, row) {
 //       ever already contains off-map rows, we DOWNGRADE to a recorded WARNING so regen stays
 //       green (and note the downgrade). Withdrawn rows are excluded (discarded per SOP-3).
 const ALLOWED_BENCHMARKS = new Map(); // category -> Set(benchmark) — the authored keying
-for (const category of SPINE) {
+for (const category of BASE_SPINE) {
   const set = new Set();
   for (const row of dataset.category_benchmarks[category] || []) {
     if (isWithdrawn(category, row)) continue;
@@ -501,7 +521,7 @@ for (const category of SPINE) {
 }
 // (a) cross-category: benchmark -> sorted SPINE-ordered categories it is keyed under.
 const _benchToCats = new Map();
-for (const category of SPINE) {
+for (const category of BASE_SPINE) {
   for (const b of ALLOWED_BENCHMARKS.get(category)) {
     (_benchToCats.get(b) || _benchToCats.set(b, []).get(b)).push(category);
   }
@@ -518,7 +538,7 @@ const CROSS_CATEGORY_BENCHMARKS = [...(_benchToCats)]
 // downgrade to a recorded WARNING (audit.metadata.off_map_rows) to keep regen green; that branch
 // is documented but NOT taken here because the present keying yields none.
 const OFF_MAP_ROWS = [];
-for (const category of SPINE) {
+for (const category of BASE_SPINE) {
   const allowed = ALLOWED_BENCHMARKS.get(category);
   for (const row of dataset.category_benchmarks[category] || []) {
     if (isWithdrawn(category, row)) continue;
@@ -930,8 +950,8 @@ function enforceEffortMonotonicity(scores) {
 // ---- per-category capability composites (drive both branch power-law scores) -------
 // Both branches score by perf_norm^a / cost_norm^b; the perf_norm composite is built once
 // here (benchmark normalization + §A effort-interpolation + SOP-1 + monotonicity clamp).
-const perfScores = new Map(); // category -> Map(pairingId -> detail)
-for (const category of SPINE) {
+const perfScores = new Map(); // directly benchmarked category -> Map(pairingId -> detail)
+for (const category of BASE_SPINE) {
   let scores;
   if (category === "fallback_default") {
     // no benchmarks; every universe pairing is a data-free sentinel
@@ -956,6 +976,7 @@ for (const category of SPINE) {
 // benchmark signal at all. This RECORDS state in the audit; it never fails the build and
 // never makes the lean table sparse (every category stays dense 1..N).
 function categoryHasMeasuredSignal(category) {
+  if (COMPOSITE_CATEGORIES.has(category)) return true;
   const scores = perfScores.get(category);
   for (const p of UNIVERSE) {
     const s = scores.get(p.id);
@@ -1180,6 +1201,16 @@ function computePairingCoverageRatios() {
   let totalPairings = 0, totalMeasured = 0, totalPositive = 0;
   for (const category of SPINE) {
     if (category === "fallback_default") continue;
+    if (COMPOSITE_CATEGORIES.has(category)) {
+      perCategory[category] = {
+        total_pairings: categoryUniverse(category).length,
+        measured_pairings: null,
+        positive_score_pairings: null,
+        measured_pairing_ratio: null,
+        positive_score_pairing_ratio: null,
+      };
+      continue;
+    }
     const catUniverse = categoryUniverse(category);
     const scores = perfScores.get(category);
     const total = catUniverse.length;
@@ -1226,9 +1257,9 @@ function computePairingCoverageRatios() {
 }
 const PAIRING_COVERAGE_RATIOS = computePairingCoverageRatios();
 
-function buildFullBranch(branch, exponents) {
+function buildBaseFullBranch(branch, exponents) {
   const out = {};
-  for (const category of SPINE) {
+  for (const category of BASE_SPINE) {
     const scores = perfScores.get(category);
     const dataMissing = DATA_MISSING_CATEGORIES.has(category);
     let universe = categoryUniverse(category);
@@ -1244,6 +1275,86 @@ function buildFullBranch(branch, exponents) {
       obj.rank = idx + 1;
       return obj;
     });
+  }
+  return out;
+}
+
+function dedupeCitations(citations) {
+  const seen = new Set();
+  const out = [];
+  for (const citation of citations) {
+    const key = JSON.stringify(citation);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(citation);
+  }
+  return out;
+}
+
+function compositeCitations(parent, entry) {
+  const detail = perfScores.get(parent)?.get(pairingId(entry.model, effortKey(entry.effort)));
+  return detail ? citationsFor(detail, parent) : [];
+}
+
+function buildCompositeCategory(branch, category, branchFull) {
+  const parents = COMPOSITE_PARENT_CATEGORIES[category];
+  const byPairing = new Map();
+  for (const parent of parents) {
+    for (const entry of branchFull[parent] || []) {
+      const key = pairingId(entry.model, effortKey(entry.effort));
+      const item = byPairing.get(key) || {
+        provider: entry.provider,
+        model: entry.model,
+        effort: entry.effort,
+        parentRanks: [],
+        parentRankNotes: [],
+        citations: [],
+      };
+      item.parentRanks.push(entry.rank);
+      item.parentRankNotes.push(`${parent}:${entry.rank}`);
+      item.citations.push(...compositeCitations(parent, entry));
+      byPairing.set(key, item);
+    }
+  }
+  const items = [...byPairing.values()].map((item) => ({
+    ...item,
+    meanRank: item.parentRanks.reduce((sum, rank) => sum + rank, 0) / item.parentRanks.length,
+  }));
+  items.sort((a, b) => {
+    if (a.meanRank !== b.meanRank) return a.meanRank - b.meanRank;
+    const ae = EFFORT_INDEX.get(effortKey(a.effort)) ?? 0;
+    const be = EFFORT_INDEX.get(effortKey(b.effort)) ?? 0;
+    if (branch === "performance" && a.model === b.model && ae !== be) return be - ae;
+    const av = MODELS[a.model].version_rank;
+    const bv = MODELS[b.model].version_rank;
+    const al = MODELS[a.model].version_lineage;
+    const bl = MODELS[b.model].version_lineage;
+    if (al === bl && av !== bv) return bv - av;
+    if (a.model !== b.model) return a.model < b.model ? -1 : 1;
+    if (ae !== be) return ae - be;
+    return pairingId(a.model, effortKey(a.effort)) < pairingId(b.model, effortKey(b.effort)) ? -1 : 1;
+  });
+  return items.map((item, idx) => ({
+    provider: item.provider,
+    model: item.model,
+    effort: item.effort,
+    rank: idx + 1,
+    score: 1 / item.meanRank,
+    cost_figure_used: COST.get(pairingId(item.model, effortKey(item.effort)))?.perToken ?? null,
+    interpolated: false,
+    confidence: item.parentRanks.length === parents.length ? "high" : "medium",
+    basis: [`parent-rank mean ${item.meanRank.toFixed(4)} (${item.parentRankNotes.join(", ")})`],
+    citations: dedupeCitations(item.citations),
+  }));
+}
+
+function buildFullBranch(branch, exponents) {
+  const base = buildBaseFullBranch(branch, exponents);
+  const out = {};
+  for (const category of SPINE) {
+    out[category] = COMPOSITE_CATEGORIES.has(category)
+      ? buildCompositeCategory(branch, category, base)
+      : base[category];
   }
   return out;
 }
@@ -1453,6 +1564,12 @@ for (const category of SPINE) {
     compositeWeights[category] = {};
     continue;
   }
+  if (COMPOSITE_CATEGORIES.has(category)) {
+    compositeWeights[category] = Object.fromEntries(
+      COMPOSITE_PARENT_CATEGORIES[category].map((parent) => [parent, 1 / 3])
+    );
+    continue;
+  }
   const rows = (dataset.category_benchmarks[category] || []).filter((r) => !isWithdrawn(category, r));
   const benches = [...new Set(rows.map((r) => r.benchmark))].sort();
   const w = {};
@@ -1482,7 +1599,7 @@ const metadata = {
   author_url: "https://github.com/Heretyc/",
   generated: GENERATED_MONTH,
   schema_version: "2",
-  version: "2.0.0",
+  version: "2.1.0",
 };
 
 const providerTable = {
@@ -1498,9 +1615,9 @@ function auditBranch(fullBranch) {
   const out = {};
   for (const category of SPINE) {
     out[category] = fullBranch[category].map((e) => {
-      const detail = perfScores.get(category).get(pairingId(e.model, effortKey(e.effort)));
-      const { _detail, ...rest } = e;
-      return { ...rest, citations: citationsFor(detail, category) };
+      const detail = perfScores.get(category)?.get(pairingId(e.model, effortKey(e.effort)));
+      const { _detail, citations, ...rest } = e;
+      return { ...rest, citations: citations || citationsFor(detail, category) };
     });
   }
   return out;
@@ -1801,7 +1918,7 @@ const auditTable = {
     generated: GENERATED_MONTH,
     generated_at: GENERATED_AT,
     schema_version: "2",
-    version: "2.0.0",
+    version: "2.1.0",
     audits: "src/routing-table.json",
     seed_sites_pointer: "research-seed-sites.json",
     model_effort_universe: UNIVERSE_IDS,
@@ -1832,6 +1949,10 @@ const auditTable = {
     // refinement #1: build-time coverage floor — per-category "DATA_MISSING" | "measured".
     // RECORDS state; never fails the build, never makes the lean table sparse.
     category_completeness: CATEGORY_COMPLETENESS,
+    composite_inference: {
+      method: "simple_mean_of_available_parent_ranks_per_branch",
+      parent_categories: COMPOSITE_PARENT_CATEGORIES,
+    },
     // refinement #9: dataset.gaps surfaced into the audit (reason + affected model +
     // remediation), grouped per category with each DATA_MISSING category's coverage state.
     gaps: GAPS_AUDIT,
@@ -1841,6 +1962,8 @@ const auditTable = {
     dataset_shape_summary: {
       model_count: Object.keys(dataset.models || {}).length,
       category_count: Object.keys(dataset.category_benchmarks || {}).length,
+      routing_category_count: SPINE.length,
+      directly_benchmarked_category_count: BASE_SPINE.length,
       universe_count: Array.isArray(dataset.model_effort_universe) ? dataset.model_effort_universe.length : null,
       gap_count: Array.isArray(dataset.gaps) ? dataset.gaps.length : 0,
     },
@@ -1874,7 +1997,7 @@ const auditTable = {
     // unaffected and continues to use the raw cost_norm.
     performance_cost_winsorization: PERF_COST_WINSOR_AUDIT,
     cost_figure_methodology:
-      "SOP-2 worst-case $/token: fixed 100K-in / 20K-visible-out blend, opus tokenizer " +
+      "SOP-2 worst-case $/token: constant 100K-in / 20K-visible-out blend, opus tokenizer " +
       "inflation 1.35x (1.4x deprecated), effort hidden-output multiplier ladder, gpt-5.5 " +
       "272K cliff sub-cliff at this blend. cost_norm = $/token / universe-max in (0,1]. " +
       "Branch score = perf_norm^a / cost_norm^b. Refinement #6: the PERFORMANCE branch " +

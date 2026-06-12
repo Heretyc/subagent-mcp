@@ -1,5 +1,4 @@
-<!-- INJECTED DIRECTIVE — BINDING -->
-<ORCHESTRATION-INVARIANT priority="CRITICAL" override="NONE">
+<ORCHESTRATION-INVARIANT>
 Sub-agent sessions (first prompt began "<this is a request from a parent process>"): ignore this block.
 
 ORCHESTRATION MODE carried over ON from a PRIOR session of this project

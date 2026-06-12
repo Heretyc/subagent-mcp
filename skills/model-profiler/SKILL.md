@@ -1,14 +1,14 @@
 ---
 name: model-profiler
 version: 3.0.0
-description: Impartially PROFILE the cross-provider sub-agent fleet against the FIXED canonical 10 work-categories whenever a new model ships (or on demand). Discover every model published in the recent window by the in-scope provider families, gather ALL public benchmark scores + statistics, map them onto the fixed 10 categories, then JUDGE each model+effort pairing into per-category tier rankings (best→worst) SOLELY from the discovered research, with a recorded rationale per tier placement. Emits exactly 3 artifacts: routing-table.json (lean), routing-table-audit.json (full provenance), research-seed-sites.json (accumulating learned source list). Single-family and multi-family are both fully-supported, first-class paths; provider mix is optional. The 10 categories are immutable inputs — this skill never derives, chooses, renames, reorders, or reshuffles them. Use when a new model is released, when asked to profile new model, re-profile models, re-profile the fleet, rebalance routing, update routing table, refresh model profiles, re-run model research, regenerate routing-table.json, refresh tier rankings, or to answer "which model for X now" after a model launch. Orchestrator-only pipeline: model discovery + maximalist benchmark research, pivotal-question interview, flagship judging + merge, 3-artifact emission, 3-pass adversarial validation, and provider/seed validators + scenario routing tests. Sub-agents dispatched via `mcp__subagent-mcp__launch_agent`; cross-family critics are available when ≥2 families are reachable.
+description: Impartially PROFILE the cross-provider sub-agent fleet against the FIXED 14 work-categories (directly benchmarked parents + 4 composite-inferred) whenever a new model ships (or on demand). Discover every model published in the recent window by the in-scope provider families, gather ALL public benchmark scores + statistics, map them onto the directly benchmarked parent categories (composites composed from parents, never directly benchmarked), then JUDGE each model+effort pairing into per-category tier rankings (best→worst) SOLELY from the discovered research, with a recorded rationale per tier placement. Emits exactly 3 artifacts: routing-table.json (lean), routing-table-audit.json (full provenance), research-seed-sites.json (accumulating learned source list). Single-family and multi-family are both fully-supported, first-class paths; provider mix is optional. The 14 categories are immutable inputs — this skill never derives, chooses, renames, reorders, or reshuffles them. Use when a new model is released, when asked to profile new model, re-profile models, re-profile the fleet, rebalance routing, update routing table, refresh model profiles, re-run model research, regenerate routing-table.json, refresh tier rankings, or to answer "which model for X now" after a model launch. Orchestrator-only pipeline: model discovery + maximalist benchmark research, pivotal-question interview, flagship judging + merge, 3-artifact emission, 3-pass adversarial validation, and provider/seed validators + scenario routing tests. Sub-agents dispatched via `mcp__subagent-mcp__launch_agent`; cross-family critics are available when ≥2 families are reachable.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: May 2026
 ---
 
 # Model Profiler
 
-Impartially profile the sub-agent fleet against the **FIXED canonical 10 work-categories** when a
+Impartially profile the sub-agent fleet against the **FIXED 14 work-categories** (directly benchmarked parents + 4 composite-inferred) when a
 new model ships (or on demand). The skill is the **impartial judge of all models**: it discovers the
 models, gathers their public benchmarks, and ranks each model+effort pairing per category — it does
 **not** decide what the categories are.
@@ -36,14 +36,19 @@ skill naming a preferred model for the JUDGED routing output.)
 
 ## Fixed Taxonomy (immutable input — never derived here)
 
-The 10 categories + `fallback_default`@99 are **fixed and immutable**. Precedence order:
+The 14 categories (directly benchmarked parents + 4 composite-inferred) + `fallback_default`@99
+are **fixed and immutable**. Precedence order:
 
 ```
 math_proof > security_review > debugging > quality_review > architecture >
-agentic_execution > data_analysis > coding > knowledge_synthesis > mechanical
+agentic_execution > data_analysis > coding > knowledge_synthesis > mechanical >
+prompt_engineering > vulnerability_research > molecular_biology > ml_accelerator_design
 ```
 
-`fallback_default` @99 — off-spine no-match catch-all; never one of the 10. Operational definitions
+Tiles 11–14 are **composite-inferred**: no benchmark alias, never directly benchmarked — competency
+composed from their parent tiles (`docs/spec/task-taxonomy/composite-inferred-tiles.md`).
+
+`fallback_default` @99 — off-spine no-match catch-all; never one of the 14. Operational definitions
 live in `.spec/references/work-categories.md`; determination methodology + rationale (incl. debate
 provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **against** this spine.
 
@@ -63,7 +68,7 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
 | Write a sub-agent prompt (dispatch via `mcp__subagent-mcp__launch_agent`) | `references/dispatch-mechanics.md` |
 | Cite sources, apply labels, dogfood route tiers | `references/citations-labels.md` |
 | Find the artifact being updated / provenance | `references/artifact-map.md` |
-| Confirm the FIXED 10-category taxonomy + where its methodology lives | `references/category-derivation.md` (pointer) → `.spec/references/work-categories.md` |
+| Confirm the FIXED 14-category taxonomy + where its methodology lives | `references/category-derivation.md` (pointer) → `.spec/references/work-categories.md` |
 | Understand tier ranking, interpolation, scoring formula, calibration gate | `references/tier-ranking-and-scoring.md` |
 | Understand routing-table.json schema contract + validation rules | `references/provider-json-emission.md` |
 
@@ -77,7 +82,7 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
 
 ## Hard Invariants (Always Active)
 
-1. **Fixed taxonomy.** The 10 categories + `fallback_default`@99 are **immutable inputs**, defined in
+1. **Fixed taxonomy.** The 14 categories (directly benchmarked parents + 4 composite-inferred) + `fallback_default`@99 are **immutable inputs**, defined in
    `.spec/references/work-categories.md`. This skill profiles models **against** them. It never
    derives, chooses, renames, reorders, merges, or reshuffles categories. A run that "discovers a
    missing category" is out of scope — surface it to the owner; do not act on it.
@@ -126,14 +131,16 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
     routing logic. The only code it may touch: `package.json`, `scripts/copy-provider.mjs`,
     `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `scripts/update_seed_sites.mjs`,
     and `scripts/validate_seed_sites.mjs`.
-14. **No-effort exclusion (6 categories; cost_efficiency branch).** Models whose ONLY effort is a
+14. **No-effort exclusion (cost_efficiency branch).** Models whose ONLY effort is a no-effort
     no-effort sentinel (`null`/`none`/`n/a` — e.g. `claude-haiku-4-5`) are EXCLUDED from
-    ranking in `agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
-    `knowledge_synthesis` (those 6 carry a REDUCED per-category universe), but REMAIN ranked in the
-    other 4 (`math_proof`, `data_analysis`, `coding`, `mechanical`, full universe).
-    `build_routing_table.mjs` enforces this at ranking; `validate_provider.mjs` checks per-category
-    coverage against the reduced set. **Distinct from #12** (which bans emitting `none` for
-    EFFORT-CAPABLE models): #14 EXCLUDES genuinely no-effort models from 6 categories.
+    six parent categories `agentic_execution`, `architecture`, `security_review`, `debugging`,
+    `quality_review`, `knowledge_synthesis`, but REMAIN ranked in the full-universe parents
+    `math_proof`, `data_analysis`, `coding`, `mechanical`. Composite categories inherit parent
+    eligibility: include a pairing if at least one parent includes it; compute simple mean over
+    eligible parent ranks only. This is why no-effort exclusions are inherited automatically.
+    `build_routing_table.mjs` enforces this at ranking; `validate_provider.mjs` checks coverage.
+    **Distinct from #12** (which bans emitting `none` for EFFORT-CAPABLE models): #14 EXCLUDES
+    genuinely no-effort models from 6 parent categories.
     The authoritative effort ladder per model is the dataset's `model_effort_universe`; see
     `audit.metadata.model_effort_universe` as the single source of truth. On the `performance`
     branch, invariant #16's effort floor subsumes this rule (no-effort = below `high`).
@@ -168,7 +175,7 @@ PR → deliver link+summary) boxes of invariant #15 — is diagrammed in `refere
 
 The skill run produces **EXACTLY 3 persisted artifacts** — nothing else persists to the repo:
 - `src/routing-table.json` — lean canonical routing table (`performance` + `cost_efficiency` →
-  10 fixed categories → ordered pairings). Copied to `dist/routing-table.json` by `copy-provider.mjs`.
+  14 fixed categories → ordered pairings). Copied to `dist/routing-table.json` by `copy-provider.mjs`.
 - `src/routing-table-audit.json` — full-provenance audit trail (per-pairing source URLs, ISO8601
   retrieval times, annotations, tier rationale). SOLE provenance store; the change note (what shifted +
   why) lives in its metadata.

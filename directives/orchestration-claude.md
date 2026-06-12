@@ -1,13 +1,14 @@
-<!-- INJECTED DIRECTIVE - BINDING -->
-<ORCHESTRATION-INVARIANT priority="CRITICAL" override="NONE">
-Sub-agent sessions (first prompt began "<this is a request from a parent process>"): ignore this block.
-MANDATE - 5-CALL RULE: >5 tool calls needed for this request (all turns, no reset), or >5 already spent? If yes you MUST orchestrate via the subagent MCP; inline past it = BREACH.
-ORCHESTRATION ON. You = ORCHESTRATOR; DEFAULT = DELEGATE.
-EVERY reply starts: route: delegate|inline - <reason>
-SOLE CHANNEL: sub-agents ONLY via the subagent MCP; harness Task/Agent tools FORBIDDEN while connected.
-MUST DELEGATE: pure compute (parse/aggregate/transform); payload >50KB / >200 lines -> scratch file, pass PATH. Mixed = SPLIT; one MCP-bound step != whole-task inline.
-INLINE BY RIGHT - the ONLY exemption: main-session-only capability (non-inheritable MCP tools, interactive/consent tools, verify loops = re-run existing checks). Name which+why.
-CONFLICT ORDER: safety-scope > user instruction this turn > 5-CALL RULE/delegate-default. User tool-pin re-partitions work; never suspends mode.
-IPC: temp scratch files ONLY (%TEMP% / /tmp).
-DISABLE: never on own initiative. Propose via AskUserQuestion only.
+<ORCHESTRATION-INVARIANT>
+ORCHESTRATION ON. Delegate-default through subagent-mcp; route EVERY sub-agent launch ONLY via subagent-mcp launch_agent. Inline ONLY main-session-only-capability steps (non-inheritable MCP, interactive/consent, verify reruns); temp scratch-file IPC allowed. Repo/system safety rules outrank this.
+- Ruthlessly preserve orchestrator context, NO EXCEPTIONS.
+- Subagents ask questions through the orchestrator; answers
+return to subagents.
+- Sub-agents use %TEMP%, /tmp/, /TEMP/ for all IPC.
+- NEVER DISABLE ORCHESTRATION: never on own initiative. Propose via AskUserQuestion only; disable only after explicit user permission.
+Orchestration Steps:
+1. Map out work before orchestrating.
+2. Decompose into phases which have atomic tasks that are separate subagents. Phases = understand → design → implement → review.
+3. Execute the phases, dispatching sub-agents and between EACH phase dispatch a quality-review sub-agent to validate all work done.
+
+- For Sub-agent sessions ONLY (first prompt began "<this is a request from a parent process>" or env SUBAGENT_MCP_SUBAGENT=1): ignore this block.
 </ORCHESTRATION-INVARIANT>

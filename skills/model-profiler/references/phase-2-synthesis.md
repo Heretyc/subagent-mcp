@@ -16,8 +16,10 @@ and multi-family judge sets are both fully supported (invariant #5). Scale the c
 mode.
 
 Each judge **independently** ARBITRATES the Phase-1 discovered research into rankings organized around
-the **FIXED 10 categories** (`.spec/references/work-categories.md`; the count is fixed at 10 +
-`fallback_default`@99 — do not derive, add, drop, rename, or reorder it). For each fixed category the
+the **FIXED 14 categories** (directly benchmarked parents + 4 composite-inferred;
+`.spec/references/work-categories.md`; the count is fixed at 14 +
+`fallback_default`@99 — do not derive, add, drop, rename, or reorder it). Composite tiles 11–14
+carry no direct benchmark — compose their rankings from parent scores, never fabricate one. For each fixed category the
 judge states the recommended `{provider, model, effort}`, the gates that fire, the synergy pattern,
 cost note, and risk flags — with every newly discovered pairing placed. Each reads:
 
@@ -66,7 +68,7 @@ ROLE: Phase-2 flagship judge K (independent). Impartial — rank SOLELY from the
 INPUT: %TEMP%\model-profiler\<run-id>\phase-1-agent-*.md (discovery roster + benchmarks) + interview
   answers (binding) + FIXED taxonomy (.spec/references/work-categories.md) + prior
   src/routing-table.json rankings (DIFF only).
-TASK: produce (a) a per-category routing judgment over the FIXED 10 categories, placing every
+TASK: produce (a) a per-category routing judgment over the FIXED 14 categories, placing every
   discovered pairing; state per-category {provider, model, effort}, gates, synergy, cost, risks; AND
   (b) for each category, the ordered model+effort pairings (best→worst) with normalized-benchmark
   composites, cost figures, a one-line rationale per tier placement, and the audit citations per
@@ -90,7 +92,7 @@ self-review ban) to **MERGE** the independent judgments into a single canonical 
   residual uncertainty — these become entries in the audit's `basis`.
 - Emits the canonical per-category rankings that the EMISSION leaf will assemble into the dataset the
   deterministic builder consumes (the spine is fixed — never re-derived).
-- **Confirms taxonomy integrity:** every pairing maps onto exactly one of the FIXED 10 (or
+- **Confirms taxonomy integrity:** every pairing maps onto exactly one of the FIXED 14 (or
   `fallback_default`@99); no category is invented, dropped, renamed, or reordered. If a score fits no
   fixed category, it is recorded as out-of-spine context and surfaced — the spine is never changed
   here.
@@ -108,7 +110,7 @@ self-review ban) to **MERGE** the independent judgments into a single canonical 
 ### Checkpoint before emission
 
 Confirm: the independent judgment files + 1 core synthesis on disk; the core lists per-category
-rankings over the FIXED 10 with a rationale per tier placement; all three merger outputs above are
+rankings over the FIXED 14 with a rationale per tier placement; all three merger outputs above are
 present; the taxonomy-integrity check passed (spine unchanged); conflicts are reconciled (not
 averaged). If any Phase-1 agent was a GAP stub, confirm each judge listed that domain in `risks`
 and labelled all affected pairings `[DATA_MISSING]`. Then load `decompose-update.md` to **emit the 3

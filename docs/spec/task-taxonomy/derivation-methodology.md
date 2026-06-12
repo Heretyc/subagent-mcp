@@ -13,12 +13,23 @@ owner approval, not inside skills or routing code.
 Every candidate category set was evaluated against all 7 criteria. A proposed category failing
 any criterion was rejected or reshaped.
 
-### 1. Exactly 10
+### 1. Bounded cardinality
 
-Target cardinality: 10 spine tiles + `fallback_default`@99. The floor (≥8) reflects the minimum
-distinct competency surfaces the routing layer must resolve. The ceiling (≤12) reflects the cost
-of additional classification entropy and the benchmark-coverage ceiling. `fallback_default` is
-never one of the 10: it is a no-match catch-all, read-only, never overriding a hard gate.
+Target: a **directly benchmarked parent set** sized to the minimum distinct competency surfaces the
+routing layer must resolve (floor ≥8), bounded above (original ceiling ≤12) by the cost of
+classification entropy and the benchmark-coverage ceiling. This criterion produced the
+benchmark-derived parent tiles (precedence 1–10) — each one earns its slot only if a real public
+benchmark family measures it (criterion 6).
+
+**Composite extension.** On top of the parent set, the taxonomy admits **composite-inferred** tiles
+(precedence 11–14: `prompt_engineering`, `vulnerability_research`, `molecular_biology`,
+`ml_accelerator_design`). These are exempt from the benchmark-findability criterion *by
+construction*: no public benchmark scores the whole shape, so they carry no benchmark alias and are
+**never directly benchmarked**. Their routing competency is **inferred downstream** by composing
+their parent tiles (see `composite-inferred-tiles.md` for the parent map). The full spine is
+therefore **14 categories** — directly benchmarked parents + 4 composite-inferred — plus
+`fallback_default`@99, which is never one of the 14: it is a no-match catch-all, read-only, never
+overriding a hard gate.
 
 ### 2. Generic-agentic task-shape (4 axes)
 
@@ -37,7 +48,7 @@ environments or provider capabilities.
 
 ### 3. MECE / tiling
 
-The 10 categories + `fallback_default` must tile the task space:
+The 14 categories + `fallback_default` must tile the task space:
 - **Mutually exclusive**: each realistic prompt classifies into exactly one tile under the
   precedence chain and the per-pair discriminating signals.
 - **Collectively exhaustive**: `fallback_default`@99 closes the set — no prompt is homeless.
@@ -69,9 +80,11 @@ before the taxonomy feeds impartial profiling.
 
 ### 6. Benchmark-findability
 
-Each tile must map to real, public benchmarks with adequate spread (not all frontrunners at ≥95%).
-A tile with no measurable benchmark — or only proxy anchors — is flagged as a weakness and marked
-first-to-be-displaced when a direct measure ships.
+Each **parent** tile (precedence 1–10) must map to real, public benchmarks with adequate spread
+(not all frontrunners at ≥95%). A parent tile with no measurable benchmark — or only proxy anchors
+— is flagged as a weakness and marked first-to-be-displaced when a direct measure ships. The
+**composite-inferred** tiles (11–14) are exempt by construction: they have no benchmark alias and
+derive competency from their parents, so this criterion does not gate them.
 
 Benchmarks measure categories; they never endorse a model. The canonical 41-source, Tier 1–5
 source list is in `.spec/references/work-categories.md` §G and `references/benchmark-sources.md`.
