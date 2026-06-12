@@ -30,7 +30,7 @@ front of that path.
 | `param-contract.md` | New `launch_agent` param schema; required/optional rules; selection modes. | Changing the tool's input schema or param semantics. |
 | `resolution-matrix.md` | Full presence→behavior matrix; every hard-error case with EXACT message text. | Implementing/validating param validation and candidate-list construction. |
 | `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window), pairing schema ref, model→provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior. | Implementing the loader/resolver against the table. |
-| `tool-description.md` | Verbatim rewritten tool description + the 11 caveman `task_category` metadata glosses. | Rewriting the MCP tool metadata strings. |
+| `tool-description.md` | Verbatim rewritten tool description + the 15 caveman `task_category` metadata glosses. | Rewriting the MCP tool metadata strings. |
 | `build-and-test.md` | B2 file partition (non-overlapping ownership) + the fixture-based test plan. | Splitting build work or writing tests. |
 
 Related leaf set: `../advanced-ruleset/` specifies the user-editable
@@ -47,7 +47,8 @@ launch-time-only clause (`routing-table-contract.md`). Read
 - Fail loud: every rejected input returns a clear MCP error, never a silent
   default or a crash. Silent fallback applies ONLY to launch-time candidate
   failures (see `routing-table-contract.md §Attempt loop`).
-- The 10 categories + `fallback_default` are the fixed taxonomy
+- The 14 categories (directly benchmarked parents + 4 composite-inferred) +
+  `fallback_default` are the fixed taxonomy
   (`docs/spec/task-taxonomy/_INDEX.md`); auto-mode consumes them, never
   re-derives, renames, or reorders them.
 - No AI attribution in commits/docs/metadata.

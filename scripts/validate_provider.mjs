@@ -51,6 +51,13 @@ const NO_EFFORT_EXCLUDED_CATEGORIES = new Set([
   "quality_review",
   "knowledge_synthesis",
 ]);
+const COMPOSITE_PARENT_CATEGORIES = Object.freeze({
+  prompt_engineering: ["knowledge_synthesis", "coding", "quality_review"],
+  vulnerability_research: ["security_review", "debugging", "coding"],
+  molecular_biology: ["knowledge_synthesis", "data_analysis", "math_proof"],
+  ml_accelerator_design: ["architecture", "coding", "math_proof"],
+});
+const COMPOSITE_CATEGORIES = new Set(Object.keys(COMPOSITE_PARENT_CATEGORIES));
 
 // #6: derive VALID_MODELS + MODEL_EFFORT_LADDERS from the audit's model_effort_universe at
 // runtime (single source of truth — no more hardcoded mirror to maintain). Falls back to a
@@ -169,8 +176,8 @@ function buildSpine(issues) {
     return categoryKeys;
   }
   // Post taxonomy-freeze the machine-mirror `categories` object holds exactly the canonical
-  // 10 categories; `default_category` (`fallback_default`) is the precedence sentinel, not a
-  // `categories` member. The provider routing-table spine is therefore those 10 categories,
+  // 14 categories; `default_category` (`fallback_default`) is the precedence sentinel, not a
+  // `categories` member. The provider routing-table spine is therefore those 14 categories,
   // in the order recorded in `categories`, which must equal `classification_precedence`.
   const spine = categoryKeys;
   if (!arraysEqual(precedence, spine)) {
@@ -236,13 +243,27 @@ function deriveUniverse(provider, spine) {
 // effort >= 'high' pairings (owner directive — the floor subsumes the no-effort
 // exclusion there); cost_efficiency omits no-effort pairings in the excluded
 // categories only.
-function expectedUniverseForCategory(branch, category, universeSet) {
+function expectedUniverseForCategory(provider, branch, category, universeSet) {
   if (branch === "performance") {
-    return new Set(
+    const floorUniverse = new Set(
       [...universeSet].filter((key) =>
         meetsPerformanceEffortFloor(key.slice(key.lastIndexOf("@") + 1))
       )
     );
+    if (!COMPOSITE_CATEGORIES.has(category)) return floorUniverse;
+  }
+  if (COMPOSITE_CATEGORIES.has(category) && isObject(provider[branch])) {
+    const keys = new Set();
+    for (const parent of COMPOSITE_PARENT_CATEGORIES[category]) {
+      const entries = provider[branch][parent];
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        if (isObject(entry) && typeof entry.model === "string" && Object.hasOwn(entry, "effort")) {
+          keys.add(pairingKey(entry.model, entry.effort));
+        }
+      }
+    }
+    return keys;
   }
   if (!NO_EFFORT_EXCLUDED_CATEGORIES.has(category)) return universeSet;
   return new Set(
@@ -370,7 +391,7 @@ function validateCategoryEntries(provider, spine, universeSet, issues) {
         issues.push(`${label} must be an array`);
         continue;
       }
-      validatePairingArray(label, entries, expectedUniverseForCategory(branch, category, universeSet), issues);
+      validatePairingArray(label, entries, expectedUniverseForCategory(provider, branch, category, universeSet), issues);
       // Performance effort floor: an explicit, specific failure for any below-floor
       // entry (the universe check above would only say "not in derived universe").
       if (branch === "performance") {
@@ -384,6 +405,57 @@ function validateCategoryEntries(provider, spine, universeSet, issues) {
             );
           }
         }
+      }
+    }
+  }
+}
+
+function validateCompositeRankings(provider, spine, issues) {
+  for (const category of COMPOSITE_CATEGORIES) {
+    if (!spine.includes(category)) {
+      issues.push(`composite category '${category}' missing from spine`);
+    }
+    for (const parent of COMPOSITE_PARENT_CATEGORIES[category]) {
+      if (!spine.includes(parent)) {
+        issues.push(`composite category '${category}' parent '${parent}' missing from spine`);
+      }
+    }
+  }
+  for (const branch of branches) {
+    if (!isObject(provider[branch])) continue;
+    for (const [category, parents] of Object.entries(COMPOSITE_PARENT_CATEGORIES)) {
+      const entries = provider[branch][category];
+      if (!Array.isArray(entries)) continue;
+      const parentRanks = parents.map((parent) => {
+        const map = new Map();
+        const parentEntries = provider[branch][parent];
+        if (!Array.isArray(parentEntries)) return map;
+        for (const entry of parentEntries) {
+          if (isObject(entry) && typeof entry.model === "string" && Object.hasOwn(entry, "effort")) {
+            map.set(pairingKey(entry.model, entry.effort), entry.rank);
+          }
+        }
+        return map;
+      });
+      let previousMean = -Infinity;
+      for (const [index, entry] of entries.entries()) {
+        if (!isObject(entry) || typeof entry.model !== "string" || !Object.hasOwn(entry, "effort")) continue;
+        const key = pairingKey(entry.model, entry.effort);
+        const ranks = parentRanks
+          .map((map) => map.get(key))
+          .filter((rank) => Number.isInteger(rank));
+        if (ranks.length === 0) {
+          issues.push(`${branch}.${category}[${index}] ${key} is absent from all composite parents`);
+          continue;
+        }
+        const mean = ranks.reduce((sum, rank) => sum + rank, 0) / ranks.length;
+        if (mean < previousMean) {
+          issues.push(
+            `${branch}.${category}[${index}] ${key} mean parent rank ${mean.toFixed(4)} ` +
+            `is ordered after worse mean ${previousMean.toFixed(4)}`
+          );
+        }
+        previousMean = mean;
       }
     }
   }
@@ -494,6 +566,7 @@ function main() {
     ["metadata", []],
     ["branches", []],
     ["pairings", []],
+    ["composites", []],
     ["audit cross-check", []],
   ];
   const issuesFor = Object.fromEntries(checks);
@@ -508,6 +581,7 @@ function main() {
       issuesFor.pairings.push("could not derive a non-empty model@effort universe from the table");
     }
     validateCategoryEntries(provider, spine, universeSet, issuesFor.pairings);
+    validateCompositeRankings(provider, spine, issuesFor.composites);
     // #11 audit-universe completeness + #19/#20(B) ladder-drift cross-checks.
     crossCheckAuditUniverse(universeSet, issuesFor["audit cross-check"]);
   }

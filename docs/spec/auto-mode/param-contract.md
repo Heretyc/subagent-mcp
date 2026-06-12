@@ -7,7 +7,7 @@ Error message text and the full presence matrix live in `resolution-matrix.md`.
 
 | Param | Type | Required | Notes |
 |---|---|---|---|
-| `task_category` | enum of the 11 keys (below) | **YES — always** | Maps directly to routing-table category keys. Required in BOTH auto and explicit modes. |
+| `task_category` | enum of the 15 keys (below) | **YES — always** | Maps directly to routing-table category keys. Required in BOTH auto and explicit modes. |
 | `prompt` | string, min 1 | YES (unchanged) | The sub-agent task. |
 | `provider` | enum `["claude","codex"]` | optional | Override. Omit to auto-select. |
 | `model` | enum `["haiku","sonnet","opus","opus-4-8","gpt-5.5"]` | optional | Override. Omit to auto-select. |
@@ -15,11 +15,13 @@ Error message text and the full presence matrix live in `resolution-matrix.md`.
 | `deadlock` | boolean | optional | Auto-mode-only escalation flag; omit normally. Agent-visible gloss is the verbatim MANDATE in `tool-description.md`: set `true` only on the 3rd+ launch attempt for the SAME atomic task. CANNOT be combined with `provider`/`model`/`effort` (→ `ERR_DEADLOCK_WITH_OVERRIDES`, `resolution-matrix.md`). `false` == omitting. Window mechanics: `routing-table-contract.md §Branch selection`. |
 | `cwd` | string | optional (unchanged) | Working directory for the spawned CLI. |
 
-The 11 `task_category` enum values (the fixed 10 + fallback):
+The 15 `task_category` enum values (14 taxonomy categories + fallback):
 
 ```
 math_proof, security_review, debugging, quality_review, architecture,
 agentic_execution, data_analysis, coding, knowledge_synthesis, mechanical,
+prompt_engineering, vulnerability_research, molecular_biology,
+ml_accelerator_design,
 fallback_default
 ```
 
@@ -29,7 +31,7 @@ Auto-mode never invents, renames, or reorders them — the taxonomy is fixed
 (`docs/spec/task-taxonomy/_INDEX.md`).
 
 > Implementation note: keep `task_category` as a `z.enum(...)` so the SDK
-> surfaces the 11 valid values to callers, but ALSO hard-validate inside the
+> surfaces the 15 valid values to callers, but ALSO hard-validate inside the
 > handler so the error text in `resolution-matrix.md` (which lists the valid
 > categories and the auto-mode hints) is what the caller sees, not only the raw
 > zod enum error.

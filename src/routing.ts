@@ -272,7 +272,7 @@ function readPairings(table: RoutingTable | null, taskCategory: string, branch: 
   return [...entries].sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER));
 }
 
-// The fixed 10 task categories + fallback_default. Maps directly to the
+// The fixed 14 task categories + fallback_default. Maps directly to the
 // routing-table category keys (param-contract.md). Immutable taxonomy.
 export const TASK_CATEGORIES = [
   "math_proof",
@@ -285,6 +285,10 @@ export const TASK_CATEGORIES = [
   "coding",
   "knowledge_synthesis",
   "mechanical",
+  "prompt_engineering",
+  "vulnerability_research",
+  "molecular_biology",
+  "ml_accelerator_design",
   "fallback_default",
 ] as const;
 
@@ -317,7 +321,7 @@ export function validatePresence(p: {
   // 1. task_category valid?
   if (!task_category || !(TASK_CATEGORIES as readonly string[]).includes(task_category)) {
     const got = task_category ? String(task_category) : "<none>";
-    return `Error: task_category is required and must be one of: math_proof, security_review, debugging, quality_review, architecture, agentic_execution, data_analysis, coding, knowledge_synthesis, mechanical, fallback_default. Got: ${got}.\n${SPLIT_HINT}\n${AUTO_HINT}`;
+    return `Error: task_category is required and must be one of: ${TASK_CATEGORIES.join(", ")}. Got: ${got}.\n${SPLIT_HINT}\n${AUTO_HINT}`;
   }
 
   // 2. deadlock cannot be combined with provider/model/effort.

@@ -489,6 +489,23 @@ test("branch default: missing cost_efficiency in table → no-candidates (no sil
 });
 
 // ---------------------------------------------------------------------------
+// 18. composite categories
+//     WHY: composite-inferred categories are first-class routing keys at
+//     runtime. The resolver must read them like normal branch arrays; it should
+//     not special-case or fall back to parent categories.
+// ---------------------------------------------------------------------------
+test("composite category: prompt_engineering reads branch array like a normal category", () => {
+  const result = buildCandidates(fixtureTable, "prompt_engineering", {}, "performance");
+  assert.equal(result.mode, "auto");
+  assert.ok(result.candidates.length > 0,
+    "prompt_engineering fixture must produce launchable candidates");
+  assert.equal(result.candidates[0].model, "gpt-5.5",
+    "prompt_engineering must use its own composite-inferred ranking, not architecture or fallback ordering");
+  assert.equal(result.candidates[0].effort, "xhigh",
+    "composite category entries must flow through the same effort normalization path");
+});
+
+// ---------------------------------------------------------------------------
 // Print summary and fail if any test failed
 // ---------------------------------------------------------------------------
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

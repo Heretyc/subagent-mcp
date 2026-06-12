@@ -32,15 +32,17 @@ and returns only the JSON status.
 | 4 | **Benchmark capture — synthesis/leaf + modifier signals** | Same, for `knowledge_synthesis`, `mechanical`; plus the capability data the cross-cutting modifiers need (context-size, output-size, perception, long-horizon, data-sensitivity). |
 | 5 | **Ops / cost / failure / governance** | Pricing, priority tiers, rate limits, failure modes (hallucination, processing stalls), security posture, the commit/data/sandbox gates each pairing affects. |
 
-Partition benchmark capture by category-group (agents 2–4) so coverage of the FIXED 10 is exhaustive
+Partition benchmark capture by category-group (agents 2–4) so coverage of the directly benchmarked parent categories is exhaustive
 and non-overlapping. Scale the agent count with the Phase-0 mode without changing this partition.
 
-### Mapping rule (onto the FIXED 10)
+### Mapping rule (onto the directly benchmarked parents)
 
-Every score is keyed to whichever of the 10 fixed categories it is most diagnostic of, using the
+Every score is keyed to whichever of the directly benchmarked parent categories it is most diagnostic of, using the
 per-category benchmark-family map in `benchmark-sources.md`. Benchmarks **measure** a category; they
 never endorse a model. Do not invent a new category to hold a score — if a score fits no fixed
-category, record it as out-of-spine context and flag it; the spine does not change.
+category, record it as out-of-spine context and flag it; the spine does not change. The 4
+composite-inferred tiles (11–14) carry no benchmark — never map a raw score onto them; their
+competency is composed from parent scores in Phase 2.
 
 > **No-effort exclusion (SKILL.md invariant #14):** models whose ONLY effort is a no-effort sentinel
 > (`null`/`none`/`n/a`) are NOT ranked in `agentic_execution`, `architecture`, `security_review`,
@@ -106,8 +108,8 @@ CONTEXT: profiling scope = <in-scope provider families + recency window> (see co
   research-seed-sites.json (learned/accumulating seed at repo root, if present — augments the curated
   seed). Existing fleet + current rankings: read the prior src/routing-table.json +
   research-seed-sites.json to DIFF, not inherit.
-TASK: discover/measure your domain on the web. Map every score onto the FIXED 10 categories via the
-  family map. APA-cite ORIGINAL sources only. Label [SEED]/[INFERRED]/[ASSUMPTION]/[UNVERIFIED].
+TASK: discover/measure your domain on the web. Map every score onto the directly benchmarked parent categories via the
+  family map (composite tiles 11–14 carry no benchmark — never score them directly). APA-cite ORIGINAL sources only. Label [SEED]/[INFERRED]/[ASSUMPTION]/[UNVERIFIED].
   For a brand-new model with sparse corroboration, use task-split framing and mark assumptions.
   If a model has selectable effort tiers, do not emit `none` as one of its model+effort pairings
   (this is an owner directive enforced independent of vendor documentation—exclude such pairings).

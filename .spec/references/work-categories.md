@@ -1,10 +1,8 @@
 # work-categories.md — Canonical Work-Category Taxonomy
 
-**Load when:** classifying a prompt; verifying a category id; understanding classification signals,
-definitions, or boundary cases.
-
-Categories and modifiers are defined PURELY by task shape — *deliverable · cognitive demand ·
-verification mode.* No provider, model, effort, or route is named or implied anywhere in this file.
+**Load when:** classifying a prompt; verifying a category id; understanding signals, definitions, or
+boundary cases. Categories and modifiers are defined PURELY by task shape — *deliverable · cognitive
+demand · verification mode.* No provider, model, effort, or route is named or implied in this file.
 
 ---
 
@@ -12,21 +10,20 @@ verification mode.* No provider, model, effort, or route is named or implied any
 
 ```
 math_proof > security_review > debugging > quality_review > architecture >
-agentic_execution > data_analysis > coding > knowledge_synthesis > mechanical
+agentic_execution > data_analysis > coding > knowledge_synthesis > mechanical >
+prompt_engineering > vulnerability_research > molecular_biology > ml_accelerator_design
 ```
 
-Then `fallback_default` @ precedence 99 — off-spine; fires only when no tile reaches confidence;
-never overrides a hard gate; **not one of the 10.**
+Tiles 1–10 are the directly benchmarked parent categories. Tiles 11–14 (`prompt_engineering`,
+`vulnerability_research`, `molecular_biology`, `ml_accelerator_design`) are **composite-inferred**:
+no benchmark alias, never directly benchmarked — competency inferred downstream from parent tiles
+(see **Composite-Inferred Tiles** below). 14 categories total. Then `fallback_default` @ precedence
+99 — off-spine; fires only when no tile reaches confidence; never overrides a hard gate; **not one of
+the 14 spine tiles.**
 
 First-match wins (most-specific-signal-first). On genuine adjacent-tier ambiguity, escalate one tier
-up. Classification is a pure task-shape language task — no numeric
-thresholds enter it (context size is a gate, not a category boundary).
-
-**Deltas vs prior order:** `debugging` ↑ (5→3, above quality_review/architecture); `architecture`
-↓ (3→5, below debugging/quality_review); `data_analysis` is **net-new** @ 7; `knowledge_synthesis`
-↓ (7→9); `mechanical` 9→10. `agentic_execution` **narrowed** to closed-loop env-mutation;
-`mechanical` now **absorbs** deterministic single-pass extraction; the multimodal candidate is a
-cross-cutting **`perception_required` modifier**, not a tile.
+up. Classification is a pure task-shape language task — no numeric thresholds enter it (context size
+is a gate, not a category boundary).
 
 ---
 
@@ -122,6 +119,51 @@ cross-cutting **`perception_required` modifier**, not a tile.
 | **Examples** | "Convert this CSV to JSON and rename field 'amt' to 'amount'." · "Extract every email and phone number into this JSON schema." · "Rename all occurrences of getUserData to fetchUser across these files." |
 | **Boundary / anti-example** | Extraction/disambiguation needing *substantive reasoning* → `coding` (reusable parser) or `data_analysis` (analytical disambiguation). Tool/function invocation (even a single call) → `agentic_execution` (its floor). Classification with many *ambiguous* categories needing nuance → `coding`/`knowledge_synthesis`. Map step of a map-reduce → `mechanical`; the reduce step → `knowledge_synthesis`. |
 
+---
+
+## Composite-Inferred Tiles
+
+Tiles 11–14 carry **no benchmark alias** and are **never directly benchmarked** — no public benchmark
+scores the whole shape. Routing competency is **inferred downstream** as a simple-mean of the parent
+tiles each card's Definition names (see `docs/spec/task-taxonomy/composite-inferred-tiles.md`). They
+still classify by signal, first-match after `mechanical`; a profiler never assigns them a direct score.
+
+### `prompt_engineering` — precedence 11 · composite-inferred (no benchmark alias)
+
+| Field | Content |
+|---|---|
+| **Definition** | Deliverable is a designed or optimized prompt, prompt-template, or prompt-system that steers an LLM/agent — authoring, refining, or systematically evaluating the instructions themselves. Composite shape: prose-craft (`knowledge_synthesis`) + template/scaffold construction (`coding`) + candidate-vs-criteria evaluation (`quality_review`). No dedicated benchmark; competency inferred from those parents. |
+| **Classify signals** | prompt · system prompt · few-shot exemplars · chain-of-thought scaffold · prompt template · instruction phrasing · "optimize this prompt" · prompt eval / rubric for prompt outputs · reduce hallucinated fields via instructions · steer the model to… |
+| **Examples** | "Design a system prompt that makes the agent self-classify task type reliably." · "Rewrite this extraction prompt to cut hallucinated fields." · "Build a rubric to compare three prompt variants and pick the best." |
+| **Boundary / anti-example** | Producing the downstream artifact the prompt *asks for* → that artifact's tile. Plain prose with no model-steering intent → `knowledge_synthesis`. Building a reusable code library/framework around prompts → `coding`. Judging two finished non-prompt outputs → `quality_review`. |
+
+### `vulnerability_research` — precedence 12 · composite-inferred (no benchmark alias)
+
+| Field | Content |
+|---|---|
+| **Definition** | Deliverable is the discovery and characterization of a **novel** vulnerability in a target — locating an exploitable flaw, root-causing it, and often building a proof-of-concept. Composite shape: adversarial attack-surface reasoning (`security_review`) + failure localization (`debugging`) + exploit/PoC construction (`coding`). No dedicated benchmark; competency inferred from those parents. |
+| **Classify signals** | find a vulnerability · fuzzing campaign · triage crashes for exploitability · reverse-engineer for bugs · memory-corruption primitive · write a PoC exploit · 0-day / vuln discovery · root-cause an exploitable crash |
+| **Examples** | "Fuzz this parser, triage the crashes, and identify which are exploitable." · "Reverse this binary and find a memory-corruption primitive." · "Find and PoC an auth-bypass in this service." |
+| **Boundary / anti-example** | Verdict/threat-model on a *given* surface with no novel-bug discovery → `security_review`. Fixing a *known* failing test/symptom → `debugging`. Authoring a feature with no adversarial discovery → `coding`. |
+
+### `molecular_biology` — precedence 13 · composite-inferred (no benchmark alias)
+
+| Field | Content |
+|---|---|
+| **Definition** | Deliverable is a reasoned result in molecular / computational biology — interpreting sequences, structures, pathways, or experimental data. Composite shape: literature/mechanism synthesis (`knowledge_synthesis`) + quantitative analysis over biological datasets (`data_analysis`) + formal/quantitative derivation (`math_proof`). No dedicated benchmark; competency inferred from those parents. |
+| **Classify signals** | gene/protein sequence · pathway/mechanism · assay · structure or folding prediction · -omics dataset (RNA-seq, proteomics) · binding/affinity reasoning · experimental-design rationale · bioinformatics pipeline result |
+| **Examples** | "Interpret this RNA-seq table and propose the upregulated pathways." · "Explain the likely folding impact of this point mutation." · "Design and justify a primer set for this target region." |
+| **Boundary / anti-example** | Generic statistics over a *non-biological* dataset → `data_analysis`. Pure literature summary with no biological data or derivation → `knowledge_synthesis`. A formal proof with no biological object → `math_proof`. |
+
+### `ml_accelerator_design` — precedence 14 · composite-inferred (no benchmark alias)
+
+| Field | Content |
+|---|---|
+| **Definition** | Deliverable is a hardware/software design for ML acceleration — dataflow, memory hierarchy, kernel, or compiler-mapping decisions for an accelerator. Composite shape: system-structure design (`architecture`) + kernel/codegen implementation (`coding`) + quantitative/asymptotic modeling (`math_proof`). No dedicated benchmark; competency inferred from those parents. |
+| **Classify signals** | systolic array · dataflow / tiling / scheduling · roofline model · kernel fusion · SRAM/HBM memory hierarchy · GEMM mapping · compiler lowering for an accelerator · utilization / TFLOP modeling |
+| **Examples** | "Design the dataflow and tiling for a matmul on this systolic array." · "Model the roofline and pick a fusion strategy for this transformer block." · "Write and analyze a tiled GEMM kernel for this memory hierarchy." |
+| **Boundary / anti-example** | Generic cross-module software design with no accelerator object → `architecture`. A bounded kernel implementing an *already-chosen* design → `coding`. A pure asymptotic proof with no hardware object → `math_proof`. |
+
 ### `fallback_default` — precedence 99 (no match)
 
 | Field | Content |
@@ -130,13 +172,11 @@ cross-cutting **`perception_required` modifier**, not a tile.
 | **Classify signals** | No category reaches confidence · absent/invalid category hint · tied signals that don't resolve. **"Reaches confidence" = a single dominant signal-keyword family matches; if none clearly matches (or two adjacent tiers tie without resolution), emit `fallback_default`.** |
 | **Route note** | Read-only. Ask the orchestrator for a narrower category if any write/side-effect is implied. If a hard gate applies, do not fall back — route or halt per the gate. |
 
----
-
 ## Cross-Cutting Modifiers
 
-Modifiers are orthogonal to object-of-work: they consume no tile slot or precedence rank — they fire
-*on top of* the matched tile as an impartial policy (a required step, an eligibility-class
-restriction, or a re-rank). None names a model, provider, effort, or route.
+Modifiers are orthogonal to object-of-work: no tile slot or precedence rank — they fire *on top of* the
+matched tile as impartial policy (a required step, eligibility-class restriction, or re-rank). None
+names a model, provider, effort, or route.
 
 | Modifier | Trigger | Policy it imposes (impartial) |
 |---|---|---|
@@ -148,12 +188,12 @@ restriction, or a re-rank). None names a model, provider, effort, or route.
 | `data_sensitivity` | Task handles regulated/personal/confidential data (PII, PHI, secrets, contractual-confidential). | Classify before routing; minimize/redact; no-exfiltration; eligibility-restrict to members meeting the required handling class; halt unless an approved boundary exists. (Gate `G_DATA`; **distinct from `G_SEC`** — privacy/compliance *handling*, not adversarial threat.) |
 | `execution_sandbox` | A member executes via a local harness. | Default to a write-restricted workspace sandbox; full-access/approval-bypass only inside an externally hardened, disposable, secret-free runner; halt on any sandbox-bypass ambiguity. (Gate `G_SANDBOX`.) |
 
-The category-coupled gate-modifiers `G_MATH` (→ `math_proof`), `G_SEC` (→ `security_review`), and
-`G_COMMIT` (→ `quality_review`) are hosted by their respective tiles.
+Category-coupled gate-modifiers `G_MATH` (→ `math_proof`), `G_SEC` (→ `security_review`), `G_COMMIT`
+(→ `quality_review`) are hosted by their respective tiles.
 
-**Considered and NOT minted (fail-loud):** latency/cost-sensitivity (edges into route/effort — out
-of an impartial taxonomy's scope); language/locale (an eligibility nuance, too fine to be
-first-class); determinism-required (already captured by `mechanical`'s exact-match verification).
+**Considered and NOT minted (fail-loud):** latency/cost-sensitivity (route/effort — out of an
+impartial taxonomy's scope); language/locale (eligibility nuance, too fine to be first-class);
+determinism-required (already captured by `mechanical`'s exact-match verification).
 
 ---
 

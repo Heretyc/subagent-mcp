@@ -203,6 +203,31 @@
     "agentic_execution": [],
     "data_analysis": [],
     "knowledge_synthesis": [],
+    "prompt_engineering": [
+      {
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 1,
+        "score": 0.90,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": ["parent-rank mean 1.0000 (knowledge_synthesis:1, coding:1, quality_review:1)"]
+      },
+      {
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 2,
+        "score": 0.80,
+        "cost_figure_used": 0.000015,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": ["parent-rank mean 2.0000 (knowledge_synthesis:2, coding:2, quality_review:2)"]
+      }
+    ],
+    "vulnerability_research": [],
+    "molecular_biology": [],
+    "ml_accelerator_design": [],
     "fallback_default": []
   },
   "cost_efficiency": {
@@ -372,6 +397,31 @@
     "agentic_execution": [],
     "data_analysis": [],
     "knowledge_synthesis": [],
+    "prompt_engineering": [
+      {
+        "model": "claude-haiku-4-5",
+        "effort": "none",
+        "rank": 1,
+        "score": 0.90,
+        "cost_figure_used": 0.000001,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": ["parent-rank mean 1.0000 (knowledge_synthesis:1, coding:1, quality_review:1)"]
+      },
+      {
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 2,
+        "score": 0.80,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "high",
+        "basis": ["parent-rank mean 2.0000 (knowledge_synthesis:2, coding:2, quality_review:2)"]
+      }
+    ],
+    "vulnerability_research": [],
+    "molecular_biology": [],
+    "ml_accelerator_design": [],
     "fallback_default": []
   }
 }

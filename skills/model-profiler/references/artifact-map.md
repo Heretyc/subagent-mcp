@@ -38,7 +38,7 @@ contracts:
 | File | Owns |
 |------|------|
 | `references/category-derivation.md` | **Fixed-taxonomy pointer leaf** → spine in `work-categories.md`; determination methodology + rationale (incl. debate provenance) live in `docs/spec/task-taxonomy/`. The skill never derives the categories. |
-| `references/benchmark-sources.md` | Canonical benchmark source list (check FIRST for run-to-run stability) + per-category benchmark-family map onto the fixed 10 |
+| `references/benchmark-sources.md` | Canonical benchmark source list (check FIRST for run-to-run stability) + per-category benchmark-family map onto the directly benchmarked parents |
 | `references/tier-ranking-and-scoring.md` | Interpolation rule, cost-figure methodology, scoring-formula form + calibration gate |
 | `references/provider-json-emission.md` | `routing-table.json` schema contract + validation rules |
 
