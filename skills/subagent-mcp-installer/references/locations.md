@@ -45,6 +45,7 @@ npm root -g            # -> <global node_modules>
 # install root = <global node_modules>/subagent-mcp
 # server       = <install root>/dist/index.js
 # claude hook  = <install root>/dist/hooks/orchestration-claude.js
+# claude gate  = <install root>/dist/hooks/orchestration-claude-pretool.js
 # codex hook   = <install root>/dist/hooks/orchestration-codex.js
 # directives   = <install root>/directives
 ```

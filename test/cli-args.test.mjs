@@ -7,8 +7,9 @@
  * the stdio MCP server, which blocks forever waiting on stdin. These tests
  * encode the guard contract:
  *   - --version/-v  -> exit 0, prints exactly the package.json version,
- *   - --help/-h     -> exit 0, usage names the real commands (setup, doctor,
- *                      --update),
+ *   - --help/-h     -> exit 0, usage names the real commands (setup, init,
+ *                      doctor, --update),
+ *   - --init        -> dispatches to init instead of starting stdio,
  *   - unknown arg   -> exit 1, "unknown argument" on STDERR, never the server.
  * `--update` itself is deliberately NEVER spawned here: it would mutate the
  * real global install and hit the network. Only its presence in the usage
@@ -18,10 +19,11 @@
  * NOT spawned here: it is the server and would block by design.
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
+import { tmpdir } from "node:os";
 
 let passed = 0;
 let failed = 0;
@@ -81,6 +83,7 @@ test("--help: exit 0, usage mentions setup and doctor", () => {
   const r = runBin(["--help"]);
   assert.equal(r.status, 0);
   assert.match(r.stdout, /setup/);
+  assert.match(r.stdout, /init/);
   assert.match(r.stdout, /doctor/);
 });
 
@@ -88,6 +91,7 @@ test("-h: exit 0, usage mentions setup and doctor", () => {
   const r = runBin(["-h"]);
   assert.equal(r.status, 0);
   assert.match(r.stdout, /setup/);
+  assert.match(r.stdout, /init/);
   assert.match(r.stdout, /doctor/);
 });
 
@@ -97,6 +101,21 @@ test("--help: usage mentions --update", () => {
   const r = runBin(["--help"]);
   assert.equal(r.status, 0);
   assert.match(r.stdout, /--update/);
+});
+
+// ---------------------------------------------------------------------------
+// init / --init
+// ---------------------------------------------------------------------------
+test("--init: dry-run exits 0 and writes nothing", () => {
+  const root = mkdtempSync(join(tmpdir(), "subagent-cli-init-"));
+  try {
+    const r = runBin(["--init", "--root", root, "--dry-run"]);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /\(dry-run: no files written\)/);
+    assert.equal(existsSync(join(root, "AGENTS.md")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // ---------------------------------------------------------------------------

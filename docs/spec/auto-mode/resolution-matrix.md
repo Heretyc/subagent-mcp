@@ -102,7 +102,7 @@ Error: task_category is required and must be one of: math_proof, security_review
 provider/model/effort; validation step 2, before the effort/model rules):
 
 ```
-Error: deadlock cannot be combined with provider, model, or effort. If repeated attempts at this task have failed, switch to pure auto mode — pass only prompt + task_category and let the server select — unless your assignment explicitly demands a specific model. Omit provider/model/effort and retry.
+Error: deadlock cannot be combined with provider, model, or effort. From the 3rd attempt for the same atomic task, deadlock outranks capability overrides: drop provider/model/effort and retry.
 <AUTO_HINT>
 ```
 

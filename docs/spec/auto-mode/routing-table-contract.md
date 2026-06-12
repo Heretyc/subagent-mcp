@@ -68,8 +68,11 @@ in EITHER direction.
 ### Tool-surface opacity (INVARIANT)
 
 Tool descriptions and error texts NEVER name tiers, branches, counters, or
-windows. The only agent-visible deadlock strings are the verbatim `DEADLOCK RULE:`
-tool-description line and the `deadlock` param MANDATE gloss (`tool-description.md`).
+windows. The only agent-visible deadlock metadata strings are the verbatim
+`DEADLOCK RULE:` tool-description line and the `deadlock` param MANDATE gloss
+(`tool-description.md`). One additional agent-visible runtime error string
+exists for `deadlock=true` combined with provider/model/effort; it is error text,
+not metadata, and must use attempts+task-identity/drop-overrides vocabulary.
 Sanctioned diagnostic exposures (payload fields, never description/error text)
 are exactly: `routing_tier` (poll), plus `ruleset_applied` +
 `ruleset_original_selection` (`../advanced-ruleset/visibility-and-failover.md`).
@@ -189,12 +192,9 @@ If ALL candidates fail → `ERR_ALL_FAILED` listing each
 the ruleset modified the list (`../advanced-ruleset/visibility-and-failover.md`).
 
 ## Empty / missing table behavior (summary)
-
 | Condition | auto/provider/provider_model | explicit |
 |---|---|---|
-| `dist/routing-table.json` missing/unreadable | `ERR_TABLE_MISSING` | works (table not read) |
+| `dist/routing-table.json` missing/unreadable | `ERR_TABLE_MISSING` | works; table not read |
 | category has zero pairings | `ERR_NO_CANDIDATES` (`<scope>`=empty) | works |
 | constraint matches no pairing | `ERR_NO_CANDIDATES` (`<scope>`=provider/model) | n/a |
 
-Explicit, fully-specified launches MUST keep working with no table present —
-they never read it.

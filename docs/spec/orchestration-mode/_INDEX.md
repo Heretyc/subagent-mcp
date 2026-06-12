@@ -26,12 +26,12 @@ caveman-ultra reminder**:
   model, temp-file handoff, persistence, carryover, and the disable-governance
   rule naming both provider tools. The `orchestration-mode` **tool description**
   is the operational summary and points at the instructions.
-- **Per-turn directives** (`directives/**`): the FULL `<SUB-AGENT-INVARIANT>`
+- **Per-turn directives** (`directives/**`): the FULL `<ORCHESTRATION-INVARIANT>`
   block (delegate-default / inline-by-right partition + temp-file IPC +
   disable-governance pointer, ultra-compressed) injects on CLAIM turns only;
   steady state is the per-prompt reminder cadence — the LONG mode-specific
-  `<ORCHESTRATION-REMINDER-INVARIANT>` block (`reminder-on.md` /
-  `reminder-off-<provider>.md`) every 5th prompt, the one-line pointer
+  `<ORCHESTRATION-INVARIANT>` block (`reminder-on.md` /
+  `reminder-off-<provider>.md`) every 5th prompt, the one-line rule carrier
   (`off-turn-reminder.md`) between. The long persistence/governance prose lives
   in metadata; carryover notices keep their notify/ask/advise instruction.
 
@@ -62,8 +62,8 @@ interactive tool, and the directive assets enforce this per provider:
 
 - **The tool** (`orchestration-mode`, registered in `src/index.ts`) writes or
   deletes a per-project **marker file**. It does no injection itself.
-- **The hook** (`dist/hooks/orchestration-claude.js` /
-  `orchestration-codex.js`) runs once per user turn as its own process, reads
+- **The hook** (`dist/hooks/orchestration-claude*.js` /
+  `orchestration-codex.js`) runs once per user turn/tool gate as its own process, reads
   the marker, and decides what (if anything) to emit on stdout. The tool and
   the hook never share memory — the marker file on disk is the only channel.
 - **Shared marker module** (`src/orchestration/marker.ts`) is imported by both
@@ -86,16 +86,16 @@ Marker fields: `enabled`, `cwd`, `owner_session`, `baseline_turn`,
 - A per-prompt counter (`src/orchestration/reminder.ts`, state file
   `remind-<cwdHash>.json`, owner-stamped by session; a session change restarts
   it) drives the cadence in BOTH marker states. Every 5th counted prompt emits
-  the LONG mode-specific `<ORCHESTRATION-REMINDER-INVARIANT>` block
+  the LONG mode-specific `<ORCHESTRATION-INVARIANT>` block
   (`reminder-on.md` when ON, `reminder-off-<provider>.md` when OFF); every
-  prompt between emits the one-line pointer (`off-turn-reminder.md`).
+  prompt between emits the one-line rule carrier (`off-turn-reminder.md`).
 - ON claim turns (FRESH enable / CARRYOVER re-claim) emit the **FULL**
   directive plus the ON reminder block and re-baseline the counter to the
   period boundary, so the next LONG fires exactly 5 prompts later. FULL fires
   on claim turns only; steady state is the leaner tagged reminder.
-- The OFF variant carries the 5-CALL RULE (ask via the provider question tool
-  whether to switch ON when work outgrows ~5 tool calls) and advises
-  subagent-mcp full-auto routing even while OFF.
+- The OFF long variants and off-turn carrier carry the 5-CALL RULE: ask via the
+  provider question tool before enabling when work outgrows 5 tool calls, and
+  keep subagent-mcp as the sole sub-agent channel even while OFF.
 - Codex `SessionStart` covers turn 0 directly when active (FULL + ON reminder
   on FRESH, CARRYOVER notice prepended when inherited; counter re-baselined);
   Codex `UserPromptSubmit` runs the normal counter cadence.
@@ -172,12 +172,13 @@ flips, but with no hook host nothing is injected per turn.
 1. Per-project temp marker file keyed by a hash of the working directory.
 2. (SUPERSEDED 2026-06-11 by the per-prompt reminder counter — see Cadence.)
    Originally: FULL when `relTurn % 5 == 0`, else a one-line reminder. Now FULL
-   fires on claim turns only; the counter drives LONG/pointer in both states.
+   fires on claim turns only; the counter drives LONG/rule-carrier cadence in
+   both states.
 3. Split delivery: heavy operating-model + governance guidance lives in MCP
    server `instructions` (read once at initialize); the hook injects the compact
-   `<SUB-AGENT-INVARIANT>` directive on claim turns (codex variant keeps its
+   `<ORCHESTRATION-INVARIANT>` directive on claim turns (codex variant keeps its
    leading self-deactivation SCOPE line) and the
-   `<ORCHESTRATION-REMINDER-INVARIANT>`/pointer cadence on all other prompts.
+   `<ORCHESTRATION-INVARIANT>`/rule-carrier cadence on all other prompts.
 4. Packaging: Claude Code CLI + Codex CLI bundle the hook AND the MCP server =
    full feature. Claude Desktop + Codex Desktop toggle but do not inject =
    documented degradation.
@@ -187,18 +188,11 @@ flips, but with no hook host nothing is injected per turn.
    session that inherits an active marker re-claims it and emits an ack-latched
    one-time carryover notice (notify + confirm + advise).
 
-## The four distinct "hooks" paths (do not confuse them)
+## Hook Paths And Deterministic Enforcement
 
-| Path | Role |
-|---|---|
-| `src/hooks/` | **Source** TypeScript hook entry shims. |
-| `dist/hooks/` | **Compiled** JS the hosts actually execute (`tsc` output). |
-| `hooks/hooks.json` | **Claude** plugin hook registration (`UserPromptSubmit`). |
-| `codex/hooks.json` | **Codex** plugin hook registration (`SessionStart` + `UserPromptSubmit`). |
-
-`directives/` is a fifth location: uncompiled directive assets resolved at
-runtime via `CLAUDE_PLUGIN_ROOT` / `PLUGIN_ROOT` or `__dirname/../../directives`.
-
-## Leaves
-
-No leaf files yet; the contract is fully captured above.
+Do not confuse `src/hooks/` source shims, `dist/hooks/` host JS,
+`hooks/hooks.json` Claude registration, `codex/hooks.json` Codex registration,
+and `directives/` assets resolved at runtime via plugin roots. Claude also
+ships `orchestration-claude-pretool.js`: while `alive.flag` is fresh it denies
+native `Task`/`Agent`/`Explore` and asks on the 6th inline tool call; missing or
+stale liveness fails open.

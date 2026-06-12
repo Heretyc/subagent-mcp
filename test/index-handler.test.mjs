@@ -213,6 +213,22 @@ await test("server exposes orchestration guidance via MCP instructions (no ultra
   }
 });
 
+await test("subagent child server exposes neutral instructions", async () => {
+  // WHY: subagent-mcp-launched child processes inherit their own MCP server
+  // connection. They must not receive top-level orchestrator instructions.
+  const session = createMcpSession(distIndex, {
+    env: { ...process.env, SUBAGENT_MCP_SUBAGENT: "1" },
+  });
+  try {
+    const response = await session.initialize();
+    const instructions = response.result.instructions;
+    assert.match(instructions, /SUB-AGENT SESSION/);
+    assert.doesNotMatch(instructions, /ORCHESTRATION MODE/);
+  } finally {
+    await session.close();
+  }
+});
+
 await test("bare PATH executable is not rejected before spawn", async () => {
   // makeTempEnv carries the ruleset-disabled fake + grace-window off — this
   // test launches for real, so it needs the same neutralization as 4b-4f.

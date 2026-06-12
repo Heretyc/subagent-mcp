@@ -41,6 +41,7 @@ import {
   type RulesetStdinPayload,
 } from "./ruleset.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
+import { startLivenessHeartbeat } from "./orchestration/liveness.js";
 
 interface AgentState {
   id: string;
@@ -185,7 +186,10 @@ reconcileInterval.unref();
 // field) rather than re-injecting it on every turn. The bundled per-turn hook
 // injects only a small compact reminder; this is the durable, full explanation.
 const ORCHESTRATION_INSTRUCTIONS =
-  "ORCHESTRATION MODE (orchestration-mode tool). WHAT: per-project toggle for LONG-HORIZON work that would fill the context window if run inline. OPERATING MODEL: when ON, act as a workflow orchestrator, delegate-default — decompose and delegate/offload by default. INLINE BY RIGHT: steps bound to main-session-only capability may stay inline (MCP tools sub-agents can't inherit, interactive/consent tools, tight verify loops); state which and why. MUST DELEGATE/OFFLOAD: pure compute and any payload >50KB or >200 lines go via temp scratch-file path handoff (%TEMP% on Windows, /tmp on POSIX); keep the orchestrator context lean. CONFLICT ORDER: safety-scope > user instruction this turn > delegate-default. A user tool-pin re-partitions work; it does not suspend mode. PERSISTENCE: enabling writes a per-project marker that PERSISTS across restarts/sessions until disabled with explicit user permission (does NOT reset on a new session). CARRYOVER: if mode was already ON at session start (inherited), the bundled hook prepends a CARRYOVER notice ONCE per marker; you MUST tell the user it auto-activated, ask whether to keep it ON, and advise whether it fits this session's request. DISABLE: never disable on your own initiative — only with EXPLICIT user permission. You MAY propose disabling when task fit is wrong (bounded, interactive, or MCP-bound). Either way, first explain WHAT mode is and WHY, then request permission via the provider tool: AskUserQuestion on Claude, request-user-input on Codex. Only explicit approval may call orchestration-mode enabled:false; if declined, continue under inline-by-right, ask once per topic, never re-nag. Per-turn injection fires only in CLI hosts loading the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation).";
+  "BINDING IN BOTH MODES - SOLE CHANNEL: while this server is connected, EVERY sub-agent launch goes through launch_agent; harness Task/Agent tools AND any other spawn path (shell claude -p/codex exec, skills) FORBIDDEN. 5-CALL RULE: >5 tool calls needed for the request (all turns, no reset), or >5 already spent? If yes you MUST use orchestration mode + this server; OFF -> ask the user before enabling, a decline authorizes inline for that request. ORCHESTRATION MODE (orchestration-mode tool). WHAT: per-project toggle for LONG-HORIZON work that would fill the context window inline. OPERATING MODEL: when ON you are a delegate-default orchestrator: decompose, DELEGATE/offload; EVERY reply starts: route: delegate|inline - <reason>. MUST DELEGATE/OFFLOAD: pure compute; any payload >50KB or >200 lines via temp scratch-file path handoff (%TEMP% / /tmp); mixed = SPLIT (one MCP-bound step != whole-task inline); keep the orchestrator context lean. INLINE BY RIGHT - the ONLY exemption: steps bound to main-session-only capability (non-inheritable MCP tools, interactive/consent tools, verify loops = re-run existing checks); state which and why. CONFLICT ORDER: safety-scope > user instruction this turn > 5-CALL RULE/delegate-default. User tool-pin re-partitions work; never suspends mode. PERSISTENCE: per-project marker; survives restarts/sessions until disabled with user permission. CARRYOVER: inherited-ON gets a notice ONCE per marker; you MUST tell the user it auto-activated, ask keep ON?, advise fit. DISABLE: never on own initiative. You MAY propose it on task-fit mismatch (bounded/interactive/MCP-bound): explain WHAT+WHY, ask via AskUserQuestion (Claude) / request-user-input (Codex); only explicit approval may call orchestration-mode enabled:false. Declined -> continue under inline-by-right; ask once per topic, never re-nag. Per-turn injection: CLI hosts with bundled hook only; desktop hosts toggle the marker but inject nothing.";
+
+const SUBAGENT_INSTRUCTIONS =
+  "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.";
 
 const server = new McpServer(
   {
@@ -195,7 +199,10 @@ const server = new McpServer(
       "Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes. Does NOT call the Anthropic or OpenAI HTTP APIs directly (no API keys, no SDK) and there are no plans to — all model access is via the local CLIs.",
   },
   {
-    instructions: ORCHESTRATION_INSTRUCTIONS,
+    instructions:
+      process.env.SUBAGENT_MCP_SUBAGENT === "1"
+        ? SUBAGENT_INSTRUCTIONS
+        : ORCHESTRATION_INSTRUCTIONS,
   }
 );
 
@@ -513,7 +520,7 @@ function sameTriples(a: Candidate[], b: Candidate[]): boolean {
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent. AUTO MODE (preferred): pass only `prompt` + `task_category`; the server picks the best provider/model/effort for that category from its routing table, launches the top candidate, and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are OPTIONAL overrides — omit for auto-selection; if you pass `model` you must also pass `provider`, and if you pass `effort` you must pass both `provider` and `model`. Unsure which task_category fits? Don't submit one amorphous task — SPLIT into atomic steps that each map to a single category, one agent per step. ultracode effort is Opus-4.8+ only (induced via a temp `--settings {\"ultracode\":true}` file; the CLI rejects `--effort ultracode`). Each sub-agent is a separate claude/codex CLI child that does NOT inherit this session's MCP servers; children run with env SUBAGENT_MCP_SUBAGENT=1 so the orchestration hooks skip them (they are not orchestrators and don't re-trigger carryover). Launch returns status `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when more than 2 launch attempts have already been made for the SAME atomic task (i.e. the 3rd attempt onward), and NEVER otherwise.",
+  "Spawn a sub-agent. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category` and NO overrides; the server picks the best provider/model/effort for that category from its routing table, launches the top candidate, and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are overrides — licensed on 1st/2nd attempts ONLY when the task verifiably requires a specific capability; STATE that capability when overriding; if you pass `model` you must also pass `provider`, and if you pass `effort` you must pass both `provider` and `model`. SOLE CHANNEL: while this server is connected this tool is the ONLY sanctioned way to spawn sub-agents, in BOTH orchestration states — harness-native Task/Agent tools are FORBIDDEN for sub-agent launches. PROMPT RULE: the FIRST line of every `prompt` MUST be \"<this is a request from a parent process>\" (sub-agent self-identification). Unsure which task_category fits? Don't submit one amorphous task — SPLIT into atomic steps that each map to a single category, one agent per step. ultracode effort is Opus-4.8+ only (induced via a temp `--settings {\"ultracode\":true}` file; the CLI rejects `--effort ultracode`). Each sub-agent is a separate claude/codex CLI child that does NOT inherit this session's MCP servers; children run with env SUBAGENT_MCP_SUBAGENT=1 so the orchestration hooks skip them (they are not orchestrators and don't re-trigger carryover). Launch returns status `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting the prompt does NOT make it a different task), and NEVER otherwise — from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
@@ -521,7 +528,7 @@ server.tool(
     model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "gpt-5.5"]).optional(),
     effort: z.enum(["low", "medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
-    deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, more than 2 launch attempts have already been made for the SAME atomic task — the 3rd attempt onward. NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort. Passing false is identical to omitting it."),
+    deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
   },
   async (params) => {
     const { task_category, provider, model, effort, prompt, deadlock } = params;
@@ -1078,7 +1085,7 @@ server.tool(
 // Tool 7: orchestration-mode
 server.tool(
   "orchestration-mode",
-  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF, omit = query current state. The FULL operating model + governance is carried in this server's MCP `instructions` (read once at initialize) — this is the operational summary only; do not act on the mode without that detail. WHAT: a per-project toggle for LONG-HORIZON work that would fill the context window if run to completion inline; when ON, act as an orchestrator with delegate-default, but steps bound to main-session-only capability stay INLINE BY RIGHT (state which + why). PERSISTENCE: a per-project marker keyed by cwd; absence of the marker = OFF = no injection; once ON it persists across restarts/sessions until a permitted disable (it does NOT reset on a new session). CARRYOVER: if ON was inherited from a PRIOR session (provenance = carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker, never per turn) — you MUST then notify the user it auto-activated and confirm whether to keep it ON. DISABLE: never on your own initiative; you MAY PROPOSE turning it OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation).",
+  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF, omit = query current state. SOLE CHANNEL: the subagent MCP is the ONLY sanctioned channel for launching sub-agents whether this mode is ON or OFF, and the 5-CALL RULE (>5 tool calls needed for the request — all turns, no reset — or >5 already spent → ON: delegate via the subagent MCP; OFF: ask the user before enabling) binds in BOTH states — toggling OFF lifts neither obligation. The FULL operating model + governance is carried in this server's MCP `instructions` (read once at initialize) — this is the operational summary only; do not act on the mode without that detail. WHAT: a per-project toggle for LONG-HORIZON work that would fill the context window if run to completion inline; when ON, act as an orchestrator with delegate-default, but steps bound to main-session-only capability stay INLINE BY RIGHT (state which + why). PERSISTENCE: a per-project marker keyed by cwd; absence of the marker = OFF = no injection; once ON it persists across restarts/sessions until a permitted disable (it does NOT reset on a new session). CARRYOVER: if ON was inherited from a PRIOR session (provenance = carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker, never per turn) — you MUST then notify the user it auto-activated and confirm whether to keep it ON. DISABLE: never on your own initiative; you MAY PROPOSE turning it OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation).",
   {
     enabled: z.boolean().optional(),
   },
@@ -1122,6 +1129,8 @@ if (isMain) {
     "",
     "  (no command)       start the MCP stdio server (how vendor CLIs run it)",
     "  setup [--dry-run]  wire Claude Code CLI / Codex CLI (--dry-run: preview only)",
+    "  init [flags]       upsert project instruction-file invariant blocks",
+    "                     flags: --dry-run --remove --force --root <dir> --files <csv> --copilot --cursor",
     "  doctor             check install and wiring health",
     "  --update           update to the latest release (npm install -g)",
     "  --version, -v      print the installed version",
@@ -1183,6 +1192,10 @@ if (isMain) {
     await runSetup();
     process.exit(0);
   }
+  if (arg === "init" || arg === "--init") {
+    const { runInit } = await import("./init.js");
+    process.exit(await runInit());
+  }
   if (arg === "doctor") {
     const { runDoctor } = await import("./doctor.js");
     process.exit(await runDoctor());
@@ -1198,6 +1211,7 @@ if (isMain) {
   // until disabled with explicit user permission. On a new session the bundled
   // hook detects the carried-over marker and prompts the user to confirm.
   // (orchestrationMarker.disable is still used by the tool's enabled:false.)
+  startLivenessHeartbeat();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

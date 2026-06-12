@@ -57,7 +57,7 @@ claude mcp add --scope project subagent-mcp -- node /abs/path/to/subagent-mcp/di
 claude mcp add --scope project subagent-mcp -- node "C:\Users\YourName\Dropbox\subagent-mcp\dist\index.js"
 ```
 
-**2) Register the per-turn hook** by hand in `~/.claude/settings.json` (all
+**2) Register the hooks** by hand in `~/.claude/settings.json` (all
 projects) or `.claude/settings.json` (this project). Windows user path:
 `C:\Users\YourName\.claude\settings.json`.
 
@@ -74,6 +74,19 @@ projects) or `.claude/settings.json` (this project). Windows user path:
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["/abs/path/to/subagent-mcp/dist/hooks/orchestration-claude-pretool.js"],
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }
@@ -87,8 +100,9 @@ On Windows use a doubled-backslash or forward-slash absolute path in `args`.
 
 1. **Manifest (before install):** `claude plugin validate /abs/path/to/subagent-mcp`
    (Windows: pass the `C:\...` path). Expect `✔ Validation passed`.
-2. **Build present:** confirm `dist/index.js` and
-   `dist/hooks/orchestration-claude.js` exist.
+2. **Build present:** confirm `dist/index.js`,
+   `dist/hooks/orchestration-claude.js`, and
+   `dist/hooks/orchestration-claude-pretool.js` exist.
 3. **Server + tools:** restart the session, then `claude plugin list`
    (`subagent-mcp` enabled), `claude mcp list`, and `/mcp` inside a session —
    `subagent-mcp` connected, with `orchestration-mode`, `launch_agent`,
@@ -98,9 +112,8 @@ On Windows use a doubled-backslash or forward-slash absolute path in `args`.
    the turn (the hook returns `additionalContext`).
 5. **Hook downgrades when OFF:** toggle `orchestration-mode` OFF and confirm
    the FULL directive stops; the OFF reminder cadence remains (LONG
-   `reminder-off-claude.md` every 5th prompt, one-line pointer between).
+   `reminder-off-claude.md` every 5th prompt, one-line rule carrier between).
 6. **Manual wiring only:** `claude mcp get subagent-mcp` shows the
-   `node dist/index.js` command, and the settings.json `UserPromptSubmit` hook
-   fires on the same ON/OFF rule.
+   `node dist/index.js` command, and the settings.json hooks fire.
 
 Regression gate: `npm test`.

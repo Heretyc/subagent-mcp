@@ -4,11 +4,11 @@
  *
  * Covers the cadence + gating contract that the whole feature rests on:
  *   - OFF (no marker) -> per-prompt reminder cadence: LONG OFF-variant block on
- *     every REMINDER_PERIOD-th prompt, one-line pointer between (the hook now
+ *     every REMINDER_PERIOD-th prompt, one-line rule carrier between (the hook now
  *     emits in BOTH marker states).
  *   - unclaimed marker -> FULL + ON reminder block AND baseline written; the
  *     reminder counter re-baselines so the claim turn is a LONG turn.
- *   - ON cadence: 4 pointer prompts after a LONG turn, then the LONG ON block.
+ *   - ON cadence: 4 rule-carrier prompts after a LONG turn, then the LONG ON block.
  *   - persistence/carryover: FRESH (owner null) -> FULL + ON reminder only;
  *     CARRYOVER (foreign owner) -> carryover notice prepended + re-claim;
  *     SAME-SESSION (owner === current) -> reminder cadence; notice fires once.
@@ -61,7 +61,7 @@ function test(name, fn) {
 }
 
 const FULL_TEXT = "FULL-DIRECTIVE-BODY";
-const OFF_TEXT = "POINTER-ONE-LINER";
+const OFF_TEXT = "RULE-CARRIER-ONE-LINER";
 const CARRYOVER_TEXT = "CARRYOVER-NOTICE-BODY";
 const REM_ON_TEXT = "REMINDER-ON-BLOCK";
 const REM_OFF_TEXT = "REMINDER-OFF-BLOCK";
@@ -113,7 +113,7 @@ function cleanup(cwd, root) {
 // ---------------------------------------------------------------------------
 // OFF: no marker -> per-prompt reminder cadence (the hook emits in BOTH modes)
 // ---------------------------------------------------------------------------
-test("OFF: prompts 1-4 -> pointer, prompt 5 -> LONG OFF block, 6 -> pointer, 10 -> LONG", () => {
+test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule carrier, 10 -> LONG", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
@@ -125,7 +125,7 @@ test("OFF: prompts 1-4 -> pointer, prompt 5 -> LONG OFF block, 6 -> pointer, 10 
       if (prompt % REMINDER_PERIOD === 0) {
         assert.equal(out, REM_OFF_TEXT, `prompt ${prompt} must emit the LONG OFF block`);
       } else {
-        assert.equal(out, OFF_TEXT, `prompt ${prompt} must emit the one-line pointer`);
+        assert.equal(out, OFF_TEXT, `prompt ${prompt} must emit the one-line rule carrier`);
       }
     }
     assert.equal(readReminder(cwd).counts["s-off"], 10, "counter persisted across prompts");
@@ -137,7 +137,7 @@ test("OFF: prompts 1-4 -> pointer, prompt 5 -> LONG OFF block, 6 -> pointer, 10 
 // WHY (Rule 9): counts are PER OWNER so two interleaved sessions in one cwd
 // each keep their own cadence — a shared counter that resets on owner change
 // would NEVER reach the LONG block under strict A,B,A,B alternation, leaving
-// every prompt pointing at a block that never arrives.
+// every prompt stuck on the compact carrier without a LONG refresh.
 test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
@@ -149,7 +149,7 @@ test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)",
         if (round === 5) {
           assert.equal(out, REM_OFF_TEXT, `${session} round 5 must be its LONG block`);
         } else {
-          assert.equal(out, OFF_TEXT, `${session} round ${round} must be the pointer`);
+          assert.equal(out, OFF_TEXT, `${session} round ${round} must be the rule carrier`);
         }
       }
     }
@@ -171,7 +171,7 @@ test("OFF: a new session starts its own count without disturbing others", () => 
     }
     assert.equal(readReminder(cwd).counts["s-A"], 3);
     const out = runHook({ cwd, session_id: "s-B", transcript_path: undefined }, env, adapter);
-    assert.equal(out, OFF_TEXT, "first prompt of a new session emits the pointer");
+    assert.equal(out, OFF_TEXT, "first prompt of a new session emits the rule carrier");
     const counts = readReminder(cwd).counts;
     assert.equal(counts["s-B"], 1, "a new session starts its own count at 1");
     assert.equal(counts["s-A"], 3, "the other session's count is untouched");
@@ -210,9 +210,9 @@ test("unclaimed marker -> FULL + ON reminder block AND baseline written", () => 
 });
 
 // ---------------------------------------------------------------------------
-// ON cadence: 4 pointer prompts after the claim, then the LONG ON block
+// ON cadence: 4 rule-carrier prompts after the claim, then the LONG ON block
 // ---------------------------------------------------------------------------
-test("ON cadence: claim -> 4 pointers -> LONG ON block on the 5th prompt after", () => {
+test("ON cadence: claim -> 4 rule carriers -> LONG ON block on the 5th prompt after", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
@@ -225,7 +225,7 @@ test("ON cadence: claim -> 4 pointers -> LONG ON block on the 5th prompt after",
 
     for (let i = 1; i <= 4; i++) {
       const out = runHook(payload, env, adapter);
-      assert.equal(out, OFF_TEXT, `prompt ${i} after claim -> pointer`);
+      assert.equal(out, OFF_TEXT, `prompt ${i} after claim -> rule carrier`);
     }
     const fifth = runHook(payload, env, adapter);
     assert.equal(fifth, REM_ON_TEXT,
@@ -293,7 +293,7 @@ test("CARRYOVER (owner !== current) -> notice + FULL + ON reminder, re-claims cu
   }
 });
 
-test("CARRYOVER then next same-session turn -> pointer, no repeat notice", () => {
+test("CARRYOVER then next same-session turn -> rule carrier, no repeat notice", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
@@ -305,7 +305,7 @@ test("CARRYOVER then next same-session turn -> pointer, no repeat notice", () =>
       makeAdapter({ turn: 7 }));
     assert.ok(first.includes(CARRYOVER_TEXT), "first foreign-owner turn carries over");
 
-    // Next prompt: same-session -> pointer, NO carryover repeat.
+    // Next prompt: same-session -> rule carrier, NO carryover repeat.
     const second = runHook({ cwd, session_id: "S", transcript_path: undefined }, env,
       makeAdapter({ turn: 8 }));
     assert.equal(second, OFF_TEXT, "next same-session turn is normal cadence, not carryover");

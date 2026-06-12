@@ -71,7 +71,7 @@ try {
   // Detected vendors — concrete, so the user knows what setup will touch.
   if (hasClaude || hasCodex) {
     line("  Detected on this machine:");
-    if (hasClaude) line("    - Claude Code CLI  (will get MCP server + UserPromptSubmit hook)");
+    if (hasClaude) line("    - Claude Code CLI  (will get MCP server + UserPromptSubmit/PreToolUse hooks)");
     if (hasCodex) line("    - Codex CLI        (will get MCP server + SessionStart/UserPromptSubmit hooks)");
   } else {
     line("  No Claude Code or Codex CLI detected yet. Install one,");

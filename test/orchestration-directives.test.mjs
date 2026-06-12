@@ -30,8 +30,11 @@ const reminderOn = readFileSync(join(directivesDir, "reminder-on.md"), "utf8");
 const reminderOffClaude = readFileSync(join(directivesDir, "reminder-off-claude.md"), "utf8");
 const reminderOffCodex = readFileSync(join(directivesDir, "reminder-off-codex.md"), "utf8");
 
-const REMINDER_OPEN = "<ORCHESTRATION-REMINDER-INVARIANT>";
-const REMINDER_CLOSE = "</ORCHESTRATION-REMINDER-INVARIANT>";
+const INVARIANT_OPEN = "<ORCHESTRATION-INVARIANT";
+const INVARIANT_CLOSE = "</ORCHESTRATION-INVARIANT>";
+const OLD_FULL_TAG = "SUB-" + "AGENT-INVARIANT";
+const OLD_REMINDER_TAG = "ORCHESTRATION-" + "REMINDER-INVARIANT";
+const OLD_CARRYOVER_TAG = "ORCHESTRATION-" + "CARRYOVER";
 
 let passed = 0;
 let failed = 0;
@@ -104,28 +107,37 @@ test("no directive file contains 'ultracode' (case-insensitive)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Per-prompt reminder blocks: exact tag wrapper + mode-specific content
+// Single authority tag + mode-specific content
 //
-// WHY (Rule 9): the <ORCHESTRATION-REMINDER-INVARIANT> tag is the UNAMBIGUOUS
-// callout the one-line pointer references — if the tag drifts (typo, rename,
-// missing close), every interceding prompt points at a block that never
-// arrives, and the agent free-associates the directive content instead of
-// reading it. The OFF variants must each name only THEIR provider's question
-// tool (same provider-split invariant as the full directives), and the long
-// blocks must carry the 5-call-rule / delegate-default intent they exist for.
+// WHY (Rule 9): every rule-carrying directive now uses one authority tag. If
+// any surface keeps the old split tags or drops the wrapper, agents receive
+// competing authority labels and the high-frequency off-turn line stops being
+// machine-checkable. The OFF variants must each name only THEIR provider's
+// question tool, and the blocks must carry the 5-call / delegate-default intent.
 // ---------------------------------------------------------------------------
-test("reminder blocks are wrapped in exact <ORCHESTRATION-REMINDER-INVARIANT> tags", () => {
+test("rule-carrying directive assets use the single <ORCHESTRATION-INVARIANT> tag", () => {
   for (const [name, body] of [
+    ["claude", claude],
+    ["codex", codex],
+    ["carryover-claude", carryoverClaude],
+    ["carryover-codex", carryoverCodex],
+    ["off-turn-reminder", offTurn],
     ["reminder-on", reminderOn],
     ["reminder-off-claude", reminderOffClaude],
     ["reminder-off-codex", reminderOffCodex],
   ]) {
-    assert.ok(body.includes(REMINDER_OPEN),
-      `${name} must open with the exact reminder tag`);
-    assert.ok(body.includes(REMINDER_CLOSE),
-      `${name} must close the exact reminder tag`);
-    assert.ok(body.indexOf(REMINDER_OPEN) < body.indexOf(REMINDER_CLOSE),
+    assert.ok(body.includes(INVARIANT_OPEN),
+      `${name} must open with the single invariant tag`);
+    assert.ok(body.includes(INVARIANT_CLOSE),
+      `${name} must close the single invariant tag`);
+    assert.ok(body.indexOf(INVARIANT_OPEN) < body.indexOf(INVARIANT_CLOSE),
       `${name} must open the tag before closing it`);
+    assert.ok(!body.includes(OLD_FULL_TAG),
+      `${name} must not keep the old full-directive tag`);
+    assert.ok(!body.includes(OLD_REMINDER_TAG),
+      `${name} must not keep the old reminder tag`);
+    assert.ok(!body.includes(OLD_CARRYOVER_TAG),
+      `${name} must not keep the old carryover tag`);
   }
 });
 
@@ -149,23 +161,30 @@ test("reminder blocks carry their mode-specific intent", () => {
   ]) {
     assert.match(body, /5-CALL RULE/,
       `${name} must state the 5-call rule`);
-    assert.match(body, /full-auto routing/i,
-      `${name} must advise subagent-mcp full-auto routing while OFF`);
+    assert.match(body, /STOP and ask/i,
+      `${name} must block inline grinding and ask before enabling`);
+    assert.match(body, /SOLE CHANNEL/i,
+      `${name} must preserve the subagent-mcp-only channel while OFF`);
   }
   assert.match(reminderOn, /[Dd]elegate-default/,
     "reminder-on must reinforce delegate-default");
   assert.match(reminderOn, /5-CALL RULE/,
     "reminder-on must state that delegation satisfies the 5-call rule");
+  assert.match(reminderOn, /^EVERY reply starts: route: delegate\|inline - <reason>$/m,
+    "reminder-on must require the route verdict line");
 });
 
-test("off-turn pointer is a single line referencing the reminder tag", () => {
+test("off-turn line is single-line and carries the rule directly", () => {
   const lines = offTurn.split("\n").filter((l) => l.trim().length > 0);
   assert.equal(lines.length, 1,
-    "the interceding-prompt pointer must be exactly one non-empty line");
-  assert.ok(lines[0].includes("<ORCHESTRATION-REMINDER-INVARIANT>"),
-    "the pointer must reference the exact reminder tag");
+    "the interceding-prompt rule carrier must be exactly one non-empty line");
+  assert.ok(lines[0].includes("<ORCHESTRATION-INVARIANT>"),
+    "the off-turn line must carry the exact invariant tag");
+  assert.match(lines[0], /5-CALL RULE/,
+    "the off-turn line must carry the 5-call rule itself");
+  assert.match(lines[0], /route: delegate\|inline - <reason>/,
+    "the off-turn line must carry the ON route-verdict cue");
 });
-
 // ---------------------------------------------------------------------------
 // Carryover notice: provider-split permission tool (same invariant as above)
 //

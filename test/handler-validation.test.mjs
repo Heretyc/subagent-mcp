@@ -226,7 +226,7 @@ test("explicit mismatch: codex + sonnet -> Codex constraint message", () => {
 // deadlock constraint.
 // ---------------------------------------------------------------------------
 const DEADLOCK_ERROR =
-  "Error: deadlock cannot be combined with provider, model, or effort. If repeated attempts at this task have failed, switch to pure auto mode — pass only prompt + task_category and let the server select — unless your assignment explicitly demands a specific model. Omit provider/model/effort and retry.\n" +
+  "Error: deadlock cannot be combined with provider, model, or effort. From the 3rd attempt for the same atomic task, deadlock outranks capability overrides: drop provider/model/effort and retry.\n" +
   AUTO_HINT;
 
 test("deadlock+provider → exact deadlock error text", () => {

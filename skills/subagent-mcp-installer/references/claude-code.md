@@ -1,7 +1,7 @@
 # Vendor — Claude Code (CLI)
 
-Full support: user-scope MCP server **plus** a machine-wide `UserPromptSubmit`
-hook. All paths absolute and pointing at the permanent install root
+Full support: user-scope MCP server **plus** machine-wide `UserPromptSubmit`
+and `PreToolUse` hooks. All paths absolute and pointing at the permanent root
 (`<npm root -g>/subagent-mcp`). Compliance basis: `compliance.md` → "Claude Code".
 
 Prereq: the decoupled global install exists (`packaging.md` / `deploy.mjs`).
@@ -31,6 +31,19 @@ Add (do not duplicate an existing entry; back the file up first):
             "type": "command",
             "command": "node",
             "args": ["<INSTALL>/dist/hooks/orchestration-claude.js"]
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["<INSTALL>/dist/hooks/orchestration-claude-pretool.js"],
+            "timeout": 5
           }
         ]
       }
@@ -66,8 +79,9 @@ machine using this standalone install:
 3. Toggle `orchestration-mode` ON → submit a prompt → an orchestrator-only
    directive is injected ahead of the turn (hook returns `additionalContext`).
 4. Toggle OFF → the FULL directive stops; the OFF reminder cadence (LONG
-   `reminder-off-claude.md` every 5th prompt, one-line pointer between) remains.
-5. No double injection (confirms the plugin is not also wired).
+   `reminder-off-claude.md` every 5th prompt, one-line rule carrier between) remains.
+5. Native `Task`/`Agent` tools are redirected while the server heartbeat is fresh.
+6. No double injection (confirms the plugin is not also wired).
 
 ## Desktop note
 

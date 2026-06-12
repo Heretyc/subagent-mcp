@@ -9,7 +9,7 @@ tarball (a **copy**, never `npm link`'s symlink).
 `subagent-mcp`'s `package.json` declares `bin`/`main` = `dist/index.js`,
 `type: module`, and deps `@modelcontextprotocol/sdk` + `zod`. A pack includes:
 
-- `dist/**` — server + both compiled hooks. `dist/` is git-ignored, but the
+- `dist/**` — server + compiled provider hooks. `dist/` is git-ignored, but the
   `prepare` script (`npm run build`) rebuilds it before pack, so the tarball
   carries a fresh `dist/`.
 - `directives/**` — the per-turn directive assets (tracked, always shipped).
