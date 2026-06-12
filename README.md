@@ -48,7 +48,7 @@ only if you intentionally run inside this source repo.
 
 After setup, restart your Claude Code or Codex session. On Codex, run `/hooks` and trust the new hook.
 
-**Updating:** `npm install -g @heretyc/subagent-mcp && subagent-mcp setup`
+**Updating:** `subagent-mcp update && subagent-mcp setup`
 
 For manual wiring, developer install from source, Gemini CLI, and Claude Desktop, see [docs/registration.md](docs/registration.md).
 

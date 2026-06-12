@@ -4,9 +4,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { spawn, spawnSync, execSync, ChildProcess } from "child_process";
-import { unlinkSync, existsSync, realpathSync, readFileSync } from "node:fs";
+import { unlinkSync, existsSync, realpathSync, readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "crypto";
 import { isAbsolute, basename, join, dirname } from "node:path";
+import { tmpdir } from "node:os";
 import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
 import { resolveExeFor } from "./platform.js";
@@ -1129,27 +1130,29 @@ if (isMain) {
     "",
     "  (no command)       start the MCP stdio server (how vendor CLIs run it)",
     "  setup [--dry-run]  wire Claude Code CLI / Codex CLI (--dry-run: preview only)",
-    "  init [flags]       upsert project instruction-file invariant blocks",
+    "  init, --init [flags]",
+    "                     upsert project instruction-file invariant blocks",
     "                     flags: --dry-run --remove --force --root <dir> --files <csv> --copilot --cursor",
     "  doctor             check install and wiring health",
-    "  --update           update to the latest release (npm install -g)",
-    "  --version, -v      print the installed version",
-    "  --help, -h         show this help",
+    "  update, --update   update to the latest release (npm install -g)",
+    "  version, --version, -v",
+    "                     print the installed version",
+    "  help, --help, -h   show this help",
   ].join("\n");
   // dist/index.js -> ../package.json (the installed package manifest).
   const readPkg = () =>
     JSON.parse(
       readFileSync(new URL("../package.json", import.meta.url), "utf8")
     ) as { name: string; version: string };
-  if (arg === "--version" || arg === "-v") {
+  if (arg === "version" || arg === "--version" || arg === "-v") {
     console.log(readPkg().version);
     process.exit(0);
   }
-  if (arg === "--help" || arg === "-h") {
+  if (arg === "help" || arg === "--help" || arg === "-h") {
     console.log(usage);
     process.exit(0);
   }
-  if (arg === "--update") {
+  if (arg === "update" || arg === "--update") {
     const pkg = readPkg();
     const npmArgs = ["install", "-g", `${pkg.name}@latest`];
     console.log(`subagent-mcp ${pkg.version} -> npm ${npmArgs.join(" ")}`);
@@ -1162,25 +1165,93 @@ if (isMain) {
       "./setup.js"
     );
     const npm = findOnPath("npm") ?? "npm";
-    let r;
-    if (process.platform === "win32" && /\.(?:cmd|bat)$/i.test(npm)) {
+    const spawnNpm = (
+      args: string[],
+      stdio: "inherit" | "pipe"
+    ) => {
       const sibling = join(dirname(npm), "node_modules", "npm", "bin", "npm-cli.js");
-      const js =
-        resolveCmdShimNodeScript(npm) ?? (existsSync(sibling) ? sibling : null);
-      r = js
-        ? spawnSync(process.execPath, [js, ...npmArgs], { stdio: "inherit" })
-        : // Last resort: cmd.exe via shell. The arg vector is a fixed literal
-          // list (safe charset only), so there is no quoting/injection surface.
-          spawnSync("npm", npmArgs, { stdio: "inherit", shell: true });
-    } else {
-      r = spawnSync(npm, npmArgs, { stdio: "inherit" });
+      if (process.platform === "win32" && /\.(?:cmd|bat)$/i.test(npm)) {
+        const js =
+          resolveCmdShimNodeScript(npm) ?? (existsSync(sibling) ? sibling : null);
+        return js
+          ? spawnSync(process.execPath, [js, ...args], {
+              stdio: stdio === "pipe" ? ["ignore", "pipe", "pipe"] : stdio,
+              encoding: stdio === "pipe" ? "utf8" : undefined,
+            })
+          : // Last resort: cmd.exe via shell. The arg vector is a fixed literal
+            // list (safe charset only), so there is no quoting/injection surface.
+            spawnSync("npm", args, {
+              stdio: stdio === "pipe" ? ["ignore", "pipe", "pipe"] : stdio,
+              shell: true,
+              encoding: stdio === "pipe" ? "utf8" : undefined,
+            });
+      }
+      return spawnSync(npm, args, {
+        stdio: stdio === "pipe" ? ["ignore", "pipe", "pipe"] : stdio,
+        encoding: stdio === "pipe" ? "utf8" : undefined,
+      });
+    };
+
+    const npmRoot = spawnNpm(["root", "-g"], "pipe");
+    if (npmRoot.error || npmRoot.status !== 0) {
+      console.error(
+        `update failed to resolve npm global root: ${
+          npmRoot.error?.message ?? npmRoot.stderr?.toString().trim() ?? "npm root -g failed"
+        }`
+      );
+      process.exit(npmRoot.status ?? 1);
     }
+    const installRoot = join(
+      npmRoot.stdout.toString().trim(),
+      ...pkg.name.split("/")
+    );
+    const rulesetPath = join(installRoot, "dist", "advanced-ruleset.py");
+    let previousRuleset: Buffer | null = null;
+    if (existsSync(rulesetPath)) {
+      previousRuleset = readFileSync(rulesetPath);
+      const backupPath = join(
+        tmpdir(),
+        `advanced-ruleset.py.bak-update-${Date.now()}`
+      );
+      try {
+        writeFileSync(backupPath, previousRuleset);
+        console.log(`backed up user advanced-ruleset.py to ${backupPath}`);
+      } catch (e) {
+        console.error(
+          `update refused before install: failed to back up advanced-ruleset.py: ${
+            e instanceof Error ? e.message : String(e)
+          }`
+        );
+        process.exit(1);
+      }
+    }
+    const r = spawnNpm(npmArgs, "inherit");
     if (r.error) {
       console.error(`update failed to start npm: ${r.error.message}`);
       process.exit(1);
     }
     const code = r.status ?? 1;
     if (code === 0) {
+      if (previousRuleset !== null) {
+        try {
+          const freshRuleset = existsSync(rulesetPath)
+            ? readFileSync(rulesetPath)
+            : null;
+          if (freshRuleset === null || !previousRuleset.equals(freshRuleset)) {
+            writeFileSync(rulesetPath, previousRuleset);
+            console.log(
+              "restored user advanced-ruleset.py (package update never overwrites user edits)"
+            );
+          }
+        } catch (e) {
+          console.error(
+            `update failed to restore advanced-ruleset.py: ${
+              e instanceof Error ? e.message : String(e)
+            }`
+          );
+          process.exit(1);
+        }
+      }
       console.log(
         "Update complete. Restart your CLI sessions so the MCP server picks up the new build."
       );
