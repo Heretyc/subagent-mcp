@@ -27,8 +27,8 @@ If unsure which category fits, do NOT pass one big amorphous task: break the wor
 ## Presence matrix
 
 `P`=provider, `M`=model, `E`=effort present. `launchable valid` means one
-of the 10 fixed categories other than `fallback_default`. `fallback_default` is
-a valid category sentinel, but resolver-backed modes cannot launch it.
+of the 14 taxonomy categories other than `fallback_default`. `fallback_default`
+is a valid category sentinel, but resolver-backed modes cannot launch it.
 
 | C | P | M | E | Outcome |
 |---|---|---|---|---|
@@ -93,7 +93,7 @@ errors with overrides — `false` + full P/M/E is plain `explicit` mode.
 value; if absent, render `Got: <none>`:
 
 ```
-Error: task_category is required and must be one of: math_proof, security_review, debugging, quality_review, architecture, agentic_execution, data_analysis, coding, knowledge_synthesis, mechanical, fallback_default. Got: <value>.
+Error: task_category is required and must be one of: math_proof, security_review, debugging, quality_review, architecture, agentic_execution, data_analysis, coding, knowledge_synthesis, mechanical, prompt_engineering, vulnerability_research, molecular_biology, ml_accelerator_design, fallback_default. Got: <value>.
 <SPLIT_HINT>
 <AUTO_HINT>
 ```

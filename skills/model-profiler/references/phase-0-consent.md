@@ -130,7 +130,7 @@ this sequence (all within the worktree lifecycle of invariant #15 / `references/
 | 5 | **Model universe scope:** "current generation" (recommended) or a strict recency window? | **Tradeoff to surface impartially:** a strict recency window can exclude an older small/low-cost tier that currently anchors a low-complexity category's primary route — leaving that route without a replacement. State this consequence; recommend "current generation"; confirm the owner's choice before proceeding. Name no specific model. |
 | 6 | **Authorize the 3-artifact emission + build-wiring?** The run will write `src/routing-table.json` + `src/routing-table-audit.json` + `research-seed-sites.json`, and touch `package.json`, `scripts/copy-provider.mjs`, `scripts/validate_provider.mjs`, `scripts/build_routing_table.mjs`, `scripts/update_seed_sites.mjs`, `scripts/validate_seed_sites.mjs`. | These are code/config changes; the owner must scope them in. |
 
-> The taxonomy is **fixed** — there is no "authorize taxonomy change" question. The 10 categories +
+> The taxonomy is **fixed** — there is no "authorize taxonomy change" question. The 14 categories +
 > `fallback_default`@99 are immutable inputs (`.spec/references/work-categories.md`); this run only
 > refreshes the per-category rankings against them.
 

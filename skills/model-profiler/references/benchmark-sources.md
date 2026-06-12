@@ -28,9 +28,10 @@ official boards across 10 category rows · 6 Tier-4 venues · 3 Tier-5 trackers)
 
 ---
 
-## Per-category benchmark-family map (onto the FIXED 10)
+## Per-category benchmark-family map (onto the directly benchmarked parents)
 
-Key each score to the category it is most diagnostic of. `findability` flags how directly the
+Key each score to the category it is most diagnostic of. The 4 composite-inferred tiles (11–14)
+carry no benchmark family — they are composed from parent scores, never mapped directly. `findability` flags how directly the
 category is measured (strong / moderate / proxy).
 
 | Category (precedence) | Benchmark families | Findability |

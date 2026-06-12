@@ -8,7 +8,7 @@ rankings + rationale (the spine is a fixed input, never a verdict to be re-decid
 
 ## 1. The category spine is FIXED — never re-architected here
 
-The 10 categories + `fallback_default`@99 and their precedence are an **immutable input**
+The 14 categories (directly benchmarked parents + 4 composite-inferred) + `fallback_default`@99 and their precedence are an **immutable input**
 (`work-categories.md`; determination methodology in `docs/spec/task-taxonomy/`). A run refreshes the
 per-category **rankings** (the member+effort ordering) — it never adds, merges, renames, reorders, or
 drops a category. Keep the spine as-is. If a run surfaces evidence the spine itself is wrong, **surface

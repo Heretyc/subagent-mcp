@@ -1,7 +1,10 @@
 # Determination Rationale
 
-Provenance of the fixed 10-category taxonomy: generation process, resolved disputes, old→new
-mapping, and honest weaknesses. Per-category rationale and benchmarks are in `category-rationale.md`.
+Provenance of the directly benchmarked parent set (precedence 1–10): generation process, resolved
+disputes, old→new mapping, and honest weaknesses. Per-category rationale and benchmarks are in
+`category-rationale.md`. The 4 composite-inferred tiles (precedence 11–14) were added on top of this
+parent set by a later owner-approved extension; their parent-map rationale lives in
+`composite-inferred-tiles.md`, not here.
 
 ---
 

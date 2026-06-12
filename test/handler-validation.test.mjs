@@ -17,7 +17,7 @@
 
 import assert from "node:assert/strict";
 
-import { validatePresence } from "../dist/routing.js";
+import { TASK_CATEGORIES, validatePresence } from "../dist/routing.js";
 
 // Verbatim hint blocks (resolution-matrix.md). Asserted by substring so a hint
 // edit in src/index.ts surfaces here.
@@ -100,9 +100,9 @@ test("ERR_BAD_CATEGORY: absent category -> exact text with 'Got: <none>' + both 
   assert.ok(msg, "absent category must produce an error");
   assert.ok(
     msg.startsWith(
-      "Error: task_category is required and must be one of: math_proof, security_review, debugging, quality_review, architecture, agentic_execution, data_analysis, coding, knowledge_synthesis, mechanical, fallback_default. Got: <none>."
+      `Error: task_category is required and must be one of: ${TASK_CATEGORIES.join(", ")}. Got: <none>.`
     ),
-    "absent category renders 'Got: <none>.' and lists all 11 categories verbatim");
+    "absent category renders 'Got: <none>.' and lists all task categories verbatim");
   assert.ok(msg.includes(SPLIT_HINT), "ERR_BAD_CATEGORY must include SPLIT_HINT");
   assert.ok(msg.includes(AUTO_HINT), "ERR_BAD_CATEGORY must include AUTO_HINT");
   // SPLIT_HINT precedes AUTO_HINT per the message template.
