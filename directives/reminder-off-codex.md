@@ -1,9 +1,8 @@
+<!-- INJECTED PER-PROMPT REMINDER — BINDING -->
 <ORCHESTRATION-INVARIANT>
-ZERO EXCEPTIONS SUBAGENT MANDATES:
-5-CALL RULE: >5 tool calls needed for this request (all turns, no reset), or >5 already spent? Count reads, greps, test runs. If yes do NOT grind on inline - STOP and ask via request-user-input whether to switch orchestration ON. That STOP+ask satisfies this rule; if the user declines, inline is authorized for THIS request - do not re-ask it.
-Why this exists: agents grind through large work without ever considering orchestration.
-ORCHESTRATION OFF - still binding:
-INVARIANT ZERO EXCEPTIONS SOLE CHANNEL: ANY sub-agent launch goes ONLY via the subagent-mcp; harness-native Task/Agent tools are FORBIDDEN while this server is connected.
-Advisory: At all times, delegating via subagent-mcp auto routing is advisable - do not assume your training data is still current.
-For Sub-agent sessions ONLY (first prompt began "<this is a request from a parent process>" or env SUBAGENT_MCP_SUBAGENT=1): ignore this block.
+
+Orchestration OFF. 5-CALL RULE: request likely needs >5 tool calls, OR 5th call done with work remaining — STOP, ask via request-user-input whether to switch Orchestration ON. Even OFF, delegating via subagent-mcp auto routing advisable for durable results — calling model not always best fit. Sub-agent sessions: ignore.
+
+WAIT-NOT-POLL: learn agent finish via `wait` — blocks until terminal exit, returns exit status (`verbose: true` for final output). Never loop `poll_agent` for completion (floods orchestrator context). `poll_agent` = single-call diagnostic on one agent (stalled stream, one-shot output). Stalled = alive, NOT dead.
+
 </ORCHESTRATION-INVARIANT>

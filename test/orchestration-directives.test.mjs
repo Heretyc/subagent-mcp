@@ -25,14 +25,20 @@ const claude = readFileSync(join(directivesDir, "orchestration-claude.md"), "utf
 const codex = readFileSync(join(directivesDir, "orchestration-codex.md"), "utf8");
 const carryoverClaude = readFileSync(join(directivesDir, "carryover-claude.md"), "utf8");
 const carryoverCodex = readFileSync(join(directivesDir, "carryover-codex.md"), "utf8");
-const offTurn = readFileSync(join(directivesDir, "off-turn-reminder.md"), "utf8");
+const shortOn = readFileSync(join(directivesDir, "short-on.md"), "utf8");
+const shortOff = readFileSync(join(directivesDir, "short-off.md"), "utf8");
 const reminderOn = readFileSync(join(directivesDir, "reminder-on.md"), "utf8");
 const reminderOffClaude = readFileSync(join(directivesDir, "reminder-off-claude.md"), "utf8");
 const reminderOffCodex = readFileSync(join(directivesDir, "reminder-off-codex.md"), "utf8");
 
 const INVARIANT_OPEN = "<ORCHESTRATION-INVARIANT";
 const INVARIANT_CLOSE = "</ORCHESTRATION-INVARIANT>";
-const OLD_FULL_TAG = "SUB-" + "AGENT-INVARIANT";
+const CARRYOVER_OPEN = "<ORCHESTRATION-CARRYOVER>";
+const CARRYOVER_CLOSE = "</ORCHESTRATION-CARRYOVER>";
+const SHORT_OPEN = "<SUB-AGENT-INVARIANT>";
+const SHORT_CLOSE = "</SUB-AGENT-INVARIANT>";
+const OLD_FULL_OPEN = "<SUB-" + "AGENT-INVARIANT>";
+const OLD_FULL_CLOSE = "</SUB-" + "AGENT-INVARIANT>";
 const OLD_REMINDER_TAG = "ORCHESTRATION-" + "REMINDER-INVARIANT";
 const OLD_CARRYOVER_TAG = "ORCHESTRATION-" + "CARRYOVER";
 
@@ -96,7 +102,8 @@ test("no directive file contains 'ultracode' (case-insensitive)", () => {
     ["codex", codex],
     ["carryover-claude", carryoverClaude],
     ["carryover-codex", carryoverCodex],
-    ["off-turn-reminder", offTurn],
+    ["short-on", shortOn],
+    ["short-off", shortOff],
     ["reminder-on", reminderOn],
     ["reminder-off-claude", reminderOffClaude],
     ["reminder-off-codex", reminderOffCodex],
@@ -119,9 +126,6 @@ test("rule-carrying directive assets use the single <ORCHESTRATION-INVARIANT> ta
   for (const [name, body] of [
     ["claude", claude],
     ["codex", codex],
-    ["carryover-claude", carryoverClaude],
-    ["carryover-codex", carryoverCodex],
-    ["off-turn-reminder", offTurn],
     ["reminder-on", reminderOn],
     ["reminder-off-claude", reminderOffClaude],
     ["reminder-off-codex", reminderOffCodex],
@@ -132,8 +136,46 @@ test("rule-carrying directive assets use the single <ORCHESTRATION-INVARIANT> ta
       `${name} must close the single invariant tag`);
     assert.ok(body.indexOf(INVARIANT_OPEN) < body.indexOf(INVARIANT_CLOSE),
       `${name} must open the tag before closing it`);
-    assert.ok(!body.includes(OLD_FULL_TAG),
-      `${name} must not keep the old full-directive tag`);
+    assert.ok(!body.includes(OLD_FULL_OPEN) && !body.includes(OLD_FULL_CLOSE),
+      `${name} must not keep the old full-directive wrapper`);
+    assert.ok(!body.includes(OLD_REMINDER_TAG),
+      `${name} must not keep the old reminder tag`);
+    assert.ok(!body.includes(OLD_CARRYOVER_TAG),
+      `${name} must not keep the old carryover tag`);
+  }
+});
+
+test("carryover directive assets use the <ORCHESTRATION-CARRYOVER> tag", () => {
+  for (const [name, body] of [
+    ["carryover-claude", carryoverClaude],
+    ["carryover-codex", carryoverCodex],
+  ]) {
+    assert.ok(body.includes(CARRYOVER_OPEN),
+      `${name} must open with the carryover tag`);
+    assert.ok(body.includes(CARRYOVER_CLOSE),
+      `${name} must close the carryover tag`);
+    assert.ok(body.indexOf(CARRYOVER_OPEN) < body.indexOf(CARRYOVER_CLOSE),
+      `${name} must open the tag before closing it`);
+    assert.ok(!body.includes(OLD_REMINDER_TAG),
+      `${name} must not keep the old reminder tag`);
+  }
+});
+
+test("short directive assets use the provider-neutral <SUB-AGENT-INVARIANT> tag", () => {
+  for (const [name, body] of [
+    ["short-on", shortOn],
+    ["short-off", shortOff],
+  ]) {
+    assert.ok(body.startsWith(SHORT_OPEN),
+      `${name} must open with the short invariant tag`);
+    assert.ok(body.trimEnd().endsWith(SHORT_CLOSE),
+      `${name} must close the short invariant tag`);
+    assert.equal((body.match(new RegExp(SHORT_OPEN, "g")) ?? []).length, 1,
+      `${name} must contain exactly one short open tag`);
+    assert.equal((body.match(new RegExp(SHORT_CLOSE, "g")) ?? []).length, 1,
+      `${name} must contain exactly one short close tag`);
+    assert.ok(!body.includes(INVARIANT_CLOSE),
+      `${name} must point at the last long invariant rather than duplicate it`);
     assert.ok(!body.includes(OLD_REMINDER_TAG),
       `${name} must not keep the old reminder tag`);
     assert.ok(!body.includes(OLD_CARRYOVER_TAG),
@@ -161,29 +203,34 @@ test("reminder blocks carry their mode-specific intent", () => {
   ]) {
     assert.match(body, /5-CALL RULE/,
       `${name} must state the 5-call rule`);
-    assert.match(body, /STOP and ask/i,
+    assert.match(body, /STOP, ask via (AskUserQuestion|request-user-input)/i,
       `${name} must block inline grinding and ask before enabling`);
-    assert.match(body, /SOLE CHANNEL/i,
-      `${name} must preserve the subagent-mcp-only channel while OFF`);
+    assert.match(body, /subagent-mcp/i,
+      `${name} must preserve the subagent-mcp routing cue while OFF`);
   }
   assert.match(reminderOn, /[Dd]elegate-default/,
     "reminder-on must reinforce delegate-default");
   assert.match(reminderOn, /5-CALL RULE/,
     "reminder-on must state that delegation satisfies the 5-call rule");
-  assert.match(reminderOn, /^EVERY reply starts: route: delegate\|inline - <reason>$/m,
-    "reminder-on must require the route verdict line");
+  assert.match(reminderOn, /server MCP instructions/,
+    "reminder-on must point at the full MCP governance");
 });
 
-test("off-turn line is single-line and carries the rule directly", () => {
-  const lines = offTurn.split("\n").filter((l) => l.trim().length > 0);
-  assert.equal(lines.length, 1,
-    "the interceding-prompt rule carrier must be exactly one non-empty line");
-  assert.ok(lines[0].includes("<ORCHESTRATION-INVARIANT>"),
-    "the off-turn line must carry the exact invariant tag");
-  assert.match(lines[0], /5-CALL RULE/,
-    "the off-turn line must carry the 5-call rule itself");
-  assert.match(lines[0], /route: delegate\|inline - <reason>/,
-    "the off-turn line must carry the ON route-verdict cue");
+test("short lines are single-line state-aware pointers to the last long invariant", () => {
+  for (const [name, body, state] of [
+    ["short-on", shortOn, "ON"],
+    ["short-off", shortOff, "OFF"],
+  ]) {
+    const lines = body.split("\n").filter((l) => l.trim().length > 0);
+    assert.equal(lines.length, 1,
+      `${name} must be exactly one non-empty line`);
+    assert.match(lines[0], new RegExp(`Orchestration ${state}`),
+      `${name} must state the orchestration state`);
+    assert.match(lines[0], /5-CALL RULE/,
+      `${name} must carry the 5-call rule cue`);
+    assert.match(lines[0], /last <ORCHESTRATION-INVARIANT> block/,
+      `${name} must point at the last long invariant block`);
+  }
 });
 // ---------------------------------------------------------------------------
 // Carryover notice: provider-split permission tool (same invariant as above)
@@ -231,6 +278,8 @@ test("all directive files stay <= 200 lines", () => {
     ["reminder-on", reminderOn],
     ["reminder-off-claude", reminderOffClaude],
     ["reminder-off-codex", reminderOffCodex],
+    ["short-on", shortOn],
+    ["short-off", shortOff],
   ]) {
     const lineCount = body.split("\n").length;
     assert.ok(lineCount <= 200,

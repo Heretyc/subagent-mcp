@@ -54,7 +54,8 @@ export const claudeAdapter: ProviderAdapter = {
   },
 
   fullDirectiveFile: "orchestration-claude.md",
-  offTurnFile: "off-turn-reminder.md",
+  shortOnFile: "short-on.md",
+  shortOffFile: "short-off.md",
   carryoverDirectiveFile: "carryover-claude.md",
   reminderOnFile: "reminder-on.md",
   reminderOffFile: "reminder-off-claude.md",

@@ -76,7 +76,7 @@ repointing `hooks.json` invalidates the stored `trusted_hash`** (in
 
 1. `codex mcp list` (or `/mcp`) → `subagent-mcp` + tools (`orchestration-mode`,
    `launch_agent`, …).
-2. `directives/orchestration-codex.md`, `off-turn-reminder.md`,
+2. `directives/orchestration-codex.md`, `short-on.md`, `short-off.md`,
    `carryover-codex.md`, `reminder-on.md`, `reminder-off-codex.md` exist at
    `<INSTALL>/directives`.
 3. `/hooks` shows the hook **trusted**.

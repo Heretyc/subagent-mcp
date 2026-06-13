@@ -1,17 +1,13 @@
-<ORCHESTRATION-INVARIANT>
-Sub-agent sessions (first prompt began "<this is a request from a parent process>"): ignore this block.
+<!-- INJECTED PRE-PROMPT DIRECTIVE — BINDING, NON-NEGOTIABLE -->
+<ORCHESTRATION-CARRYOVER>
 
-ORCHESTRATION MODE carried over ON from a PRIOR session of this project
-(persists until disabled with permission). Not user-enabled THIS session.
+Orchestration MODE was ON at session start — carried over from PRIOR session for this project (persists until disabled with permission). Not enabled THIS session.
 
 THIS turn, ONCE:
 1. NOTIFY user it carried over.
 2. ASK keep ON? via AskUserQuestion.
-3. ADVISE fit: long-horizon context-filling → keep ON; bounded, interactive, or
-   core-bound to main-session-only MCP → propose OFF.
+3. ADVISE fit: long-horizon context-filling → keep ON; bounded/interactive/core-bound to main-session-only MCP → propose OFF.
 
-Until answered, the mandates below still bind. Declines → orchestration-mode
-enabled:false. NEVER disable on own initiative. After answer: handshake done —
-do not re-raise.
+Declines → orchestration-mode enabled:false. NEVER disable on own initiative. After answer: handshake done — do not re-raise.
 
-</ORCHESTRATION-INVARIANT>
+</ORCHESTRATION-CARRYOVER>

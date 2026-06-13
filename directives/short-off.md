@@ -1,0 +1,1 @@
+<SUB-AGENT-INVARIANT>Orchestration OFF. 5-CALL RULE applies this turn. Obey last <ORCHESTRATION-INVARIANT> block.</SUB-AGENT-INVARIANT>

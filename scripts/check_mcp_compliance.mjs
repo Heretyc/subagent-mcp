@@ -18,9 +18,10 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 //                             combined claim-turn injection (carryover + full
 //                             + reminder-on — the largest single emission).
 //   C5 directive asset budget: per-prefix byte budgets (orchestration-* and
-//                             reminder-* <= 1250 B, carryover-* <= 800 B; any
-//                             other directive .md defaults to 1250 B) — keep
-//                             the caveman-compressed per-turn injection lean.
+//                             reminder-* <= 1250 B, carryover-* <= 800 B,
+//                             short-* <= 350 B; any other directive .md
+//                             defaults to 1250 B) — keep the compressed
+//                             per-turn injection lean.
 
 const indexPath = new URL("../src/index.ts", import.meta.url);
 const directivesDir = new URL("../directives/", import.meta.url);
@@ -32,12 +33,14 @@ const TOOL_NAME_RE = /^[a-zA-Z0-9_-]{1,128}$/;
 const ADDITIONAL_CONTEXT_CAP = 10000;
 const ORCHESTRATION_ASSET_MAX = 1250;
 const CARRYOVER_ASSET_MAX = 800;
+const SHORT_ASSET_MAX = 350;
 // Prefix -> C5 byte budget. Files matching no prefix get the default budget so
 // a NEW directive family can never ship with zero C5 coverage.
 const C5_BUDGETS = [
   ["orchestration-", ORCHESTRATION_ASSET_MAX],
   ["carryover-", CARRYOVER_ASSET_MAX],
   ["reminder-", ORCHESTRATION_ASSET_MAX],
+  ["short-", SHORT_ASSET_MAX],
 ];
 const C5_DEFAULT_BUDGET = ORCHESTRATION_ASSET_MAX;
 
