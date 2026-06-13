@@ -31,9 +31,11 @@ caveman-ultra reminder**:
   disable-governance pointer, ultra-compressed) injects on CLAIM turns only;
   steady state is the per-prompt reminder cadence — the LONG mode-specific
   `<ORCHESTRATION-INVARIANT>` block (`reminder-on.md` /
-  `reminder-off-<provider>.md`) every 5th prompt, the one-line rule carrier
-  (`off-turn-reminder.md`) between. The long persistence/governance prose lives
-  in metadata; carryover notices keep their notify/ask/advise instruction.
+  `reminder-off-<provider>.md`) every 5th prompt, and between prompts a
+  state-aware short pointer — `short-on.md` when ON, `short-off.md` when OFF
+  (provider-neutral, wrapped in `<SUB-AGENT-INVARIANT>`). The long
+  persistence/governance prose lives in metadata; carryover notices keep their
+  notify/ask/advise instruction.
 
 **`ultracode` references removed.** The operating-model phrasing is now generic
 "workflow orchestration / delegate to sub-agents and workflows" across the
@@ -88,14 +90,16 @@ Marker fields: `enabled`, `cwd`, `owner_session`, `baseline_turn`,
   it) drives the cadence in BOTH marker states. Every 5th counted prompt emits
   the LONG mode-specific `<ORCHESTRATION-INVARIANT>` block
   (`reminder-on.md` when ON, `reminder-off-<provider>.md` when OFF); every
-  prompt between emits the one-line rule carrier (`off-turn-reminder.md`).
+  prompt between emits the state-aware short pointer — `short-on.md` when ON,
+  `short-off.md` when OFF.
 - ON claim turns (FRESH enable / CARRYOVER re-claim) emit the **FULL**
   directive plus the ON reminder block and re-baseline the counter to the
   period boundary, so the next LONG fires exactly 5 prompts later. FULL fires
   on claim turns only; steady state is the leaner tagged reminder.
-- The OFF long variants and off-turn carrier carry the 5-CALL RULE: ask via the
-  provider question tool before enabling when work outgrows 5 tool calls, and
-  keep subagent-mcp as the sole sub-agent channel even while OFF.
+- The OFF long variants and OFF short pointer (`short-off.md`) carry the
+  5-CALL RULE: ask via the provider question tool before enabling when work
+  outgrows 5 tool calls, and keep subagent-mcp as the sole sub-agent channel
+  even while OFF.
 - Codex `SessionStart` covers turn 0 directly when active (FULL + ON reminder
   on FRESH, CARRYOVER notice prepended when inherited; counter re-baselined);
   Codex `UserPromptSubmit` runs the normal counter cadence.
