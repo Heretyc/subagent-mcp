@@ -61,7 +61,8 @@ function test(name, fn) {
 }
 
 const FULL_TEXT = "FULL-DIRECTIVE-BODY";
-const OFF_TEXT = "RULE-CARRIER-ONE-LINER";
+const SHORT_ON_TEXT = "SHORT-ON-RULE-CARRIER";
+const SHORT_OFF_TEXT = "SHORT-OFF-RULE-CARRIER";
 const CARRYOVER_TEXT = "CARRYOVER-NOTICE-BODY";
 const REM_ON_TEXT = "REMINDER-ON-BLOCK";
 const REM_OFF_TEXT = "REMINDER-OFF-BLOCK";
@@ -69,7 +70,8 @@ const REM_OFF_TEXT = "REMINDER-OFF-BLOCK";
 // Build a temp directives dir and an env that points the resolver at it.
 function makeDirectivesEnv({
   withFull = true,
-  withOff = true,
+  withShortOn = true,
+  withShortOff = true,
   withCarryover = true,
   withReminderOn = true,
   withReminderOff = true,
@@ -78,7 +80,8 @@ function makeDirectivesEnv({
   const dir = join(root, "directives");
   mkdirSync(dir, { recursive: true });
   if (withFull) writeFileSync(join(dir, "full.md"), FULL_TEXT, "utf8");
-  if (withOff) writeFileSync(join(dir, "off.md"), OFF_TEXT, "utf8");
+  if (withShortOn) writeFileSync(join(dir, "short-on.md"), SHORT_ON_TEXT, "utf8");
+  if (withShortOff) writeFileSync(join(dir, "short-off.md"), SHORT_OFF_TEXT, "utf8");
   if (withCarryover) writeFileSync(join(dir, "carryover.md"), CARRYOVER_TEXT, "utf8");
   if (withReminderOn) writeFileSync(join(dir, "rem-on.md"), REM_ON_TEXT, "utf8");
   if (withReminderOff) writeFileSync(join(dir, "rem-off.md"), REM_OFF_TEXT, "utf8");
@@ -91,7 +94,8 @@ function makeAdapter({ subagent = false, turn = 0 } = {}) {
     isSubagent: () => subagent,
     currentTurn: () => turn,
     fullDirectiveFile: "full.md",
-    offTurnFile: "off.md",
+    shortOnFile: "short-on.md",
+    shortOffFile: "short-off.md",
     carryoverDirectiveFile: "carryover.md",
     reminderOnFile: "rem-on.md",
     reminderOffFile: "rem-off.md",
@@ -125,7 +129,7 @@ test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule ca
       if (prompt % REMINDER_PERIOD === 0) {
         assert.equal(out, REM_OFF_TEXT, `prompt ${prompt} must emit the LONG OFF block`);
       } else {
-        assert.equal(out, OFF_TEXT, `prompt ${prompt} must emit the one-line rule carrier`);
+        assert.equal(out, SHORT_OFF_TEXT, `prompt ${prompt} must emit the OFF one-line rule carrier`);
       }
     }
     assert.equal(readReminder(cwd).counts["s-off"], 10, "counter persisted across prompts");
@@ -149,7 +153,7 @@ test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)",
         if (round === 5) {
           assert.equal(out, REM_OFF_TEXT, `${session} round 5 must be its LONG block`);
         } else {
-          assert.equal(out, OFF_TEXT, `${session} round ${round} must be the rule carrier`);
+          assert.equal(out, SHORT_OFF_TEXT, `${session} round ${round} must be the OFF rule carrier`);
         }
       }
     }
@@ -171,7 +175,7 @@ test("OFF: a new session starts its own count without disturbing others", () => 
     }
     assert.equal(readReminder(cwd).counts["s-A"], 3);
     const out = runHook({ cwd, session_id: "s-B", transcript_path: undefined }, env, adapter);
-    assert.equal(out, OFF_TEXT, "first prompt of a new session emits the rule carrier");
+    assert.equal(out, SHORT_OFF_TEXT, "first prompt of a new session emits the OFF rule carrier");
     const counts = readReminder(cwd).counts;
     assert.equal(counts["s-B"], 1, "a new session starts its own count at 1");
     assert.equal(counts["s-A"], 3, "the other session's count is untouched");
@@ -225,7 +229,7 @@ test("ON cadence: claim -> 4 rule carriers -> LONG ON block on the 5th prompt af
 
     for (let i = 1; i <= 4; i++) {
       const out = runHook(payload, env, adapter);
-      assert.equal(out, OFF_TEXT, `prompt ${i} after claim -> rule carrier`);
+      assert.equal(out, SHORT_ON_TEXT, `prompt ${i} after claim -> ON rule carrier`);
     }
     const fifth = runHook(payload, env, adapter);
     assert.equal(fifth, REM_ON_TEXT,
@@ -308,7 +312,7 @@ test("CARRYOVER then next same-session turn -> rule carrier, no repeat notice", 
     // Next prompt: same-session -> rule carrier, NO carryover repeat.
     const second = runHook({ cwd, session_id: "S", transcript_path: undefined }, env,
       makeAdapter({ turn: 8 }));
-    assert.equal(second, OFF_TEXT, "next same-session turn is normal cadence, not carryover");
+    assert.equal(second, SHORT_ON_TEXT, "next same-session turn is normal ON cadence, not carryover");
     assert.ok(!second.includes(CARRYOVER_TEXT), "the carryover notice fires exactly once");
   } finally {
     cleanup(cwd, root);
@@ -380,7 +384,7 @@ test("missing OFF reminder asset -> '' on the LONG OFF prompt (fail-safe)", () =
     const adapter = makeAdapter();
     const payload = { cwd, session_id: "s", transcript_path: undefined };
     for (let prompt = 1; prompt <= 4; prompt++) {
-      assert.equal(runHook(payload, env, adapter), OFF_TEXT);
+      assert.equal(runHook(payload, env, adapter), SHORT_OFF_TEXT);
     }
     assert.equal(runHook(payload, env, adapter), "",
       "a missing LONG asset degrades to '' on its turn, never a throw");

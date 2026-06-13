@@ -51,7 +51,8 @@ export interface ProviderAdapter {
   isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean;
   currentTurn(transcriptPath: string | undefined): number;
   fullDirectiveFile: string;
-  offTurnFile: string;
+  shortOnFile: string;
+  shortOffFile: string;
   // Provider-specific CARRYOVER notice, prepended to FULL on the single turn
   // where a marker that was already ON at session start is re-claimed by a new
   // session (see runHook's CARRYOVER branch). Names the provider's own
@@ -251,12 +252,13 @@ function cadenceEmit(
   env: NodeJS.ProcessEnv,
   adapter: ProviderAdapter,
   longFile: string,
+  shortFile: string,
   count: number,
   persisted: boolean
 ): string {
   return !persisted || count % REMINDER_PERIOD === 0
     ? readDirective(env, longFile)
-    : readDirective(env, adapter.offTurnFile);
+    : readDirective(env, shortFile);
 }
 
 /**
@@ -328,7 +330,14 @@ export function runHook(
     if (!marker.isActive(cwd)) {
       // OFF: no claim machinery — just the per-prompt reminder cadence.
       const r = reminder.advance(cwd, current);
-      return cadenceEmit(env, adapter, adapter.reminderOffFile, r.count, r.persisted);
+      return cadenceEmit(
+        env,
+        adapter,
+        adapter.reminderOffFile,
+        adapter.shortOffFile,
+        r.count,
+        r.persisted
+      );
     }
 
     const m = marker.readMarker(cwd);
@@ -341,7 +350,14 @@ export function runHook(
 
     // SAME-SESSION: per-prompt reminder cadence, ON variant.
     const r = reminder.advance(cwd, current);
-    return cadenceEmit(env, adapter, adapter.reminderOnFile, r.count, r.persisted);
+    return cadenceEmit(
+      env,
+      adapter,
+      adapter.reminderOnFile,
+      adapter.shortOnFile,
+      r.count,
+      r.persisted
+    );
   } catch {
     // Any failure -> inject nothing. Never crash or stall the host turn.
     return "";

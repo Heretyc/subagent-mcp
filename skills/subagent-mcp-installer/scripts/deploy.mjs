@@ -131,6 +131,11 @@ function verify(install) {
     "dist/advanced-ruleset.py",
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
+    "directives/short-on.md",
+    "directives/short-off.md",
+    "directives/reminder-on.md",
+    "directives/reminder-off-claude.md",
+    "directives/reminder-off-codex.md",
     "node_modules/@modelcontextprotocol/sdk/package.json",
     "node_modules/zod/package.json",
   ];

@@ -75,7 +75,8 @@ export const codexAdapter: ProviderAdapter = {
   },
 
   fullDirectiveFile: "orchestration-codex.md",
-  offTurnFile: "off-turn-reminder.md",
+  shortOnFile: "short-on.md",
+  shortOffFile: "short-off.md",
   carryoverDirectiveFile: "carryover-codex.md",
   reminderOnFile: "reminder-on.md",
   reminderOffFile: "reminder-off-codex.md",

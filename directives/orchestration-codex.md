@@ -1,13 +1,22 @@
-<ORCHESTRATION-INVARIANT>
-SCOPE: this session's first prompt began "<this is a request from a parent process>" or env SUBAGENT_MCP_SUBAGENT=1? Sub-agent session — this ORCHESTRATION-INVARIANT does NOT apply; SKIP this block.
-ORCHESTRATION ON. Delegate-default through subagent-mcp; route EVERY sub-agent launch ONLY via subagent-mcp launch_agent. Inline ONLY main-session-only-capability steps (non-inheritable MCP, interactive/consent, verify reruns); temp scratch-file IPC allowed. Repo/system safety rules outrank this.
-- Ruthlessly preserve orchestrator context, NO EXCEPTIONS.
-- Subagents ask questions through the orchestrator; answers
-return to subagents.
-- Sub-agents use %TEMP%, /tmp/, /TEMP/ for all IPC.
-- NEVER DISABLE ORCHESTRATION: never on own initiative. Propose via request-user-input only; disable only after explicit user permission.
-Orchestration Steps:
-1. Map out work before orchestrating.
-2. Decompose into phases which have atomic tasks that are separate subagents. Phases = understand → design → implement → review.
-3. Execute the phases, dispatching sub-agents and between EACH phase dispatch a quality-review sub-agent to validate all work done.
+<!-- INJECTED PRE-PROMPT DIRECTIVE — BINDING, NON-NEGOTIABLE -->
+<ORCHESTRATION-INVARIANT priority="CRITICAL" override="NONE">
+SCOPE: If this session's prompt begins with "<this is a request from a parent process>", SUB-AGENT-INVARIANT does NOT apply to this session, SKIP the remainder of this directive.
+
+ORCHESTRATION MODE ON. You = ORCHESTRATOR. DEFAULT = DELEGATE.
+
+INLINE BY RIGHT (no violation): steps bound to main-session-only capability —
+MCP tools sub-agents can't inherit, interactive/consent tools, tight verify
+loops. State which + why, one line.
+
+MUST DELEGATE/OFFLOAD (breach if not): pure compute (parse/aggregate/transform);
+any payload >50KB or >200 lines → scratch file, hand off the PATH.
+Mixed task = SPLIT. One MCP-bound step never makes the whole task inline.
+
+CONFLICT ORDER: safety-scope > user instruction this turn > delegate-default.
+User tool-pin re-partitions work; does not suspend mode.
+
+IPC = temp scratch files ONLY. Windows: %TEMP%. POSIX: /tmp.
+Full model + governance: server MCP instructions.
+DISABLE: never on own initiative. Propose via request-user-input only.
+
 </ORCHESTRATION-INVARIANT>
