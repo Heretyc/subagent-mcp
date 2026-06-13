@@ -17,7 +17,7 @@ MCP server that launches and manages locally installed `claude` and `codex` CLI 
 - Ultracode mode for Opus 4.8 -- headless activation via `--settings {"ultracode":true}` (see [docs/usage.md](docs/usage.md))
 - Cross-platform exe resolution (Windows: npm-prefix .exe paths; macOS/Linux: PATH + Homebrew/usr-local fallbacks); immediate `taskkill /t /f` (Windows) / `SIGKILL` (POSIX) force-kill; no graceful shutdown period
 - stdio MCP transport; built with `@modelcontextprotocol/sdk` + `zod`
-- `orchestration-mode` tool — toggles an orchestrator-only directive that the bundled Claude Code / Codex plugin injects every turn via its `UserPromptSubmit` hook (Desktop hosts toggle but do not inject); see [docs/spec/orchestration-mode/_INDEX.md](docs/spec/orchestration-mode/_INDEX.md)
+- `orchestration-mode` tool — toggles orchestrator directives injected by bundled Claude Code / Codex hooks; Claude also gets a deterministic `PreToolUse` gate (Desktop hosts toggle but do not inject); see [docs/spec/orchestration-mode/_INDEX.md](docs/spec/orchestration-mode/_INDEX.md)
 
 ---
 
@@ -39,11 +39,16 @@ npm install -g @heretyc/subagent-mcp
 subagent-mcp setup
 ```
 
-`setup` detects which vendors are present, registers the MCP server, and writes the `UserPromptSubmit` hook for orchestration-mode injection. Idempotent — safe to re-run after updates. Pass `--dry-run` to preview.
+`setup` detects which vendors are present, registers the MCP server, and writes orchestration-mode hooks. Idempotent — safe to re-run after updates. Pass `--dry-run` to preview.
+
+For consumer projects, run `subagent-mcp init --root /path/to/project` to upsert
+the managed invariant block into `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`.
+Use `--dry-run` to preview, `--remove` to uninstall the block, and `--force`
+only if you intentionally run inside this source repo.
 
 After setup, restart your Claude Code or Codex session. On Codex, run `/hooks` and trust the new hook.
 
-**Updating:** `npm install -g @heretyc/subagent-mcp && subagent-mcp setup`
+**Updating:** `subagent-mcp update && subagent-mcp setup`
 
 For manual wiring, developer install from source, Gemini CLI, and Claude Desktop, see [docs/registration.md](docs/registration.md).
 

@@ -84,6 +84,6 @@ repointing `hooks.json` invalidates the stored `trusted_hash`** (in
    turn 0) → directive injects on cadence. If silent: confirm the path is
    absolute (not `${PLUGIN_ROOT}`) and `~/.codex/hooks.json` is in use & trusted.
 5. Toggle OFF → the FULL directive stops; the OFF reminder cadence (LONG
-   `reminder-off-codex.md` every 5th prompt, one-line pointer between) remains.
+   `reminder-off-codex.md` every 5th prompt, one-line rule carrier between) remains.
 6. If the hook acts on a 600 s timeout instead of ~10 s, you left `timeoutSec`
    instead of `timeout`.

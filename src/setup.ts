@@ -46,6 +46,7 @@ export function serverPaths(root: string = INSTALL_ROOT) {
   return {
     server: `${f}/dist/index.js`,
     claudeHook: `${f}/dist/hooks/orchestration-claude.js`,
+    claudePreToolHook: `${f}/dist/hooks/orchestration-claude-pretool.js`,
     codexHook: `${f}/dist/hooks/orchestration-codex.js`,
   };
 }
@@ -85,42 +86,68 @@ export function findOnPath(
 }
 
 /**
- * Reconcile the UserPromptSubmit hook in a parsed ~/.claude/settings.json.
+ * Reconcile the UserPromptSubmit and PreToolUse hooks in a parsed ~/.claude/settings.json.
  * Mutates `s` in place. Exact wiring present -> ok. A hook referencing
  * orchestration-claude.js at any OTHER path/shape -> repaired (rewritten to the
  * canonical exec form). Absent -> added. Unrelated hooks are never touched.
  */
 export function reconcileClaudeSettings(
   s: JsonObj,
-  hookPath: string
+  hookPath: string,
+  preToolHookPath: string = hookPath.replace(
+    /orchestration-claude\.js$/,
+    "orchestration-claude-pretool.js"
+  )
 ): { changed: boolean; status: WireStatus } {
   const hooksBlock = (s.hooks ?? {}) as JsonObj;
   s.hooks = hooksBlock;
-  const upsList = (hooksBlock.UserPromptSubmit ?? []) as Array<{
-    hooks?: Array<Record<string, unknown>>;
-  }>;
-  hooksBlock.UserPromptSubmit = upsList;
 
-  for (const grp of upsList) {
-    for (const hk of grp.hooks ?? []) {
-      if (!JSON.stringify(hk).includes("orchestration-claude.js")) continue;
-      const args = hk.args as unknown[] | undefined;
-      const exact =
-        hk.command === "node" &&
-        Array.isArray(args) &&
-        args.length === 1 &&
-        args[0] === hookPath;
-      if (exact) return { changed: false, status: "ok" };
-      hk.type = "command";
-      hk.command = "node";
-      hk.args = [hookPath];
-      return { changed: true, status: "repaired" };
+  const reconcile = (
+    event: "UserPromptSubmit" | "PreToolUse",
+    scriptName: string,
+    desired: Record<string, unknown>
+  ): { changed: boolean; status: WireStatus } => {
+    const list = (hooksBlock[event] ?? []) as Array<{
+      hooks?: Array<Record<string, unknown>>;
+    }>;
+    hooksBlock[event] = list;
+    for (const grp of list) {
+      for (const hk of grp.hooks ?? []) {
+        if (!JSON.stringify(hk).includes(scriptName)) continue;
+        const args = hk.args as unknown[] | undefined;
+        const exact =
+          hk.type === desired.type &&
+          hk.command === desired.command &&
+          Array.isArray(args) &&
+          JSON.stringify(args) === JSON.stringify(desired.args) &&
+          (desired.timeout === undefined || hk.timeout === desired.timeout);
+        if (exact) return { changed: false, status: "ok" };
+        Object.assign(hk, desired);
+        return { changed: true, status: "repaired" };
+      }
     }
-  }
-  upsList.push({
-    hooks: [{ type: "command", command: "node", args: [hookPath] }],
+    list.push({ hooks: [{ ...desired }] });
+    return { changed: true, status: "added" };
+  };
+
+  const prompt = reconcile("UserPromptSubmit", "orchestration-claude.js", {
+    type: "command",
+    command: "node",
+    args: [hookPath],
   });
-  return { changed: true, status: "added" };
+  const pretool = reconcile("PreToolUse", "orchestration-claude-pretool.js", {
+    type: "command",
+    command: "node",
+    args: [preToolHookPath],
+    timeout: 5,
+  });
+  const status =
+    prompt.status === "repaired" || pretool.status === "repaired"
+      ? "repaired"
+      : prompt.status === "added" || pretool.status === "added"
+        ? "added"
+        : "ok";
+  return { changed: prompt.changed || pretool.changed, status };
 }
 
 /**
@@ -257,6 +284,7 @@ export function verifyInstall(root: string = INSTALL_ROOT): string[] {
     "dist/index.js",
     "dist/advanced-ruleset.py",
     "dist/hooks/orchestration-claude.js",
+    "dist/hooks/orchestration-claude-pretool.js",
     "dist/hooks/orchestration-codex.js",
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
@@ -430,8 +458,9 @@ function repairPromptFor(vendor: "claude" | "codex", problem: string): string {
       `The install root is "${fwd(INSTALL_ROOT)}". Please repair my Claude Code wiring: ` +
       `(1) register a user-scope MCP server named "subagent-mcp" running ` +
       `the global bin shim "subagent-mcp" (use 'claude mcp add subagent-mcp subagent-mcp -s user' or edit the mcpServers ` +
-      `key in ~/.claude.json), and (2) ensure ~/.claude/settings.json has a ` +
-      `hooks.UserPromptSubmit entry {type:"command", command:"node", args:["${p.claudeHook}"]}. ` +
+      `key in ~/.claude.json), and (2) ensure ~/.claude/settings.json has ` +
+      `hooks.UserPromptSubmit -> {type:"command", command:"node", args:["${p.claudeHook}"]} and ` +
+      `hooks.PreToolUse -> {type:"command", command:"node", args:["${p.claudePreToolHook}"], timeout:5}. ` +
       `Back up any file before editing it.`
     );
   }
@@ -574,7 +603,7 @@ function wireClaude(): void {
     fail("claude", `could not register the MCP server: ${(e as Error).message}`);
   }
 
-  // 2) UserPromptSubmit hook in ~/.claude/settings.json.
+  // 2) UserPromptSubmit and PreToolUse hooks in ~/.claude/settings.json.
   try {
     const sfile = join(homedir(), ".claude", "settings.json");
     const s = readJson(sfile, {});
@@ -583,7 +612,7 @@ function wireClaude(): void {
       backup(sfile);
       writeFileSync(sfile, JSON.stringify(s, null, 2));
     }
-    describe(status, "UserPromptSubmit hook");
+    describe(status, "UserPromptSubmit + PreToolUse hooks");
     if (changed && DRY_RUN) console.log("    (dry-run: not written)");
   } catch (e) {
     fail("claude", `could not write the settings.json hook: ${(e as Error).message}`);
@@ -686,7 +715,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
       detail: registrationDetail(registered, attemptedRepair),
     });
     results.push({
-      label: "claude: UserPromptSubmit hook",
+      label: "claude: UserPromptSubmit + PreToolUse hooks",
       ok: hk.status === "ok",
       detail: hk.status === "ok" ? "wired" : `${hk.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
@@ -701,7 +730,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
       detail: srv.status === "ok" ? "registered (file fallback)" : "config stale — run: subagent-mcp setup",
     });
     results.push({
-      label: "claude: UserPromptSubmit hook",
+      label: "claude: UserPromptSubmit + PreToolUse hooks",
       ok: hk.status === "ok",
       detail: hk.status === "ok" ? "wired" : `${hk.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });

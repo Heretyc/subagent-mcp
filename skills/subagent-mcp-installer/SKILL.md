@@ -29,8 +29,9 @@ decoupled copy). When they disagree, **this skill wins**.
    `/tmp`, `/TMP`, `$TMPDIR`, `os.tmpdir()`, a `Downloads` folder, or the live
    dev checkout. See `references/locations.md` for the full forbidden list and
    the rationale (these get garbage-collected, moved, or rebuilt under you).
-2. **Ship ALL parts.** Server (`dist/index.js`), both hooks
-   (`dist/hooks/orchestration-claude.js`, `orchestration-codex.js`), the ruleset
+2. **Ship ALL parts.** Server (`dist/index.js`), Claude hooks
+   (`dist/hooks/orchestration-claude.js`, `orchestration-claude-pretool.js`),
+   Codex hook (`orchestration-codex.js`), the ruleset
    scaffold (`dist/advanced-ruleset.py`), and the `directives/` dir must all
    land in the install. The compiled hooks resolve their directive assets via
    `../../directives`, so `directives/` must sit beside `dist/` in the install
@@ -80,7 +81,7 @@ Run the steps in order. Each is detailed in the linked reference.
      `~/.codex/hooks.json` with `commandWindows`).
 5. **Verify** per the vendor guide (server connects; tools present; hook emits
    the FULL directive when `orchestration-mode` is ON and downgrades to the OFF
-   reminder cadence — LONG block every 5th prompt, one-line pointer between —
+   reminder cadence — LONG block every 5th prompt, one-line rule carrier between —
    when OFF).
 6. **Report** the install root, the per-vendor wiring, what was skipped, and any
    required user follow-up (session restart; Codex `/hooks` re-trust).

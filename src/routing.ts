@@ -326,7 +326,7 @@ export function validatePresence(p: {
 
   // 2. deadlock cannot be combined with provider/model/effort.
   if (deadlock === true && (provider || model || effort)) {
-    return `Error: deadlock cannot be combined with provider, model, or effort. If repeated attempts at this task have failed, switch to pure auto mode — pass only prompt + task_category and let the server select — unless your assignment explicitly demands a specific model. Omit provider/model/effort and retry.\n${AUTO_HINT}`;
+    return `Error: deadlock cannot be combined with provider, model, or effort. From the 3rd attempt for the same atomic task, deadlock outranks capability overrides: drop provider/model/effort and retry.\n${AUTO_HINT}`;
   }
 
   // 3. effort present must come with provider AND model (checked before model rule).

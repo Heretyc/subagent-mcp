@@ -39,6 +39,9 @@ subagent-mcp setup
 `setup` writes the MCP server entry and `UserPromptSubmit` hook for each
 detected vendor. Re-run after upgrading. Pass `--dry-run` to preview.
 
+Consumer repos can also run `subagent-mcp init --root /path/to/project` to
+upsert managed invariant blocks; use `--dry-run` or `--remove`.
+
 **Developer install from source:**
 
 ```bash

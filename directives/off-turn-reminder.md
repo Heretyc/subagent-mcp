@@ -1,1 +1,1 @@
-Follow the directives in the last <ORCHESTRATION-REMINDER-INVARIANT> block; if none has appeared yet this session, await it — do not infer its content.
+<ORCHESTRATION-INVARIANT> SUBAGENT MANDATES bind THIS turn. 5-CALL RULE APPLIES. SOLE CHANNEL: launch sub-agents ONLY via subagent-mcp. OFF: ask before enabling orchestration. ON replies must start: route: delegate|inline - <reason>. </ORCHESTRATION-INVARIANT>

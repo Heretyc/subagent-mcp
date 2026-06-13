@@ -150,7 +150,7 @@ disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "l
    `~/.codex/hooks.json` (not an untrusted repo file) is in use.
 6. **Hook downgrades when OFF:** toggle `orchestration-mode` OFF and confirm
    the FULL directive stops; the OFF reminder cadence remains (LONG
-   `reminder-off-codex.md` every 5th prompt, one-line pointer between).
+   `reminder-off-codex.md` every 5th prompt, one-line rule carrier between).
 7. **Field-name sanity:** if the hook behaves on a 600s timeout instead of
    ~10s, you likely left `timeoutSec` instead of `timeout`.
 

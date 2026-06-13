@@ -8,7 +8,7 @@
     {
       "name": "subagent-mcp",
       "source": "./",
-      "description": "MCP server for local Claude Code / Codex CLI sub-agents, plus an orchestration-mode toggle with a bundled UserPromptSubmit hook."
+      "description": "MCP server for local Claude Code / Codex CLI sub-agents, plus orchestration-mode directive and tool-gate hooks."
     }
   ]
 }

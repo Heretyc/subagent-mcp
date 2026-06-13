@@ -30,6 +30,7 @@ Requires **Node.js >= 18**. After the build, confirm these exist:
 
 - `dist/index.js` — MCP server entry
 - `dist/hooks/orchestration-claude.js` — Claude per-turn hook
+- `dist/hooks/orchestration-claude-pretool.js` — Claude PreToolUse gate
 - `dist/hooks/orchestration-codex.js` — Codex per-turn hook
 
 > **Distribution note:** `dist/` is git-ignored, so it must be built before any
@@ -58,7 +59,7 @@ documented degradation, not a bug — use a CLI host for the full behavior.
 
 | Host | Toggle works | Per-turn injection |
 |---|---|---|
-| Claude Code CLI | yes | yes (bundled `UserPromptSubmit` hook) |
+| Claude Code CLI | yes | yes (`UserPromptSubmit` + `PreToolUse`) |
 | Codex CLI | yes | yes (bundled `SessionStart` + `UserPromptSubmit`) |
 | Claude Desktop | yes | **no** — no hook host |
 | Codex Desktop / IDE | yes | **no** — no hook host |

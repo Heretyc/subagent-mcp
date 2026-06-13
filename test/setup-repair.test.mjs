@@ -43,8 +43,10 @@ function test(name, fn) {
 }
 
 const HOOK = "C:/global/npm/node_modules/@heretyc/subagent-mcp/dist/hooks/orchestration-claude.js";
+const PRETOOL = "C:/global/npm/node_modules/@heretyc/subagent-mcp/dist/hooks/orchestration-claude-pretool.js";
 const SERVER = "C:/global/npm/node_modules/@heretyc/subagent-mcp/dist/index.js";
 const STALE = "C:/old/dev/tree/dist/hooks/orchestration-claude.js";
+const STALE_PRETOOL = "C:/old/dev/tree/dist/hooks/orchestration-claude-pretool.js";
 
 // ---------------------------------------------------------------------------
 // reconcileClaudeSettings
@@ -55,11 +57,16 @@ test("claude settings: absent -> added (exec form)", () => {
   assert.equal(r.status, "added");
   assert.equal(r.changed, true);
   const hk = s.hooks.UserPromptSubmit[0].hooks[0];
+  const pre = s.hooks.PreToolUse[0].hooks[0];
   assert.deepEqual(hk, { type: "command", command: "node", args: [HOOK] });
+  assert.deepEqual(pre, { type: "command", command: "node", args: [PRETOOL], timeout: 5 });
 });
 
 test("claude settings: exact wiring -> ok, nothing changed", () => {
-  const s = { hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [HOOK] }] }] } };
+  const s = { hooks: {
+    UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [HOOK] }] }],
+    PreToolUse: [{ hooks: [{ type: "command", command: "node", args: [PRETOOL], timeout: 5 }] }],
+  } };
   const before = JSON.stringify(s);
   const r = reconcileClaudeSettings(s, HOOK);
   assert.equal(r.status, "ok");
@@ -68,11 +75,15 @@ test("claude settings: exact wiring -> ok, nothing changed", () => {
 });
 
 test("claude settings: stale path -> repaired in place, not duplicated", () => {
-  const s = { hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [STALE] }] }] } };
+  const s = { hooks: {
+    UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [STALE] }] }],
+    PreToolUse: [{ hooks: [{ type: "command", command: "node", args: [STALE_PRETOOL], timeout: 5 }] }],
+  } };
   const r = reconcileClaudeSettings(s, HOOK);
   assert.equal(r.status, "repaired");
   assert.equal(s.hooks.UserPromptSubmit.length, 1, "no duplicate entry");
   assert.deepEqual(s.hooks.UserPromptSubmit[0].hooks[0].args, [HOOK]);
+  assert.deepEqual(s.hooks.PreToolUse[0].hooks[0].args, [PRETOOL]);
 });
 
 test("claude settings: legacy single-string command form -> repaired to exec form", () => {
@@ -91,6 +102,9 @@ test("claude settings: unrelated hooks are never touched", () => {
   assert.equal(r.status, "added");
   assert.deepEqual(s.hooks.UserPromptSubmit[0].hooks[0], other, "user's own hook untouched");
   assert.equal(s.hooks.UserPromptSubmit.length, 2, "ours appended alongside");
+  assert.deepEqual(s.hooks.PreToolUse[0].hooks[0], {
+    type: "command", command: "node", args: [PRETOOL], timeout: 5,
+  });
   assert.ok(s.hooks.PreCompact, "other events untouched");
 });
 

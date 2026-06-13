@@ -19,8 +19,8 @@ import * as reminder from "./reminder.js";
  * turn) READS the marker here and decides what to inject. The hook now emits in
  * BOTH marker states, on a per-prompt counter (reminder.ts): every
  * REMINDER_PERIOD-th prompt injects the LONG mode-specific
- * <ORCHESTRATION-REMINDER-INVARIANT> block, every prompt between injects the
- * one-line pointer at it. Marker ON adds the claim machinery: the claim turn
+ * <ORCHESTRATION-INVARIANT> block, every prompt between injects the
+ * one-line rule carrier. Marker ON adds the claim machinery: the claim turn
  * (fresh enable or carryover re-claim) emits the FULL directive plus the ON
  * reminder block and re-baselines the counter. (Supersedes LOCKED DECISION 2's
  * same-session rel%5 FULL re-emission — owner directive 2026-06-11: steady
@@ -57,7 +57,7 @@ export interface ProviderAdapter {
   // session (see runHook's CARRYOVER branch). Names the provider's own
   // interactive permission tool only.
   carryoverDirectiveFile: string;
-  // LONG per-prompt reminder blocks (<ORCHESTRATION-REMINDER-INVARIANT>), one
+  // LONG per-prompt reminder blocks (<ORCHESTRATION-INVARIANT>), one
   // per marker state. The OFF variant names the provider's own interactive
   // question tool only (5-call-rule ask); the ON variant is provider-neutral.
   reminderOnFile: string;
@@ -242,10 +242,10 @@ export function classifyClaim(
 
 /**
  * Per-prompt reminder cadence emission: the LONG block (longFile) on every
- * REMINDER_PERIOD-th counted prompt, the one-line pointer between. When the
+ * REMINDER_PERIOD-th counted prompt, the one-line rule carrier between. When the
  * counter could NOT persist, emit the LONG block — fail VISIBLE: a host whose
- * temp dir cannot hold the state file would otherwise inject the pointer on
- * every prompt at a block that never arrives.
+ * temp dir cannot hold the state file would otherwise inject only the compact
+ * rule carrier on every prompt and never refresh the LONG block.
  */
 function cadenceEmit(
   env: NodeJS.ProcessEnv,
@@ -303,14 +303,14 @@ export function claimAndEmit(
  *     does not advance).
  *  2. marker not active for cwd -> OFF cadence: advance the session's counter
  *     (per-owner; a new session starts its own), LONG OFF-variant reminder when
- *     count % REMINDER_PERIOD === 0, else the one-line pointer.
+ *     count % REMINDER_PERIOD === 0, else the one-line rule carrier.
  *  3. marker active: classify the claim from marker state.
  *  4. FRESH / CARRYOVER -> claimAndEmit (FULL + ON reminder; CARRYOVER notice
  *     prepended once per marker; counter re-baselined). The transcript turn is
  *     read ONLY here — claim turns are the only consumer of the baseline, and
  *     the tail read is too expensive for the per-prompt steady state.
  *  5. SAME-SESSION -> ON cadence: LONG ON-variant reminder when
- *     count % REMINDER_PERIOD === 0, else the one-line pointer.
+ *     count % REMINDER_PERIOD === 0, else the one-line rule carrier.
  */
 export function runHook(
   payload: HookPayload,

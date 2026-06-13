@@ -126,6 +126,7 @@ function verify(install) {
   const need = [
     "dist/index.js",
     "dist/hooks/orchestration-claude.js",
+    "dist/hooks/orchestration-claude-pretool.js",
     "dist/hooks/orchestration-codex.js",
     "dist/advanced-ruleset.py",
     "directives/orchestration-claude.md",
@@ -144,6 +145,7 @@ function paths(install) {
   return {
     server: `${fwd}/dist/index.js`,
     claudeHook: `${fwd}/dist/hooks/orchestration-claude.js`,
+    claudePreToolHook: `${fwd}/dist/hooks/orchestration-claude-pretool.js`,
     codexHook: `${fwd}/dist/hooks/orchestration-codex.js`,
   };
 }
@@ -155,6 +157,8 @@ function printConfig(install) {
   console.log(`claude mcp add --scope user subagent-mcp -- node "${p.server}"`);
   console.log(`# ~/.claude/settings.json -> hooks.UserPromptSubmit[].hooks[]:`);
   console.log(JSON.stringify({ type: "command", command: "node", args: [p.claudeHook] }, null, 2));
+  console.log(`# ~/.claude/settings.json -> hooks.PreToolUse[].hooks[]:`);
+  console.log(JSON.stringify({ type: "command", command: "node", args: [p.claudePreToolHook], timeout: 5 }, null, 2));
   console.log("\n## Codex CLI");
   console.log(`# ~/.codex/config.toml`);
   console.log(`[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${p.server}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 60`);
@@ -176,12 +180,20 @@ function wireClaude(install) {
   const s = readJson(sfile, {});
   s.hooks = s.hooks || {};
   const ups = (s.hooks.UserPromptSubmit = s.hooks.UserPromptSubmit || []);
-  const present = JSON.stringify(ups).includes("orchestration-claude.js");
-  if (present) { console.error("  settings.json hook already present — left as-is"); return; }
+  const pre = (s.hooks.PreToolUse = s.hooks.PreToolUse || []);
+  let changed = false;
+  if (!JSON.stringify(ups).includes("orchestration-claude.js")) {
+    ups.push({ hooks: [{ type: "command", command: "node", args: [p.claudeHook] }] });
+    changed = true;
+  }
+  if (!JSON.stringify(pre).includes("orchestration-claude-pretool.js")) {
+    pre.push({ matcher: "*", hooks: [{ type: "command", command: "node", args: [p.claudePreToolHook], timeout: 5 }] });
+    changed = true;
+  }
+  if (!changed) { console.error("  settings.json hooks already present - left as-is"); return; }
   if (existsSync(sfile)) backup(sfile);
-  ups.push({ hooks: [{ type: "command", command: "node", args: [p.claudeHook] }] });
   writeFileSync(sfile, JSON.stringify(s, null, 2));
-  console.error(`  added UserPromptSubmit hook -> ${sfile}`);
+  console.error(`  added/updated Claude hooks -> ${sfile}`);
 }
 
 function wireCodex(install) {
