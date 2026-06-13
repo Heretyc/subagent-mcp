@@ -81,8 +81,8 @@ Run the steps in order. Each is detailed in the linked reference.
      `~/.codex/hooks.json` with `commandWindows`).
 5. **Verify** per the vendor guide (server connects; tools present; hook emits
    the FULL directive when `orchestration-mode` is ON and downgrades to the OFF
-   reminder cadence — LONG block every 5th prompt, one-line rule carrier between —
-   when OFF).
+   reminder cadence — LONG block every 5th prompt, state-aware short pointer
+   (`short-on.md`/`short-off.md`) between — when OFF).
 6. **Report** the install root, the per-vendor wiring, what was skipped, and any
    required user follow-up (session restart; Codex `/hooks` re-trust).
 

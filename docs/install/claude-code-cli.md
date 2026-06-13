@@ -112,7 +112,8 @@ On Windows use a doubled-backslash or forward-slash absolute path in `args`.
    the turn (the hook returns `additionalContext`).
 5. **Hook downgrades when OFF:** toggle `orchestration-mode` OFF and confirm
    the FULL directive stops; the OFF reminder cadence remains (LONG
-   `reminder-off-claude.md` every 5th prompt, one-line rule carrier between).
+   `reminder-off-claude.md` every 5th prompt, state-aware short pointer
+   (`short-off.md` while OFF) between).
 6. **Manual wiring only:** `claude mcp get subagent-mcp` shows the
    `node dist/index.js` command, and the settings.json hooks fire.
 
