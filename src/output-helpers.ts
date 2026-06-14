@@ -6,12 +6,34 @@ function rawFallback(stdout: string): string {
   return (stdout || "").trim();
 }
 
-// Pull a final assistant-message string out of one parsed codex `--json` event.
-// Codex emits newline-delimited JSON; the final assistant message has appeared
-// under a few shapes across CLI versions, so match tolerantly.
+// Pull a final assistant-message string out of one parsed Codex event. Codex
+// app-server emits JSON-RPC notifications, while older CLI JSONL used top-level
+// event objects, so match tolerantly.
 function codexEventText(evt: unknown): string | null {
   if (!evt || typeof evt !== "object") return null;
   const e = evt as Record<string, unknown>;
+
+  if (typeof e.method === "string" && e.params && typeof e.params === "object") {
+    const params = e.params as Record<string, unknown>;
+    if (e.method === "item/agentMessage/delta" && typeof params.delta === "string") {
+      return params.delta;
+    }
+    if (e.method === "item/completed" && params.item && typeof params.item === "object") {
+      const item = params.item as Record<string, unknown>;
+      if (item.type === "agentMessage" && typeof item.text === "string") return item.text;
+    }
+    if (e.method === "turn/completed" && params.turn && typeof params.turn === "object") {
+      const turn = params.turn as Record<string, unknown>;
+      const items = Array.isArray(turn.items) ? turn.items : [];
+      for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        if (item && typeof item === "object") {
+          const obj = item as Record<string, unknown>;
+          if (obj.type === "agentMessage" && typeof obj.text === "string") return obj.text;
+        }
+      }
+    }
+  }
 
   // Shape A: { type: "agent_message", message: "..." }
   if (e.type === "agent_message" && typeof e.message === "string") {

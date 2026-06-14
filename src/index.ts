@@ -3,13 +3,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { spawn, spawnSync, execSync, ChildProcess } from "child_process";
+import { spawn, spawnSync, execSync } from "child_process";
 import { unlinkSync, existsSync, realpathSync, readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "crypto";
 import { isAbsolute, basename, join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
+import { createProviderDriver, type DriverProcess, type ProviderDriver } from "./drivers.js";
 import { resolveExeFor } from "./platform.js";
 import { formatLocalIso, selectUnreported } from "./wait-helpers.js";
 import type { AgentStatus } from "./status-helpers.js";
@@ -21,6 +22,7 @@ import { extractFinalTurn } from "./output-helpers.js";
 import {
   consumeStreamChunk,
   flushStream,
+  isTurnCompletedLine,
   retainLastN,
   type VisibleStreamItem,
 } from "./stream-helpers.js";
@@ -49,7 +51,8 @@ interface AgentState {
   provider: Provider;
   model: string;
   status: AgentStatus;
-  process: ChildProcess;
+  process: DriverProcess;
+  driver: ProviderDriver;
   stdout: string;
   stderr: string;
   exitCode: number | null;
@@ -64,7 +67,7 @@ interface AgentState {
   // for this launch (ran-but-passthrough and disabled leave both fields absent).
   rulesetApplied?: boolean;
   rulesetOriginalSelection?: { provider: string; model: string; effort: string };
-  // Set ONLY by the codex turn.completed marker scan (stdout data + close
+  // Set ONLY by provider turn-completion marker scans (stdout data + close
   // flush handlers). The grace window's sole success exception keys on this
   // flag — NOT on status, which any code-0 exit also sets to "finished".
   turnCompleted?: boolean;
@@ -86,14 +89,13 @@ const deadlockWindow = createDeadlockWindow();
 // latches enabled/disabled for the process lifetime, failure never latches.
 const rulesetGate = createRulesetGate();
 
-// Post-spawn grace window (ms). A child that exits within this window after a
-// successful spawn never launched (codex installed but not logged in, expired
-// auth, instant crash) — the attempt loop silently advances instead of falsely
-// reporting success. ANY exit within the window counts, even code 0, EXCEPT a
-// codex child already finalized by its turn.completed marker (legitimate fast
-// completion). SUBAGENT_SPAWN_GRACE_MS overrides (non-negative int; 0 disables
-// detection = legacy spawn-event-only success) — a test seam; production never
-// sets it.
+// Post-spawn grace window (ms). A provider driver that exits within this window
+// after a successful driver start never launched (not logged in, expired auth, instant
+// crash) — the attempt loop silently advances instead of falsely reporting
+// success. ANY exit within the window counts, even code 0, EXCEPT a driver
+// already finalized by its turn-completed marker (legitimate fast completion).
+// SUBAGENT_SPAWN_GRACE_MS overrides (non-negative int; 0 disables only this
+// post-start early-exit detection) — a test seam; production never sets it.
 const SPAWN_GRACE_MS = (() => {
   const raw = process.env.SUBAGENT_SPAWN_GRACE_MS;
   if (raw === undefined || raw === "") return 1500;
@@ -195,9 +197,9 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.3.9",
+    version: "2.8.4",
     description:
-      "Spawns the LOCALLY INSTALLED `claude` and `codex` CLI binaries as child processes. Does NOT call the Anthropic or OpenAI HTTP APIs directly (no API keys, no SDK) and there are no plans to — all model access is via the local CLIs.",
+      "Launches always-interactive local Claude and Codex sub-agent sessions. Claude uses the Claude Agent SDK over the local Claude Code executable; Codex uses `codex app-server` over stdio. The server does not call Anthropic or OpenAI HTTP APIs directly.",
   },
   {
     instructions:
@@ -218,7 +220,7 @@ function cleanupUcSettingsPath(ucSettingsPath?: string): void {
 }
 
 // Attempt to spawn + register a single candidate. Resolves to the agent_id on a
-// successful spawn, or a launch-time failure reason string (never throws/rejects).
+// successful driver start, or a launch-time failure reason string (never throws/rejects).
 //
 // spawn() failures (ENOENT/EACCES) are ASYNC: a missing/broken CLI emits the
 // child 'error' event AFTER spawn() returns, so a try/catch around spawn cannot
@@ -258,7 +260,6 @@ async function tryLaunchCandidate(
       candidate.provider,
       candidate.model,
       effortForBuild,
-      prompt,
       agentCwd
     );
     cmd = resolveExe(candidate.provider);
@@ -273,20 +274,24 @@ async function tryLaunchCandidate(
     return { reason: `CLI executable not found: ${cmd}` };
   }
 
-  const stdinMode = candidate.provider === "claude" ? ("pipe" as const) : ("ignore" as const);
-  let childProcess: ChildProcess;
+  let driver: ProviderDriver;
   try {
-    childProcess = spawn(cmd, buildResult.args, {
+    driver = await createProviderDriver({
+      provider: candidate.provider,
+      command: cmd,
+      args: buildResult.args,
       cwd: agentCwd,
       env: { ...process.env, SUBAGENT_MCP_SUBAGENT: "1" },
-      stdio: [stdinMode, "pipe", "pipe"],
-      windowsHide: true,
+      model: candidate.model,
+      effort: candidate.effort,
+      ucSettingsPath: buildResult.ucSettingsPath,
     });
   } catch (error) {
     // Synchronous spawn throw (rare) — clean up and report as a launch failure.
     cleanupUcSettingsPath(buildResult.ucSettingsPath);
     return { reason: error instanceof Error ? error.message : String(error) };
   }
+  const childProcess = driver.process;
 
   // Await the one-shot spawn/error race. The 'error' handler is attached BEFORE
   // we await so an async ENOENT cannot escape as an unhandled event.
@@ -303,7 +308,7 @@ async function tryLaunchCandidate(
     // Launch-time failure (ENOENT/EACCES/etc.) — kill if somehow alive, clean up
     // the settings file, and report so the attempt loop advances.
     try {
-      childProcess.kill();
+      driver.kill();
     } catch {}
     cleanupUcSettingsPath(buildResult.ucSettingsPath);
     return { reason: err instanceof Error ? err.message : String(err) };
@@ -325,6 +330,7 @@ async function tryLaunchCandidate(
       : {}),
     status: "processing",
     process: childProcess,
+    driver,
     stdout: "",
     stderr: "",
     exitCode: null,
@@ -347,16 +353,6 @@ async function tryLaunchCandidate(
     // item, so it does NOT refresh the heartbeat.
     agentState.stderr += `\n[process error] ${err instanceof Error ? err.message : String(err)}`;
   });
-
-  if (candidate.provider === "claude" && childProcess.stdin) {
-    // EPIPE if the child dies before draining the prompt (the grace-window
-    // early-exit class) — fold into stderr, never crash the server.
-    childProcess.stdin.on("error", (err) => {
-      agentState.stderr += `\n[stdin error] ${err instanceof Error ? err.message : String(err)}`;
-    });
-    childProcess.stdin.write(prompt);
-    childProcess.stdin.end();
-  }
 
   if (childProcess.stdout) {
     childProcess.stdout.on("data", (data) => {
@@ -385,18 +381,14 @@ async function tryLaunchCandidate(
           3
         );
       }
-      // Codex emits JSONL; turn.completed signals task done — kill process. Scan
-      // COMPLETE lines only so a marker split across chunks is matched once
-      // fully assembled (never on a partial fragment).
-      if (
-        agentState.provider === "codex" &&
-        lines.some((l) => l.includes('"type":"turn.completed"'))
-      ) {
+      // Provider completion events mark the current turn finished while the
+      // logical interactive session can remain available for later messages.
+      // Scan COMPLETE lines only so a marker split across chunks is matched
+      // once fully assembled (never on a partial fragment).
+      if (lines.some((l) => isTurnCompletedLine(agentState.provider, l))) {
         agentState.turnCompleted = true;
         agentState.status = "finished";
-        agentState.exitCode = 0;
         if (agentState.exitedAt === null) agentState.exitedAt = at;
-        childProcess.kill();
       }
     });
   }
@@ -419,13 +411,12 @@ async function tryLaunchCandidate(
       for (const line of lines) {
         agentState.stdout += line + "\n";
       }
-      // A turn.completed marker may arrive only in this final flush (no
-      // trailing newline) — the grace window's success exception needs it.
-      if (
-        agentState.provider === "codex" &&
-        lines.some((l) => l.includes('"type":"turn.completed"'))
-      ) {
+      // A completion marker may arrive only in this final flush (no trailing
+      // newline) — the grace window's success exception needs it.
+      if (lines.some((l) => isTurnCompletedLine(agentState.provider, l))) {
         agentState.turnCompleted = true;
+        agentState.status = "finished";
+        if (agentState.exitedAt === null) agentState.exitedAt = at;
       }
       if (items.length > 0) {
         agentState.lastActivity = at;
@@ -449,7 +440,10 @@ async function tryLaunchCandidate(
       return;
     }
     if (agentState.status === "finished") {
-      // Already finalized by turn.completed; exitedAt already stamped
+      // Already finalized by turn.completed; record that the interactive
+      // driver is no longer live so poll/list stop advertising alive=true.
+      if (agentState.exitCode === null) agentState.exitCode = code !== null ? code : -1;
+      if (code !== 0) agentState.status = "errored";
       return;
     }
     // Normal exit: set exit code and derive status
@@ -465,16 +459,24 @@ async function tryLaunchCandidate(
     childProcess.once("close", () => resolve());
   });
 
-  // Post-spawn grace window: a 'spawn' win alone is NOT success — a binary that
-  // spawns then dies immediately (codex installed but not logged in) must
-  // advance the attempt loop, not falsely conclude it. AgentState is fully
-  // wired and the claude prompt already written above, so a surviving child
-  // loses no stream output during the wait. Exception: a codex child already
-  // finalized by its turn.completed marker (dedicated turnCompleted flag — the
-  // SOLE in-window success exception; visibility-and-failover.md) completed
-  // the task legitimately fast — that is a success, never a launch failure.
-  // The close handler above cleans up a condemned child (uc settings, stream
-  // flush); the agent is simply never registered.
+  try {
+    await driver.start(prompt);
+  } catch (err) {
+    try {
+      driver.kill();
+    } catch {}
+    cleanupUcSettings(agentState);
+    return { reason: err instanceof Error ? err.message : String(err) };
+  }
+
+  // Post-spawn grace window: a 'spawn' win alone is NOT success — a provider
+  // driver that starts then dies immediately must advance the attempt loop, not
+  // falsely conclude it. AgentState is fully wired and the initial turn already
+  // submitted above, so a surviving driver loses no stream output during the
+  // wait. Exception: a driver already finalized by its turn-completion marker
+  // completed the task legitimately fast — that is a success, never a launch
+  // failure. The close handler above cleans up a condemned driver (uc settings,
+  // stream flush); the agent is simply never registered.
   if (SPAWN_GRACE_MS > 0) {
     const earlyExit = await new Promise<{ code: number | null; signal: string | null } | null>(
       (resolve) => {
@@ -521,7 +523,7 @@ function sameTriples(a: Candidate[], b: Candidate[]): boolean {
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category` and NO overrides; the server picks the best provider/model/effort for that category from its routing table, launches the top candidate, and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are overrides — licensed on 1st/2nd attempts ONLY when the task verifiably requires a specific capability; STATE that capability when overriding; if you pass `model` you must also pass `provider`, and if you pass `effort` you must pass both `provider` and `model`. SOLE CHANNEL: while this server is connected this tool is the ONLY sanctioned way to spawn sub-agents, in BOTH orchestration states — harness-native Task/Agent tools are FORBIDDEN for sub-agent launches. PROMPT RULE: the FIRST line of every `prompt` MUST be \"<this is a request from a parent process>\" (sub-agent self-identification). Unsure which task_category fits? Don't submit one amorphous task — SPLIT into atomic steps that each map to a single category, one agent per step. ultracode effort is Opus-4.8+ only (induced via a temp `--settings {\"ultracode\":true}` file; the CLI rejects `--effort ultracode`). Each sub-agent is a separate claude/codex CLI child that does NOT inherit this session's MCP servers; children run with env SUBAGENT_MCP_SUBAGENT=1 so the orchestration hooks skip them (they are not orchestrators and don't re-trigger carryover). Launch returns status `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting the prompt does NOT make it a different task), and NEVER otherwise — from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.",
+  "Spawn a sub-agent session. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category` and NO overrides; the server picks the best provider/model/effort for that category from its routing table, launches the top candidate, and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are overrides — licensed on 1st/2nd attempts ONLY when the task verifiably requires a specific capability; STATE that capability when overriding; if you pass `model` you must also pass `provider`, and if you pass `effort` you must pass both `provider` and `model`. SOLE CHANNEL: while this server is connected this tool is the ONLY sanctioned way to spawn sub-agents, in BOTH orchestration states — harness-native Task/Agent tools are FORBIDDEN for sub-agent launches. PROMPT RULE: the FIRST line of every `prompt` MUST be \"<this is a request from a parent process>\" (sub-agent self-identification). Unsure which task_category fits? Don't submit one amorphous task — SPLIT into atomic steps that each map to a single category, one agent per step. ultracode effort is Opus 4.8+ only. Claude uses a Claude Agent SDK logical session over the local Claude executable; Codex uses a `codex app-server` child. Children run with env SUBAGENT_MCP_SUBAGENT=1 so the orchestration hooks skip them (they are not orchestrators and don't re-trigger carryover). Launch returns status `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting the prompt does NOT make it a different task), and NEVER otherwise — from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
@@ -638,7 +640,7 @@ server.tool(
       candidates = applied.candidates;
     }
 
-    // 6. Attempt loop: best→worst. Register on first successful spawn; silently
+    // 6. Attempt loop: best→worst. Register on first successful driver start; silently
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
     const skipped: { model: string; effort: string; provider: string; reason: string }[] = [];
     for (const candidate of candidates) {
@@ -787,7 +789,7 @@ server.tool(
 // Tool 3: kill_agent
 server.tool(
   "kill_agent",
-  "Terminate a live agent (status `processing` or `stalled`) by immediately force-killing its managed process tree. No-op for already-terminal agents.",
+  "Terminate a live agent/session (status `processing`, `stalled`, or turn-finished but still interactive) by immediately force-killing its managed driver. No-op for already-terminal closed agents.",
   {
     agent_id: z.string(),
   },
@@ -805,9 +807,12 @@ server.tool(
       };
     }
 
-    // Kill applies to ALL live states (processing OR stalled). A terminal agent
-    // (finished/errored/stopped) is a no-op.
-    const isLive = agent.status === "processing" || agent.status === "stalled";
+    // Kill applies to ALL live driver states (processing, stalled, or finished
+    // current turn with an open interactive session). Closed terminal agents are
+    // a no-op.
+    const isLive =
+      (agent.status === "processing" || agent.status === "stalled" || agent.status === "finished") &&
+      !agent.driver.closed;
     if (!isLive) {
       return {
         content: [
@@ -828,6 +833,7 @@ server.tool(
       // grace period. On Windows, taskkill /t /f tears down the whole tree; on
       // POSIX, SIGKILL the process (close handler records the real exit code).
       agent.status = "stopped";
+      agent.driver.kill();
       if (isWindows && agent.process.pid) {
         spawn("taskkill", ["/pid", String(agent.process.pid), "/t", "/f"], {
           windowsHide: true,
@@ -869,7 +875,7 @@ server.tool(
 // Tool 4: send_message
 server.tool(
   "send_message",
-  "Send a message to a running agent's stdin",
+  "Enqueue a user message for an open interactive agent session. Observe output with poll_agent or wait.",
   {
     agent_id: z.string(),
     message: z.string().min(1),
@@ -888,7 +894,9 @@ server.tool(
       };
     }
 
-    const isLive = agent.status === "processing" || agent.status === "stalled";
+    const isLive =
+      (agent.status === "processing" || agent.status === "stalled" || agent.status === "finished") &&
+      !agent.driver.closed;
     if (!isLive) {
       return {
         content: [
@@ -901,21 +909,15 @@ server.tool(
       };
     }
 
-    if (!agent.process.stdin) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: Agent stdin is not available`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
     try {
-      agent.process.stdin.write(params.message + "\n");
-      agent.lastActivity = Date.now();
+      await agent.driver.send(params.message);
+      const now = Date.now();
+      agent.status = "processing";
+      agent.exitCode = null;
+      agent.exitedAt = null;
+      agent.waitReported = false;
+      agent.turnCompleted = false;
+      agent.lastActivity = now;
       return {
         content: [
           {
@@ -923,7 +925,7 @@ server.tool(
             text: JSON.stringify({
               agent_id: agent.id,
               status: "sent",
-              message: "Message written to agent stdin",
+              message: "Message accepted by provider driver",
             }),
           },
         ],
@@ -989,7 +991,7 @@ server.tool(
 // Tool 6: wait
 server.tool(
   "wait",
-  "Blocks until one or more sub-agents reach a terminal state (finished/errored/stopped), returning each one's exit code + local-time exit timestamp; or returns the live-job list after a 15-minute timeout. A `stalled` agent is still ALIVE and does NOT end the wait — only a terminal exit does. Pass `verbose: true` to add each finished agent's `final_output` (its final assistant turn, extracted from captured stdout).",
+  "Blocks until one or more sub-agents reach a reportable state (turn-finished, errored, or stopped), returning exit code when known + local-time timestamp; or returns the live-job list after a 15-minute timeout. A `finished` agent can still be alive and accept `send_message` when exit_code is null. A `stalled` agent is still ALIVE and does NOT end the wait. Pass `verbose: true` to add each finished agent's `final_output`.",
   {
     verbose: z.boolean().optional().default(false),
   },

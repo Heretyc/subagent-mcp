@@ -92,11 +92,12 @@ test("(codex,gpt-5.5,max) throws with 'not valid for gpt-5.5' in message", () =>
   );
 });
 
-// 9. (codex, gpt-5.5, xhigh): args include model_reasoning_effort="xhigh"
-test("(codex,gpt-5.5,xhigh) args include model_reasoning_effort=\"xhigh\"", () => {
+// 9. (codex, gpt-5.5, xhigh): app-server launch validates effort but carries it later in turn/start
+test("(codex,gpt-5.5,xhigh) uses app-server stdio, not exec prompt args", () => {
   const result = buildCommand("codex", "gpt-5.5", "xhigh", "test", process.cwd());
-  const hasEffortConfig = result.args.some(arg => arg.includes('model_reasoning_effort="xhigh"'));
-  assert.ok(hasEffortConfig, `Expected model_reasoning_effort="xhigh" in args: ${result.args.join(" ")}`);
+  assert.deepEqual(result.args, ["app-server", "--stdio"]);
+  assert.ok(!result.args.includes("exec"), "codex must not use one-shot exec");
+  assert.ok(!result.args.includes("--json"), "codex prompt must not be passed as a CLI arg");
 });
 
 // 10. (claude, sonnet, xhigh): args include "--effort","xhigh"
@@ -113,30 +114,29 @@ test("(claude,haiku,high) args do NOT include --effort", () => {
   assert.ok(!result.args.includes("--effort"), "args should NOT include --effort for haiku");
 });
 
-// --- Claude output format: stream-json drives the visible-stream heartbeat ---
-// WHY: poll_agent's heartbeat + recent_stream parse Claude's per-line
-// `stream-json` events. A single buffered `--output-format json` blob would
-// arrive as one chunk at the end, defeating live heartbeats; the CLI also
-// requires `--verbose` alongside `stream-json` in print mode.
+// --- Interactive-only launch args ---
+// WHY: provider drivers own the conversation protocol. buildCommand must never
+// construct the old one-shot Claude print-mode or Codex exec prompt paths.
 
-function assertStreamJson(args, label) {
-  const i = args.indexOf("--output-format");
-  assert.ok(i !== -1, `${label}: args should include --output-format`);
-  assert.equal(args[i + 1], "stream-json", `${label}: --output-format should be stream-json`);
-  assert.ok(!args.includes("json"), `${label}: stale buffered "json" value must be gone`);
-  assert.ok(args.includes("--verbose"), `${label}: stream-json print mode requires --verbose`);
+function assertInteractiveClaudeArgs(args, label) {
+  assert.ok(args.includes("--model"), `${label}: args should include --model`);
+  assert.ok(args.includes("--permission-mode"), `${label}: args should preserve permissions`);
+  assert.ok(!args.includes("-p"), `${label}: Claude must not use one-shot print mode`);
+  assert.ok(!args.includes("--output-format"), `${label}: Claude SDK owns stream transport`);
+  assert.ok(!args.includes("stream-json"), `${label}: raw CLI stream-json path is superseded`);
+  assert.ok(!args.includes("--verbose"), `${label}: raw print-mode verbose flag is superseded`);
 }
 
-// 12. (claude, sonnet, high): normal path uses stream-json --verbose
-test("(claude,sonnet,high) uses --output-format stream-json --verbose", () => {
+// 12. (claude, sonnet, high): normal path is SDK-compatible, not print mode
+test("(claude,sonnet,high) uses interactive SDK-compatible args", () => {
   const result = buildCommand("claude", "sonnet", "high", "test", process.cwd());
-  assertStreamJson(result.args, "normal");
+  assertInteractiveClaudeArgs(result.args, "normal");
 });
 
-// 13. (claude, opus, ultracode): ultracode path ALSO uses stream-json --verbose
-test("(claude,opus,ultracode) uses --output-format stream-json --verbose", () => {
+// 13. (claude, opus, ultracode): ultracode path is also not print mode
+test("(claude,opus,ultracode) uses interactive SDK-compatible args", () => {
   const result = buildCommand("claude", "opus", "ultracode", "test", process.cwd());
-  assertStreamJson(result.args, "ultracode");
+  assertInteractiveClaudeArgs(result.args, "ultracode");
   unlinkSync(result.ucSettingsPath);
 });
 

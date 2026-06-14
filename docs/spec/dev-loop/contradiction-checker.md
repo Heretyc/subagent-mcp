@@ -21,6 +21,8 @@ checker.
   process>` (root invariant in `AGENTS.md`).
 - The checker's FIRST step re-runs `node scripts/check_mcp_compliance.mjs`
   (vendor metadata caps); a FAIL there is itself a blocking contradiction.
+- The checker MUST run `npm run check:versions`. A mismatch among package
+  manifests or the MCP server source version is a blocking contradiction.
 - Give the checker: the worktree path, branch, base ref, a description of the
   change set, and the staged/unstaged file lists.
 - If no checker can be dispatched, halt and tell the owner. Do not commit.
@@ -49,6 +51,11 @@ The checker reports a contradiction in ANY of these classes:
    - User-owned dirty files (pre-existing changes the current task does not
      own) are NOT contradictions of this class; list them under `risks` so the
      orchestrator can confirm ownership, and never stage them.
+4. **Version-sync mismatch.** The release/package version surfaces must match:
+   `package.json` top-level `version`, `package-lock.json` top-level `version`,
+   `package-lock.json` `packages[""].version`, and `src/index.ts` MCP server
+   `version`. Any mismatch is blocking, even when the commit is not explicitly
+   a release commit, because the build and published MCP metadata depend on it.
 
 ## Return Shape
 

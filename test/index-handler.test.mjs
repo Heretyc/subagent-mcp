@@ -7,7 +7,7 @@
  */
 
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
@@ -134,7 +134,14 @@ function createMcpSession(entrypoint, options = {}) {
   }
 
   async function close() {
-    child.kill();
+    if (process.platform === "win32" && child.pid) {
+      spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+    } else {
+      child.kill();
+    }
     await withTimeout(
       new Promise((resolveClose) => child.once("exit", resolveClose)),
       2000,
@@ -163,6 +170,44 @@ function writeFakePathTools(fakeBin) {
   chmodSync(npmPath, 0o755);
   chmodSync(claudePath, 0o755);
   chmodSync(codexPath, 0o755);
+}
+
+function writeMockDriverScript(tempRoot) {
+  const script = join(tempRoot, "mock-provider-driver.mjs");
+  writeFileSync(
+    script,
+    `
+import readline from "node:readline";
+
+const provider = process.argv[2] || "claude";
+let turn = 0;
+const rl = readline.createInterface({ input: process.stdin });
+
+function send(obj) {
+  process.stdout.write(JSON.stringify(obj) + "\\n");
+}
+
+rl.on("line", (line) => {
+  if (!line.trim()) return;
+  const msg = JSON.parse(line);
+  if (msg.type !== "turn.start") return;
+  turn += 1;
+  const text = msg.message || "";
+  if (provider === "claude") {
+    send({ type: "assistant", message: { content: [{ type: "text", text: "ack:" + text }] } });
+    send({ type: "result", result: "done:" + text });
+  } else {
+    send({ type: "agent_message", message: "ack:" + text });
+    send({ type: "turn.completed", turn });
+  }
+  if (process.env.MOCK_EXIT_AFTER_TURN === "1") {
+    setTimeout(() => process.exit(0), 20);
+  }
+});
+`,
+    "utf8"
+  );
+  return script;
 }
 
 await test("symlinked dist/index.js connects as the main entrypoint", async () => {
@@ -348,6 +393,25 @@ async function killAgent(session, agentId) {
   );
 }
 
+async function pollAgent(session, agentId) {
+  const pollResp = await session.request("tools/call", {
+    name: "poll_agent",
+    arguments: { agent_id: agentId },
+  });
+  return JSON.parse(pollResp.result.content[0].text);
+}
+
+async function waitForPoll(session, agentId, predicate, label) {
+  const deadline = Date.now() + 2000;
+  let payload;
+  while (Date.now() < deadline) {
+    payload = await pollAgent(session, agentId);
+    if (predicate(payload)) return payload;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`${label} timed out; last poll=${JSON.stringify(payload)}`);
+}
+
 function makeTempEnv() {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-index-tier-"));
   const fakeBin = join(tempRoot, "bin");
@@ -357,6 +421,7 @@ function makeTempEnv() {
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
   writeFakePathTools(fakeBin);
+  const mockDriverScript = writeMockDriverScript(tempRoot);
   // Advanced-ruleset + grace-window neutralization, so every legacy assertion
   // stays valid unchanged: SUBAGENT_RULESET_PYTHON=node plus the preload make
   // the env-check answer load-rules:false deterministically (the host may have
@@ -372,6 +437,9 @@ function makeTempEnv() {
       ...process.env,
       FAKE_NPM_PREFIX: fakePrefix,
       SUBAGENT_SPAWN_GRACE_MS: "0",
+      SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
+      SUBAGENT_MOCK_CODEX_DRIVER: "jsonl",
+      SUBAGENT_MOCK_DRIVER_SCRIPT: mockDriverScript,
       SUBAGENT_RULESET_PYTHON: process.execPath,
       NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require "${preloadPath.replace(/\\/g, "/")}"`]
         .filter(Boolean)
@@ -403,6 +471,34 @@ await test("pure-auto launch: routing_tier is cost_efficiency (no window active)
       "cost_efficiency",
       "pure-auto with no active window must route through cost_efficiency branch"
     );
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("completed interactive turn that later exits is finished but not alive", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: { ...env, MOCK_EXIT_AFTER_TURN: "1" },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchAndPoll(session, {
+      task_category: "coding",
+      provider: "codex",
+      model: "gpt-5.5",
+      prompt: "finish then exit",
+    });
+    const pollPayload = await waitForPoll(
+      session,
+      agentId,
+      (payload) => payload.exit_code === 0,
+      "clean driver exit after turn completion"
+    );
+    assert.equal(pollPayload.status, "finished");
+    assert.equal(pollPayload.alive, false, "closed driver must not report alive=true");
   } finally {
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });

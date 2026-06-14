@@ -14,7 +14,7 @@
  */
 
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
@@ -151,7 +151,14 @@ function createMcpSession(entrypoint, options = {}) {
   }
 
   async function close() {
-    child.kill();
+    if (process.platform === "win32" && child.pid) {
+      spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+    } else {
+      child.kill();
+    }
     await withTimeout(
       new Promise((resolveClose) => child.once("exit", resolveClose)),
       2000,
@@ -180,6 +187,41 @@ function writeFakePathTools(fakeBin) {
   chmodSync(npmPath, 0o755);
   chmodSync(claudePath, 0o755);
   chmodSync(codexPath, 0o755);
+}
+
+function writeMockDriverScript(tempRoot) {
+  const script = join(tempRoot, "mock-provider-driver.mjs");
+  writeFileSync(
+    script,
+    `
+import readline from "node:readline";
+
+const provider = process.argv[2] || "claude";
+let turn = 0;
+const rl = readline.createInterface({ input: process.stdin });
+
+function send(obj) {
+  process.stdout.write(JSON.stringify(obj) + "\\n");
+}
+
+rl.on("line", (line) => {
+  if (!line.trim()) return;
+  const msg = JSON.parse(line);
+  if (msg.type !== "turn.start") return;
+  turn += 1;
+  const text = msg.message || "";
+  if (provider === "claude") {
+    send({ type: "assistant", message: { content: [{ type: "text", text: "ack:" + text }] } });
+    send({ type: "result", result: "done:" + text });
+  } else {
+    send({ type: "agent_message", message: "ack:" + text });
+    send({ type: "turn.completed", turn });
+  }
+});
+`,
+    "utf8"
+  );
+  return script;
 }
 
 async function launchAndPoll(session, launchArgs) {
@@ -247,6 +289,7 @@ function makeRulesetTempEnv(initialMode) {
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
   writeFakePathTools(fakeBin);
+  const mockDriverScript = writeMockDriverScript(tempRoot);
   const entrypoint = makeFixtureDist(tempRoot);
   const modeFile = join(tempRoot, "ruleset-mode.txt");
   const logFile = join(tempRoot, "ruleset-log.txt");
@@ -256,9 +299,12 @@ function makeRulesetTempEnv(initialMode) {
     {
       ...process.env,
       FAKE_NPM_PREFIX: fakePrefix,
-      // Legacy spawn semantics: the PATH fakes exit instantly by design, so
-      // the post-spawn grace window must be off (failover.test.mjs owns it).
+      // Mock provider drivers keep this suite independent of real CLIs;
+      // failover.test.mjs owns post-spawn grace-window behavior.
       SUBAGENT_SPAWN_GRACE_MS: "0",
+      SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
+      SUBAGENT_MOCK_CODEX_DRIVER: "jsonl",
+      SUBAGENT_MOCK_DRIVER_SCRIPT: mockDriverScript,
       SUBAGENT_RULESET_PYTHON: process.execPath,
       // Forward slashes: node's NODE_OPTIONS parser treats backslash as an
       // escape inside double quotes, which would mangle a win32 path.

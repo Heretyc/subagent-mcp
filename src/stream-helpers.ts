@@ -3,9 +3,9 @@
 // "Visible" = provider stream events, summaries, and assistant messages a human
 // would see in the CLI. Provider-internal reasoning blocks (Claude `thinking` /
 // `redacted_thinking` content blocks, Codex `reasoning` items/events) are not
-// parsed into visible items. Supports Codex `--json` JSONL and Claude
-// stream-json / buffered-json where feasible. NEVER throws; unparseable lines
-// are skipped.
+// parsed into visible items. Supports Codex app-server JSON-RPC notifications,
+// older Codex JSONL, and Claude SDK/stream-json events where feasible. NEVER
+// throws; unparseable lines are skipped.
 
 export interface VisibleStreamItem {
   type: string;
@@ -21,10 +21,35 @@ function pushText(out: VisibleStreamItem[], type: string, text: unknown): void {
   }
 }
 
-// Codex `exec --json` is newline-delimited JSON. Visible: agent messages and
-// completed items that carry text. Chain-of-thought (anything whose type or
-// item_type is `reasoning`) is dropped.
+// Codex app-server uses newline-delimited JSON-RPC. Visible: assistant deltas,
+// agent messages, and completed items that carry text. Chain-of-thought
+// (anything whose type or item_type is `reasoning`) is dropped.
 function collectCodex(e: Record<string, unknown>, out: VisibleStreamItem[]): void {
+  if (typeof e.method === "string") {
+    const params = e.params && typeof e.params === "object" ? e.params as Record<string, unknown> : {};
+    if (e.method === "item/agentMessage/delta") {
+      pushText(out, "agent_message", params.delta);
+      return;
+    }
+    if (e.method === "item/started" || e.method === "item/completed") {
+      const item = params.item && typeof params.item === "object" ? params.item as Record<string, unknown> : {};
+      const itemType = typeof item.type === "string" ? item.type : "item";
+      if (itemType.includes("reasoning")) return;
+      pushText(out, itemType, item.text ?? item.command ?? item.summary);
+      return;
+    }
+    if (e.method === "turn/completed") {
+      const turn = params.turn && typeof params.turn === "object" ? params.turn as Record<string, unknown> : {};
+      const items = Array.isArray(turn.items) ? turn.items : [];
+      for (const item of items) {
+        if (!item || typeof item !== "object") continue;
+        const obj = item as Record<string, unknown>;
+        if (obj.type === "agentMessage") pushText(out, "agent_message", obj.text);
+      }
+      return;
+    }
+  }
+
   const type = typeof e.type === "string" ? e.type : "";
   if (type.includes("reasoning")) return;
 
@@ -187,6 +212,23 @@ export function flushStream(provider: string, pending: string): ConsumeResult {
   const items: VisibleStreamItem[] = [];
   collectLine(provider, trimmed, items);
   return { items, pending: "", lines: [trimmed] };
+}
+
+export function isTurnCompletedLine(provider: string, line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  try {
+    const evt = JSON.parse(trimmed) as Record<string, unknown>;
+    if (provider === "codex") {
+      return evt.method === "turn/completed" || evt.type === "turn.completed";
+    }
+    if (provider === "claude") {
+      return evt.type === "result";
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 // Append new items to a rolling buffer, retaining only the last `n`.

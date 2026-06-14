@@ -20,6 +20,18 @@ release; never infer one from the other.
 
 ## Procedure
 
+0. **Version-sync gate:** before commit, tag, release, or publish, all package
+   version surfaces MUST match exactly:
+   - `package.json` top-level `version`
+   - `package-lock.json` top-level `version`
+   - `package-lock.json` `packages[""].version`
+   - `src/index.ts` MCP server `version`
+
+   Run `npm run check:versions`. This is wired into `npm run build`, `npm test`,
+   and the publish workflow; any mismatch blocks the build/publish. Use
+   `npm version <patch|minor|major> --no-git-tag-version` for package manifests,
+   then update the MCP server version in `src/index.ts` to the same value.
+
 1. **GitHub Packages:** from the merged release tree in a compliant worktree,
    run `npm publish` (`prepublishOnly` runs the full suite). `publishConfig`
    routes it. Record the tarball `shasum` from the publish log.

@@ -58,14 +58,13 @@ export function buildCommand(
   provider: Provider,
   model: string,
   effort: string,
-  prompt: string,
   cwd: string
 ): { args: string[]; ucSettingsPath?: string } {
   const mapped = mapModel(provider, model);
   const er = resolveEffort(provider, model, effort);
 
   if (provider === "claude") {
-    const args = ["-p", "--model", mapped];
+    const args = ["--model", mapped];
 
     if (er.kind === "flag") {
       args.push("--effort", er.value);
@@ -79,10 +78,7 @@ export function buildCommand(
         "--tools",
         "default",
         "--max-turns",
-        "50",
-        "--output-format",
-        "stream-json",
-        "--verbose"
+        "50"
       );
       return { args, ucSettingsPath };
     }
@@ -93,28 +89,16 @@ export function buildCommand(
       "--tools",
       "default",
       "--max-turns",
-      "50",
-      "--output-format",
-      "stream-json",
-      "--verbose"
+      "50"
     );
     return { args };
   } else {
     // codex
-    const effortValue = (er as { kind: "flag"; value: string }).value;
+    void (er as { kind: "flag"; value: string }).value;
     return {
       args: [
-        "exec",
-        "-C",
-        cwd,
-        "-m",
-        "gpt-5.5",
-        "-c",
-        `model_reasoning_effort="${effortValue}"`,
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--skip-git-repo-check",
-        "--json",
-        prompt,
+        "app-server",
+        "--stdio",
       ],
     };
   }

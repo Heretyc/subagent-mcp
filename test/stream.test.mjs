@@ -4,6 +4,7 @@ import {
   retainLastN,
   consumeStreamChunk,
   flushStream,
+  isTurnCompletedLine,
   isNonVisibleStreamLine,
 } from "../dist/stream-helpers.js";
 
@@ -49,6 +50,24 @@ test("codex: reasoning events are not surfaced in recent_stream", () => {
   ].join("\n");
   const items = parseVisibleStream("codex", chunk);
   assert.deepEqual(items, [{ type: "agent_message", text: "public answer" }]);
+});
+
+test("codex app-server: agentMessage delta is visible", () => {
+  const chunk = JSON.stringify({
+    method: "item/agentMessage/delta",
+    params: { delta: "hello from app-server" },
+  });
+  const items = parseVisibleStream("codex", chunk);
+  assert.deepEqual(items, [{ type: "agent_message", text: "hello from app-server" }]);
+});
+
+test("codex app-server: turn/completed carries final agent message", () => {
+  const chunk = JSON.stringify({
+    method: "turn/completed",
+    params: { turn: { items: [{ type: "agentMessage", text: "done" }] } },
+  });
+  const items = parseVisibleStream("codex", chunk);
+  assert.deepEqual(items, [{ type: "agent_message", text: "done" }]);
 });
 
 // --- Claude stream-json visible-stream parsing ---
@@ -163,6 +182,13 @@ test("consumeStreamChunk: turn.completed marker split across chunks matches on r
     r2.lines.some((l) => l.includes('"type":"turn.completed"')),
     "reassembled complete line matches the completion marker"
   );
+});
+
+test("isTurnCompletedLine: codex app-server and claude SDK completion markers", () => {
+  assert.equal(isTurnCompletedLine("codex", JSON.stringify({ method: "turn/completed" })), true);
+  assert.equal(isTurnCompletedLine("codex", JSON.stringify({ type: "turn.completed" })), true);
+  assert.equal(isTurnCompletedLine("claude", JSON.stringify({ type: "result", result: "done" })), true);
+  assert.equal(isTurnCompletedLine("claude", JSON.stringify({ type: "assistant" })), false);
 });
 
 test("flushStream: trailing line with no terminating newline is parsed on close", () => {

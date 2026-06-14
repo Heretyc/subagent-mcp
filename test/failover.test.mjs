@@ -19,7 +19,7 @@
  */
 
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
@@ -150,7 +150,14 @@ function createMcpSession(entrypoint, options = {}) {
   }
 
   async function close() {
-    child.kill();
+    if (process.platform === "win32" && child.pid) {
+      spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+    } else {
+      child.kill();
+    }
     await withTimeout(
       new Promise((resolveClose) => child.once("exit", resolveClose)),
       2000,
@@ -215,12 +222,15 @@ function makeFailoverEnv(codexMode, graceMs) {
       ...process.env,
       FAKE_NPM_PREFIX: fakePrefix,
       SUBAGENT_SPAWN_GRACE_MS: String(graceMs),
+      SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
+      SUBAGENT_MOCK_CODEX_DRIVER: "jsonl",
       // Ruleset stays out of the way: disabled fake interpreter.
       SUBAGENT_RULESET_PYTHON: process.execPath,
       NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require "${preloadPath.replace(/\\/g, "/")}"`]
         .filter(Boolean)
         .join(" "),
       FAKE_RULESET_MODE_FILE: modeFile,
+      FAKE_CLI_CLAUDE_MODE: "die",
       FAKE_CLI_CODEX_MODE: codexMode,
     },
     fakeBin
@@ -301,12 +311,11 @@ await test("exhaustion: ALL candidates die in the window → ERR_ALL_FAILED with
 });
 
 // ---------------------------------------------------------------------------
-// 3. SUBAGENT_SPAWN_GRACE_MS=0 restores legacy spawn-event-only success.
-//    WHY: proves the grace window is the detection mechanism (and documents
-//    the seam the legacy fixture suites rely on): with it off, an
-//    instant-exit child is still reported as a successful launch.
+// 3. SUBAGENT_SPAWN_GRACE_MS=0 disables post-start early-exit detection.
+//    WHY: documents the test seam legacy suites rely on; if the startup write
+//    wins the race, the rank-1 candidate can still be reported as launched.
 // ---------------------------------------------------------------------------
-await test("grace 0: detection disabled — instant-exit candidate 1 still 'succeeds' (legacy behavior)", async () => {
+await test("grace 0: detection disabled, startup-write winner is reported as launched", async () => {
   const { tempRoot, workDir, env, entrypoint } = makeFailoverEnv("die", 0);
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
@@ -317,10 +326,10 @@ await test("grace 0: detection disabled — instant-exit candidate 1 still 'succ
     });
     const text = response.result.content[0].text;
     assert.notEqual(response.result.isError, true,
-      `grace 0 must restore spawn-event-only success: ${text}`);
+      `grace 0 must preserve the startup-write race seam: ${text}`);
     const payload = JSON.parse(text);
     assert.equal(payload.provider, "claude",
-      "with detection off, the instantly-dying rank-1 candidate is (falsely) reported as launched");
+      "with detection off, the rank-1 startup-write winner is reported as launched");
     assert.equal(payload.model, "sonnet");
   } finally {
     await session.close();
