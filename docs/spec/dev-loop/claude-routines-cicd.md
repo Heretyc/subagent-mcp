@@ -51,6 +51,8 @@ citations, or wrapper text.
   API text body
 - send workflow SHA, target SHA, PR head/base SHA, and merge-group metadata
 - fail if the routine cannot be dispatched
+- require version sync by running `npm run check:versions` or `npm run build`
+  before reporting pass
 - report the returned Claude Code session URL in the workflow summary
 - not claim that routine completion succeeded merely because dispatch succeeded
 - mark all GitHub event fields as untrusted metadata for the routine
@@ -69,6 +71,7 @@ Target SHA: <sha checked out for validation>
 
 ### Checks
 - Line limits: pass|fail|blocked
+- Version sync: pass|fail|blocked
 - JSON syntax: pass|fail|blocked
 - Python syntax: pass|fail|blocked
 - Branch and PR policy: pass|fail|blocked

@@ -6,13 +6,13 @@
 //   stalled    - ALIVE but NO parsed visible provider stream item for the
 //                heartbeat window. NOT a failure and NOT terminal; does NOT
 //                count against provider concurrency caps.
-//   finished   - process exited 0.
+//   finished   - current turn completed, or driver exited 0.
 //   errored    - process exited non-zero.
 //   stopped    - process was killed.
 //
 // Liveness is driven by a heartbeat: launch time is the initial heartbeat and
 // every subsequent PARSED visible provider stream item refreshes it (raw
-// raw stdout/stderr bytes do not). A live agent is
+// stdout/stderr bytes do not). A live agent is
 // `processing` until the heartbeat is older than the window, at which point it
 // becomes `stalled`. Resumed visible activity returns it to `processing`.
 
@@ -85,7 +85,9 @@ export function buildLivenessFields(
   includeHint = true
 ): LivenessFields {
   const idle_seconds = Math.floor((now - lastActivity) / 1000);
-  const alive = exitCode === null && (status === "processing" || status === "stalled");
+  const alive =
+    exitCode === null &&
+    (status === "processing" || status === "stalled" || status === "finished");
   const fields: LivenessFields = { alive, idle_seconds };
   if (status === "stalled" && includeHint) {
     fields.hint =

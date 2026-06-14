@@ -60,7 +60,7 @@ and, while a window is armed, selects the `performance` branch for `auto`
 launches (`routing-table-contract.md §Branch selection`). Combined with any
 override → `ERR_DEADLOCK_WITH_OVERRIDES`.
 
-## Success payload (returned after first successful spawn)
+## Success payload (returned after first successful driver start)
 
 JSON (string in the MCP text content):
 

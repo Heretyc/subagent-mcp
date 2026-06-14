@@ -25,6 +25,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm install -g npm@latest
       - run: npm ci
+      - run: npm run check:versions
       - run: npm run build
       - run: npm test
       # publishConfig.registry targets GitHub Packages, so override to public npm
@@ -43,6 +44,7 @@ jobs:
           node-version: '20'
           registry-url: 'https://npm.pkg.github.com'
       - run: npm ci
+      - run: npm run check:versions
       - run: npm run build
       - run: npm test
       - run: npm publish

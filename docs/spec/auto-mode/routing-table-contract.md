@@ -168,19 +168,19 @@ For each candidate in order (best→worst):
 3. **"Fails for any reason" = LAUNCH-TIME failure**, specifically:
    - concurrency limit for that provider already reached;
    - `buildCommand`/`resolveEffort` throws;
-   - `resolveExe` returns a path that does not exist / `spawn` throws (missing
-     exe, ENOENT, EACCES, etc.);
-   - any exception before the child is registered.
+   - `resolveExe` returns a path that does not exist / driver spawn throws
+     (missing exe, ENOENT, EACCES, etc.);
+   - provider driver startup rejects before the agent is registered.
    On ANY of these → record `{model,effort,provider,reason}`, SILENTLY advance
    to the next candidate. Do not surface intermediate failures to the caller.
-4. On the FIRST successful spawn: register the agent exactly as today (same
-   `AgentState`, stdout/stderr handlers, close handler, `agents.set`), and
-   return the success payload (`param-contract.md`).
+4. On the FIRST successful driver start: register the agent with `AgentState`,
+   stdout/stderr handlers, close handler, and `agents.set`, then return the
+   success payload (`param-contract.md`).
 
-CRITICAL — launch-time only: a launch succeeds when the child spawns AND
+CRITICAL — launch-time only: a launch succeeds when the driver starts AND
 survives the post-spawn grace window; ANY exit inside that window (any code or
 signal) is a launch-time failure that silently advances the loop — sole
-exception: a codex child already finalized by its `turn.completed` marker, a
+exception: a provider driver already finalized by its turn-completion marker, a
 legitimate fast completion (`../advanced-ruleset/visibility-and-failover.md`).
 `launch_agent` does NOT await the sub-agent's task: a later death is observed
 via `poll_agent`/`wait` and is NEVER a fallback trigger.

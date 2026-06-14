@@ -17,8 +17,8 @@ function test(name, fn) {
 }
 
 // --- claude: object with string `result` field ---
-// WHY: `claude -p --output-format stream-json --verbose` emits one JSON event
-// per line; the final `result` event carries the assistant message text.
+// WHY: the Claude Agent SDK yields result events; the final `result` event
+// carries the assistant message text.
 
 test("claude object-with-result returns the result string", () => {
   const stdout = JSON.stringify({
@@ -43,10 +43,9 @@ test("claude array form returns last result element", () => {
   assert.equal(extractFinalTurn("claude", stdout), "final result");
 });
 
-// --- claude: stream-json (multi-line) returns the final result event ---
-// WHY: `claude -p --output-format stream-json --verbose` emits one JSON event
-// per line (system/assistant/result); whole-string JSON.parse fails, so the
-// extractor must scan lines and return the `result` event's text.
+// --- claude: SDK stream (multi-line) returns the final result event ---
+// WHY: Claude SDK output is captured as JSONL events; whole-string JSON.parse
+// fails, so the extractor must scan lines and return the `result` event's text.
 
 test("claude stream-json returns the final result event text", () => {
   const stdout = [
@@ -66,8 +65,8 @@ test("claude stream-json with no result event falls back to last assistant text"
 });
 
 // --- codex: event stream, last assistant message wins ---
-// WHY: codex `exec --json` is newline-delimited; the agent's last
-// assistant-message event carries the turn text.
+// WHY: codex app-server is newline-delimited JSON-RPC; the agent's last
+// assistant-message notification carries the turn text.
 
 test("codex event-stream returns last agent_message text", () => {
   const stdout = [
@@ -83,6 +82,18 @@ test("codex event-stream returns last agent_message text", () => {
     JSON.stringify({ type: "turn.completed" }),
   ].join("\n");
   assert.equal(extractFinalTurn("codex", stdout), "the final codex answer");
+});
+
+test("codex app-server JSON-RPC returns final turn/completed agent message", () => {
+  const stdout = [
+    JSON.stringify({ method: "thread/started", params: { thread: { id: "t1" } } }),
+    JSON.stringify({ method: "item/agentMessage/delta", params: { delta: "partial" } }),
+    JSON.stringify({
+      method: "turn/completed",
+      params: { turn: { items: [{ type: "agentMessage", text: "the app-server final" }] } },
+    }),
+  ].join("\n");
+  assert.equal(extractFinalTurn("codex", stdout), "the app-server final");
 });
 
 test("codex agent_message envelope shape is matched", () => {

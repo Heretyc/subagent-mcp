@@ -8,7 +8,7 @@ shapes.
 
 ## `launch_agent`
 
-Spawn a new sub-agent process.
+Start a new always-interactive sub-agent session.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -18,11 +18,11 @@ Spawn a new sub-agent process.
 | `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "gpt-5.5"` | No | Override; omit to auto-select |
 | `effort` | `"low" \| "medium" \| "high" \| "xhigh" \| "max" \| "ultracode"` | No | Override; omit to auto-select |
 | `deadlock` | boolean | No | MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory - the 3rd attempt onward. Re-wording or splitting unchanged work does NOT reset attempts. Auto mode only: cannot be combined with provider/model/effort; from the 3rd attempt, drop those params. Passing false is identical to omitting it. |
-| `cwd` | string | No | Working directory for the agent process |
+| `cwd` | string | No | Working directory for the agent session |
 
 Returns: `{ agent_id, status, provider, model, effort, task_category }`, plus `ruleset_applied: true` and `ruleset_original_selection` ONLY when the advanced ruleset altered the routing decision ([docs/spec/advanced-ruleset/visibility-and-failover.md](spec/advanced-ruleset/visibility-and-failover.md)).
 
-**Auto mode (recommended):** pass only `prompt` + `task_category`. The server reads its routing table, builds a best→worst candidate list for that category, launches the first candidate that spawns, and silently falls back to the next-best on a launch-time failure.
+**Auto mode (recommended):** pass only `prompt` + `task_category`. The server reads its routing table, builds a best→worst candidate list for that category, starts the first interactive candidate that accepts startup, and silently falls back to the next-best on a launch-time failure.
 
 **Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. Rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`. Passing all three is `explicit` mode — a single direct attempt with no fallback. Omitting or partially supplying them on a bad combination is a hard error (see the spec).
 
@@ -43,13 +43,13 @@ Get current status and output tail of an agent.
 
 Returns: `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream, routing_tier }` plus `hint` when `status` is `stalled`, plus `final_output` when `verbose` is `true`, plus `ruleset_applied` and `ruleset_original_selection` ONLY when the advanced ruleset altered the routing decision.
 
-`stdout_tail` is capped at the last 2000 characters; `stderr_tail` at 1000 characters. `recent_stream` holds exactly the last 3 parsed visible provider-stream items, each with its timestamp. `alive` is `true` while the process is processing/stalled; `idle_seconds` is whole seconds since the last visible-stream heartbeat. Exit is reconciled synchronously on each call, so an already-exited process is reported `finished`/`errored` immediately. A `stalled` agent is alive but quiet -- prefer `wait`/re-poll over killing it. With `verbose: true`, `final_output` holds the agent's final assistant turn text extracted from its full captured stdout (falls back to the raw stdout if it cannot be parsed). `routing_tier` is `cost_efficiency`, `performance`, or `manual` (`manual` = launched with explicit provider+model+effort overrides); it is omitted for agents launched before this feature (tier unknown). `ruleset_applied` and `ruleset_original_selection` are present ONLY when the advanced ruleset altered the routing decision for the launch (see [docs/spec/advanced-ruleset/visibility-and-failover.md](spec/advanced-ruleset/visibility-and-failover.md)).
+`stdout_tail` is capped at the last 2000 characters; `stderr_tail` at 1000 characters. `recent_stream` holds exactly the last 3 parsed visible provider-stream items, each with its timestamp. `alive` is `true` while the driver is open (`processing`, `stalled`, or a `finished` turn that can still accept `send_message`); `idle_seconds` is whole seconds since the last visible-stream heartbeat. Exit is reconciled synchronously on each call, so a closed driver is reported `finished`/`errored` immediately. A `stalled` agent is alive but quiet -- prefer `wait`/re-poll over killing it. With `verbose: true`, `final_output` holds the agent's final assistant turn text extracted from its full captured stdout (falls back to the raw stdout if it cannot be parsed). `routing_tier` is `cost_efficiency`, `performance`, or `manual` (`manual` = launched with explicit provider+model+effort overrides); it is omitted for agents launched before this feature (tier unknown). `ruleset_applied` and `ruleset_original_selection` are present ONLY when the advanced ruleset altered the routing decision for the launch (see [docs/spec/advanced-ruleset/visibility-and-failover.md](spec/advanced-ruleset/visibility-and-failover.md)).
 
 ---
 
 ## `kill_agent`
 
-Immediately force-kill any live agent (`processing` or `stalled`): `taskkill /pid /t /f` (Windows) or SIGKILL (macOS/Linux). Reports terminal `stopped`. Killing an already-terminal agent is not an error.
+Immediately force-kill any open agent session (`processing`, `stalled`, or a turn-`finished` session still marked `alive`): `taskkill /pid /t /f` (Windows) or SIGKILL (macOS/Linux). Reports terminal `stopped`. Killing an already-closed agent is not an error.
 
 | Parameter | Type | Required |
 |-----------|------|----------|
@@ -61,7 +61,7 @@ Returns: `{ agent_id, status, message }`
 
 ## `send_message`
 
-Write a message to an agent's stdin (newline appended). Only works while the agent is live (`processing` or `stalled`).
+Enqueue a user message on the agent's existing interactive session. Only works while the driver is open (`processing`, `stalled`, or a turn-`finished` session still marked `alive`). Callers observe output with `poll_agent` or `wait`; `send_message` only reports that the provider driver accepted the input.
 
 | Parameter | Type | Required |
 |-----------|------|----------|
@@ -82,7 +82,7 @@ No parameters and no `verbose` arg. Returns token-efficient core metrics: `{ age
 
 ## `wait`
 
-Block until one or more sub-agents reach a terminal state (finished/errored/stopped) and return their exit details. A `stalled` agent is still live, so `wait` does NOT return on it. Returns immediately if terminal-unreported agents already exist. Returns after a 15-minute hard timeout with a list of still-live agents if nothing reaches terminal in time.
+Block until one or more sub-agents reach a reportable turn/process state (`finished`, `errored`, or `stopped`) and return their details. A `stalled` agent is still live, so `wait` does NOT return on it. Returns immediately if unreported finished agents already exist. Returns after a 15-minute hard timeout with a list of still-live agents if nothing reaches a reportable state in time.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|

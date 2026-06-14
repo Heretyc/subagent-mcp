@@ -9,10 +9,10 @@ fields, the health monitor, and synchronous exit reconciliation. Part of the
 ## Visible Stream Heartbeat
 
 Liveness is driven by the agent's **visible provider stream** only: provider
-stream events, turn summaries, and assistant messages. Claude is read as
-`--output-format stream-json`; Codex is read as its `--json` JSONL stream, both
-with per-agent line buffering so an event split across stdout chunks is never
-dropped. Each PARSED visible item is a heartbeat that stamps `lastActivity`.
+stream events, turn summaries, and assistant messages. Claude SDK events and
+Codex app-server JSONL notifications are captured with per-agent line buffering
+so an event split across stdout chunks is never dropped. Each PARSED visible
+item is a heartbeat that stamps `lastActivity`.
 
 Launch time is the **initial heartbeat**: a freshly spawned agent starts with
 `lastActivity` set to its start time, so it begins `processing`.
@@ -23,14 +23,16 @@ Launch time is the **initial heartbeat**: a freshly spawned agent starts with
 
 | Status | Meaning | Terminal? |
 |--------|---------|-----------|
-| `processing` | Process alive with a visible-stream heartbeat in the last 10 minutes -- actively working | no (live) |
-| `stalled` | Process STILL ALIVE but no parsed visible provider stream item for >= 10 minutes -- quiet. Recovers to `processing` if the visible stream resumes. Not a failure | no (live) |
-| `finished` | Exit code 0 (or Codex `turn.completed`) | yes |
+| `processing` | Driver alive with a visible-stream heartbeat in the last 10 minutes -- actively working | no (live) |
+| `stalled` | Driver STILL ALIVE but no parsed visible provider stream item for >= 10 minutes -- quiet. Recovers to `processing` if the visible stream resumes. Not a failure | no (live) |
+| `finished` | Current turn completed, or driver exited 0 | reportable; may still be alive |
 | `stopped` | Terminated by `kill_agent` | yes |
 | `errored` | Non-zero exit | yes |
 
-`alive === true` for `processing`/`stalled` (exitCode === null); only `finished`/
-`stopped`/`errored` are terminal.
+`alive === true` for `processing`/`stalled`, and also for `finished` when the
+driver remains open (`exitCode === null`). A turn-finished but alive agent can
+accept `send_message`, which moves it back to `processing` for the next turn.
+`stopped`/`errored` are closed terminal states.
 
 The per-provider concurrency cap (max 5, see
 [SPEC.md](../SPEC.md#concurrency-model)) counts only `processing` agents. A
@@ -55,13 +57,12 @@ exported as `HEARTBEAT_TIMEOUT_MS = 600000` (10 minutes). Its order is:
    stream resumed).
 3. Else if `processing` and `now - lastActivity > HEARTBEAT_TIMEOUT_MS` -> `stalled` (alive
    but quiet).
-4. Otherwise unchanged (terminal states are inert; Codex `turn.completed` ->
-   `finished` is handled in the stdout handler, not here).
+4. Otherwise unchanged. Provider turn-completion markers (`result` for Claude,
+   `turn/completed` for Codex app-server) set `finished` in the stdout handler.
 
 `setInterval` every 10,000 ms folds each live agent's `process.exitCode` into
 `AgentState` and applies the helper. `poll_agent` and `list_agents`
 additionally run the same reconcile synchronously before returning, eliminating
-the up-to-10s lag for already-exited processes. Stalled does not by itself end a
-`wait`; `wait` returns only on terminal transitions. `stalled` agents are never
-auto-killed; prefer `wait`/re-poll (or checking the agent's temp output) over
-`kill_agent`.
+the up-to-10s lag for already-closed drivers. Stalled does not by itself end a
+`wait`; `wait` returns on unreported `finished`, `errored`, or `stopped` states.
+`stalled` agents are never auto-killed; prefer `wait`/re-poll over `kill_agent`.

@@ -8,13 +8,11 @@
 
 subagent-mcp does NOT and will NOT:
 
-- Call the Anthropic HTTP API directly (no `anthropic` SDK, no API keys)
+- Call the Anthropic HTTP API directly (no API keys)
 - Call the OpenAI HTTP API directly (no `openai` SDK, no API keys)
-- Support any provider other than the locally installed `claude` and `codex` CLIs
+- Support any provider other than locally authenticated Claude Code and Codex
 - Act as a general HTTP proxy or model gateway
-- Add direct API support in future versions -- all model access is permanently via the local CLIs
-
----
+- Add direct API support in future versions
 
 ## Architecture
 
@@ -23,21 +21,19 @@ MCP Host (Claude Code / Codex / Gemini CLI)
          |  JSON-RPC over stdio
          v
   subagent-mcp (node dist/index.js)
-         |  Node.js child_process.spawn
-         +---> claude CLI process (stdin/stdout/stderr pipes)
-         +---> codex CLI process (stdout/stderr pipes, stdin ignored)
+         |  ProviderDriver abstraction
+         +---> Claude Agent SDK logical session (local claude executable)
+         +---> codex app-server JSONL stdio session
 ```
 
 - **Transport:** stdio (MCP spec 2025-06-18)
-- **SDK:** `@modelcontextprotocol/sdk` + `zod` for parameter validation
+- **SDK:** `@modelcontextprotocol/sdk` + `zod`; Claude sessions use `@anthropic-ai/claude-agent-sdk`
 - **Platforms:** macOS, Linux, Windows
 - **Runtime:** Node.js >= 18 (ESM module)
 - **Entry point:** `dist/index.js` (compiled from `src/index.ts`)
 - **Server name announced to MCP host:** `subagent-mcp`
 
-All logs go to stderr. stdout carries only JSON-RPC messages.
-
----
+All logs go to stderr; stdout carries only JSON-RPC messages.
 
 ## Full Parameter Schemas
 
@@ -49,7 +45,7 @@ All logs go to stderr. stdout carries only JSON-RPC messages.
 | `send_message` | `agent_id` string, `message` string | `{ agent_id, status: "sent", message }` |
 | `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd_basename, alive, idle_seconds }] }` (token-efficient core metrics; no `hint`, no `verbose` arg, no tails or stream items -- use `poll_agent`) |
 
-stdout_tail: last 2000 chars. stderr_tail: last 1000 chars. `recent_stream`: exactly the last 3 parsed visible provider stream items, each with its timestamp. `alive`: boolean, true while processing/stalled (exitCode === null). `idle_seconds`: `Math.floor((now - lastActivity) / 1000)` since the last visible-stream heartbeat. `poll_agent` and `list_agents` reconcile process exit synchronously before building their return value, so an already-exited process is reported `finished`/`errored` immediately rather than after the next health-monitor tick. Errors set `isError: true`; text begins with `"Error: "`.
+stdout_tail: last 2000 chars. stderr_tail: last 1000 chars. `recent_stream`: last 3 parsed visible provider stream items, each timestamped. `alive`: true while the driver is open (`processing`, `stalled`, or turn-`finished` with `exitCode === null`). `idle_seconds`: `Math.floor((now - lastActivity) / 1000)` since the last visible-stream heartbeat. `poll_agent` and `list_agents` reconcile driver exit synchronously. Errors set `isError: true`; text begins with `"Error: "`.
 
 ---
 
@@ -94,14 +90,13 @@ On POSIX systems, the npm global bin directory contains a real symlink (not a sh
 2. `/opt/homebrew/bin/<name>` — Homebrew install (macOS)
 3. `/usr/local/bin/<name>` — traditional unix location
 
-If none of the above exist, returns the bare name and relies on PATH as the final arbiter.
-
-The npm prefix is obtained via `execSync("npm prefix -g")` and cached after the first call.
+If none exist, returns the bare name and relies on PATH. The npm prefix is obtained via `execSync("npm prefix -g")` and cached.
 
 ### Kill signal
 
-`kill_agent` immediately force-kills any live agent (`processing` or `stalled`)
-and reports terminal `stopped`:
+`kill_agent` immediately force-kills any open agent session (`processing`,
+`stalled`, or turn-`finished` with an open driver) and reports terminal
+`stopped`:
 - **Windows:** `taskkill /pid <pid> /t /f`
 - **macOS / Linux:** `process.kill(pid, "SIGKILL")`
 
@@ -120,21 +115,25 @@ Agents are stored in a module-level `Map<string, AgentState>` keyed by UUID. The
 
 ---
 
-## IPC and Output Handling
+## Provider Driver IPC and Output Handling
+
+See [spec/interactive-drivers.md](spec/interactive-drivers.md) for the
+normative interactive-only driver model.
 
 ### Claude
 
-- stdin: `"pipe"` -- prompt written then closed immediately after spawn
-- stdout: `"pipe"` -- buffered into `agentState.stdout`; parsed as a `stream-json` visible stream with per-agent line buffering so an event split across chunks is never dropped. Each PARSED visible item refreshes `lastActivity` (the heartbeat) and the last 3 are retained for `poll_agent`
-- stderr: `"pipe"` -- buffered into `agentState.stderr` for the tail; NOT a parsed visible stream, so it does NOT refresh the heartbeat
-- Exit: `close` event flushes any buffered trailing line, then sets `exitCode` and `status` (`finished` for code 0, `errored` otherwise)
+- Driver: Claude Agent SDK `query()` with an async input stream.
+- Launch enqueues the prompt as the first user input; `send_message` enqueues later inputs into the same SDK stream.
+- SDK events are captured as JSONL in `agentState.stdout` and parsed with per-agent line buffering. Parsed visible items refresh `lastActivity`; provider-internal thinking blocks do not.
+- If the SDK is unavailable or lacks the streaming API, launch fails loudly. There is no raw CLI one-shot fallback.
 
 ### Codex
 
-- stdin: `"ignore"` -- prompt passed as CLI argument, not stdin
-- stdout: `"pipe"` -- JSONL visible stream parsed with the same per-agent line buffering as Claude; each PARSED visible item refreshes the heartbeat (last 3 retained for `poll_agent`) and completed lines are scanned for `"type":"turn.completed"`
-- stderr: `"pipe"` -- captured into the tail same as Claude; does NOT refresh the heartbeat
-- `turn.completed` detection: when a COMPLETE stdout line contains the string `"type":"turn.completed"`, the server sets `status = "finished"`, `exitCode = 0`, and kills the process cleanly. The `close` event then fires but the status is already terminal and is not overwritten.
+- Driver: `codex app-server --stdio`.
+- Launch initializes app-server, starts a configured thread, then starts the first turn.
+- `send_message` enqueues the next user turn; queued turns submit through `turn/start` after the active turn completes.
+- app-server JSONL notifications are captured in `agentState.stdout`; `turn/completed` marks the current turn `finished` without killing the session.
+- If app-server startup or protocol negotiation fails, launch fails loudly. There is no `codex exec` fallback.
 
 ### Output Tails
 
@@ -164,30 +163,29 @@ Every error string the server can return:
 | `Error: Maximum <n> concurrent <provider> agents already running. Current: <n>` | `launch_agent`, concurrency cap |
 | `Error: ultracode effort is only available on Opus 4.8+ (got <provider>/<model>). Use xhigh for other models.` | `resolveEffort`, ultracode on wrong model |
 | `Error: max effort is not valid for gpt-5.5 (Codex). Valid: low, medium, high, xhigh.` | `resolveEffort`, max on codex |
-| `Error launching agent: <message>` | `launch_agent`, `spawn` threw |
+| `Error launching agent: <message>` | `launch_agent`, driver spawn/start failed |
 | `Error: Agent <uuid> not found` | `poll_agent`, `kill_agent`, `send_message` |
 | `Error: Agent is not live (status: <status>)` | `send_message` when not running |
-| `Error: Agent stdin is not available` | `send_message` when stdin is null |
 | `Error killing agent: <message>` | `kill_agent`, `process.kill` threw |
-| `Error sending message: <message>` | `send_message`, `stdin.write` threw |
+| `Error sending message: <message>` | `send_message`, provider driver rejected enqueue/write |
 
 All error responses set `isError: true` on the MCP content object.
 
 ---
 
-## Full CLI Invocation Strings
+## Provider Startup Strings
 
-**Claude (non-ultracode):** `claude -p --model <id> [--effort <e>] --permission-mode bypassPermissions --tools default --max-turns 50 --output-format stream-json` | stdio `["pipe","pipe","pipe"]`, prompt via stdin. The visible `stream-json` events drive heartbeats.
+**Claude (non-ultracode):** Claude Agent SDK `query({ prompt: AsyncIterable, options })`; options include local Claude executable path, `cwd`, model, supported effort, bypass permission mode, default tools, and max turns.
 
-**Claude (ultracode):** Same as above but `--settings <tmpdir/subagent-uc-<uuid>.json>` replaces `--effort`. Settings file: `{"ultracode":true}`. Deleted on close.
+**Claude (ultracode):** Same logical SDK session, with `settings: <tmpdir/subagent-uc-<uuid>.json>` instead of an effort option. Settings file: `{"ultracode":true}`. Deleted on close.
 
-**Codex:** `codex exec -C <cwd> -m gpt-5.5 -c 'model_reasoning_effort="<e>"' --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check --json "<prompt>"` | stdio `["ignore","pipe","pipe"]`.
+**Codex:** `codex app-server --stdio`, followed by `initialize`, `thread/start`, and `turn/start` JSONL protocol messages.
 
 ---
 
 ## AgentState Structure
 
-`AgentState` fields: `id` (UUID), `provider`, `model` (alias), `status`, `process` (ChildProcess), `stdout` (full string), `stderr` (full string), `exitCode`, `startedAt` (ms), `lastActivity` (ms, stamped by each visible-stream heartbeat), `cwd`, `recentStream` (last 3 parsed visible stream items with timestamps), `ucSettingsPath?` (temp file path, Claude ultracode only).
+`AgentState` fields: `id` (UUID), `provider`, `model` (alias), `status`, `process` (driver process facade), `driver` (provider driver), `stdout` (full string), `stderr` (full string), `exitCode`, `startedAt` (ms), `lastActivity` (ms, stamped by each visible-stream heartbeat), `cwd`, `recentStream` (last 3 parsed visible stream items with timestamps), `ucSettingsPath?` (temp file path, Claude ultracode only).
 
 ---
 
@@ -195,5 +193,6 @@ All error responses set `isError: true` on the MCP content object.
 
 - MCP protocol spec: https://modelcontextprotocol.io
 - `@modelcontextprotocol/sdk`: https://github.com/modelcontextprotocol/typescript-sdk
+- Claude Agent SDK: https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk
 - Claude Code CLI: https://github.com/anthropic-ai/claude-code
 - Codex CLI: https://github.com/openai/codex

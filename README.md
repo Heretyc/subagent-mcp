@@ -1,8 +1,8 @@
 # subagent-mcp
 
-MCP server that launches and manages locally installed `claude` and `codex` CLI binaries as child sub-agent processes. Runs on **macOS, Linux, and Windows**.
+MCP server that launches and manages always-interactive Claude Code and Codex sub-agent sessions. Runs on **macOS, Linux, and Windows**.
 
-**No direct API calls.** subagent-mcp does NOT use the Anthropic or OpenAI HTTP APIs and has no plans to. It invokes your locally installed and authenticated `claude` (Claude Code) and `codex` CLIs. No API keys, no SDKs beyond the CLIs themselves.
+**No direct API calls.** subagent-mcp does NOT use the Anthropic or OpenAI HTTP APIs and has no plans to. Claude sessions use the Claude Agent SDK against your local Claude Code executable; Codex sessions use your local `codex app-server`. No API keys.
 
 **License:** Apache-2.0 | **Author:** Lexi Blackburn | **Repo:** https://github.com/Heretyc/subagent-mcp
 
@@ -10,10 +10,10 @@ MCP server that launches and manages locally installed `claude` and `codex` CLI 
 
 ## Features
 
-- Spawn `claude` or `codex` CLI processes as managed sub-agents from any MCP host
-- Poll status, stream stdout/stderr tails, and send stdin messages to live agents
+- Start Claude or Codex interactive sessions as managed sub-agents from any MCP host
+- Poll status, stream stdout/stderr tails, and enqueue follow-up messages to live sessions
 - Concurrency caps: 5 concurrent Claude agents + 5 concurrent Codex agents (counts only actively-streaming `processing` agents, to limit API rate-limit pressure; quiet `stalled` agents don't reserve a slot)
-- Liveness tracking via the visible provider stream (Claude `stream-json`, Codex `--json` JSONL): agents with no parsed visible provider stream item for 10 minutes enter `stalled` state (still alive, just quiet -- thinking or awaiting a temp-file handoff), and recover to `processing` if the visible stream resumes
+- Liveness tracking via the visible provider stream (Claude SDK events, Codex app-server JSONL): agents with no parsed visible provider stream item for 10 minutes enter `stalled` state (still alive, just quiet -- thinking or awaiting a temp-file handoff), and recover to `processing` if the visible stream resumes
 - Ultracode mode for Opus 4.8 -- headless activation via `--settings {"ultracode":true}` (see [docs/usage.md](docs/usage.md))
 - Cross-platform exe resolution (Windows: npm-prefix .exe paths; macOS/Linux: PATH + Homebrew/usr-local fallbacks); immediate `taskkill /t /f` (Windows) / `SIGKILL` (POSIX) force-kill; no graceful shutdown period
 - stdio MCP transport; built with `@modelcontextprotocol/sdk` + `zod`
@@ -92,10 +92,10 @@ Six tools are exposed over the stdio MCP transport:
 
 | Tool | Purpose |
 |------|---------|
-| `launch_agent` | Spawn a new `claude`/`codex` sub-agent process |
+| `launch_agent` | Start a new `claude`/`codex` sub-agent session |
 | `poll_agent` | Get status + output tail of one agent |
 | `kill_agent` | Immediately force-kill any live agent |
-| `send_message` | Write to a live agent's stdin |
+| `send_message` | Enqueue a user message on a live session |
 | `list_agents` | List all agents with token-efficient core metrics |
 | `wait` | Block until one or more agents finish, or 15-minute timeout |
 
@@ -109,13 +109,13 @@ Each agent transitions through these states:
 
 | Status | Meaning |
 |--------|---------|
-| `processing` | Process alive with a visible provider-stream heartbeat in the last 10 minutes -- actively working. Launch time counts as the initial heartbeat |
-| `stalled` | Process STILL ALIVE but no parsed visible provider stream item for >= 10 minutes -- working, thinking, or awaiting a temp-file handoff (not a failure). Recovers to `processing` if the visible stream resumes |
-| `finished` | Process exited with code 0, or Codex emitted `turn.completed` event |
+| `processing` | Driver alive with a visible provider-stream heartbeat in the last 10 minutes -- actively working. Launch time counts as the initial heartbeat |
+| `stalled` | Driver STILL ALIVE but no parsed visible provider stream item for >= 10 minutes -- working, thinking, or awaiting a temp-file handoff (not a failure). Recovers to `processing` if the visible stream resumes |
+| `finished` | Current turn completed, or driver exited with code 0 |
 | `errored` | Process exited with non-zero code |
 | `stopped` | Terminated by `kill_agent` |
 
-Only `finished`, `errored`, and `stopped` are terminal; `processing` and `stalled` are live. A health monitor runs every 10 seconds, and `poll_agent`/`list_agents` additionally reconcile exit synchronously so an exited process is reported immediately. `wait` does not return just because an agent is `stalled`. `stalled` agents recover to `processing` if the visible stream resumes and are never auto-killed -- prefer `wait`/re-poll (or checking the agent's temp output) over `kill_agent`. Full semantics: [docs/reference/status-lifecycle.md](docs/reference/status-lifecycle.md).
+`processing` and `stalled` are live. `finished` is reportable for `wait`; if `alive` is still true, `send_message` can start the next turn on the same session. A health monitor runs every 10 seconds, and `poll_agent`/`list_agents` additionally reconcile driver exit synchronously. `wait` does not return just because an agent is `stalled`. `stalled` agents recover to `processing` if the visible stream resumes and are never auto-killed -- prefer `wait`/re-poll over `kill_agent`. Full semantics: [docs/reference/status-lifecycle.md](docs/reference/status-lifecycle.md).
 
 ---
 
@@ -125,6 +125,7 @@ Only `finished`, `errored`, and `stopped` are terminal; `processing` and `stalle
 - [docs/tools.md](docs/tools.md) -- full Tool Reference for all six tools, including `alive` / `idle_seconds` / `hint` fields.
 - [docs/usage.md](docs/usage.md) -- model & effort matrix, ultracode mechanism, underlying CLI invocations, usage examples.
 - [docs/SPEC.md](docs/SPEC.md) -- full technical specification (architecture, schemas, status lifecycle, error catalogue).
+- [docs/spec/interactive-drivers.md](docs/spec/interactive-drivers.md) -- always-interactive Claude/Codex driver model.
 
 ---
 

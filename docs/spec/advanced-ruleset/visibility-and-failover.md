@@ -76,10 +76,10 @@ loop never advanced, and the failure surfaced only later via `poll_agent`.
 
 Contract:
 
-1. `tryLaunchCandidate` wires the child fully BEFORE waiting: persistent
-   `error` handler, the claude stdin prompt write, stdout/stderr/`close`
-   handlers. Stream output during the window is therefore captured, a healthy
-   claude has its prompt, and codex already has the prompt in argv.
+1. `tryLaunchCandidate` wires the provider driver fully BEFORE waiting:
+   persistent `error` handler, stdout/stderr/`close` handlers, and initial
+   user input submission. Stream output during the window is therefore
+   captured, and a healthy provider has accepted its first turn.
 2. THEN it awaits a race between the child `exit` event and a
    `SPAWN_GRACE_MS` timer, BEFORE registering the agent.
 3. ANY exit within the window — any exit code INCLUDING 0, or any signal — is
@@ -91,20 +91,20 @@ Contract:
    that exits in under the window without consuming the task did not launch;
    auth failures are non-zero anyway, and code-0 instant exits are equally
    useless to the orchestrator.
-   SOLE EXCEPTION: a codex child whose `AgentState` was already finalized by
-   its `turn.completed` marker (the dedicated `turnCompleted` flag set by the
+   SOLE EXCEPTION: a provider driver whose `AgentState` was already finalized by
+   its turn-completion marker (the dedicated `turnCompleted` flag set by the
    stdout data/flush scans — NOT `status`, which any code-0 exit also sets to
    `finished`) is a legitimate fast COMPLETION: it IS registered and IS a
    launch success, never a failover trigger — failing it would silently
    re-execute a completed task on the next candidate. Because `exit` can be
-   delivered before the final stdout chunk, the grace path awaits the child
-   `close` event (streams drained, flush scanned) before deciding. This is
+   delivered before the final stdout chunk, the grace path awaits `close`
+   (streams drained, flush scanned) before deciding. This is
    the ONLY exception; any other exit — including code 0 without that
    finalization — remains a launch-time failure.
 4. `SPAWN_GRACE_MS` defaults to **1500**. `SUBAGENT_SPAWN_GRACE_MS` overrides
-   it (non-negative integer; `0` disables detection = legacy behavior). The
-   override is a TEST-ONLY seam: the legacy integration suite's fake CLIs exit
-   instantly by design and would otherwise all fail. Production deployments
+   it (non-negative integer; `0` disables post-start early-exit detection). The
+   override is a TEST-ONLY seam: legacy fixtures can exit instantly by design
+   and would otherwise all fail. Production deployments
    never set it. (The goal's "hardcoded" constraint applies only to the
    2-minute ruleset timeout.)
 5. Exhaustion rule: `ERR_ALL_FAILED` is emitted ONLY after EVERY candidate in
@@ -135,12 +135,12 @@ Contract:
   or disabled launches — absence is part of the contract.
 - Never re-run the ruleset script per failover attempt (the list is final).
 - Never register an agent that exited inside the grace window, except one
-  finalized by its `turn.completed` marker (the sole exception in item 3).
+  finalized by its provider turn-completion marker (the sole exception in item 3).
 - Never treat a post-window death as a failover trigger.
 - Never set `SUBAGENT_SPAWN_GRACE_MS` in production wiring or docs examples.
 
 ## When to stop and ask the owner
 
 Changing the 1500 ms default, exposing more ruleset internals in payloads, or
-making in-window exits count as success beyond the `turn.completed` exception
+making in-window exits count as success beyond the provider completion exception
 are owner-level decisions.

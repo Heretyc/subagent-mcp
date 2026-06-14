@@ -179,6 +179,6 @@ Error: explicit launch <model>@<effort> (<provider>) failed: <reason>.
 - Do NOT treat a sub-agent's eventual TASK failure as a fallback trigger —
   only launch-time failures fall back (`routing-table-contract.md`).
   Launch-time failure INCLUDES any exit within the post-spawn grace window
-  EXCEPT a child already finalized by `turn.completed` (legitimate fast
+  EXCEPT a driver already finalized by its provider turn-completion marker (legitimate fast
   completion — `../advanced-ruleset/visibility-and-failover.md`); only deaths
   AFTER that window are task outcomes.
