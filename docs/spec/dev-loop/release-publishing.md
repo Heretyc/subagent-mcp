@@ -58,6 +58,33 @@ release; never infer one from the other.
      (scope-specific flag for consistency with the traps below; the scope
      mapping resolves there anyway).
 
+## Windows shell traps (operator + agent shells)
+
+Release/PR/commit commands on Windows fail in two shell-specific ways. Both bit
+the 2026-06-14 prep run; route around them, never retry the command verbatim.
+
+- **PowerShell 5.1 native-arg mangling.** A multi-line or special-char string
+  passed inline as one argument to a native exe (`gh`, `git`, `npm`) is
+  re-split by PowerShell when it contains `"`, `->`, `[]`, or backticks. Real
+  failure: `gh pr create --body "...packages[""]... -> green"` exits with
+  `unknown shorthand flag: '>' in ->`. NEVER inline a PR/commit/publish body.
+  - Write the body to a file (the agent's file-writer, or
+    `[System.IO.File]::WriteAllText($path,$text)` — NOT `Out-File -Encoding
+    utf8`, which prepends a BOM the tool then ingests), then pass it by file:
+    `gh pr create --body-file <f>`, `git commit -F <f>`.
+  - Put the file INSIDE the worktree (sandbox-writable) and delete it after:
+    `$env:TEMP` can resolve empty under the agent sandbox, collapsing a temp
+    path to a root path (`/<name>`) the sandbox refuses to write or
+    `Remove-Item` (`protected from removal`).
+- **cygwin git-Bash `fork()` failures.** The bundled Git Bash intermittently
+  aborts long or process-spawning commands with cygwin `fork()` errors (e.g.
+  `child_copy ... read copy failed`, `cygheap base mismatch detected`),
+  truncating output and returning a misleading exit 1 even when the inner
+  command succeeded. Run release validation (`npm run build`, `npm test`,
+  `node scripts/check_mcp_compliance.mjs`) and git writes via native PowerShell
+  + `git`/`node`, or delegate them to a CLI sub-agent; never trust a lone Bash
+  exit 1 — re-run natively to confirm before reporting pass or fail.
+
 ## Resolution traps (each cost a debugging round on 2026-06-11)
 
 - The `~/.npmrc` scope mapping (`@heretyc:registry=https://npm.pkg.github.com`)
