@@ -459,14 +459,25 @@ async function tryLaunchCandidate(
     childProcess.once("close", () => resolve());
   });
 
+  // POSIX seam: a child can die and deliver 'exit' DURING the startup write
+  // below (the write then rejects with EPIPE) — before the grace block attaches
+  // its own listener. Capture that exit here so the grace window still sees it
+  // and reports the exit code, instead of registering a corpse or surfacing the
+  // raw EPIPE as the failure reason.
+  let earlyExitInfo: { code: number | null; signal: NodeJS.Signals | null } | null = null;
+  childProcess.once("exit", (code, signal) => {
+    earlyExitInfo = { code, signal };
+  });
+
+  // The startup write is best-effort. On POSIX, writing to an already-dead
+  // child's stdin rejects with EPIPE; that is NOT itself a launch failure.
+  // Record it and fall through to the grace window, which reports the real exit
+  // code (grace>0) or the legacy startup-write seam registers it (grace=0).
+  let startError: Error | null = null;
   try {
     await driver.start(prompt);
   } catch (err) {
-    try {
-      driver.kill();
-    } catch {}
-    cleanupUcSettings(agentState);
-    return { reason: err instanceof Error ? err.message : String(err) };
+    startError = err instanceof Error ? err : new Error(String(err));
   }
 
   // Post-spawn grace window: a 'spawn' win alone is NOT success — a provider
@@ -478,8 +489,13 @@ async function tryLaunchCandidate(
   // failure. The close handler above cleans up a condemned driver (uc settings,
   // stream flush); the agent is simply never registered.
   if (SPAWN_GRACE_MS > 0) {
-    const earlyExit = await new Promise<{ code: number | null; signal: string | null } | null>(
-      (resolve) => {
+    const earlyExit =
+      earlyExitInfo ??
+      (await new Promise<{ code: number | null; signal: NodeJS.Signals | null } | null>((resolve) => {
+        if (earlyExitInfo) {
+          resolve(earlyExitInfo);
+          return;
+        }
         const timer = setTimeout(() => {
           childProcess.removeListener("exit", onExit);
           resolve(null);
@@ -489,8 +505,7 @@ async function tryLaunchCandidate(
           resolve({ code, signal });
         };
         childProcess.once("exit", onExit);
-      }
-    );
+      }));
     if (earlyExit) {
       // 'exit' can be delivered before the final stdout chunk, so wait for
       // 'close' (streams drained, flush scanned) before deciding — a
@@ -503,6 +518,15 @@ async function tryLaunchCandidate(
           reason: `process exited (code ${earlyExit.code ?? earlyExit.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`,
         };
       }
+    } else if (startError && !agentState.turnCompleted) {
+      // Lived past the grace window but the startup write failed: the child is
+      // not accepting input, so advance the loop rather than register an agent
+      // that never received its prompt.
+      try {
+        driver.kill();
+      } catch {}
+      cleanupUcSettings(agentState);
+      return { reason: startError.message };
     }
   }
 
