@@ -163,6 +163,10 @@ class MockJsonlDriver implements ProviderDriver {
     });
     child.stdout?.on("data", (chunk) => this.process.stdout.write(chunk));
     child.stderr?.on("data", (chunk) => this.process.stderr.write(chunk));
+    // Swallow stdin pipe errors (e.g. EPIPE writing to an exited child): the
+    // writeLine() callback already surfaces the failure; without this listener
+    // Node throws the socket's unhandled 'error' event and crashes the process.
+    child.stdin?.on("error", () => {});
   }
 
   get closed(): boolean {
@@ -222,6 +226,10 @@ export class CodexAppServerDriver implements ProviderDriver {
     });
     child.stdout?.on("data", (chunk) => this.onStdout(chunk.toString()));
     child.stderr?.on("data", (chunk) => this.process.stderr.write(chunk));
+    // Swallow stdin pipe errors (e.g. EPIPE writing to an exited child): the
+    // writeLine() callback already surfaces the failure; without this listener
+    // Node throws the socket's unhandled 'error' event and crashes the process.
+    child.stdin?.on("error", () => {});
   }
 
   get closed(): boolean {
