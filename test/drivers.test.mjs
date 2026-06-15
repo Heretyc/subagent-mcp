@@ -164,6 +164,32 @@ await test("Claude SDK driver launches, sends multiple turns, and kills", async 
   await assert.rejects(() => driver.send("after kill"), /closed/);
 });
 
+await test("Claude SDK driver maps Opus launch ids to the full SDK model id", async () => {
+  // The Claude Agent SDK rejects the short launch ids "opus" / "opus-4-8" with
+  // model_not_found (404). The driver must hand the SDK the full id
+  // "claude-opus-4-8"; other Claude models (e.g. sonnet) pass through unchanged.
+  async function openWith(model) {
+    let sdkOptions;
+    async function* query(params) {
+      sdkOptions = params.options;
+      for await (const _msg of params.prompt) {
+        yield { type: "result", result: "ok" };
+      }
+    }
+    const driver = new ClaudeSdkDriver(query);
+    driver.open({ ...options("claude"), model });
+    await once(driver.process, "spawn");
+    await driver.start("hi");
+    await waitFor(() => sdkOptions !== undefined, "Claude SDK options captured");
+    driver.kill();
+    return sdkOptions.model;
+  }
+
+  assert.equal(await openWith("opus"), "claude-opus-4-8");
+  assert.equal(await openWith("opus-4-8"), "claude-opus-4-8");
+  assert.equal(await openWith("sonnet"), "sonnet");
+});
+
 await test("Codex app-server driver starts a thread, sends turns, and kills", async () => {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-"));
   try {

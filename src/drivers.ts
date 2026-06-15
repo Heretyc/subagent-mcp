@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import type { Provider } from "./effort.js";
+import { mapModel, type Provider } from "./effort.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -412,7 +412,9 @@ export class ClaudeSdkDriver implements ProviderDriver {
       abortController: this.abortController,
       cwd: options.cwd,
       env: options.env,
-      model: options.model,
+      // The Claude Agent SDK rejects the short launch id "opus-4-8" with
+      // model_not_found (404); normalize to the full id the SDK accepts.
+      model: mapModel(options.provider, options.model),
       pathToClaudeCodeExecutable: options.command,
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
