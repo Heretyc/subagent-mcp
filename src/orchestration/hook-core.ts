@@ -19,7 +19,7 @@ import * as reminder from "./reminder.js";
  * turn) READS the marker here and decides what to inject. The hook now emits in
  * BOTH marker states, on a per-prompt counter (reminder.ts): every
  * REMINDER_PERIOD-th prompt injects the LONG mode-specific
- * <ORCHESTRATION-INVARIANT> block, every prompt between injects the
+ * <subagent-mcp> reminder block, every prompt between injects the
  * one-line rule carrier. Marker ON adds the claim machinery: the claim turn
  * (fresh enable or carryover re-claim) emits the FULL directive plus the ON
  * reminder block and re-baselines the counter. (Supersedes LOCKED DECISION 2's
@@ -58,9 +58,10 @@ export interface ProviderAdapter {
   // session (see runHook's CARRYOVER branch). Names the provider's own
   // interactive permission tool only.
   carryoverDirectiveFile: string;
-  // LONG per-prompt reminder blocks (<ORCHESTRATION-INVARIANT>), one
+  // LONG per-prompt reminder blocks (<subagent-mcp> tag), one
   // per marker state. The OFF variant names the provider's own interactive
-  // question tool only (5-call-rule ask); the ON variant is provider-neutral.
+  // question tool only (long-horizon upgrade ask); the ON variant is
+  // provider-neutral.
   reminderOnFile: string;
   reminderOffFile: string;
 }

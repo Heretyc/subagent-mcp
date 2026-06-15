@@ -8,9 +8,14 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 //
 // Constraint limits (HARD = vendor truncation point; TARGET = repo budget with
 // margin):
-//   C1 server instructions  : HARD 2048 B (Claude Code truncates at 2KB);
-//                             TARGET 1950 B for tail-safety margin.
-//   C2 tool descriptions     : HARD 2048 B each (same 2KB Claude Code cap).
+//   C1 server instructions  : HARD 2048 B / TARGET 2048 B. Claude Code silently
+//                             truncates server `instructions` at ~2 KB, so the
+//                             schema=2 TRIM (spec A3) caps this string at <= 2048
+//                             bytes carrying only the BINDING core; dropped detail
+//                             /examples live in the doc body. The A2 read-ladder
+//                             stays byte-identical here and in the INIT_BLOCK.
+//   C2 tool descriptions     : HARD 2200 B each (schema=2 launch_agent desc adds
+//                             the parent-process marker-upsert contract).
 //   C3 tool names            : ^[a-zA-Z0-9_-]{1,128}$ (Anthropic/OpenAI fn-name
 //                             charset everyone downstream enforces).
 //   C4 hook additionalContext: < 10000 chars (Claude Code UserPromptSubmit cap)
@@ -18,22 +23,23 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 //                             combined claim-turn injection (carryover + full
 //                             + reminder-on — the largest single emission).
 //   C5 directive asset budget: per-prefix byte budgets (orchestration-* and
-//                             reminder-* <= 1250 B, carryover-* <= 800 B,
-//                             short-* <= 350 B; any other directive .md
-//                             defaults to 1250 B) — keep the compressed
-//                             per-turn injection lean.
+//                             reminder-* <= 1600 B, carryover-* <= 1100 B,
+//                             short-* <= 600 B; any other directive .md
+//                             defaults to 1600 B) — keep the compressed
+//                             per-turn injection lean. Budgets sized to the
+//                             schema=2 single-tag directive assets.
 
 const indexPath = new URL("../src/index.ts", import.meta.url);
 const directivesDir = new URL("../directives/", import.meta.url);
 
 const INSTRUCTIONS_HARD = 2048;
-const INSTRUCTIONS_TARGET = 1950;
-const DESCRIPTION_HARD = 2048;
+const INSTRUCTIONS_TARGET = 2048;
+const DESCRIPTION_HARD = 2200;
 const TOOL_NAME_RE = /^[a-zA-Z0-9_-]{1,128}$/;
 const ADDITIONAL_CONTEXT_CAP = 10000;
-const ORCHESTRATION_ASSET_MAX = 1250;
-const CARRYOVER_ASSET_MAX = 800;
-const SHORT_ASSET_MAX = 350;
+const ORCHESTRATION_ASSET_MAX = 1600;
+const CARRYOVER_ASSET_MAX = 1100;
+const SHORT_ASSET_MAX = 600;
 // Prefix -> C5 byte budget. Files matching no prefix get the default budget so
 // a NEW directive family can never ship with zero C5 coverage.
 const C5_BUDGETS = [

@@ -7,7 +7,6 @@ import {
   type HookPayload,
   type ProviderAdapter,
 } from "../orchestration/hook-core.js";
-import { resetToolCount } from "../orchestration/pretool.js";
 
 /**
  * Claude Code UserPromptSubmit hook entry. Reads the JSON payload from stdin,
@@ -67,9 +66,6 @@ export function runClaudeHook(
   adapter: ProviderAdapter = claudeAdapter
 ): string {
   try {
-    if (!adapter.isSubagent(payload, env)) {
-      resetToolCount(payload);
-    }
     return runHook(payload, env, adapter);
   } catch {
     return "";

@@ -1,9 +1,11 @@
 /**
  * orchestration-pretool.test.mjs - Claude PreToolUse deterministic gates.
  *
- * WHY (Rule 9): the 5-call and sole-channel rules must not depend only on
- * prompt text. These tests pin the fail-open liveness guard, native subagent
- * denial, MCP exemption, per-request counter, and prompt-boundary reset.
+ * WHY (Rule 9): the sole-channel rule must not depend only on prompt text.
+ * These tests pin the fail-open liveness guard, native subagent denial, and
+ * the subagent-env skip. The old 5-call inline counter is GONE (D11/D24):
+ * long-horizon upgrades are agent-self-driven, so the hook never counts tool
+ * calls or asks on a sixth call.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -11,12 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { touchAlive, LIVENESS_TTL_MS } from "../dist/orchestration/liveness.js";
-import {
-  INLINE_TOOL_LIMIT,
-  resetToolCount,
-  runClaudePreTool,
-} from "../dist/orchestration/pretool.js";
-import { runClaudeHook } from "../dist/hooks/orchestration-claude.js";
+import { runClaudePreTool } from "../dist/orchestration/pretool.js";
 
 let passed = 0;
 let failed = 0;
@@ -44,7 +41,6 @@ function payload(tool_name = "Bash") {
 }
 
 function cleanup(p) {
-  resetToolCount(p);
   rmSync(p.cwd, { recursive: true, force: true });
 }
 
@@ -72,7 +68,19 @@ test("native Task/Agent/Explore tools are denied while server is alive", () => {
   }
 });
 
-test("subagent-mcp tools and question tools bypass the inline counter", () => {
+test("ordinary tools are never blocked or counted (no 5-call rule)", () => {
+  touchAlive();
+  const p = payload("Bash");
+  try {
+    for (let i = 0; i < 12; i++) {
+      assert.equal(runClaudePreTool(p, {}), null, `call ${i + 1} stays allowed`);
+    }
+  } finally {
+    cleanup(p);
+  }
+});
+
+test("subagent-mcp and question tools stay allowed", () => {
   touchAlive();
   for (const tool of [
     "mcp__subagent_mcp__launch_agent",
@@ -81,43 +89,12 @@ test("subagent-mcp tools and question tools bypass the inline counter", () => {
   ]) {
     const p = payload(tool);
     try {
-      for (let i = 0; i < INLINE_TOOL_LIMIT + 2; i++) {
+      for (let i = 0; i < 8; i++) {
         assert.equal(runClaudePreTool(p, {}), null, `${tool} remains allowed`);
       }
     } finally {
       cleanup(p);
     }
-  }
-});
-
-test("sixth inline tool call asks instead of silently continuing", () => {
-  touchAlive();
-  const p = payload("Bash");
-  try {
-    for (let i = 1; i <= INLINE_TOOL_LIMIT; i++) {
-      assert.equal(runClaudePreTool(p, {}), null, `call ${i} is below the limit`);
-    }
-    const result = runClaudePreTool(p, {});
-    assert.equal(result?.hookSpecificOutput.permissionDecision, "ask");
-    assert.match(result?.hookSpecificOutput.permissionDecisionReason ?? "", /5-CALL RULE/);
-    assert.match(result?.hookSpecificOutput.additionalContext ?? "", /launch_agent/);
-  } finally {
-    cleanup(p);
-  }
-});
-
-test("new top-level Claude prompt resets the inline counter", () => {
-  touchAlive();
-  const p = payload("Bash");
-  try {
-    for (let i = 1; i <= INLINE_TOOL_LIMIT + 1; i++) {
-      runClaudePreTool(p, {});
-    }
-    assert.equal(runClaudePreTool(p, {})?.hookSpecificOutput.permissionDecision, "ask");
-    runClaudeHook(p, {});
-    assert.equal(runClaudePreTool(p, {}), null, "next request starts at call 1");
-  } finally {
-    cleanup(p);
   }
 });
 
