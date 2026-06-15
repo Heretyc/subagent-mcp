@@ -155,15 +155,14 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
     the manual `git worktree add`. The final deliverable is the PR hyperlink plus a concise
     summary of what changed in `src/routing-table.json` since its last merged update. Full
     steps: `references/execution-lifecycle.md`; mandate: `docs/spec/dev-loop/worktree-enforcement/`.
-16. **Performance effort floor (owner directive 2026-06-11 — FINAL AND BINDING, NO EXCEPTIONS).**
-    The `performance` branch must NEVER rank a pairing whose effort sits below `high` on the
-    ladder (`null`/`none`/`min`/`light`/`low`/`medium`). Rationale: low/medium-effort variants
-    are a widely-bad choice for performance/deadlock situations — never add them to performance
-    rankings, regardless of benchmark results, vendor claims, or research consensus.
-    `build_routing_table.mjs` hard-rejects below-floor pairings on EVERY build (blocks new
-    entries AND purges existing ones on rebuild, with a fail-loud post-build assertion);
-    `validate_provider.mjs` and `test/performance-tier-effort.test.mjs` reject any committed
-    table that violates it. `cost_efficiency` is unaffected.
+16. **Effort floors (owner directives 2026-06-11 + 2026-06-15 — FINAL AND BINDING).**
+    Low effort is never ranked in any branch: the builder purges `low` from the global universe,
+    validators reject it in committed artifacts, and callers cannot select it as a launch effort.
+    Separately, the `performance` branch must NEVER rank any pairing below `high`
+    (`null`/`none`/`min`/`light`/`medium`) because performance/deadlock routing must not choose
+    weak-effort variants. `cost_efficiency` may still rank valid non-low efforts below `high`.
+    `build_routing_table.mjs`, `validate_provider.mjs`, and
+    `test/performance-tier-effort.test.mjs` enforce both rules on every build and commit.
 
 ## Pipeline at a Glance
 

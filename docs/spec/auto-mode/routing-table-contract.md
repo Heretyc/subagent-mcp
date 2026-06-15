@@ -116,7 +116,7 @@ not silently coerce it to `gpt-5.5`.
 
 ## effort normalization (table tier → launch enum)
 
-Launch enum: `["low","medium","high","xhigh","max","ultracode"]`. Normalize the
+Launch enum: `["medium","high","xhigh","max","ultracode"]`. Normalize the
 pairing's `effort` before passing to `buildCommand`:
 
 1. If the tier is already a launch-enum value, pass it through, THEN apply the

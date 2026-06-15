@@ -51,7 +51,7 @@ of pairing objects, ordered best→worst by the branch's power-law score.
 |---|---|---|
 | `provider` | string | `"claude"` for `claude-*` model ids, `"codex"` for `gpt-*` |
 | `model` | string | Real model id (e.g. `claude-opus-4-8`, `gpt-5.5`) |
-| `effort` | string or null | Effort ladder tier (e.g. `"high"`, `"low"`, `null`) |
+| `effort` | string or null | Effort ladder tier (e.g. `"high"`, `"medium"`, `null`) |
 | `rank` | integer | Dense 1..N within the branch/category (1 = best) |
 
 `rank` is branch-specific (the two branches order the same universe differently). `provider`,
@@ -61,6 +61,7 @@ or `confidence` on the canonical table — read the audit sibling for those.
 No-effort sentinels (`null`, `"none"`, or `"n/a"`) are valid only for models whose discovered
 effort ladder has no selectable tiers. If a model supports selectable effort settings, every emitted
 pairing for that model must use a concrete selectable tier; never emit `<model>@none` for it.
+`low` is not a valid emitted effort in either branch.
 
 ---
 
@@ -85,7 +86,7 @@ The standalone checker enforces all of the following; any failure exits non-zero
 2. **Category keys match RAG spine** — category ids in both branches equal the spine derived from
    the machine-mirror asset (`assets/routing-table.json`), in the same order.
 3. **Per-branch, per-category coverage (table-derived; invariants #14 + #16)** — the model@effort
-   universe is the union of all pairings across both branches. **`performance`**: the expected set
+   universe is the union of all non-`low` pairings across both branches. **`performance`**: the expected set
    per category is the universe filtered to **effort >= `high`** (the performance effort floor,
    invariant #16 — below-high pairings, including all no-effort sentinels, are hard-rejected).
    **`cost_efficiency`**: in the six no-effort-exclusion parent categories (`agentic_execution`,

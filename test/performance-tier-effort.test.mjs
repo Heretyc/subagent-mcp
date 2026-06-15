@@ -10,6 +10,9 @@
  * (blocks new entries, purges existing ones on rebuild); this test pins the
  * COMMITTED artifact so a hand-edited or stale table fails CI even without a
  * rebuild. cost_efficiency is intentionally unaffected by the floor.
+ *
+ * The separate policy-wide rule is narrower: `low` is no longer a valid
+ * emitted effort in either branch.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -69,6 +72,21 @@ test("the floor purge never empties a performance category", () => {
     assert.ok(Array.isArray(entries) && entries.length > 0,
       `performance.${category} must still rank at least one >=high pairing`);
   }
+});
+
+test("no branch carries low-effort pairings", () => {
+  const violations = [];
+  for (const branch of ["performance", "cost_efficiency"]) {
+    for (const [category, entries] of Object.entries(table[branch])) {
+      for (const entry of entries) {
+        if (effortKey(entry.effort) === "low") {
+          violations.push(`${branch}.${category}: ${entry.model}@low (rank ${entry.rank})`);
+        }
+      }
+    }
+  }
+  assert.equal(violations.length, 0,
+    `low effort is removed policy-wide and must not be ranked:\n  ${violations.join("\n  ")}`);
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

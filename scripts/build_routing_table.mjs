@@ -116,9 +116,8 @@ const INPUT_TOK = 100000;
 const HIDDEN_MULT = {
   none: 0,
   null: 0, // null == none == 0x (haiku / pro / mini fixed-low)
-  min: 0.1, // nearest-lower documented tier -> low
-  light: 0.1,
-  low: 0.1,
+  min: 0.25, // nearest valid documented tier -> medium
+  light: 0.25,
   medium: 0.25,
   high: 0.75,
   xhigh: 1.5,
@@ -142,7 +141,6 @@ const EFFORT_LADDER = [
   "none",
   "min",
   "light",
-  "low",
   "medium",
   "high",
   "xhigh",
@@ -152,15 +150,22 @@ const EFFORT_LADDER = [
 ];
 const EFFORT_INDEX = new Map(EFFORT_LADDER.map((e, i) => [e, i]));
 const NO_EFFORT_SENTINELS = new Set(["n/a", "null", "none"]);
+const LOW_EFFORT = "low";
 
-// Owner directive (2026-06-11, FINAL AND BINDING — NO EXCEPTIONS): the performance
+// Owner directive (2026-06-15): low effort is not a ranked policy tier. Drop it
+// from the deterministic universe before either branch ranks, so rebuilds purge
+// stale low-effort entries instead of mapping them upward.
+function isLowEffort(effortK) {
+  return effortK === LOW_EFFORT;
+}
+
+// Owner directive (2026-06-11, FINAL AND BINDING - NO EXCEPTIONS): the performance
 // branch must never rank a pairing whose effort sits below 'high' on the ladder
-// (null/none/min/light/low/medium). Low/medium-effort variants are a widely-bad
+// (null/none/min/light/medium). Weak-effort variants are a widely-bad
 // choice for performance/deadlock situations. Enforced on EVERY build: the branch
 // filter blocks new below-floor entries AND purges existing ones on rebuild; the
-// post-build assertion fails loud if one ever slips through. cost_efficiency is
-// unaffected. For the performance branch this overrides invariant #14's 4-category
-// retention of no-effort models (they stay ranked there in cost_efficiency only).
+// post-build assertion fails loud if one ever slips through. cost_efficiency still
+// retains valid non-low below-floor entries where its cost-dominant ranking needs them.
 const PERFORMANCE_MIN_EFFORT = "high";
 const PERFORMANCE_MIN_EFFORT_INDEX = EFFORT_INDEX.get(PERFORMANCE_MIN_EFFORT);
 function meetsPerformanceEffortFloor(effortK) {
@@ -480,7 +485,7 @@ const UNIVERSE = dataset.model_effort_universe.map((entry) => {
   const effort = rawEffort === "n/a" ? null : rawEffort;
   const effortK = effortKey(effort);
   return { id: pairingId(model, effortK), model, effort, effortK };
-});
+}).filter((p) => !isLowEffort(p.effortK));
 const UNIVERSE_IDS = UNIVERSE.map((p) => p.id);
 // refinement #2: canonical universe order — the dataset's own model_effort_universe
 // sequence (stable, capability-NEUTRAL). Used as the deterministic tie-break for
@@ -795,11 +800,11 @@ function buildCategoryScores(category) {
   return result;
 }
 
-// ---- §A effort-interpolation (design §A; same-model, upward only) ------------------
-// Distinct from SOP-1: §A fills a missing *higher effort* of a model that IS listed in C
-// (has >=1 measured effort) from its nearest measured *lower* effort. Upward only — a
+// ---- effort-interpolation (design A; same-model, upward only) ------------------
+// Distinct from SOP-1: A fills a missing *higher effort* of a model that IS listed in C
+// (has >=1 measured effort) from its nearest measured *lower* effort. Upward only - a
 // lower effort with no measured lower-effort anchor stays null (-> data-free sentinel),
-// since we cannot infer low-effort performance from high-effort data. This also satisfies
+// since we cannot infer lower-effort performance from higher-effort data. This also satisfies
 // validator rule 6 (a higher-effort gap above a measured lower effort would otherwise sit
 // below it as a sentinel). Runs BEFORE SOP-1, so a genuinely absent version stays null.
 function applyEffortInterpolation(scores) {
@@ -905,7 +910,7 @@ function bestScoredOfModel(model, scores) {
 }
 
 // Validator rule 6: an interpolated higher-effort pairing must not score below a
-// lower-effort variant of the SAME model. A promoted/interpolated low effort can inherit
+// lower-effort variant of the SAME model. A promoted/interpolated lower effort can inherit
 // a high predecessor score that would sit above a measured higher effort. Repair
 // deterministically: walk each model's efforts low->high; clamp any INTERPOLATED pairing
 // UP to the running max of lower-effort same-model scores so higher effort >= lower
@@ -1058,7 +1063,7 @@ for (const p of UNIVERSE) COST_NORM.set(p.id, COST.get(p.id).perToken / MAX_COST
 // (PERF_EXP a=0.8 b=0.2). With raw cost_norm, an extreme price ratio R in the universe can
 // still swing the score by R^b = R^0.2 — a ~100x ratio swings the score ~2.5x, which is
 // enough for a cheap-but-weaker tier to lift above a strong high-effort pairing (e.g.
-// sonnet@low above opus@max). We winsorize the per-token cost to the [p05, p95] window of
+// sonnet@medium above opus@max). We winsorize the per-token cost to the [p05, p95] window of
 // the universe $/token distribution BEFORE normalizing, so the single cheapest / single
 // priciest outliers (here both off-ladder @null sentinels) cannot dominate. This CLIPS the
 // realized cost ratio (~40x raw -> ~15x clipped on this dataset; swing ~2.1x -> ~1.7x) yet
@@ -1264,8 +1269,8 @@ function buildBaseFullBranch(branch, exponents) {
     const dataMissing = DATA_MISSING_CATEGORIES.has(category);
     let universe = categoryUniverse(category);
     // Performance effort floor (owner directive, FINAL): drop every below-'high'
-    // pairing from the performance branch before ranking. Purges existing
-    // entries on every rebuild; cost_efficiency keeps the full universe.
+    // pairing from the performance branch before ranking. The global universe
+    // already purges low effort from every branch on rebuild.
     if (branch === "performance") {
       universe = universe.filter((p) => meetsPerformanceEffortFloor(p.effortK));
     }
@@ -1500,6 +1505,19 @@ for (const [category, entries] of Object.entries(performanceFull)) {
         `performance effort floor violated: ${e.model}@${ek} ranked in performance.${category} ` +
         `(below '${PERFORMANCE_MIN_EFFORT}'; owner directive FINAL — no exceptions)`
       );
+    }
+  }
+}
+
+for (const [branch, categories] of Object.entries({ performance: performanceFull, cost_efficiency: costEfficiencyFull })) {
+  for (const [category, entries] of Object.entries(categories)) {
+    for (const e of entries) {
+      const ek = effortKey(e.effort);
+      if (isLowEffort(ek)) {
+        throw new Error(
+          `low effort policy violated: ${e.model}@${ek} ranked in ${branch}.${category}`
+        );
+      }
     }
   }
 }

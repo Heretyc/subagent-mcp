@@ -21,6 +21,12 @@ export function resolveEffort(
 ): { kind: "flag"; value: string } | { kind: "settings" } | { kind: "none" } {
   const isOpus48 = provider === "claude" && (model === "opus" || model === "opus-4-8");
 
+  if (effort === "low") {
+    throw new Error(
+      `low effort is not supported. Valid efforts: medium, high, xhigh, max, ultracode.`
+    );
+  }
+
   if (effort === "ultracode") {
     if (!isOpus48) {
       throw new Error(
@@ -35,7 +41,7 @@ export function resolveEffort(
   }
 
   if (provider === "claude" && ["sonnet", "opus", "opus-4-8"].includes(model)) {
-    if (["low", "medium", "high", "xhigh", "max"].includes(effort)) {
+    if (["medium", "high", "xhigh", "max"].includes(effort)) {
       return { kind: "flag", value: effort };
     }
   }
@@ -43,10 +49,10 @@ export function resolveEffort(
   if (provider === "codex") {
     if (effort === "max") {
       throw new Error(
-        `max effort is not valid for gpt-5.5 (Codex). Valid: low, medium, high, xhigh.`
+        `max effort is not valid for gpt-5.5 (Codex). Valid: medium, high, xhigh.`
       );
     }
-    if (["low", "medium", "high", "xhigh"].includes(effort)) {
+    if (["medium", "high", "xhigh"].includes(effort)) {
       return { kind: "flag", value: effort };
     }
   }

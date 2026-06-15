@@ -476,7 +476,7 @@ await test("explicit-mode override: ruleset replaces the requested triple; tier 
     assert.equal(launchPayload.provider, "claude");
     assert.equal(launchPayload.model, "opus",
       "the launched model must be the ruleset's replacement, not the explicit request");
-    assert.equal(launchPayload.effort, "low");
+    assert.equal(launchPayload.effort, "medium");
     assert.equal(launchPayload.ruleset_applied, true);
     assert.deepEqual(launchPayload.ruleset_original_selection,
       { provider: "claude", model: "sonnet", effort: "medium" },

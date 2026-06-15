@@ -21,13 +21,13 @@ function resolveEffort(provider, model, effort):
     RETURN { kind: "none" }       # --> no --effort flag at all
 
   if provider == "claude" AND model IN ["sonnet", "opus", "opus-4-8"]:
-    if effort IN ["low", "medium", "high", "xhigh", "max"]:
+    if effort IN ["medium", "high", "xhigh", "max"]:
       RETURN { kind: "flag", value: effort }
 
   if provider == "codex":
     if effort == "max":
-      THROW: "max effort is not valid for gpt-5.5 (Codex). Valid: low, medium, high, xhigh."
-    if effort IN ["low", "medium", "high", "xhigh"]:
+      THROW: "max effort is not valid for gpt-5.5 (Codex). Valid: medium, high, xhigh."
+    if effort IN ["medium", "high", "xhigh"]:
       RETURN { kind: "flag", value: effort }
 
   # Fallback (should not reach in practice given zod validation)
@@ -39,11 +39,11 @@ Decision table:
 | provider | model | effort | Result |
 |----------|-------|--------|--------|
 | claude | haiku | any | `{ kind: "none" }` -- no `--effort` passed |
-| claude | sonnet | low/medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
-| claude | opus / opus-4-8 | low/medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
+| claude | sonnet | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
+| claude | opus / opus-4-8 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | opus / opus-4-8 | ultracode | `{ kind: "settings" }` -- temp file path |
 | claude | any | ultracode (non-4.8) | THROW error |
-| codex | gpt-5.5 | low/medium/high/xhigh | `{ kind: "flag", value: effort }` |
+| codex | gpt-5.5 | medium/high/xhigh | `{ kind: "flag", value: effort }` |
 | codex | gpt-5.5 | max | THROW error |
 | codex | gpt-5.5 | ultracode | THROW error (Opus-4.8+ only) |
 
