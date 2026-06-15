@@ -250,9 +250,9 @@ await test("server exposes orchestration guidance via MCP instructions (no ultra
     const instructions = response.result.instructions;
     assert.equal(typeof instructions, "string",
       "initialize result must carry an instructions string");
-    assert.match(instructions, /ORCHESTRATION MODE/,
-      "instructions must explain orchestration mode");
-    assert.match(instructions, /DELEGATE/,
+    assert.match(instructions, /CANONICAL OPERATING MODEL/,
+      "instructions must expose the orchestration operating-model guidance");
+    assert.match(instructions, /delegate-ONLY orchestrator/,
       "instructions must carry the delegate operating model");
     assert.match(instructions, /AskUserQuestion/,
       "instructions must name the Claude permission tool");
@@ -275,7 +275,7 @@ await test("subagent child server exposes neutral instructions", async () => {
     const response = await session.initialize();
     const instructions = response.result.instructions;
     assert.match(instructions, /SUB-AGENT SESSION/);
-    assert.doesNotMatch(instructions, /ORCHESTRATION MODE/);
+    assert.doesNotMatch(instructions, /CANONICAL OPERATING MODEL/);
   } finally {
     await session.close();
   }

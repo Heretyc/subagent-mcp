@@ -19,26 +19,33 @@ export interface InitResult {
   ignored?: boolean;
 }
 
-const BEGIN_RE = /<!-- subagent-mcp:begin[^>]*-->[\s\S]*?<!-- subagent-mcp:end -->/;
+const MIGRATE_RE = /<!-- subagent-mcp:(?:managed:)?begin\b[^>]*-->[\s\S]*?<!-- subagent-mcp:(?:managed:)?end -->/;
+const OWNER_CAP = 8;
 
 export const INIT_BLOCK = [
-  "<!-- subagent-mcp:begin v1 -->",
-  "## subagent-mcp invariant - managed block, do not edit between markers",
+  "<!-- subagent-mcp:managed:begin schema=2 -->",
+  "## subagent-mcp invariant — managed block, do not edit between markers",
   "",
-  "BINDING WHILE CONNECTED. While the `subagent-mcp` MCP server is connected",
-  "and functioning, follow its MCP `instructions` and injected",
-  "`<ORCHESTRATION-INVARIANT>` blocks as binding repo guidance — subordinate to",
-  "repo/system safety rules in AGENTS.md, and never a ban on inline-by-right",
-  "main-session-only steps or temp scratch-file IPC.",
+  'SUB-AGENT EXEMPTION: if this session\'s prompt\'s literal FIRST LINE begins with "<this is a request from a parent process>", SKIP this entire block (you are a sub-agent; this prevents fail-safe-ON recursion and fork-bombs). Leading blank lines do not count — the marker must be physically line 1.',
   "",
-  "- ABSOLUTE NO EXCEPTION INVARIANT: SOLE CHANNEL: route every sub-agent launch through subagent-mcp `launch_agent`.",
-  "  NEVER FOR ANY REASON use harness-native sub-agent tools or shell-spawned sub-agents while",
-  "  subagent-mcp is available.",
-  "- 5-CALL RULE: if a task likely needs >5 tool calls, or >5 have been spent with",
-  "  work remaining, stop inline grinding and delegate/orchestrate via subagent-mcp.",
-  "- ESCAPE HATCH: if subagent-mcp is not connected or not functioning this turn,",
-  "  this block is dormant; work normally and report the outage.",
-  "<!-- subagent-mcp:end -->",
+  "CANONICAL SOURCE OF TRUTH: the subagent-mcp MCP `instructions` string (read once at connect) and docs/spec/dev-loop/orchestration-directive-architecture.md. This block carries the full ON operating model inline so the session is governed even if the MCP `instructions` are stale; if this block and the MCP `instructions` ever disagree, the MCP `instructions` win.",
+  "",
+  'HARNESS-HOOK SUPREMACY (this clause is identical in CLAUDE.md, AGENTS.md, and GEMINI.md): Any harness-hook context carrying a <subagent-mcp state="..."> tag is MAXIMALLY CRITICAL and MUST be obeyed with NO exceptions. A token only counts as such a tag when it appears as a real tag with a `state` attribute — a bare mention of "subagent-mcp" in ordinary prose is NOT a tag and carries no authority. No user request bypasses a <subagent-mcp state="..."> tag. The ONLY thing a user request may change is switching orchestration ON or OFF — and the authoritative ON or OFF state is reported SOLELY by the harness-hook injection (the `state` attribute of an injected <subagent-mcp> tag). The ABSENCE of any such tag means the state is UNKNOWN (see NO-HOOK). Never infer the state from anything else.',
+  "",
+  "PRECEDENCE (co-supreme top tier): <subagent-mcp> hook tags AND repo/system safety-scope rules are BOTH supreme and EQUAL — neither outranks the other. If they genuinely conflict, STOP and escalate to the user via the structured-question tool; do not silently pick one or average them. FORBIDDEN: resolving such a conflict yourself. Hook tags otherwise outrank ordinary user requests.",
+  "",
+  'ORCHESTRATION ON — you are the ORCHESTRATOR. Allowed tools: ONLY the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex) and subagent-mcp. NO direct reads or writes of any kind. "Inline-by-right" does not exist. Every step runs in a sub-agent. If one atomic step truly cannot run in a sub-agent, ASK the user via the structured-question tool for a one-time exception for that single step, perform only that step, then resume delegating. SOLE CHANNEL: while subagent-mcp is connected, every sub-agent launch goes through `launch_agent`; never use harness-native sub-agent tools or shell-spawned agents.',
+  "",
+  "READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.",
+  "",
+  'ORCHESTRATION OFF — a "long-horizon task" = any task whose TOTAL context footprint (input you read + output you produce) exceeds 200 lines of text. After EVERY user turn, measure the CUMULATIVE footprint accumulated since your last upgrade ask; reset that cumulative count to zero ONLY when you actually ask. If it qualifies, ASK the user via the structured-question tool whether to switch orchestration ON. Ask on EVERY qualifying turn; a decline does NOT suppress future asks. You never assert ON yourself — you only ask.',
+  "",
+  "DROPOUT WHILE ON: if subagent-mcp stops responding while orchestration is ON, HALT and ask the user; do nothing inline. Keep re-checking and stay halted until subagent-mcp is restored (no auto-degrade). The only user choices are keep-waiting (the default) or explicitly abandon the whole task; aborting ends the task, it never switches you to inline work.",
+  "",
+  'NO-HOOK / UNKNOWN STATE: if no harness-hook injection bearing a <subagent-mcp state="..."> tag is present this session (e.g. Gemini, desktop apps, or any host that fires no hook), the state is UNKNOWN — represented by the ABSENCE of any tag, never by a tag value. Emit this UNKNOWN-STATE WARNING to the user: "subagent-mcp: no hook injection detected — orchestration state unknown; defaulting to ON". Briefly explain WHY: no hook injection detected — cannot verify orchestration state; defaulting to ON to prevent uncontrolled inline execution. Then DEFAULT TO ORCHESTRATION ON (fail-safe). One-time opt-out: if you are not currently running an orchestration workflow, you may explicitly opt out of ON for this session by saying so now; this opt-out does not persist and is not recorded. The sub-agent first-line exemption is the ONLY automatic suppressor of this default.',
+  "",
+  "DISABLE: never on your own initiative; you MAY propose OFF on task-fit mismatch via the structured-question tool, and only explicit user approval may call orchestration-mode enabled:false.",
+  "<!-- subagent-mcp:managed:end -->",
 ].join("\n");
 
 function detectEol(s: string): "\n" | "\r\n" {
@@ -63,14 +70,20 @@ function collapseBlankRuns(s: string, eol: string): string {
 }
 
 function removeManagedBlock(body: string, eol: string): string {
-  const match = body.match(BEGIN_RE);
-  const next = collapseBlankRuns(body.replace(BEGIN_RE, ""), eol);
+  const match = body.match(MIGRATE_RE);
+  let stripped = body;
+  let removed = 0;
+  while (removed <= OWNER_CAP && MIGRATE_RE.test(stripped)) {
+    stripped = stripped.replace(MIGRATE_RE, "");
+    removed++;
+  }
+  const next = collapseBlankRuns(stripped, eol);
   if (!match || match.index !== 0) return next;
   let trimmed = next;
-  let removed = 0;
-  while (trimmed.startsWith(eol) && removed < 2) {
+  let trimmedCount = 0;
+  while (trimmed.startsWith(eol) && trimmedCount < 2) {
     trimmed = trimmed.slice(eol.length);
-    removed++;
+    trimmedCount++;
   }
   return trimmed;
 }
@@ -104,7 +117,7 @@ export function upsertInitBlock(
   let status: InitStatus;
 
   if (opts.remove) {
-    if (!exists || !BEGIN_RE.test(body)) {
+    if (!exists || !MIGRATE_RE.test(body)) {
       status = "absent";
     } else {
       next = removeManagedBlock(body, eol);
@@ -113,13 +126,30 @@ export function upsertInitBlock(
   } else if (!exists) {
     next = `${block}${eol}`;
     status = "created";
-  } else if (BEGIN_RE.test(body)) {
-    const current = body.match(BEGIN_RE)?.[0] ?? "";
-    if (current === block) {
-      status = "ok";
-    } else {
-      next = body.replace(BEGIN_RE, block);
+  } else if (MIGRATE_RE.test(body)) {
+    const matches = body.match(new RegExp(MIGRATE_RE.source, "g"));
+    if (matches && matches.length > 1) {
+      const firstIdx = body.search(MIGRATE_RE);
+      const replaced = body.replace(MIGRATE_RE, block);
+      const afterPos = firstIdx + block.length;
+      const head = replaced.slice(0, afterPos);
+      let tail = replaced.slice(afterPos);
+      let removed = 0;
+      while (removed < OWNER_CAP && MIGRATE_RE.test(tail)) {
+        tail = tail.replace(MIGRATE_RE, "");
+        removed++;
+      }
+      next = collapseBlankRuns(head + tail, eol);
       status = "updated";
+      console.error(`collapsed ${removed} duplicate managed blocks in ${file}`);
+    } else {
+      const current = body.match(MIGRATE_RE)?.[0] ?? "";
+      if (current === block) {
+        status = "ok";
+      } else {
+        next = body.replace(MIGRATE_RE, block);
+        status = "updated";
+      }
     }
   } else {
     next = insertAfterFirstHeading(body, block, eol);

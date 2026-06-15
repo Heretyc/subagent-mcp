@@ -11,7 +11,7 @@ import { cwdHash, stateDir } from "./marker.js";
  * "null" when the host supplies none) so two interleaved sessions in one
  * project each keep their own cadence instead of resetting each other —
  * every REMINDER_PERIOD-th counted prompt of a session emits the LONG
- * <ORCHESTRATION-INVARIANT> block; the prompts between emit the one-line rule
+ * <subagent-mcp> reminder block; the prompts between emit the one-line rule
  * carrier.
  *
  * KNOWN LIMITATION: key-less sessions all share the "null" owner, so their

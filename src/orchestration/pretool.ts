@@ -1,16 +1,7 @@
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { cwdHash, stateDir } from "./marker.js";
 import { serverAlive } from "./liveness.js";
-import { sessionKey, type HookPayload } from "./hook-core.js";
-
-export const INLINE_TOOL_LIMIT = 5;
+import { type HookPayload } from "./hook-core.js";
 
 const NATIVE_SUBAGENT_TOOLS = new Set(["Task", "Agent", "Explore"]);
-const QUESTION_TOOLS = new Set(["AskUserQuestion", "ExitPlanMode"]);
-const SUBAGENT_MCP_TOOL_RE =
-  /(^|__)subagent[-_]?mcp(__|$).*(launch_agent|poll_agent|wait|list_agents|send_message|kill_agent)$/i;
 
 export interface PreToolPayload extends HookPayload {
   tool_name?: string;
@@ -25,49 +16,6 @@ export interface PreToolDecision {
     permissionDecisionReason: string;
     additionalContext?: string;
   };
-}
-
-function hash(s: string): string {
-  return createHash("sha256").update(s, "utf8").digest("hex").slice(0, 16);
-}
-
-function owner(payload: HookPayload): string {
-  return sessionKey(payload) ?? "null";
-}
-
-function countPath(payload: HookPayload): string {
-  const cwd = payload.cwd || process.cwd();
-  return join(stateDir, `pretool-${cwdHash(cwd)}-${hash(owner(payload))}.json`);
-}
-
-function readCount(payload: HookPayload): number {
-  try {
-    const parsed = JSON.parse(readFileSync(countPath(payload), "utf8")) as { count?: unknown };
-    return typeof parsed.count === "number" && parsed.count >= 0 ? parsed.count : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function writeCount(payload: HookPayload, count: number): void {
-  try {
-    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(
-      countPath(payload),
-      JSON.stringify({ owner: owner(payload), count, updated_at: Date.now() }),
-      { encoding: "utf8", mode: 0o600 }
-    );
-  } catch {
-    // Fail open: counter persistence is advisory enforcement, not host safety.
-  }
-}
-
-export function resetToolCount(payload: HookPayload): void {
-  try {
-    if (existsSync(countPath(payload))) unlinkSync(countPath(payload));
-  } catch {
-    // Fail open.
-  }
 }
 
 function decision(
@@ -85,24 +33,15 @@ function decision(
   };
 }
 
-function isSubagentMcpTool(tool: string): boolean {
-  return (
-    SUBAGENT_MCP_TOOL_RE.test(tool) ||
-    [
-      "launch_agent",
-      "poll_agent",
-      "wait",
-      "list_agents",
-      "send_message",
-      "kill_agent",
-    ].includes(tool)
-  );
-}
-
-function exemptFromCounter(tool: string): boolean {
-  return isSubagentMcpTool(tool) || QUESTION_TOOLS.has(tool);
-}
-
+/**
+ * Claude PreToolUse gate. The ONLY enforcement here is the sole-channel rule:
+ * deny harness-native Task/Agent/Explore while subagent-mcp is alive so all
+ * sub-agent launches route through launch_agent. There is NO inline tool-call
+ * counter — the old inline tool-call-count injection is gone (D11/D24).
+ * Long-horizon
+ * upgrades are now agent-self-driven via the OFF-mode cumulative footprint
+ * check (no hook-side counting).
+ */
 export function runClaudePreTool(
   payload: PreToolPayload,
   env: NodeJS.ProcessEnv,
@@ -122,17 +61,7 @@ export function runClaudePreTool(
       );
     }
 
-    if (exemptFromCounter(tool)) return null;
-
-    const next = readCount(payload) + 1;
-    writeCount(payload, next);
-    if (next <= INLINE_TOOL_LIMIT) return null;
-
-    return decision(
-      "ask",
-      `5-CALL RULE: this is tool call ${next} for the current user request. If work remains, delegate through subagent-mcp launch_agent; allow only for main-session-only capability or tight verification.`,
-      "5-CALL RULE reached. Route remaining non-main-session work through subagent-mcp launch_agent; inline only for main-session-only capability or tight verification."
-    );
+    return null;
   } catch {
     return null;
   }
