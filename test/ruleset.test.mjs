@@ -86,7 +86,7 @@ await test("validateRulesetOutput: empty array is VALID (veto is index.ts's job,
 });
 
 await test("validateRulesetOutput: duplicates are allowed (attempt loop just tries them in order)", () => {
-  const dup = { provider: "claude", model: "sonnet", effort: "low" };
+  const dup = { provider: "claude", model: "sonnet", effort: "medium" };
   const result = validateRulesetOutput([dup, dup]);
   assert.equal(result.ok, true, "duplicate triples are harmless and must not be rejected");
   assert.equal(result.candidates.length, 2);
@@ -103,6 +103,7 @@ await test("validateRulesetOutput: rejection matrix (per-model effort legality, 
     [{ provider: "codex", model: "gpt-5.5", effort: "max" }, "codex max is unlaunchable (resolveEffort throws)"],
     [{ provider: "codex", model: "gpt-5.5", effort: "ultracode" }, "ultracode is opus-only"],
     [{ provider: "claude", model: "sonnet", effort: "ultracode" }, "ultracode is opus-only, sonnet must reject"],
+    [{ provider: "claude", model: "sonnet", effort: "low" }, "low effort is banned policy-wide"],
     [{ provider: "claude", model: "haiku", effort: "high" }, "haiku effort must be exactly \"none\""],
     [{ provider: "claude", model: "sonnet", effort: "banana" }, "junk effort that effort.ts's lenient default would have coerced to high"],
     [{ provider: "claude", model: "banana", effort: "high" }, "unknown model"],
@@ -236,12 +237,12 @@ await test("gate: {ready:true, load-rules:true} latches enabled; applyRules send
 
   slot.behavior = () => ({
     kind: "ok",
-    stdout: '[{"provider":"codex","model":"gpt-5.5","effort":"low"}]',
+    stdout: '[{"provider":"codex","model":"gpt-5.5","effort":"medium"}]',
   });
   const applied = await gate.applyRules(PAYLOAD);
   assert.deepEqual(applied, {
     ok: true,
-    candidates: [{ provider: "codex", model: "gpt-5.5", effort: "low" }],
+    candidates: [{ provider: "codex", model: "gpt-5.5", effort: "medium" }],
   }, "validated route output must come back as launchable candidates");
 
   assert.equal(calls.length, 2);

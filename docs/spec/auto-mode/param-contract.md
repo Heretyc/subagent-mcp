@@ -11,7 +11,7 @@ Error message text and the full presence matrix live in `resolution-matrix.md`.
 | `prompt` | string, min 1 | YES (unchanged) | The sub-agent task. |
 | `provider` | enum `["claude","codex"]` | optional | Override. Omit to auto-select. |
 | `model` | enum `["haiku","sonnet","opus","opus-4-8","gpt-5.5"]` | optional | Override. Omit to auto-select. |
-| `effort` | enum `["low","medium","high","xhigh","max","ultracode"]` | optional | Override. **Remove the current `.default("high")`.** Omit to auto-select. |
+| `effort` | enum `["medium","high","xhigh","max","ultracode"]` | optional | Override. **Remove the current `.default("high")`.** Omit to auto-select. |
 | `deadlock` | boolean | optional | Auto-mode-only escalation flag; omit normally. Agent-visible gloss is the verbatim MANDATE in `tool-description.md`: set `true` only on the 3rd+ launch attempt for the SAME atomic task. CANNOT be combined with `provider`/`model`/`effort` (→ `ERR_DEADLOCK_WITH_OVERRIDES`, `resolution-matrix.md`). `false` == omitting. Window mechanics: `routing-table-contract.md §Branch selection`. |
 | `cwd` | string | optional (unchanged) | Working directory for the spawned CLI. |
 

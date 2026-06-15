@@ -20,7 +20,7 @@ export const LAUNCH_MODELS = ["haiku", "sonnet", "opus", "opus-4-8", "gpt-5.5"] 
 type LaunchModel = (typeof LAUNCH_MODELS)[number];
 
 /** Launch effort enum accepted by buildCommand/resolveEffort. */
-export const LAUNCH_EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultracode"] as const;
+export const LAUNCH_EFFORTS = ["medium", "high", "xhigh", "max", "ultracode"] as const;
 type LaunchEffort = (typeof LAUNCH_EFFORTS)[number];
 
 /** Sentinel reported (and passed-through harmlessly) for haiku, whose effort is ignored. */

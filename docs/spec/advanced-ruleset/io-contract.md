@@ -87,12 +87,12 @@ Per-model effort legality:
 | model | legal `effort` values |
 |---|---|
 | `haiku` | exactly `"none"` |
-| `sonnet` | `low`, `medium`, `high`, `xhigh`, `max` |
-| `opus`, `opus-4-8` | `low`, `medium`, `high`, `xhigh`, `max`, `ultracode` |
-| `gpt-5.5` | `low`, `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
+| `sonnet` | `medium`, `high`, `xhigh`, `max` |
+| `opus`, `opus-4-8` | `medium`, `high`, `xhigh`, `max`, `ultracode` |
+| `gpt-5.5` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
 
 HAZARD — the validator must not delegate effort checks to the launch path:
-`resolveEffort` has a lenient default (src/effort.ts:54) that silently coerces
+`resolveEffort` has a lenient fallback that silently coerces
 unrecognized effort strings to `high`. Without own membership checks, junk
 like `"banana"` would launch instead of failing. The strict table above is the
 contract; `buildCommand`/`resolveEffort` remain defense-in-depth only.
@@ -146,7 +146,7 @@ subagent ruleset erroring. Please ask the system administrator to debug before c
 - `{"provider":"codex","model":"gpt-5.5","effort":"max"}` → illegal effort for
   codex → hard fail. Same for sonnet + `ultracode`.
 - `{"provider":"claude","model":"sonnet","effort":"banana"}` → hard fail (the
-  effort.ts:54 leniency would have coerced it; the validator must not).
+  effort.ts fallback leniency would have coerced it; the validator must not).
 - A rule that calls a slow network API → exceeds 120000 ms → killed → hard
   fail. Keep rules lean; they run inside EVERY launch.
 - `[]` → NOT a hard fail: deliberate veto, exact veto text above.

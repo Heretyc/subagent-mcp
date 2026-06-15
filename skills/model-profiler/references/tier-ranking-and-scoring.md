@@ -17,7 +17,7 @@ not yet measured.
    tracking the nearest measured lower-effort pairing as the running **anchor**.
 2. For each unmeasured `M@E′` (where `E′` > `E` on the effort ladder):
    - **Anchor:** the nearest measured lower-effort pairing for the same model (`M@E`). If no
-     measured lower-effort pairing exists, leave `M@E′` null (a data-free sentinel) — low-effort
+     measured lower-effort pairing exists, leave `M@E′` null (a data-free sentinel) — lower-effort
      performance is never inferred from high-effort data.
    - **Inherit:** `M@E′` takes the anchor's score **exactly** (no cross-model clamp; no
      interpolation toward any competitor — the anchor value is copied verbatim).
@@ -48,8 +48,8 @@ One provider-neutral `$/token` scalar per model+effort pairing. Construction:
 |---|---|
 | **Blend** | Fixed 100K input / 20K visible output reference (the builder's reference blend) |
 | **Tokenizer inflation** | Apply each member's tokenizer-inflation factor (from the dataset's per-member pricing data) to every pairing of any family whose tokenizer inflates token counts; members on a legacy/non-inflating tokenizer get no adjustment. The factor is a per-member datum, never named here. |
-| **Hidden-reasoning multipliers** | Apply the effort-tier hidden-output multipliers from the builder's effort-ladder definition: none=0×, low=0.1×, med=0.25×, high=0.75×, xhigh=1.5×, max=2.5×. |
-| **Efforts without a published multiplier** | Every effort in the validator ladder (`null, none, min, light, low, medium, high, xhigh, max, pro, ultracode`) must resolve to a multiplier so no pairing has undefined cost. Any effort lacking a published value uses the **nearest lower documented tier** as its default: `null`→`none` (0×), `min`/`light`→`low` (0.1×), `pro`/`ultracode`→`max` (2.5×). State the default applied and label the pairing `[ASSUMPTION]`. |
+| **Hidden-reasoning multipliers** | Apply the effort-tier hidden-output multipliers from the builder's effort-ladder definition: none=0×, medium=0.25×, high=0.75×, xhigh=1.5×, max=2.5×. |
+| **Efforts without a published multiplier** | Every valid effort in the validator ladder (`null, none, min, light, medium, high, xhigh, max, pro, ultracode`) must resolve to a multiplier so no pairing has undefined cost. Any effort lacking a published value uses the **nearest lower documented tier** as its default: `null`→`none` (0×), `min`/`light`→`medium` (0.25×), `pro`/`ultracode`→`max` (2.5×). State the default applied and label the pairing `[ASSUMPTION]`. |
 | **Input price-cliff** | For any member with a published input price cliff (from the dataset's per-member pricing data), determine whether the 100K-in/20K-out reference blend sits below or above that member's cliff; record the side in the **audit** metadata (`cost_blend.price_cliff_side`), and use the below- or above-cliff rates accordingly. A member with no cliff records `"n/a"`. Threshold values are per-member data, never named here. |
 | **Gaps** | Any rate not in the dataset `pricing` block → label `[ASSUMPTION]` or `[UNVERIFIED]` on the pairing's `basis` field. |
 
@@ -62,6 +62,10 @@ enforced independent of the authority chain — even vendor documentation claimi
 `@none` does not override this. Phase 2 judges and the merge must silently exclude any `<model>@none`
 pairing from tier outputs if the model has any selectable effort tiers, regardless of Phase 1 notes.
 
+**Low-effort exclusion (all branches; owner directive 2026-06-15):** `low` is not a valid ranked or
+launchable effort. The deterministic builder purges it from the global universe before branch
+ranking, and validators reject any committed table or audit universe that contains it.
+
 **No-effort exclusion (per-category; SKILL.md invariant #14):** a model whose ONLY effort is a
 no-effort sentinel (`null`/`none`/`n/a`) is excluded from the ranked universe in 6 categories —
 `agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
@@ -72,12 +76,12 @@ effort floor below subsumes this exclusion.
 
 **Performance effort floor (SKILL.md invariant #16 — owner directive 2026-06-11, FINAL AND
 BINDING, NO EXCEPTIONS):** the `performance` branch ranks ONLY pairings at effort >= `high` on the
-ladder. Every below-floor effort (`null`/`none`/`min`/`light`/`low`/`medium`) is hard-rejected on
+ladder. Every remaining below-floor effort (`null`/`none`/`min`/`light`/`medium`) is hard-rejected on
 EVERY build — the branch filter blocks new entries AND purges existing ones on rebuild, and a
-post-build assertion fails loud if one slips through. Never add low/medium reasoning-effort
-variants to performance rankings: they are a widely-bad choice for performance/deadlock
-situations, and no benchmark result, vendor claim, or research consensus overrides this.
-`cost_efficiency` is unaffected (it keeps the full universe rules above).
+post-build assertion fails loud if one slips through. Never add weak reasoning-effort variants to
+performance rankings: they are a widely-bad choice for performance/deadlock situations, and no
+benchmark result, vendor claim, or research consensus overrides this. `cost_efficiency` may still
+rank valid non-low efforts below `high`.
 
 ---
 

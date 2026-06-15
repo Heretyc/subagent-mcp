@@ -89,7 +89,7 @@ if (argv1.toLowerCase().endsWith(".py")) {
   if (mode === "ok-enabled-replace") {
     // Replaces whatever came in (incl. an explicit single-candidate list) with
     // a fixed, distinct, launchable triple.
-    emit(JSON.stringify([{ provider: "claude", model: "opus", effort: "low", rank: 1 }]), 0);
+    emit(JSON.stringify([{ provider: "claude", model: "opus", effort: "medium", rank: 1 }]), 0);
   }
   if (mode === "ok-enabled-reorder") emit(JSON.stringify([...candidates].reverse()), 0);
   // ok-enabled-passthrough (and any other ok-*): echo unchanged.

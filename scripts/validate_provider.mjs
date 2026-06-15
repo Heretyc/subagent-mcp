@@ -22,15 +22,21 @@ const effortOrder = new Map([
   ["none", 1],
   ["min", 2],
   ["light", 3],
-  ["low", 4],
-  ["medium", 5],
-  ["high", 6],
-  ["xhigh", 7],
-  ["max", 8],
-  ["pro", 9],
-  ["ultracode", 10],
+  ["medium", 4],
+  ["high", 5],
+  ["xhigh", 6],
+  ["max", 7],
+  ["pro", 8],
+  ["ultracode", 9],
 ]);
 const NO_EFFORT_SENTINELS = new Set(["null", "none", "n/a"]);
+const LOW_EFFORT = "low";
+
+// Owner directive (2026-06-15): low effort is not valid in any committed
+// routing-table branch or model-effort universe.
+function isLowEffort(effortK) {
+  return effortK === LOW_EFFORT;
+}
 // Owner directive (2026-06-11, FINAL AND BINDING — NO EXCEPTIONS): the performance branch
 // carries ONLY pairings at effort >= 'high'. Low/medium (and weaker) reasoning-effort
 // variants are a widely-bad choice for performance/deadlock situations and are
@@ -72,13 +78,13 @@ const _HARDCODED_MODELS = new Set([
   "gpt-5.4-mini",
 ]);
 const _HARDCODED_LADDERS = new Map([
-  ["claude-opus-4-8", ["low", "medium", "high", "xhigh", "max"]],
-  ["claude-opus-4-7", ["low", "medium", "high", "xhigh", "max"]],
-  ["claude-sonnet-4-6", ["low", "medium", "high", "max"]],
+  ["claude-opus-4-8", ["medium", "high", "xhigh", "max"]],
+  ["claude-opus-4-7", ["medium", "high", "xhigh", "max"]],
+  ["claude-sonnet-4-6", ["medium", "high", "max"]],
   ["claude-haiku-4-5", ["n/a"]],
-  ["gpt-5.5", ["low", "medium", "high", "xhigh"]],
-  ["gpt-5.5-pro", ["low", "medium", "high", "xhigh"]],
-  ["gpt-5.4-mini", ["low", "medium", "high", "xhigh"]],
+  ["gpt-5.5", ["medium", "high", "xhigh"]],
+  ["gpt-5.5-pro", ["medium", "high", "xhigh"]],
+  ["gpt-5.4-mini", ["medium", "high", "xhigh"]],
 ]);
 function deriveRosterFromAudit() {
   if (!existsSync(auditPath)) return null;
@@ -502,9 +508,11 @@ function validatePairingArray(label, entries, universeSet, issues) {
     } else if (!VALID_MODELS.has(entry.model)) {
       console.warn(`validate_provider: WARN ${label}[${index}].model unknown id (soft-warn, not fail): ${entry.model}`);
     }
-    // effort: present + known ladder tier.
+    // effort: present + known ladder tier. Low effort is explicitly purged policy-wide.
     if (!Object.hasOwn(entry, "effort")) {
       issues.push(`${label}[${index}].effort missing`);
+    } else if (isLowEffort(effortKey(entry.effort))) {
+      issues.push(`${label}[${index}].effort is banned policy-wide: low`);
     } else if (!effortOrder.has(effortKey(entry.effort))) {
       issues.push(`${label}[${index}].effort is not a known effort tier: ${effortKey(entry.effort)}`);
     } else if (

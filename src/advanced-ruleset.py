@@ -13,8 +13,8 @@
       {"provider": "codex",  "model": "gpt-5.5", "effort": "xhigh", "rank": 2}
     ]
     Valid providers: claude, codex. Valid models: haiku, sonnet, opus, opus-4-8 (claude);
-    gpt-5.5 (codex). Valid efforts: haiku -> "none" only; sonnet -> low|medium|high|xhigh|max;
-    opus/opus-4-8 -> those plus ultracode; gpt-5.5 -> low|medium|high|xhigh.
+    gpt-5.5 (codex). Valid efforts: haiku -> "none" only; sonnet -> medium|high|xhigh|max;
+    opus/opus-4-8 -> those plus ultracode; gpt-5.5 -> medium|high|xhigh.
     "rank" on output is ignored. An EMPTY array vetoes the launch. Anything else
     invalid fails the launch hard — the server validates strictly.
 

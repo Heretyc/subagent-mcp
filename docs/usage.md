@@ -15,9 +15,9 @@ the server auto-selects): see [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_IN
 | Provider | Model | Valid Efforts | Notes |
 |----------|-------|---------------|-------|
 | claude | haiku | (any value accepted, effort ignored) | SDK session takes no effort for Haiku |
-| claude | sonnet | low, medium, high, xhigh, max | Passed to the Claude Agent SDK where supported |
-| claude | opus / opus-4-8 | low, medium, high, xhigh, max, **ultracode** | `opus` and `opus-4-8` both map to `claude-opus-4-8` |
-| codex | gpt-5.5 | low, medium, high, xhigh | Passed in the app-server `turn/start` request |
+| claude | sonnet | medium, high, xhigh, max | Passed to the Claude Agent SDK where supported |
+| claude | opus / opus-4-8 | medium, high, xhigh, max, **ultracode** | `opus` and `opus-4-8` both map to `claude-opus-4-8` |
+| codex | gpt-5.5 | medium, high, xhigh | Passed in the app-server `turn/start` request |
 
 **Ultracode mechanism:** The Claude CLI rejects `--effort ultracode` with an error. Ultracode is the Claude Code interactive reasoning mode (sets reasoning effort to xhigh AND grants standing dynamic-workflow permission). To activate it headlessly, the server writes a temporary JSON file `{"ultracode":true}` to the OS temp directory and passes `--settings <file>` to the CLI instead of an `--effort` flag. The temp file is deleted on agent exit. Requesting `ultracode` on any non-Opus-4.8 model (including `gpt-5.5`) returns an error.
 

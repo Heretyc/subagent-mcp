@@ -162,7 +162,7 @@ Every error string the server can return:
 | `Error: Codex provider only supports gpt-5.5. Got: <model>` | `launch_agent`, provider/model mismatch |
 | `Error: Maximum <n> concurrent <provider> agents already running. Current: <n>` | `launch_agent`, concurrency cap |
 | `Error: ultracode effort is only available on Opus 4.8+ (got <provider>/<model>). Use xhigh for other models.` | `resolveEffort`, ultracode on wrong model |
-| `Error: max effort is not valid for gpt-5.5 (Codex). Valid: low, medium, high, xhigh.` | `resolveEffort`, max on codex |
+| `Error: max effort is not valid for gpt-5.5 (Codex). Valid: medium, high, xhigh.` | `resolveEffort`, max on codex |
 | `Error launching agent: <message>` | `launch_agent`, driver spawn/start failed |
 | `Error: Agent <uuid> not found` | `poll_agent`, `kill_agent`, `send_message` |
 | `Error: Agent is not live (status: <status>)` | `send_message` when not running |
