@@ -22,16 +22,16 @@ This SKILL.md is the index — load only the current phase's detail leaf, never 
 
 ## Required Runner (read first)
 
-**Run ONLY on the highest available flagship model the operating provider offers (whatever
-that currently is), at its highest OR second-highest effort setting** (e.g. Opus 4.8 @
-`xhigh` or `high`; the provider-equivalent top model+effort otherwise). It is
-orchestrator-only: the runner dispatches every research/judging/validation step via
-`mcp__subagent-mcp__launch_agent` and must sustain multi-phase reasoning across the whole
-run. **Never run on Haiku, a non-flagship tier, an effort below second-highest, or any
-model lacking sub-agent-launch support or long-horizon reasoning** — these silently
-degrade the pipeline. If the runner does not meet this bar, **halt and escalate to the
-owner**; do not run it. (Runner requirement only — distinct from invariant #2's ban on the
-skill naming a preferred model for the JUDGED routing output.)
+**Launch the profiler runner through subagent-mcp auto mode** with
+`task_category: "architecture"` and **no provider, model, or effort overrides** — auto
+mode's routing selects the runner model at launch time. This architecture auto-mode runner
+is the **top-level profiler hub/orchestrator**, not a nested spoke: it dispatches every
+research/judging/validation step via `mcp__subagent-mcp__launch_agent` and must sustain
+multi-phase reasoning across the whole run. Pin nothing — pass no provider, model, tier, or
+effort override; let routing choose. If an architecture auto-mode launch is **unavailable**,
+**halt and escalate to the owner**; do not run the profiler on a manually pinned runner.
+(Runner requirement only — distinct from invariant #2's ban on the skill naming a preferred
+model for the JUDGED routing output.)
 
 ## Fixed Taxonomy (immutable input — never derived here)
 
@@ -108,9 +108,9 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
    paths — neither is a degrade, neither is logged as risk; the profiler never requires a provider
    blend. A single-family run (e.g. Claude-only web-research) is equally valid. The only invariant is
    the fresh-critic / self-review ban (#4): critics must be distinct agents from producers in every case.
-6. **Hub-and-spoke only.** Sub-agents never call sub-agents. All coordination goes through you.
-   Inter-agent handoff is via `%TEMP%` scratch files: full content to disk, only **compact JSON
-   status** returned to the orchestrator.
+6. **Hub-and-spoke only.** The architecture auto-mode profiler runner is the root/top-level hub and
+   MAY dispatch profiler spokes via `mcp__subagent-mcp__launch_agent`; ordinary profiler spokes never
+   call sub-agents. Coordination flows through the hub via `%TEMP%` scratch files: full content to disk, only **compact JSON status** returned.
 7. **Every sub-agent prompt begins with** `<this is a request from a parent process>` and the agent
    returns JSON `{status, summary, source_locators, risks, writes_requested}`.
 8. **Consent before dispatch.** Phase 0 is a hard gate (`references/phase-0-consent.md`). No
