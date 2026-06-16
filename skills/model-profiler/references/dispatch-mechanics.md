@@ -103,17 +103,21 @@ treat the agent as **STALLED**.
 
 ```markdown
 # [GAP] Phase-1 Agent N — <domain>
-Agent N did not complete. Reason: STALLED | FAILED | PROVIDER_LIMITED | BUDGET_EXCEEDED.
+Agent N did not complete. Reason: STALLED | FAILED | PROVIDER_LIMITED.
 Fallback: <provider/model> — also failed or unavailable.
 All pairings in domain "<domain>" are [DATA_MISSING] for this run.
 Phase 2 judges must treat this domain as [GAP] and flag it in risks.
 Remediation: [future run may re-profile this domain with expanded budget]
 ```
 
-For **bounded-continuation mode** (exact bare prompt), `BUDGET_EXCEEDED` is a legitimate stub reason.
-Phase 2 judges record it in the run's `risks` (carried into the audit metadata); no halt. The run continues.
+Budget exhaustion is **NOT** a legitimate stub reason. Per the FRESH-DATA mandate (SKILL.md
+Highest-Priority Mandates) there is no bounded-continuation: if the session budget cannot cover fresh
+research, **ABORT** the run as `blocked` (`fresh-data-unsatisfiable: budget`) rather than GAP-stubbing
+to bypass it. GAP stubs remain valid ONLY for a genuinely STALLED/FAILED/PROVIDER_LIMITED single
+benchmark agent (provider resilience), never to substitute stale/prior data or to dodge budget.
 
-Do **not** hang indefinitely. A run with GAP stubs continues; a stalled run blocks.
+Do **not** hang indefinitely. A run with provider-resilience GAP stubs continues; a stalled run blocks;
+a budget/fresh-data shortfall ABORTS.
 
 ## Dogfood the route when picking tiers
 

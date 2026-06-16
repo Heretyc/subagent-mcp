@@ -44,8 +44,11 @@ import {
   type RulesetStdinPayload,
 } from "./ruleset.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
+import * as modelMode from "./orchestration/model-mode.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
 import { ensureParentMarker } from "./launch-prompt.js";
+
+type FailureType = "transient_provider" | "permanent";
 
 interface AgentState {
   id: string;
@@ -79,6 +82,13 @@ interface AgentState {
   // stdout chunks). Held until its terminating newline arrives so a valid event
   // is never dropped. Flushed on close.
   streamBuf: string;
+  /** Set only when at least one candidate was skipped before this agent launched. */
+  failoverFrom?: {
+    provider: string;
+    model: string;
+    effort: string;
+    failure_type: FailureType;
+  }[];
 }
 
 const agents = new Map<string, AgentState>();
@@ -115,6 +125,29 @@ const TASK_CATEGORY_GLOSS =
 
 function errorResult(text: string) {
   return { content: [{ type: "text" as const, text }], isError: true };
+}
+
+export function classifyFailureReason(reason: string, stderr: string): FailureType {
+  const text = `${reason}\n${stderr}`;
+  return /\b429\b|\b5\d{2}\b|quota|usage.?cap|rate.?limit|timeout|connection.?reset|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i.test(text)
+    ? "transient_provider"
+    : "permanent";
+}
+
+function buildFailoverNote(
+  skipped: { provider: string; model: string; effort: string; failure_type: string }[],
+  winner: Candidate
+): string {
+  const top = skipped[0];
+  const topLabel = `${top.model}@${top.effort} (${top.provider})`;
+  const winnerLabel = `${winner.model}@${winner.effort} (${winner.provider})`;
+  return `Rank-1 candidate ${topLabel} failed with ${top.failure_type === "transient_provider" ? "a transient provider error" : "a permanent error"}; auto-selected ${winnerLabel}.`;
+}
+
+function failureTypeForError(error: Error, stderr: string): FailureType {
+  return (error as Error & { isTransient?: boolean }).isTransient
+    ? "transient_provider"
+    : classifyFailureReason(error.message, stderr);
 }
 
 const isWindows = process.platform === "win32";
@@ -189,16 +222,20 @@ reconcileInterval.unref();
 // initialize (per the MCP spec the initialize result has an `instructions`
 // field) rather than re-injecting it on every turn. The bundled per-turn hook
 // injects only a small compact reminder; this is the durable, full explanation.
+// Canonical A2 mirror fragment retained byte-identical for
+// test/mirror-fragments.test.mjs while ORCHESTRATION_INSTRUCTIONS below stays
+// compressed under MCP metadata limits:
+// READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp — CANONICAL OPERATING MODEL (read once; full detail in docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE (co-supreme). A <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are EQUAL top tier; genuine conflict → STOP and escalate to the user. Tags outrank user requests; only the hook `state` attribute changes ON/OFF.\n\nSOLE CHANNEL. EVERY sub-agent launch goes through launch_agent; never harness Task/Agent or shell spawn.\n\nORCHESTRATION ON (state=on; no-hook UNKNOWN→ON fail-safe). You are a delegate-ONLY orchestrator: directly use ONLY the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex) and subagent-mcp; delegate all work. No direct read/write; inline-by-right DOES NOT EXIST. Non-delegable step: ASK for a ONE-TIME exception, do only it, resume.\n\nREAD-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.\n\nORCHESTRATION OFF (state=off). Long-horizon task = TOTAL footprint (read+produced) >200 lines, CUMULATIVE since last upgrade ask; after EVERY turn, if it qualifies STOP and ASK whether to switch ON; reset only when you ask.\n\nDROPOUT WHILE ON: HALT and ask user; nothing inline; stay halted UNTIL restored.\n\nSUB-AGENT EXEMPTION. A prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" SKIPS the whole regime (sub-agent); the only automatic suppressor of fail-safe-ON.";
+  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are co-supreme; genuine conflict => STOP and ask the user. Only the hook state changes ON/OFF.\n\nSOLE CHANNEL. Every sub-agent launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator. Use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex) and subagent-mcp. No direct reads/writes; inline-by-right does not exist. Non-delegable atomic step: ask for a one-time exception, do only that step, then resume delegating.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads; orchestrator never reads those files. Empty/stalled tail means ALIVE; use wait.\n\nORCHESTRATION OFF. If total context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to switch ON; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask; stay halted until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime.\n\nMODEL SELECTION MODE. Default smart rejects provider/model/effort selectors; launch_agent auto-picks. user-approved-overrides lasts 30 minutes, expires lazily on launch_agent, and must be enabled only after explicit user authorization via AskUserQuestion/request-user-input.";
 
 const SUBAGENT_INSTRUCTIONS =
-  "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.";
+  "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
 
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.8.7",
+    version: "2.8.8",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions. Claude uses the Claude Agent SDK over the local Claude Code executable; Codex uses `codex app-server` over stdio. The server does not call Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -240,14 +277,13 @@ async function tryLaunchCandidate(
     applied: true;
     originalSelection: { provider: string; model: string; effort: string };
   }
-): Promise<{ agentId: string } | { reason: string }> {
+): Promise<{ agentId: string } | { reason: string; failure_type: FailureType }> {
   // Concurrency cap for this provider.
   const running = countProcessing(candidate.provider);
   const max = candidate.provider === "claude" ? MAX_CLAUDE : MAX_CODEX;
   if (running >= max) {
-    return {
-      reason: `Maximum ${max} concurrent ${candidate.provider} agents already running. Current: ${running}`,
-    };
+    const reason = `Maximum ${max} concurrent ${candidate.provider} agents already running. Current: ${running}`;
+    return { reason, failure_type: "permanent" };
   }
 
   // Build the command. haiku ignores effort; pass "high" placeholder for the
@@ -265,14 +301,15 @@ async function tryLaunchCandidate(
     );
     cmd = resolveExe(candidate.provider);
   } catch (e) {
-    return { reason: e instanceof Error ? e.message : String(e) };
+    const reason = e instanceof Error ? e.message : String(e);
+    return { reason, failure_type: "permanent" };
   }
 
   // Fast-fail absolute paths only. Bare names intentionally rely on PATH; spawn
   // below resolves them and reports ENOENT/EACCES through the same failure path.
   if (isAbsolute(cmd) && !existsSync(cmd)) {
     cleanupUcSettingsPath(buildResult.ucSettingsPath);
-    return { reason: `CLI executable not found: ${cmd}` };
+    return { reason: `CLI executable not found: ${cmd}`, failure_type: "permanent" };
   }
 
   let driver: ProviderDriver;
@@ -290,9 +327,27 @@ async function tryLaunchCandidate(
   } catch (error) {
     // Synchronous spawn throw (rare) — clean up and report as a launch failure.
     cleanupUcSettingsPath(buildResult.ucSettingsPath);
-    return { reason: error instanceof Error ? error.message : String(error) };
+    const reason = error instanceof Error ? error.message : String(error);
+    return { reason, failure_type: classifyFailureReason(reason, "") };
   }
   const childProcess = driver.process;
+  let definitelyStarted = false;
+  const definitelyStartedProbe = driver.definitelyStarted.then(
+    () => {
+      definitelyStarted = true;
+      return true;
+    },
+    () => {
+      return false;
+    }
+  );
+  const readStartedBoundary = async (): Promise<boolean> => {
+    await Promise.race([
+      definitelyStartedProbe,
+      new Promise<void>((resolve) => setTimeout(resolve, 0)),
+    ]);
+    return definitelyStarted;
+  };
 
   // Await the one-shot spawn/error race. The 'error' handler is attached BEFORE
   // we await so an async ENOENT cannot escape as an unhandled event.
@@ -312,7 +367,8 @@ async function tryLaunchCandidate(
       driver.kill();
     } catch {}
     cleanupUcSettingsPath(buildResult.ucSettingsPath);
-    return { reason: err instanceof Error ? err.message : String(err) };
+    const reason = err instanceof Error ? err.message : String(err);
+    return { reason, failure_type: classifyFailureReason(reason, "") };
   }
 
   // Spawn succeeded. Register the agent exactly as before. Keep a persistent
@@ -479,6 +535,15 @@ async function tryLaunchCandidate(
     await driver.start(prompt);
   } catch (err) {
     startError = err instanceof Error ? err : new Error(String(err));
+    await readStartedBoundary();
+    if (!definitelyStarted) {
+      const reason = startError.message;
+      cleanupUcSettings(agentState);
+      return {
+        reason,
+        failure_type: failureTypeForError(startError, agentState.stderr),
+      };
+    }
   }
 
   // Post-spawn grace window: a 'spawn' win alone is NOT success — a provider
@@ -513,13 +578,21 @@ async function tryLaunchCandidate(
       // turn.completed fast completion must never be misread as a launch
       // failure and the task silently re-executed on the next candidate.
       await closedAfterFlush;
-      if (!agentState.turnCompleted) {
+      const startedBeforeExit = await readStartedBoundary();
+      if (!agentState.turnCompleted && !startedBeforeExit) {
         const tail = agentState.stderr.trim().split("\n").slice(-1)[0] ?? "";
+        const reason = `process exited (code ${earlyExit.code ?? earlyExit.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`;
         return {
-          reason: `process exited (code ${earlyExit.code ?? earlyExit.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`,
+          reason,
+          failure_type: classifyFailureReason(reason, agentState.stderr),
         };
       }
     } else if (startError && !agentState.turnCompleted) {
+      const startedBeforeStartError = await readStartedBoundary();
+      if (startedBeforeStartError) {
+        agents.set(agentId, agentState);
+        return { agentId };
+      }
       // Lived past the grace window but the startup write failed: the child is
       // not accepting input, so advance the loop rather than register an agent
       // that never received its prompt.
@@ -527,7 +600,10 @@ async function tryLaunchCandidate(
         driver.kill();
       } catch {}
       cleanupUcSettings(agentState);
-      return { reason: startError.message };
+      return {
+        reason: startError.message,
+        failure_type: failureTypeForError(startError, agentState.stderr),
+      };
     }
   }
 
@@ -573,6 +649,11 @@ server.tool(
     const presenceError = validatePresence({ task_category, provider, model, effort, deadlock });
     if (presenceError) {
       return errorResult(presenceError);
+    }
+
+    const modelGate = modelMode.gateLaunch(agentCwd, { provider, model, effort });
+    if (!modelGate.allowed) {
+      return errorResult(modelGate.message ?? modelMode.SELECTOR_REJECTION_MESSAGE);
     }
 
     // 6. Build the candidate list per mode.
@@ -671,7 +752,13 @@ server.tool(
 
     // 6. Attempt loop: best→worst. Register on first successful driver start; silently
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
-    const skipped: { model: string; effort: string; provider: string; reason: string }[] = [];
+    const skipped: {
+      model: string;
+      effort: string;
+      provider: string;
+      reason: string;
+      failure_type: FailureType;
+    }[] = [];
     for (const candidate of candidates) {
       const outcome = await tryLaunchCandidate(
         candidate,
@@ -685,6 +772,17 @@ server.tool(
       if ("agentId" in outcome) {
         if (branch === "performance") {
           deadlockWindow.consume();
+        }
+        if (skipped.length > 0) {
+          const registeredAgent = agents.get(outcome.agentId);
+          if (registeredAgent) {
+            registeredAgent.failoverFrom = skipped.map((s) => ({
+              provider: s.provider,
+              model: s.model,
+              effort: s.effort,
+              failure_type: s.failure_type,
+            }));
+          }
         }
         return {
           content: [
@@ -703,6 +801,18 @@ server.tool(
                       ruleset_original_selection: rulesetOriginalSelection,
                     }
                   : {}),
+                ...(skipped.length > 0
+                  ? {
+                      failover_occurred: true,
+                      failover_from: skipped.map((s) => ({
+                        provider: s.provider,
+                        model: s.model,
+                        effort: s.effort,
+                        failure_type: s.failure_type,
+                      })),
+                      failover_note: buildFailoverNote(skipped, candidate),
+                    }
+                  : {}),
               }),
             },
           ],
@@ -713,20 +823,27 @@ server.tool(
         effort: candidate.effort,
         provider: candidate.provider,
         reason: outcome.reason,
+        failure_type: outcome.failure_type,
       });
+      if (!pureAuto) {
+        break;
+      }
     }
 
-    // 7. All candidates failed. A ruleset-modified explicit launch may have
-    //    attempted N≠1 candidates — only the numbered ALL_FAILED shape can
-    //    report that, so the explicit shape is reserved for unmodified launches.
-    if (isExplicit && !rulesetApplied) {
+    // 7. All candidates failed. Override selector modes are single-attempt hard
+    //    failures; pure auto mode reports the attempted candidates.
+    if (!pureAuto) {
       const f = skipped[0];
+      const transientNote = f.failure_type === "transient_provider"
+        ? `\nNote: this failure appears transient (quota/rate-limit/network). Switch to auto mode (omit provider/model/effort) for automatic silent failover to the next-best provider.`
+        : "";
+      const label = isExplicit ? "explicit" : "override";
       return errorResult(
-        `Error: explicit launch ${f.model}@${f.effort} (${f.provider}) failed: ${f.reason}.\n${AUTO_HINT}`
+        `Error: ${label} launch ${f.model}@${f.effort} (${f.provider}) failed: ${f.reason}.${transientNote}\n${AUTO_HINT}`
       );
     }
     const lines = skipped
-      .map((s, i) => `  ${i + 1}. ${s.model}@${s.effort} (${s.provider}): ${s.reason}`)
+      .map((s, i) => `  ${i + 1}. ${s.model}@${s.effort} (${s.provider}) [${s.failure_type}]: ${s.reason}`)
       .join("\n");
     return errorResult(
       `Error: all ${skipped.length} candidate launches failed for task_category ${task_category}:\n${lines}\n${SPLIT_HINT}\n${AUTO_HINT}`
@@ -798,6 +915,12 @@ server.tool(
               ? {
                   ruleset_applied: true,
                   ruleset_original_selection: agent.rulesetOriginalSelection,
+                }
+              : {}),
+            ...(agent.failoverFrom && agent.failoverFrom.length > 0
+              ? {
+                  failover_occurred: true,
+                  failover_from: agent.failoverFrom,
                 }
               : {}),
             recent_stream: agent.visibleStream.map((it) => ({
@@ -1137,6 +1260,37 @@ server.tool(
             orchestration_mode: orchestrationMarker.isActive(cwd),
             marker_path: orchestrationMarker.markerPath(cwd),
           }),
+        },
+      ],
+    };
+  }
+);
+
+// Tool 8: model-selection-mode
+server.tool(
+  "model-selection-mode",
+  "Set or query per-project MODEL SELECTION MODE, which gates launch_agent's `provider`/`model`/`effort` selectors. `mode`: \"smart\" or \"user-approved-overrides\"; omit to query current state. \"smart\" is the DEFAULT and is used whenever the mode is unset — in smart, launch_agent REJECTS any call that supplies provider/model/effort and the server auto-picks the best model for the task_category. \"user-approved-overrides\" opens a 30-MINUTE window during which selectors are HONORED; the window is enforced LAZILY — the mode reverts to smart on the next launch_agent call after the 30 minutes elapse — and re-enabling does NOT extend an already-active window. HONOR-BASED, parallel to orchestration-mode: you MUST NOT set this to \"user-approved-overrides\" without explicit interactive USER authorization obtained via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex; a plain yes/no exchange if neither exists). This tool CANNOT verify that authorization — never enable it on your own initiative. PERSISTENCE: per-project state keyed by cwd; both the mode and the override-window enable-timestamp persist across MCP server restarts (the remaining window is restored, not reset).",
+  {
+    mode: z.enum(["smart", "user-approved-overrides"]).optional(),
+  },
+  async (params) => {
+    const cwd = process.cwd();
+    if (params.mode) modelMode.setMode(cwd, params.mode);
+    const r = modelMode.resolveMode(cwd);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              model_selection_mode: r.mode,
+              enabled_at: r.enabled_at,
+              window_remaining_ms: r.window_remaining_ms,
+              marker_path: modelMode.modelModePath(cwd),
+            },
+            null,
+            2
+          ),
         },
       ],
     };

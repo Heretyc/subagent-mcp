@@ -49,6 +49,7 @@ agentic collaboration.
   a prompt into a work-category, or wiring subagent-mcp routing. The JSON is the
   routing artifact; `work-categories.md` the fixed taxonomy; re-profile new
   models via the `model-profiler` skill.
+- `skills/model-profiler/SKILL.md`: read/run when a new model ships, or when asked to re-profile the fleet / refresh tier rankings / regenerate `src/routing-table.json`; invoke the `model-profiler` skill (bare prompt `Run the model-profiler skill.` uses the standing repo profile); orchestrator-only, flagship runner required; emits `src/routing-table.json` + `src/routing-table-audit.json` + `research-seed-sites.json`.
 - `docs/spec/task-taxonomy/_INDEX.md`: read when defining, citing, or changing
   the fixed 14-category task taxonomy (immutable) or its provenance, not routing.
 - `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior; for the advanced-ruleset.py override hook, its python execution/IO contract, launch visibility fields, or the post-spawn failover window, read `docs/spec/advanced-ruleset/_INDEX.md` first.
@@ -63,6 +64,12 @@ agentic collaboration.
   Run the pre-action gate `node scripts/check_worktree.mjs` before any
   mutating/repo-affecting action; on failure create/enter a compliant worktree
   first. See `docs/spec/dev-loop/worktree-enforcement/`.
+- SUB-AGENT CARVE-OUT: a session whose literal first line is
+  `<this is a request from a parent process>` (equivalently, env
+  `SUBAGENT_MCP_SUBAGENT=1`) is a delegated sub-agent already placed in its
+  target working tree by the orchestrator: it MUST NOT create or switch git
+  worktrees, MUST skip the worktree-isolation gate, and MUST perform all
+  mutating work directly in the provided cwd.
 - Before file edits or git writes, inspect `git status --short --branch`.
 - Pre-commit (executable/source or build-participating change): run
   `node scripts/check_mcp_compliance.mjs` (FAIL blocks), then a contradiction-checker

@@ -28,9 +28,19 @@ export interface DriverLaunchOptions {
 export interface ProviderDriver {
   process: DriverProcess;
   readonly closed: boolean;
+  readonly definitelyStarted: Promise<void>;
   start(message: string): Promise<void>;
   send(message: string): Promise<void>;
   kill(): void;
+}
+
+export class ProviderTransientError extends Error {
+  readonly isTransient = true as const;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "ProviderTransientError";
+  }
 }
 
 class LogicalProcess extends EventEmitter implements DriverProcess {
@@ -149,8 +159,17 @@ function textInput(text: string): JsonObject {
   return { type: "text", text, text_elements: [] };
 }
 
-class MockJsonlDriver implements ProviderDriver {
+export class MockJsonlDriver implements ProviderDriver {
+  static transientPreStartHook: ((provider: Provider) => void) | null = null;
+  static postStartErrorHook: ((provider: Provider) => void) | null = null;
+
   readonly process: DriverProcess;
+  private _definitelyStartedResolve!: () => void;
+  private _definitelyStartedReject!: (e: Error) => void;
+  readonly definitelyStarted: Promise<void> = new Promise((res, rej) => {
+    this._definitelyStartedResolve = res;
+    this._definitelyStartedReject = rej;
+  });
   private queue: Promise<void> = Promise.resolve();
   private turn = 0;
 
@@ -161,7 +180,10 @@ class MockJsonlDriver implements ProviderDriver {
     child.once("close", (code, signal) => {
       if (!this.process.killed) (this.process as LogicalProcess).close(code, signal);
     });
-    child.stdout?.on("data", (chunk) => this.process.stdout.write(chunk));
+    child.stdout?.on("data", (chunk) => {
+      this._definitelyStartedResolve();
+      this.process.stdout.write(chunk);
+    });
     child.stderr?.on("data", (chunk) => this.process.stderr.write(chunk));
     // Swallow stdin pipe errors (e.g. EPIPE writing to an exited child): the
     // writeLine() callback already surfaces the failure; without this listener
@@ -174,6 +196,20 @@ class MockJsonlDriver implements ProviderDriver {
   }
 
   start(message: string): Promise<void> {
+    if (MockJsonlDriver.transientPreStartHook) {
+      MockJsonlDriver.transientPreStartHook(this.provider);
+      const err = new ProviderTransientError(`mock transient pre-start failure (${this.provider})`);
+      this._definitelyStartedReject(err);
+      return Promise.reject(err);
+    }
+    if (MockJsonlDriver.postStartErrorHook) {
+      this._definitelyStartedResolve();
+      MockJsonlDriver.postStartErrorHook(this.provider);
+      setTimeout(() => {
+        this.process.stderr.write(`mock post-start error (${this.provider})\n`);
+        (this.process as LogicalProcess).close(1);
+      }, 0);
+    }
     return this.send(message);
   }
 
@@ -202,6 +238,12 @@ class MockJsonlDriver implements ProviderDriver {
 
 export class CodexAppServerDriver implements ProviderDriver {
   readonly process: DriverProcess;
+  private _definitelyStartedResolve!: () => void;
+  private _definitelyStartedReject!: (e: Error) => void;
+  readonly definitelyStarted: Promise<void> = new Promise((res, rej) => {
+    this._definitelyStartedResolve = res;
+    this._definitelyStartedReject = rej;
+  });
   private readonly pending = new Map<
     number,
     { resolve: (value: JsonObject) => void; reject: (err: Error) => void; timer: NodeJS.Timeout }
@@ -370,6 +412,7 @@ export class CodexAppServerDriver implements ProviderDriver {
     if (message.method === "turn/started" && message.params && typeof message.params === "object") {
       const turn = ((message.params as JsonObject).turn ?? {}) as JsonObject;
       if (typeof turn.id === "string") this.activeTurnId = turn.id;
+      this._definitelyStartedResolve();
     }
     if (message.method === "turn/completed") {
       this.activeTurnId = null;
@@ -379,6 +422,9 @@ export class CodexAppServerDriver implements ProviderDriver {
   }
 
   private fail(error: Error): void {
+    const msg = error.message;
+    const transient = /\b429\b|\b5\d{2}\b|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i.test(msg);
+    this._definitelyStartedReject(transient ? new ProviderTransientError(msg) : error);
     (this.process as LogicalProcess).fail(error);
     this.rejectPending(error);
   }
@@ -395,6 +441,12 @@ export class CodexAppServerDriver implements ProviderDriver {
 
 export class ClaudeSdkDriver implements ProviderDriver {
   readonly process = new LogicalProcess(undefined, true);
+  private _definitelyStartedResolve!: () => void;
+  private _definitelyStartedReject!: (e: Error) => void;
+  readonly definitelyStarted: Promise<void> = new Promise((res, rej) => {
+    this._definitelyStartedResolve = res;
+    this._definitelyStartedReject = rej;
+  });
   private readonly input = new AsyncInputQueue<JsonObject>();
   private readonly abortController = new AbortController();
   private queue: Promise<void> = Promise.resolve();
@@ -455,16 +507,24 @@ export class ClaudeSdkDriver implements ProviderDriver {
   }
 
   private async pump(query: AsyncGenerator<unknown, void>): Promise<void> {
+    let started = false;
     try {
       for await (const message of query) {
+        if (!started) {
+          started = true;
+          this._definitelyStartedResolve();
+        }
         this.process.stdout.write(`${JSON.stringify(message)}\n`);
       }
       this.closedFlag = true;
       this.process.close(0);
     } catch (error) {
       if (!this.process.killed) {
+        const msg = error instanceof Error ? error.message : String(error);
+        const transient = /\b429\b|\b5\d{2}\b|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i.test(msg);
+        this._definitelyStartedReject(transient ? new ProviderTransientError(msg) : new Error(msg));
         this.closedFlag = true;
-        this.process.stderr.write(error instanceof Error ? error.message : String(error));
+        this.process.stderr.write(msg);
         this.process.close(1);
       }
     }

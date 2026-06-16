@@ -84,40 +84,53 @@ path in `%TEMP%\model-profiler\<run-id>\phase-0-consent.md` or the run note. Do 
 `reset`, `checkout`, or cleanup commands to manage dirty files. Attempts to overwrite a path outside
 the generated-output set above must halt, even if the path is on the broader allowlist.
 
-## Bounded-Continuation Mode (exact bare prompt only)
+## No Bounded-Continuation — Fresh-data or ABORT (FRESH-DATA MANDATE)
 
-When Phase 1 fan-out would exceed the standing-profile budget cap (90 wall-clock minutes + session token budget):
+There is **NO bounded-continuation mode**. Per the FRESH-DATA mandate (SKILL.md Highest-Priority
+Mandates — outranks every numbered invariant), every run MUST rank on FRESH research gathered THIS
+run. When Phase 1 fan-out would exceed the standing-profile budget cap (90 wall-clock minutes +
+session token budget), or any pre-existing/partial scratch is found in the run dir:
 
-1. **Do not halt or ask for confirmation.** Automatically enter bounded-continuation mode.
-2. **Reuse existing phase-1-agent-*.md files** from the current `%TEMP%\model-profiler\<run-id>\` run dir if they exist for today's run-id. Each agent's valid output counts as complete for that domain.
-3. **For missing agents or an absent `%TEMP%` run dir:** write **GAP stubs** per `dispatch-mechanics.md` at the expected `%TEMP%` path. Record that the domain has `[DATA_MISSING]` status and flag it in the run's risks.
-4. **Proceed to Phase 1.5 + Phase 2** without halting. Phase 2 judges must treat GAP domains explicitly and record them in the audit's metadata/`basis`.
-5. **Emit routing-table.json + routing-table-audit.json** with all available data (partial is OK). The audit trail reflects which domains were GAP-stubbed.
-6. **Record the condition** in the run note: add a line to the persisted `%TEMP%\model-profiler\<run-id>\phase-0-consent.md` consent record stating `Continuation mode: bounded` with a brief reason (e.g., "Phase 1 budget exceeded; using existing run-id data + GAP stubs for [domain list]").
+1. **Do NOT reuse prior or partial data to keep going, and do NOT GAP-stub to bypass budget.**
+2. **ABORT the run** as `blocked` with reason
+   `fresh-data-unsatisfiable: <budget|partial-scratch|missing-sources|interruption>`. Surface it;
+   do not silently degrade.
+3. Prior audit / `research-seed-sites.json` may still SEED a *future* fresh run (source URLs /
+   citations to re-investigate) — they NEVER feed ranking/scoring.
 
-This mode is **authorization-neutral** — it does not weaken the credential, taxonomy, git-write, or out-of-allowlist barriers. It only softens the token-budget hard gate for the exact bare prompt, allowing a partial run to continue rather than blocking entirely.
+A run that cannot obtain and independently re-rank fresh data this run is ABORTED — never degraded,
+never resumed from stale/prior data. This abort does not weaken any other barrier (credential,
+taxonomy, git-write, out-of-allowlist); it makes the token-budget shortfall a hard ABORT rather than
+a partial-continuation.
 
-## Bare-run dispatch sequence (exact bare prompt — first-check + budget gates)
+## Bare-run dispatch sequence (exact bare prompt — fresh-data gates)
 
 The SKILL.md entry point points here. After persisting the standing-profile consent record, follow
-this sequence (all within the worktree lifecycle of invariant #15 / `references/execution-lifecycle.md`):
+this sequence (all within the worktree lifecycle of invariant #15 / `references/execution-lifecycle.md`).
+The FRESH-DATA mandate governs every step: rank only on THIS run's fresh research; never reuse
+stale/prior/partial data; on any fresh-data shortfall, ABORT.
 
 1. **MANDATORY FIRST CHECK — before Phase 1 dispatch:** does `%TEMP%\model-profiler\<run-id>\`
-   contain all 5 valid `phase-1-agent-{1..5}.md`?
-   - **YES** → bounded-continuation: skip Phase 1 dispatch; jump to Phase 1.5 + Phase 2. Note
-     `Continuation mode: bounded (reusing current-day Phase 1)`.
-   - **NO** → proceed to the standing dirty-tree policy above + Phase 1 dispatch as normal.
-2. **Token-budget fallback:** if Phase 1 fan-out exceeds session budget AND no reuse from step 1,
-   enter bounded-continuation (reuse existing agents, GAP-stub the rest), proceed to Phase 1.5 +
-   Phase 2. Emit routing-table.json (bounded or full); block only on safety rules, never budget alone.
-3. **Phase 1.5→Phase 2 budget gate:** after Phase 1.5 completes (both `phase-1.5-pivotal-questions.md`
-   and `phase-1.5-adjudications.md` exist), if Phase 2 synthesis would exceed remaining session
-   budget, do **not** ask continue/checkpoint/hybrid — automatically:
+   already contain pre-existing `phase-1-agent-*.md` files?
+   - **YES** → these are stale/pre-existing scratch. Do **NOT** reuse them to skip Phase 1. Either
+     run a genuinely fresh Phase 1 (the pre-existing scratch is disregarded for ranking), or, if a
+     fresh Phase 1 cannot run this run, **ABORT** as `blocked` (`fresh-data-unsatisfiable`). There is
+     no skip-Phase-1 continuation.
+   - **NO** → proceed to the standing dirty-tree policy above + fresh Phase 1 dispatch as normal.
+2. **Budget shortfall = ABORT (never bypass):** if Phase 1 fresh fan-out cannot complete within the
+   session budget, **ABORT** as `blocked` (`fresh-data-unsatisfiable: budget`). Do NOT enter
+   bounded-continuation, do NOT reuse partial data, do NOT GAP-stub to bypass budget for ranking.
+3. **Phase 1.5→Phase 2 budget gate (fresh-data only):** after Phase 1.5 completes (both
+   `phase-1.5-pivotal-questions.md` and `phase-1.5-adjudications.md` exist) on COMPLETE THIS-run
+   fresh Phase-1 data, if the Phase 2 LLM synthesis would exceed remaining session budget, you MAY
+   defer ONLY the synthesis and deterministically re-rank from THIS run's fresh Phase-1 data:
    - Run `node scripts/build_routing_table.mjs ; if ($LASTEXITCODE -eq 0) { node scripts/validate_provider.mjs }`
-   - Emit/regenerate `src/routing-table.json` + `src/routing-table-audit.json`
-   - Record in the run note: Phase 2 synthesis deferred (budget constraint); routing table refreshed
-     from Phase 1 data via the deterministic builder
+   - Emit/regenerate `src/routing-table.json` + `src/routing-table-audit.json` from the fresh data
+   - Record in the run note: Phase 2 synthesis deferred (budget constraint); routing table re-ranked
+     from THIS run's fresh Phase 1 data via the deterministic builder (no stale/prior data used)
    - Return completion with the Phase 2 synthesis debt labeled deferred/non-blocking
+   - If the THIS-run fresh Phase-1 data is itself incomplete, **ABORT** per step 2 rather than
+     degrading from stale or partial data.
 
 ## The six parameters to confirm
 

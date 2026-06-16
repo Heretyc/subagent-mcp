@@ -165,6 +165,15 @@ function remediation(branch) {
 }
 
 function main() {
+  // Delegated sub-agents launched by subagent-mcp run with SUBAGENT_MCP_SUBAGENT=1
+  // and are already placed in their target cwd by the orchestrator. They must not be
+  // forced into a linked worktree — short-circuit BEFORE any isolation check.
+  if (process.env.SUBAGENT_MCP_SUBAGENT === "1") {
+    console.log(
+      "check_worktree: delegated sub-agent (SUBAGENT_MCP_SUBAGENT=1) — worktree isolation skipped; operating in provided cwd."
+    );
+    return 0;
+  }
   const { pass, reasons, branch } = checkGate();
   if (pass) {
     console.log("WORKTREE-GATE: PASS");

@@ -60,6 +60,18 @@ interactive tool, and the directive assets enforce this per provider:
 `directives/orchestration-claude.md` names `AskUserQuestion` only,
 `directives/orchestration-codex.md` names `request-user-input` only.
 
+## Subdivision (smallest auditable step)
+
+When ON, the orchestrator delegates the **smallest auditable step** that yields
+an observable, independently-verifiable artifact — it does NOT 1-shot
+multi-phase work (e.g. bundling implement + test + docs + build into a single
+sub-agent). This is a strong default with a judgment escape: trivial steps may
+be combined, but for code or other non-trivial steps the orchestrator SHOULD
+dispatch an independent verifier sub-agent before proceeding to the next step.
+The rule lives in the ON-state per-turn assets only (full directive
+`orchestration-<provider>.md`, `reminder-on.md`, `short-on.md`) — it governs how
+the orchestrator delegates, which applies solely while orchestration is ON.
+
 ## Architecture (two cooperating processes)
 
 - **The tool** (`orchestration-mode`, registered in `src/index.ts`) writes or

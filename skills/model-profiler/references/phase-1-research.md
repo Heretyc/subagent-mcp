@@ -146,9 +146,9 @@ binds the concrete member. The skill names no model here.
 ### Checkpoint before Phase 2
 
 **Classify each Phase-1 output** before dispatching Phase 1.5:
-- **COMPLETE** — `%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md` exists with non-empty research content.
+- **COMPLETE** — `%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md` was produced by THIS run's fresh
+  dispatch with non-empty research content. (Pre-existing scratch is NEVER reused — FRESH-DATA mandate.)
 - **MISSING** — file absent, empty, or agent returned `blocked`/`needs_user`/error.
-- **REUSED** (bounded-continuation mode only) — existing file from today's `%TEMP%\model-profiler\<run-id>\` run dir, counted as complete without re-dispatch.
 
 **For MISSING agents:** apply the finite-wait + fallback policy in `dispatch-mechanics.md`. If
 fallback also fails, write an explicit GAP stub at `%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md`. Record the
@@ -162,19 +162,21 @@ A roster failure exits `blocked`, not `gap_stubbed`. GAP stubs are only for benc
 a per-provider inclusion/exclusion table listing every model considered, with release dates and the
 reason for inclusion or exclusion. A run without this table in strict mode exits `blocked`.
 
-**For bounded-continuation mode** (exact bare prompt with Phase 1 budget exceeded):
-- Check the `%TEMP%\model-profiler\<run-id>\` run dir for existing agents from today's run-id (e.g., `%TEMP%\model-profiler\2026-06-04-<run-id>\phase-1-agent-1.md`)
-- Each valid output counts as COMPLETE/REUSED for that agent; no re-dispatch needed
-- Missing agents get GAP stubs written to the standard `%TEMP%` location (`%TEMP%\model-profiler\<run-id>\phase-1-agent-N.md`)
-- Proceed to Phase 1.5 with existing + GAP data (no halt on budget)
+**No bounded-continuation on budget** (FRESH-DATA mandate): there is NO reuse of prior/partial scratch
+to bypass a Phase 1 budget shortfall. If Phase 1 fresh fan-out cannot complete within the session
+budget, **ABORT** the run as `blocked` (`fresh-data-unsatisfiable: budget`) — do not reuse existing
+agents and do not GAP-stub to dodge budget. (GAP stubs remain valid ONLY for a genuinely stalled/
+failed single benchmark agent (2–5) per the provider-resilience policy in `dispatch-mechanics.md`,
+never to substitute stale data or to dodge budget.)
 
 The Phase 1.5 adjudication agent reads all `phase-1-agent-*.md` files including GAP stubs. It must
 note every GAP domain explicitly and include "what data would fill this GAP" as a pivotal question.
 For the bare standing-profile path: a single-family fallback is **not** a new `needs_user` event and
 **not** a degrade — it is a fully-supported path (invariant #5), not an authorization question.
 
-Confirm before dispatching Phase 2: every expected `phase-1-agent-N.md` exists on disk (complete,
-reused, or GAP stub), the interview file holds pivotal questions plus owner answers or standing-profile
+Confirm before dispatching Phase 2: every expected `phase-1-agent-N.md` exists on disk (complete from
+THIS run's fresh dispatch, or a provider-resilience GAP stub — never reused stale scratch), the
+interview file holds pivotal questions plus owner answers or standing-profile
 resolutions, and no non-GAP agent returned `blocked`/`needs_user` unresolved.
 
 ---
