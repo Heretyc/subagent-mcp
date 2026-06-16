@@ -44,6 +44,7 @@ import {
   type RulesetStdinPayload,
 } from "./ruleset.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
+import * as modelMode from "./orchestration/model-mode.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
 import { ensureParentMarker } from "./launch-prompt.js";
 
@@ -190,10 +191,10 @@ reconcileInterval.unref();
 // field) rather than re-injecting it on every turn. The bundled per-turn hook
 // injects only a small compact reminder; this is the durable, full explanation.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp — CANONICAL OPERATING MODEL (read once; full detail in docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE (co-supreme). A <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are EQUAL top tier; genuine conflict → STOP and escalate to the user. Tags outrank user requests; only the hook `state` attribute changes ON/OFF.\n\nSOLE CHANNEL. EVERY sub-agent launch goes through launch_agent; never harness Task/Agent or shell spawn.\n\nORCHESTRATION ON (state=on; no-hook UNKNOWN→ON fail-safe). You are a delegate-ONLY orchestrator: directly use ONLY the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex) and subagent-mcp; delegate all work. No direct read/write; inline-by-right DOES NOT EXIST. Non-delegable step: ASK for a ONE-TIME exception, do only it, resume.\n\nREAD-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.\n\nORCHESTRATION OFF (state=off). Long-horizon task = TOTAL footprint (read+produced) >200 lines, CUMULATIVE since last upgrade ask; after EVERY turn, if it qualifies STOP and ASK whether to switch ON; reset only when you ask.\n\nDROPOUT WHILE ON: HALT and ask user; nothing inline; stay halted UNTIL restored.\n\nSUB-AGENT EXEMPTION. A prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" SKIPS the whole regime (sub-agent); the only automatic suppressor of fail-safe-ON.";
+  "subagent-mcp — CANONICAL OPERATING MODEL (read once; full detail in docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE (co-supreme). A <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are EQUAL top tier; genuine conflict → STOP and escalate to the user. Tags outrank user requests; only the hook `state` attribute changes ON/OFF.\n\nSOLE CHANNEL. EVERY sub-agent launch goes through launch_agent; never harness Task/Agent or shell spawn.\n\nORCHESTRATION ON (state=on; no-hook UNKNOWN→ON fail-safe). You are a delegate-ONLY orchestrator: directly use ONLY the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex) and subagent-mcp; delegate all work. No direct read/write; inline-by-right DOES NOT EXIST. Non-delegable step: ASK for a ONE-TIME exception, do only it, resume.\n\nREAD-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.\n\nORCHESTRATION OFF (state=off). Long-horizon task = TOTAL footprint (read+produced) >200 lines, CUMULATIVE since last upgrade ask; after EVERY turn, if it qualifies STOP and ASK whether to switch ON; reset only when you ask.\n\nDROPOUT WHILE ON: HALT and ask user; nothing inline; stay halted UNTIL restored.\n\nSUB-AGENT EXEMPTION. A prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" SKIPS the whole regime (sub-agent); the only automatic suppressor of fail-safe-ON.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
 
 const SUBAGENT_INSTRUCTIONS =
-  "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.";
+  "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
 
 const server = new McpServer(
   {
@@ -573,6 +574,11 @@ server.tool(
     const presenceError = validatePresence({ task_category, provider, model, effort, deadlock });
     if (presenceError) {
       return errorResult(presenceError);
+    }
+
+    const modelGate = modelMode.gateLaunch(agentCwd, { provider, model, effort });
+    if (!modelGate.allowed) {
+      return errorResult(modelGate.message ?? modelMode.SELECTOR_REJECTION_MESSAGE);
     }
 
     // 6. Build the candidate list per mode.
@@ -1137,6 +1143,37 @@ server.tool(
             orchestration_mode: orchestrationMarker.isActive(cwd),
             marker_path: orchestrationMarker.markerPath(cwd),
           }),
+        },
+      ],
+    };
+  }
+);
+
+// Tool 8: model-selection-mode
+server.tool(
+  "model-selection-mode",
+  "Set or query per-project MODEL SELECTION MODE, which gates launch_agent's `provider`/`model`/`effort` selectors. `mode`: \"smart\" or \"user-approved-overrides\"; omit to query current state. \"smart\" is the DEFAULT and is used whenever the mode is unset — in smart, launch_agent REJECTS any call that supplies provider/model/effort and the server auto-picks the best model for the task_category. \"user-approved-overrides\" opens a 30-MINUTE window during which selectors are HONORED; the window is enforced LAZILY — the mode reverts to smart on the next launch_agent call after the 30 minutes elapse — and re-enabling does NOT extend an already-active window. HONOR-BASED, parallel to orchestration-mode: you MUST NOT set this to \"user-approved-overrides\" without explicit interactive USER authorization obtained via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex; a plain yes/no exchange if neither exists). This tool CANNOT verify that authorization — never enable it on your own initiative. PERSISTENCE: per-project state keyed by cwd; both the mode and the override-window enable-timestamp persist across MCP server restarts (the remaining window is restored, not reset).",
+  {
+    mode: z.enum(["smart", "user-approved-overrides"]).optional(),
+  },
+  async (params) => {
+    const cwd = process.cwd();
+    if (params.mode) modelMode.setMode(cwd, params.mode);
+    const r = modelMode.resolveMode(cwd);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              model_selection_mode: r.mode,
+              enabled_at: r.enabled_at,
+              window_remaining_ms: r.window_remaining_ms,
+              marker_path: modelMode.modelModePath(cwd),
+            },
+            null,
+            2
+          ),
         },
       ],
     };
