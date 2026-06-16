@@ -1,6 +1,6 @@
 ---
 name: model-profiler
-version: 3.0.0
+version: 3.1.0
 description: Impartially PROFILE the cross-provider sub-agent fleet against the FIXED 14 work-categories (directly benchmarked parents + 4 composite-inferred) whenever a new model ships (or on demand). Discover every model published in the recent window by the in-scope provider families, gather ALL public benchmark scores + statistics, map them onto the directly benchmarked parent categories (composites composed from parents, never directly benchmarked), then JUDGE each model+effort pairing into per-category tier rankings (best→worst) SOLELY from the discovered research, with a recorded rationale per tier placement. Emits exactly 3 artifacts: routing-table.json (lean), routing-table-audit.json (full provenance), research-seed-sites.json (accumulating learned source list). Single-family and multi-family are both fully-supported, first-class paths; provider mix is optional. The 14 categories are immutable inputs — this skill never derives, chooses, renames, reorders, or reshuffles them. Use when a new model is released, when asked to profile new model, re-profile models, re-profile the fleet, rebalance routing, update routing table, refresh model profiles, re-run model research, regenerate routing-table.json, refresh tier rankings, or to answer "which model for X now" after a model launch. Orchestrator-only pipeline: model discovery + maximalist benchmark research, pivotal-question interview, flagship judging + merge, 3-artifact emission, 3-pass adversarial validation, and provider/seed validators + scenario routing tests. Sub-agents dispatched via `mcp__subagent-mcp__launch_agent`; cross-family critics are available when ≥2 families are reachable.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: May 2026
@@ -18,8 +18,7 @@ or supplied by the standing repository profile when its exact trigger matches.
 **Output** = EXACTLY 3 persisted artifacts (`src/routing-table.json`, `src/routing-table-audit.json`,
 `research-seed-sites.json`); nothing else persists. See the Output Contract below.
 
-This SKILL.md is the index. Load the detail leaf for the phase you are in. Do **not** preload all
-leaves. Each leaf is <=200 lines (AGENTS.md cap).
+This SKILL.md is the index — load only the current phase's detail leaf, never all of them. Each md file stays <=200 lines (AGENTS.md cap).
 
 ## Required Runner (read first)
 
@@ -76,9 +75,14 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
 
 **Exact prompt** (whitespace-trimmed): `Run the model-profiler skill.` → apply the standing repository profile without consent prompts (authorized bare default run). **Pre-conditions:** CWD=repo root; prompt exact; no credentials/deletes/git-writes/taxonomy-changes/outbound-messages/out-of-allowlist requests.
 
-**When matched:** apply the standing-profile answers (current-generation fleet, all reachable families, Fast mode, 90 min + session budget, provider mix optional), then follow the **bare-run dispatch sequence** (MANDATORY first-check → token-budget fallback → Phase 1.5→Phase 2 budget gate) in `references/phase-0-consent.md`. **Non-matching prompts:** load `references/phase-0-consent.md` and run the full AskUserQuestion consent flow.
+**When matched:** apply the standing-profile answers (current-generation fleet, all reachable families, Fast mode, 90 min + session budget, provider mix optional), then follow the **bare-run dispatch sequence** (fresh Phase 1 every run; pre-existing scratch or budget/time shortfall → **ABORT**, never bounded-continuation, per the FRESH-DATA mandate → Phase 1.5→Phase 2 budget gate) in `references/phase-0-consent.md`. **Non-matching prompts:** load `references/phase-0-consent.md` and run the full AskUserQuestion consent flow.
 
 (All of the above runs INSIDE the execution lifecycle — invariant #15: the worktree gate fires before Phase 0 detection, and the commit→push→PR→deliver lifecycle follows VALIDATE.)
+
+## Highest-Priority Mandates (OVERRIDE every numbered invariant below on any conflict)
+
+- **FRESH-DATA MANDATE (highest priority, non-negotiable).** EVERY run MUST rank on FRESH research gathered THIS run; the prior audit (`src/routing-table-audit.json`) and any prior committed rankings MUST NOT feed ranking/scoring — only SEED research (URLs / citations to re-investigate). If fresh data cannot be obtained and independently re-ranked this run — for ANY reason (budget/time, partial or pre-existing scratch, missing sources, interruption) — the run MUST **ABORT**: no continue, no bounded-continuation, no GAP-stub bypass for ranking; never degrade or resume from stale/prior data. (Reinforces #2: prior rankings diffed/flagged, never inherited.)
+- **DELIVERY MANDATE.** Every run ALWAYS OFFERS the full delivery lifecycle, never silently skipped: commit the 3 artifacts → push → open PR → resolve PR merge conflicts → mark PR ready → surface the clickable hyperlink for the user to MERGE the PR. (Extends #15's DELIVER box.)
 
 ## Hard Invariants (Always Active)
 
@@ -163,6 +167,8 @@ provenance) live in `docs/spec/task-taxonomy/`. This skill profiles models **aga
     weak-effort variants. `cost_efficiency` may still rank valid non-low efforts below `high`.
     `build_routing_table.mjs`, `validate_provider.mjs`, and
     `test/performance-tier-effort.test.mjs` enforce both rules on every build and commit.
+17. **Fresh-data (Highest-Priority Mandate — overrides #1–16).** Rank on THIS run's fresh research; prior audit/rankings SEED only. Cannot gather & re-rank fresh data this run → **ABORT** (`blocked`); no bounded-continuation, no GAP-stub bypass for ranking.
+18. **Delivery (Highest-Priority Mandate).** Every run ALWAYS OFFERS commit → push → PR → resolve conflicts → PR ready → clickable MERGE hyperlink; never silently skipped.
 
 ## Pipeline at a Glance
 

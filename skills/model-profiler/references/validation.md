@@ -126,6 +126,16 @@ contract: EXACTLY 3 persisted artifacts — `src/routing-table.json`, `src/routi
 metadata, not a separate prose file. Surface any residual uncertainty (e.g., a same-day model launch
 with [PRESS]-only figures) rather than hiding it.
 
+**FRESH-DATA gate (SKILL.md Highest-Priority Mandates / invariant #17):** confirm the emitted rankings
+were derived from THIS run's fresh research — `metadata.run_manifest.run_id`/`last_run_at` match this
+run, and prior audit/rankings were used only as research seeds, never inherited into ranking. A run
+that could not gather and independently re-rank fresh data must have ABORTED (`blocked`), never
+reached sign-off on stale/partial data.
+
+**DELIVERY MANDATE (invariant #18):** sign-off then ALWAYS proceeds into the full delivery lifecycle
+(`execution-lifecycle.md` steps 2–7: commit → push → PR → resolve conflicts → PR ready → deliver PR
+link + change-summary + clickable MERGE hyperlink) — never silently skipped.
+
 ---
 
 *Author: Lexi Blackburn — https://github.com/Heretyc/ — May 2026*

@@ -17,8 +17,11 @@ governs the worktree gate that PRECEDES it and the git lifecycle that FOLLOWS it
 4. open PR
 5. resolve merge conflicts
 6. PR ready
-7. deliver: PR hyperlink + change-summary
+7. deliver: PR hyperlink + change-summary + clickable MERGE link
 ```
+
+The full lifecycle (steps 2–7) is ALWAYS OFFERED at the end of every run and is **never silently
+skipped** (DELIVERY MANDATE — SKILL.md Highest-Priority Mandates / invariant #18).
 
 ## 0. Worktree/branch gate (FIRST — before anything mutating)
 
@@ -90,17 +93,22 @@ resolution that touched an artifact (regen-green must hold).
 The PR is READY only when: validators green, spec checklist clear (validation.md §2), the
 six scenario routes pass (validation.md §3), conflicts resolved, CI passing.
 
-## 7. Deliver: PR hyperlink + change-summary
+## 7. Deliver: PR hyperlink + change-summary + MERGE link (DELIVERY MANDATE)
 
-Return to the owner BOTH:
-- the **PR URL** (`gh pr view --json url -q .url`), and
+The full delivery lifecycle is ALWAYS OFFERED and NEVER silently skipped (DELIVERY MANDATE).
+Return to the owner ALL of:
+- the **PR URL** (`gh pr view --json url -q .url`),
 - a **concise summary of what changed in `src/routing-table.json` since its LAST MERGED
   update** — diff the prior merged routing table (the #21 drift baseline:
   `git show origin/main:src/routing-table.json`) against the new one and surface:
   per-category route/rank shifts, added/removed model+effort pairings, and any
   completeness-state change. The audit metadata
   (`run_manifest.drift_vs_prior_audit` + the change note) holds the full provenance; the
-  delivered summary is the human-readable digest of it.
+  delivered summary is the human-readable digest of it, and
+- the **clickable MERGE hyperlink** for the owner to merge the PR (the PR web URL —
+  `gh pr view --json url -q .url` — which opens the mergeable PR; surface it LAST so the owner
+  can complete the merge). Merge conflicts (step 5) must be resolved and the PR marked ready
+  (step 6) before this link is surfaced.
 
 ---
 

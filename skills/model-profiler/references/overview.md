@@ -133,14 +133,15 @@ Phase 0   HARD GATE: AskUserQuestion or exact standing repository profile — sc
    |          no dispatch before consent/profile match)
    |
    v
-CHECK:    For exact bare prompt ONLY: are all 5 phase-1-agent-*.md files present + valid in
-   |       %TEMP%\model-profiler\<run-id>\? If YES -> enter bounded-continuation mode;
-   |       skip Phase 1 dispatch; jump to Phase 1.5. If NO -> proceed to Phase 1.
+CHECK:    For exact bare prompt ONLY: if pre-existing phase-1-agent-*.md files are present in
+   |       %TEMP%\model-profiler\<run-id>\, do NOT reuse them to skip Phase 1 (FRESH-DATA mandate).
+   |       Run a genuinely fresh Phase 1, or ABORT as blocked if fresh data cannot be gathered this
+   |       run. There is NO bounded-continuation / skip-Phase-1 path.
    |
    v
-Phase 1   [OPTIONAL] N domain-partitioned discovery+research agents (web-enabled; any provider mix):
-(skip)         DISCOVER every model published in the recent window by the in-scope provider families;
-or run         gather ALL public benchmark scores + stats, mapped onto the directly benchmarked
+Phase 1   [MANDATORY — fresh every run] N domain-partitioned discovery+research agents (web-enabled; any provider mix):
+               DISCOVER every model published in the recent window by the in-scope provider families;
+               gather ALL public benchmark scores + stats, mapped onto the directly benchmarked
                parent categories (composites inferred from parents, never directly benchmarked).
                Check references/benchmark-sources.md FIRST. -> %TEMP%\...\phase-1-agent-{1..N}.md
    |
