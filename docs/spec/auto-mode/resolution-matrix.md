@@ -33,8 +33,8 @@ is a valid category sentinel, but resolver-backed modes cannot launch it.
 | C | P | M | E | Outcome |
 |---|---|---|---|---|
 | launchable valid | – | – | – | `auto` mode; build candidate list, attempt loop |
-| launchable valid | yes | – | – | `provider` mode; candidate list, attempt loop |
-| launchable valid | yes | yes | – | `provider_model` mode; candidate list, attempt loop |
+| launchable valid | yes | – | – | `provider` mode; candidate list, single attempt, no fallback |
+| launchable valid | yes | yes | – | `provider_model` mode; candidate list, single attempt, no fallback |
 | launchable valid | yes | yes | yes | `explicit` mode; single direct attempt, no fallback |
 | fallback_default | – | – | – | **ERR_FALLBACK_DEFAULT** |
 | fallback_default | yes | – | – | **ERR_FALLBACK_DEFAULT** |
@@ -155,18 +155,38 @@ candidate and its failure reason:
 
 ```
 Error: all <N> candidate launches failed for task_category <task_category>:
-  1. <model>@<effort> (<provider>): <reason>
+  1. <model>@<effort> (<provider>) [<failure_type>]: <reason>
   2. ...
 <SPLIT_HINT>
 <AUTO_HINT>
 ```
 
-`ERR_EXPLICIT_FAILED` (explicit mode, the single attempt failed). No fallback:
+Each numbered line carries the `failure_type` label in brackets —
+`[transient_provider]` (usage caps, quota 429, HTTP 5xx, network timeouts,
+ETIMEDOUT/ECONNRESET) or `[permanent]` (everything else) — from
+`classifyFailureReason(reason, stderr)`. Exhaustion is `ERR_ALL_FAILED`
+regardless of classification; it carries no `failover_occurred` field (it is an
+error, not a success).
+
+Single-attempt override failure (override selector mode, the attempt failed). No
+fallback. The leading line is byte-identical to one of the forms below; when
+`classifyFailureReason` labels the failure `transient_provider`, ONE extra note
+line is appended before `<AUTO_HINT>`:
 
 ```
 Error: explicit launch <model>@<effort> (<provider>) failed: <reason>.
+Error: override launch <model>@<effort> (<provider>) failed: <reason>.
+Note: this failure appears transient (quota/rate-limit/network). Switch to auto mode (omit provider/model/effort) for automatic silent failover to the next-best provider.
 <AUTO_HINT>
 ```
+
+The `Note:` line is present ONLY when `failure_type === "transient_provider"`;
+for a `permanent` failure the message is just the matching leading line plus
+`<AUTO_HINT>`. Override selector modes never fail over automatically — they are
+single-attempt by contract; the note merely advises switching to auto mode, where
+auto-mode same-call failover is enabled. `user-approved-overrides` model-
+selection-mode does NOT change this: supplying selectors is still a single
+hard-fail attempt (`../model-selection-mode/_INDEX.md`).
 
 ## Anti-examples (what must NOT happen)
 
@@ -174,8 +194,10 @@ Error: explicit launch <model>@<effort> (<provider>) failed: <reason>.
   the old behavior; auto-mode resolves effort from the pairing.
 - Do NOT crash or return an empty/`undefined` payload when the table is missing
   — return `ERR_TABLE_MISSING`.
-- Do NOT fall back past a fully-explicit (`explicit` mode) attempt — one try
-  only, then `ERR_EXPLICIT_FAILED`.
+- Do NOT fall back past an override selector-mode attempt — one try only, then
+  the hard-fail shape (with the transient `Note:` line appended when the failure
+  classifies as `transient_provider`). Override selector modes never attempt
+  same-call failover, even on a transient provider error.
 - Do NOT treat a sub-agent's eventual TASK failure as a fallback trigger —
   only launch-time failures fall back (`routing-table-contract.md`).
   Launch-time failure INCLUDES any exit within the post-spawn grace window

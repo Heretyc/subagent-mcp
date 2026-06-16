@@ -153,6 +153,18 @@ function createMcpSession(entrypoint, options = {}) {
   return { request, initialize, close };
 }
 
+async function enableManualSelection(session) {
+  const response = await session.request("tools/call", {
+    name: "model-selection-mode",
+    arguments: { mode: "user-approved-overrides" },
+  });
+  assert.notEqual(
+    response.result.isError,
+    true,
+    `model-selection-mode failed: ${response.result.content[0].text}`
+  );
+}
+
 function writeFakePathTools(fakeBin) {
   if (process.platform === "win32") {
     writeFileSync(join(fakeBin, "npm.cmd"), "@echo off\r\necho %FAKE_NPM_PREFIX%\r\n");
@@ -289,6 +301,7 @@ await test("bare PATH executable is not rejected before spawn", async () => {
   const session = createMcpSession(distIndex, { cwd: workDir, env });
   try {
     await session.initialize();
+    await enableManualSelection(session);
     const response = await session.request("tools/call", {
       name: "launch_agent",
       arguments: {
@@ -485,6 +498,7 @@ await test("completed interactive turn that later exits is finished but not aliv
   });
   try {
     await session.initialize();
+    await enableManualSelection(session);
     const { agentId } = await launchAndPoll(session, {
       task_category: "coding",
       provider: "codex",
@@ -542,6 +556,7 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
     await killAgent(session, r2.agentId);
 
     // 3. provider+model override → no consume (window stays 1). cost_efficiency.
+    await enableManualSelection(session);
     const r3 = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "override mid-window",
@@ -688,6 +703,7 @@ await test("explicit launch: routing_tier is manual; deadlock:false identical to
   const session = createMcpSession(distIndex, { cwd: workDir, env });
   try {
     await session.initialize();
+    await enableManualSelection(session);
 
     // Explicit (provider+model+effort) → routing_tier="manual".
     const r1 = await launchAndPoll(session, {

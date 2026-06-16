@@ -49,13 +49,14 @@ ruleset_original_selection: agent.rulesetOriginalSelection } : {})`.
 
 No tool-description text changes — no mcp-compliance byte-cap risk.
 
-### Explicit-mode failure shape
+### Override-mode failure shape
 
-If the ruleset modified an explicit launch, `skipped` may hold more than one
-entry, and `ERR_EXPLICIT_FAILED` assumes exactly one attempt. The guard
-becomes `isExplicit && !rulesetApplied` → `ERR_EXPLICIT_FAILED`; otherwise
-fall through to the numbered `ERR_ALL_FAILED` shape (the only shape that can
-report N != 1 attempts).
+Override selector modes (`provider`, `provider_model`, `explicit`) make one
+launch attempt even when the ruleset can see or alter the candidate list. A
+failed override attempt returns the single-attempt hard-fail shape with the
+auto-mode hint (`explicit launch ... failed` for fully explicit selectors,
+`override launch ... failed` for partial selectors); pure `auto` mode is the
+only mode that silently advances to a later candidate.
 
 ### Amendments (visibility)
 
@@ -91,16 +92,30 @@ Contract:
    that exits in under the window without consuming the task did not launch;
    auth failures are non-zero anyway, and code-0 instant exits are equally
    useless to the orchestrator.
-   SOLE EXCEPTION: a provider driver whose `AgentState` was already finalized by
-   its turn-completion marker (the dedicated `turnCompleted` flag set by the
+   EXCEPTIONS: (a) a provider driver whose `AgentState` was already finalized
+   by its turn-completion marker (the dedicated `turnCompleted` flag set by the
    stdout data/flush scans — NOT `status`, which any code-0 exit also sets to
-   `finished`) is a legitimate fast COMPLETION: it IS registered and IS a
-   launch success, never a failover trigger — failing it would silently
-   re-execute a completed task on the next candidate. Because `exit` can be
+   `finished`) is a legitimate fast COMPLETION; (b) a provider whose
+   `definitelyStarted` promise resolved has already crossed the execution
+   boundary. Either case IS registered and IS a launch success, never a failover
+   trigger — failing it would risk duplicate execution. Because `exit` can be
    delivered before the final stdout chunk, the grace path awaits `close`
-   (streams drained, flush scanned) before deciding. This is
-   the ONLY exception; any other exit — including code 0 without that
-   finalization — remains a launch-time failure.
+   (streams drained, flush scanned) before deciding. Any other in-window exit —
+   including code 0 without completion or a definite-start boundary — remains a
+   launch-time failure.
+3a. The failure `reason` and last stderr line are passed to
+   `classifyFailureReason(reason, stderr)` to produce a `failure_type` label:
+   `"transient_provider"` (usage caps, quota 429, HTTP 5xx, network timeouts,
+   connection resets — ETIMEDOUT/ECONNRESET) or `"permanent"` (everything else:
+   ENOENT, EACCES, bad option, missing config). This label travels with the
+   skipped-candidate entry (`{model,effort,provider,reason,failure_type}`) and
+   surfaces in the success payload's `failover_from[]` array, in `poll_agent`'s
+   `failover_from[]`, and in `ERR_ALL_FAILED`'s numbered list
+   (`[<failure_type>]`). The label does NOT change failover behavior — in auto
+   mode the loop advances to the next ruleset-selected candidate either way
+   (same-call failover on any launch-time failure). It only changes how the
+   failure is reported, and drives the transient `Note:` line on
+   the override-mode hard-fail note (`../auto-mode/resolution-matrix.md`).
 4. `SPAWN_GRACE_MS` defaults to **1500**. `SUBAGENT_SPAWN_GRACE_MS` overrides
    it (non-negative integer; `0` disables post-start early-exit detection). The
    override is a TEST-ONLY seam: legacy fixtures can exit instantly by design
@@ -116,7 +131,16 @@ Contract:
    would misclassify slow-thinking claude starts.
 7. AFTER the window: late deaths remain TASK outcomes observed via
    `poll_agent`/`wait` (the existing `reconcileAgent`/close-handler paths are
-   untouched) and are NEVER failover triggers.
+   untouched) and are NEVER failover triggers. The `definitelyStarted` promise
+   (a readonly field on the `ProviderDriver` interface, implemented by all
+   drivers) marks a secondary classification boundary: once it resolves, the
+   provider is definitively processing the first turn and ALL subsequent errors
+   are post-boundary task outcomes — never failover triggers. The grace window
+   remains the PRIMARY launch-time detection
+   mechanism; `definitelyStarted` does not displace it. Composition with
+   same-call failover: a transient-error failover fires only on a launch-time
+   failure (in-window exit / pre-registration startup rejection); once
+   "definitely started", no failover occurs regardless of `failure_type`.
 
 ### Amendments (failover)
 
@@ -128,6 +152,12 @@ Contract:
   sub-agent's eventual TASK failure as a fallback trigger"): rescoped the same
   way — in-window exits are launch-time failures, post-window deaths are task
   outcomes.
+- `../auto-mode/param-contract.md` ("the launch payload carries no
+  routing-internal fields"): further amended — the conditional
+  `failover_occurred` + `failover_from` + `failover_note` trio is a second
+  sanctioned exception (alongside `ruleset_applied`/`ruleset_original_selection`),
+  present only when same-call failover occurred. `poll_agent` mirrors
+  `failover_occurred` + `failover_from` (not `failover_note`).
 
 ## Negative constraints
 
@@ -135,12 +165,13 @@ Contract:
   or disabled launches — absence is part of the contract.
 - Never re-run the ruleset script per failover attempt (the list is final).
 - Never register an agent that exited inside the grace window, except one
-  finalized by its provider turn-completion marker (the sole exception in item 3).
+  finalized by its provider turn-completion marker or one that crossed the
+  `definitelyStarted` boundary (item 3).
 - Never treat a post-window death as a failover trigger.
 - Never set `SUBAGENT_SPAWN_GRACE_MS` in production wiring or docs examples.
 
 ## When to stop and ask the owner
 
 Changing the 1500 ms default, exposing more ruleset internals in payloads, or
-making in-window exits count as success beyond the provider completion exception
-are owner-level decisions.
+making in-window exits count as success beyond the provider completion or
+`definitelyStarted` exceptions are owner-level decisions.

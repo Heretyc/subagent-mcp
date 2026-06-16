@@ -74,8 +74,10 @@ windows. The only agent-visible deadlock metadata strings are the verbatim
 exists for `deadlock=true` combined with provider/model/effort; it is error text,
 not metadata, and must use attempts+task-identity/drop-overrides vocabulary.
 Sanctioned diagnostic exposures (payload fields, never description/error text)
-are exactly: `routing_tier` (poll), plus `ruleset_applied` +
-`ruleset_original_selection` (`../advanced-ruleset/visibility-and-failover.md`).
+are exactly: `routing_tier` (poll), `ruleset_applied`,
+`ruleset_original_selection`, `failover_occurred`, `failover_from`, and
+`failover_note`
+(`../advanced-ruleset/visibility-and-failover.md`).
 
 ## Pairing object schema (authoritative source)
 
@@ -157,6 +159,10 @@ After filtering, if the list is empty in auto/provider/provider_model mode →
 
 ## Attempt loop with SILENT fallback
 
+This fallback loop applies to pure `auto` mode only. Override selector modes
+(`provider`, `provider_model`, `explicit`) make one launch attempt; on failure
+they stop and return the matching hard-fail shape with the auto-mode hint.
+
 For each candidate in order (best→worst):
 
 1. Normalize to `{provider, launchModel, launchEffort}` (skip on unknown
@@ -171,25 +177,38 @@ For each candidate in order (best→worst):
    - `resolveExe` returns a path that does not exist / driver spawn throws
      (missing exe, ENOENT, EACCES, etc.);
    - provider driver startup rejects before the agent is registered.
-   On ANY of these → record `{model,effort,provider,reason}`, SILENTLY advance
-   to the next candidate. Do not surface intermediate failures to the caller.
+   On ANY of these → classify the failure and record
+   `{model,effort,provider,reason,failure_type}`, SILENTLY advance to the next
+   candidate. Do not surface intermediate failures to the caller.
+   - `failure_type` is `classifyFailureReason(reason, stderr)` →
+     `"transient_provider"` (usage caps, quota 429, HTTP 5xx, network timeouts,
+     connection resets — ETIMEDOUT/ECONNRESET) or `"permanent"` (everything
+     else: ENOENT, EACCES, bad option, missing config). It is a label only;
+     auto mode advances to the next candidate either way (same-call failover).
 4. On the FIRST successful driver start: register the agent with `AgentState`,
    stdout/stderr handlers, close handler, and `agents.set`, then return the
-   success payload (`param-contract.md`).
+   success payload (`param-contract.md`). If any candidate was skipped before
+   this success, the payload additionally carries `failover_occurred: true`,
+   `failover_from` (the skipped candidates), and `failover_note`
+   (`param-contract.md`). This same-call failover is scoped to the single
+   `launch_agent` call: `skipped[]` is local to the handler invocation — no
+   persisted cooldown or cross-call state. After the agent is "definitely
+   started", no further failover occurs (`../advanced-ruleset/visibility-and-failover.md`).
 
 CRITICAL — launch-time only: a launch succeeds when the driver starts AND
 survives the post-spawn grace window; ANY exit inside that window (any code or
-signal) is a launch-time failure that silently advances the loop — sole
-exception: a provider driver already finalized by its turn-completion marker, a
-legitimate fast completion (`../advanced-ruleset/visibility-and-failover.md`).
+signal) is a launch-time failure that silently advances the loop. Exceptions:
+a provider driver already finalized by its turn-completion marker, or a driver
+that crossed the `definitelyStarted` boundary
+(`../advanced-ruleset/visibility-and-failover.md`).
 `launch_agent` does NOT await the sub-agent's task: a later death is observed
 via `poll_agent`/`wait` and is NEVER a fallback trigger.
 
 If ALL candidates fail → `ERR_ALL_FAILED` listing each
-`<model>@<effort> (<provider>): <reason>` (`resolution-matrix.md`).
+`<model>@<effort> (<provider>) [<failure_type>]: <reason>` (`resolution-matrix.md`);
+each numbered line now carries the `[transient_provider]`/`[permanent]` label.
 
-`explicit` mode: one attempt; on failure → `ERR_EXPLICIT_FAILED` (no loop), unless
-the ruleset modified the list (`../advanced-ruleset/visibility-and-failover.md`).
+Override selector modes: one attempt; on failure -> hard-fail (no loop).
 
 ## Empty / missing table behavior (summary)
 | Condition | auto/provider/provider_model | explicit |

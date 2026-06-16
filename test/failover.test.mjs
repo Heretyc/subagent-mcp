@@ -1,21 +1,9 @@
 /**
- * Integration tests for the post-spawn grace window in tryLaunchCandidate
- * (src/index.ts): a provider binary that spawns and then dies immediately
- * (codex installed but not logged in, expired auth, instant crash) must
- * silently advance the attempt loop — ERR_ALL_FAILED only when EVERY
- * candidate has been tried.
+ * Integration tests for same-call provider failover in launch_agent.
  *
- * Fake CLIs: node copies named claude/codex on a fake PATH. The claude
- * fixture always dies instantly on its own (win32: node rejects the
- * claude-style argv as a bad option; POSIX: the script exits 1). The codex
- * fixture's behavior is selected per test ("die" = exit 1 instantly, "stall" =
- * stay alive past the window) — via the NODE_OPTIONS preload keyed on
- * basename(process.execPath) on win32, via script content on POSIX.
- *
- * SUBAGENT_SPAWN_GRACE_MS is the documented test seam (0 disables detection =
- * legacy behavior); the deterministic 2-candidate fixture table rides in a
- * private dist/ copy, and the ruleset gate runs ok-disabled so it stays out
- * of the way.
+ * The suite owns the failover surface only: launch_agent should advance through
+ * candidate launch failures in a single call, expose failover metadata on
+ * success, and keep explicit provider/model/effort launches single-attempt.
  */
 
 import assert from "node:assert/strict";
@@ -32,19 +20,19 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { classifyFailureReason } from "../dist/index.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const preloadPath = join(repoRoot, "test", "fixtures", "fake-ruleset-preload.cjs");
 const fixtureTablePath = join(repoRoot, "test", "fixtures", "ruleset-routing-table.fixture.json");
 
-// Verbatim duplicate (house convention) — ERR_ALL_FAILED always carries it.
 const AUTO_HINT =
   "Tip: omit provider/model/effort entirely and the server auto-selects the best provider/model/effort for this task_category, with automatic silent fallback.";
 
-// Must comfortably exceed fake-CLI death latency (node startup + arg parse)
-// while staying far under the 4s request timeout and the 30s stall keepalive.
 const GRACE_MS = 600;
+const CE_RANK1 = { provider: "claude", model: "sonnet", effort: "medium" };
+const CE_RANK2 = { provider: "codex", model: "gpt-5.5", effort: "xhigh" };
 
 let passed = 0;
 let failed = 0;
@@ -169,12 +157,9 @@ function createMcpSession(entrypoint, options = {}) {
   return { request, initialize, close };
 }
 
-// claude always dies instantly; codex behavior is per-test ("die" | "stall").
 function writeFailoverPathTools(fakeBin, codexMode) {
   if (process.platform === "win32") {
     writeFileSync(join(fakeBin, "npm.cmd"), "@echo off\r\necho %FAKE_NPM_PREFIX%\r\n");
-    // node copies: claude dies on its own (bad option), codex obeys
-    // FAKE_CLI_CODEX_MODE through the preload.
     copyFileSync(process.execPath, join(fakeBin, "claude.exe"));
     copyFileSync(process.execPath, join(fakeBin, "codex.exe"));
     return;
@@ -191,8 +176,33 @@ function writeFailoverPathTools(fakeBin, codexMode) {
   chmodSync(codexPath, 0o755);
 }
 
-// Private dist/ copy carrying the 2-candidate fixture table (see
-// ruleset-handler.test.mjs for the resolution rationale).
+function writeMockDriverScript(tempRoot) {
+  const script = join(tempRoot, "mock-provider-driver.mjs");
+  writeFileSync(
+    script,
+    `
+import { setTimeout as sleep } from "node:timers/promises";
+
+const provider = process.argv[2] || "claude";
+const mode = provider === "claude"
+  ? process.env.FAKE_CLI_CLAUDE_MODE
+  : process.env.FAKE_CLI_CODEX_MODE;
+
+if (mode === "die") {
+  process.stderr.write("fake " + provider + ": deliberate instant death\\n");
+  process.exit(1);
+}
+
+if (mode === "stall") {
+  await sleep(30000);
+  process.exit(0);
+}
+`,
+    "utf8"
+  );
+  return script;
+}
+
 function makeFixtureDist(tempRoot) {
   const distCopy = join(tempRoot, "dist");
   cpSync(join(repoRoot, "dist"), distCopy, { recursive: true });
@@ -205,7 +215,31 @@ function makeFixtureDist(tempRoot) {
   return join(distCopy, "index.js");
 }
 
-function makeFailoverEnv(codexMode, graceMs) {
+function writeMockHookImport(tempRoot, mode) {
+  if (!mode) return null;
+  const hookPath = join(tempRoot, "mock-driver-hooks.mjs");
+  const driversUrl = pathToFileURL(join(tempRoot, "dist", "drivers.js")).href;
+  const script = `
+const drivers = await import(${JSON.stringify(driversUrl)});
+const { MockJsonlDriver } = drivers;
+const mode = ${JSON.stringify(mode)};
+if (mode === "transient-once") {
+  MockJsonlDriver.transientPreStartHook = () => {
+    MockJsonlDriver.transientPreStartHook = null;
+  };
+} else if (mode === "transient-always") {
+  MockJsonlDriver.transientPreStartHook = () => {};
+} else if (mode === "post-start-once") {
+  MockJsonlDriver.postStartErrorHook = () => {
+    MockJsonlDriver.postStartErrorHook = null;
+  };
+}
+`;
+  writeFileSync(hookPath, script);
+  return hookPath;
+}
+
+function makeFailoverEnv(codexMode, graceMs, options = {}) {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-failover-"));
   const fakeBin = join(tempRoot, "bin");
   const workDir = join(tempRoot, "work");
@@ -214,9 +248,16 @@ function makeFailoverEnv(codexMode, graceMs) {
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
   writeFailoverPathTools(fakeBin, codexMode);
+  const mockDriverScript = writeMockDriverScript(tempRoot);
   const entrypoint = makeFixtureDist(tempRoot);
   const modeFile = join(tempRoot, "ruleset-mode.txt");
-  writeFileSync(modeFile, "ok-disabled");
+  writeFileSync(modeFile, options.rulesetMode || "ok-disabled");
+  const hookImport = writeMockHookImport(tempRoot, options.mockHookMode);
+  const nodeOptions = [
+    process.env.NODE_OPTIONS,
+    `--require "${preloadPath.replace(/\\/g, "/")}"`,
+    hookImport ? `--import ${pathToFileURL(hookImport).href}` : "",
+  ].filter(Boolean).join(" ");
   const env = prependPath(
     {
       ...process.env,
@@ -224,117 +265,286 @@ function makeFailoverEnv(codexMode, graceMs) {
       SUBAGENT_SPAWN_GRACE_MS: String(graceMs),
       SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
       SUBAGENT_MOCK_CODEX_DRIVER: "jsonl",
-      // Ruleset stays out of the way: disabled fake interpreter.
+      SUBAGENT_MOCK_DRIVER_SCRIPT: mockDriverScript,
       SUBAGENT_RULESET_PYTHON: process.execPath,
-      NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require "${preloadPath.replace(/\\/g, "/")}"`]
-        .filter(Boolean)
-        .join(" "),
+      NODE_OPTIONS: nodeOptions,
       FAKE_RULESET_MODE_FILE: modeFile,
-      FAKE_CLI_CLAUDE_MODE: "die",
+      FAKE_CLI_CLAUDE_MODE: options.claudeMode || "die",
       FAKE_CLI_CODEX_MODE: codexMode,
     },
     fakeBin
   );
-  return { tempRoot, workDir, env, entrypoint };
+  return { tempRoot, workDir, env, entrypoint, modeFile };
 }
 
-// ---------------------------------------------------------------------------
-// 1. Spawn-then-instant-death advances to the next candidate.
-//    WHY: this is the goal's failover fix — a binary that spawns and dies
-//    within the grace window (codex-not-logged-in class) must NOT be reported
-//    as a successful launch; the loop silently advances to the survivor.
-// ---------------------------------------------------------------------------
-await test("silent advance: candidate 1 dies within the window, candidate 2 survives and is reported", async () => {
-  const { tempRoot, workDir, env, entrypoint } = makeFailoverEnv("stall", GRACE_MS);
+function textOf(response) {
+  return response.result.content[0].text;
+}
+
+async function callTool(session, name, args) {
+  return session.request("tools/call", { name, arguments: args });
+}
+
+async function launch(session, args) {
+  return callTool(session, "launch_agent", args);
+}
+
+async function killAgent(session, agentId) {
+  const killResp = await callTool(session, "kill_agent", { agent_id: agentId });
+  assert.notEqual(killResp.result?.isError, true, "cleanup kill must succeed");
+}
+
+function assertNoFailoverFields(payload, label) {
+  assert.equal(payload.failover_occurred, undefined, `${label} must not expose failover_occurred`);
+  assert.equal(payload.failover_from, undefined, `${label} must not expose failover_from`);
+  assert.equal(payload.failover_note, undefined, `${label} must not expose failover_note`);
+}
+
+function assertFailoverFrom(entry, expected, failureType) {
+  assert.equal(entry.provider, expected.provider);
+  assert.equal(entry.model, expected.model);
+  assert.equal(entry.effort, expected.effort);
+  assert.equal(entry.failure_type, failureType);
+}
+
+async function withEnv(codexMode, graceMs, options, fn) {
+  const { tempRoot, workDir, env, entrypoint, modeFile } = makeFailoverEnv(codexMode, graceMs, options);
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
     await session.initialize();
-    const response = await session.request("tools/call", {
-      name: "launch_agent",
-      arguments: { task_category: "coding", prompt: "failover advance launch" },
-    });
-    const text = response.result.content[0].text;
-    assert.notEqual(response.result.isError, true,
-      `a surviving candidate 2 must make the launch succeed: ${text}`);
-    const payload = JSON.parse(text);
-    assert.equal(payload.provider, "codex",
-      "the success payload must report the SURVIVING candidate, not the rank-1 corpse");
-    assert.equal(payload.model, "gpt-5.5");
-    assert.equal(payload.effort, "xhigh");
-    assert.equal(payload.ruleset_applied, undefined,
-      "failover is not a ruleset alteration — visibility fields stay absent");
-
-    // Clean up the stalled survivor.
-    const killResp = await session.request("tools/call", {
-      name: "kill_agent",
-      arguments: { agent_id: payload.agent_id },
-    });
-    assert.notEqual(killResp.result?.isError, true, "cleanup kill must succeed");
+    await fn({ session, modeFile });
   } finally {
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });
   }
+}
+
+await test("silent advance: candidate 1 dies within the window, candidate 2 survives and reports failover", async () => {
+  await withEnv("stall", GRACE_MS, {}, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "failover advance launch" });
+    const text = textOf(response);
+    assert.notEqual(response.result.isError, true, `a surviving candidate 2 must make the launch succeed: ${text}`);
+    const payload = JSON.parse(text);
+    assert.equal(payload.provider, CE_RANK2.provider);
+    assert.equal(payload.model, CE_RANK2.model);
+    assert.equal(payload.effort, CE_RANK2.effort);
+    assert.equal(payload.failover_occurred, true);
+    assertFailoverFrom(payload.failover_from[0], CE_RANK1, "permanent");
+    assert.equal(typeof payload.failover_note, "string");
+    assert.equal(payload.ruleset_applied, undefined);
+    await killAgent(session, payload.agent_id);
+  });
 });
 
-// ---------------------------------------------------------------------------
-// 2. ERR_ALL_FAILED only on exhaustion, with per-candidate early-exit reasons
-//    (including the exit code).
-//    WHY: a not-installed, not-logged-in, or otherwise dying provider must
-//    never abort the cycle early — the numbered list proves every candidate
-//    was actually tried and tells the operator WHY each one died.
-// ---------------------------------------------------------------------------
-await test("exhaustion: ALL candidates die in the window → ERR_ALL_FAILED with exit-code reasons", async () => {
-  const { tempRoot, workDir, env, entrypoint } = makeFailoverEnv("die", GRACE_MS);
-  const session = createMcpSession(entrypoint, { cwd: workDir, env });
-  try {
-    await session.initialize();
-    const response = await session.request("tools/call", {
-      name: "launch_agent",
-      arguments: { task_category: "coding", prompt: "exhaustion launch" },
-    });
-    assert.equal(response.result.isError, true,
-      "only full exhaustion may fail the launch");
-    const text = response.result.content[0].text;
-    assert.ok(text.startsWith("Error: all 2 candidate launches failed for task_category coding:"),
-      `ERR_ALL_FAILED must count BOTH candidates (none skipped early): ${text}`);
-    assert.match(text,
-      new RegExp(`  1\\. sonnet@medium \\(claude\\): process exited \\(code \\d+\\) within ${GRACE_MS}ms of spawn`),
-      "candidate 1's reason must carry the early-exit code");
-    assert.match(text,
-      new RegExp(`  2\\. gpt-5\\.5@xhigh \\(codex\\): process exited \\(code \\d+\\) within ${GRACE_MS}ms of spawn`),
-      "candidate 2's reason must carry the early-exit code — proof the loop advanced past candidate 1");
-    assert.ok(text.includes(AUTO_HINT), "ERR_ALL_FAILED keeps the standard hints");
-  } finally {
-    await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
-  }
+await test("exhaustion: ALL candidates die in the window -> ERR_ALL_FAILED with typed reasons", async () => {
+  await withEnv("die", GRACE_MS, {}, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "exhaustion launch" });
+    assert.equal(response.result.isError, true, "only full exhaustion may fail the launch");
+    const text = textOf(response);
+    assert.ok(text.startsWith("Error: all 2 candidate launches failed for task_category coding:"));
+    assert.match(text, new RegExp(`  1\\. sonnet@medium \\(claude\\) \\[permanent\\]: process exited \\(code \\d+\\) within ${GRACE_MS}ms of spawn`));
+    assert.match(text, new RegExp(`  2\\. gpt-5\\.5@xhigh \\(codex\\) \\[permanent\\]: process exited \\(code \\d+\\) within ${GRACE_MS}ms of spawn`));
+    assert.doesNotMatch(text, /failover_occurred/);
+    assert.ok(text.includes(AUTO_HINT));
+  });
 });
 
-// ---------------------------------------------------------------------------
-// 3. SUBAGENT_SPAWN_GRACE_MS=0 disables post-start early-exit detection.
-//    WHY: documents the test seam legacy suites rely on; if the startup write
-//    wins the race, the rank-1 candidate can still be reported as launched.
-// ---------------------------------------------------------------------------
-await test("grace 0: detection disabled, startup-write winner is reported as launched", async () => {
-  const { tempRoot, workDir, env, entrypoint } = makeFailoverEnv("die", 0);
-  const session = createMcpSession(entrypoint, { cwd: workDir, env });
-  try {
-    await session.initialize();
-    const response = await session.request("tools/call", {
-      name: "launch_agent",
-      arguments: { task_category: "coding", prompt: "legacy grace-off launch" },
-    });
-    const text = response.result.content[0].text;
-    assert.notEqual(response.result.isError, true,
-      `grace 0 must preserve the startup-write race seam: ${text}`);
+await test("grace 0: detection disabled, startup-write winner is reported with no failover fields", async () => {
+  await withEnv("die", 0, {}, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "legacy grace-off launch" });
+    const text = textOf(response);
+    assert.notEqual(response.result.isError, true, `grace 0 must preserve the startup-write race seam: ${text}`);
     const payload = JSON.parse(text);
-    assert.equal(payload.provider, "claude",
-      "with detection off, the rank-1 startup-write winner is reported as launched");
-    assert.equal(payload.model, "sonnet");
-  } finally {
-    await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
-  }
+    assert.equal(payload.provider, CE_RANK1.provider);
+    assert.equal(payload.model, CE_RANK1.model);
+    assertNoFailoverFields(payload, "first-candidate success");
+  });
+});
+
+await test("transient pre-start hook: quota/429 class failure fails over with transient_provider metadata", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-once", claudeMode: "stall" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "transient quota failover" });
+    const payload = JSON.parse(textOf(response));
+    assert.notEqual(response.result.isError, true);
+    assert.equal(payload.failover_occurred, true);
+    assertFailoverFrom(payload.failover_from[0], CE_RANK1, "transient_provider");
+    assert.match(payload.failover_note, /transient provider error/);
+    await killAgent(session, payload.agent_id);
+  });
+});
+
+await test("transient classification: HTTP 5xx launch failures are transient_provider", async () => {
+  assert.equal(classifyFailureReason("process exited (code 1) within 600ms of spawn: HTTP 503 service unavailable", ""), "transient_provider");
+});
+
+await test("transient classification: network timeout and reset launch failures are transient_provider", async () => {
+  assert.equal(classifyFailureReason("spawn failed ETIMEDOUT", ""), "transient_provider");
+  assert.equal(classifyFailureReason("spawn failed ECONNRESET", ""), "transient_provider");
+});
+
+await test("permanent classification: ENOENT advances with permanent failure_type and no transient note", async () => {
+  assert.equal(classifyFailureReason("CLI executable not found: /usr/bin/claude", ""), "permanent");
+  assert.equal(classifyFailureReason("spawn ENOENT", ""), "permanent");
+});
+
+await test("poll_agent reports actual final provider/model plus failover metadata", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-once" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "poll after failover" });
+    const launchPayload = JSON.parse(textOf(response));
+    const pollResp = await callTool(session, "poll_agent", { agent_id: launchPayload.agent_id });
+    const pollPayload = JSON.parse(textOf(pollResp));
+    assert.equal(pollPayload.provider, CE_RANK2.provider);
+    assert.equal(pollPayload.model, CE_RANK2.model);
+    assert.equal(pollPayload.failover_occurred, true);
+    assertFailoverFrom(pollPayload.failover_from[0], CE_RANK1, "transient_provider");
+    await killAgent(session, launchPayload.agent_id);
+  });
+});
+
+await test("first-candidate success: no failover_occurred, failover_from, or failover_note", async () => {
+  await withEnv("stall", 0, {}, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "first candidate success" });
+    const payload = JSON.parse(textOf(response));
+    assert.notEqual(response.result.isError, true);
+    assert.equal(payload.provider, CE_RANK1.provider);
+    assert.equal(payload.model, CE_RANK1.model);
+    assertNoFailoverFields(payload, "plain success");
+  });
+});
+
+await test("explicit provider/model/effort plus transient failure hard-fails with auto-mode note", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-always" }, async ({ session }) => {
+    const modeResp = await callTool(session, "model-selection-mode", { mode: "user-approved-overrides" });
+    assert.notEqual(modeResp.result.isError, true);
+    const response = await launch(session, {
+      task_category: "coding",
+      prompt: "explicit transient failure",
+      provider: "claude",
+      model: "sonnet",
+      effort: "medium",
+    });
+    const text = textOf(response);
+    assert.equal(response.result.isError, true);
+    assert.ok(text.startsWith("Error: explicit launch sonnet@medium (claude) failed:"));
+    assert.match(text, /Note: this failure appears transient/);
+    assert.match(text, /Switch to auto mode/);
+    assert.ok(text.includes(AUTO_HINT));
+    assert.doesNotMatch(text, /gpt-5\.5@xhigh/);
+  });
+});
+
+await test("user-approved-overrides explicit selectors still hard-fail without a second attempt", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-always" }, async ({ session }) => {
+    const modeResp = await callTool(session, "model-selection-mode", { mode: "user-approved-overrides" });
+    assert.notEqual(modeResp.result.isError, true);
+    const response = await launch(session, {
+      task_category: "coding",
+      prompt: "explicit override transient failure",
+      provider: "claude",
+      model: "sonnet",
+      effort: "medium",
+    });
+    const text = textOf(response);
+    assert.equal(response.result.isError, true);
+    assert.ok(text.startsWith("Error: explicit launch sonnet@medium (claude) failed:"));
+    assert.match(text, /Note: this failure appears transient/);
+    assert.doesNotMatch(text, /  2\. gpt-5\.5@xhigh/);
+  });
+});
+
+await test("user-approved-overrides provider selector hard-fails without ERR_ALL_FAILED", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-always" }, async ({ session }) => {
+    const modeResp = await callTool(session, "model-selection-mode", { mode: "user-approved-overrides" });
+    assert.notEqual(modeResp.result.isError, true);
+    const response = await launch(session, {
+      task_category: "coding",
+      prompt: "provider override transient failure",
+      provider: "claude",
+    });
+    const text = textOf(response);
+    assert.equal(response.result.isError, true);
+    assert.ok(text.startsWith("Error: override launch sonnet@medium (claude) failed:"));
+    assert.match(text, /Note: this failure appears transient/);
+    assert.doesNotMatch(text, /Error: all 1 candidate launches failed/);
+    assert.doesNotMatch(text, /  2\. /);
+  });
+});
+
+await test("single-call exclusion: second launch retries failed provider from scratch", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-once", claudeMode: "stall" }, async ({ session }) => {
+    const firstResp = await launch(session, { task_category: "coding", prompt: "first call fails over" });
+    const first = JSON.parse(textOf(firstResp));
+    assert.equal(first.provider, CE_RANK2.provider);
+    assert.equal(first.failover_occurred, true);
+    await killAgent(session, first.agent_id);
+
+    const secondResp = await launch(session, { task_category: "coding", prompt: "second call retries rank one" });
+    const second = JSON.parse(textOf(secondResp));
+    assert.equal(second.provider, CE_RANK1.provider);
+    assert.equal(second.model, CE_RANK1.model);
+    assertNoFailoverFields(second, "second launch");
+  });
+});
+
+await test("advanced ruleset order is respected during fallback and ruleset_applied is preserved", async () => {
+  await withEnv("stall", GRACE_MS, { rulesetMode: "ok-enabled-reorder", mockHookMode: "transient-once", claudeMode: "stall" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "ruleset failover launch" });
+    const payload = JSON.parse(textOf(response));
+    assert.equal(payload.provider, CE_RANK1.provider);
+    assert.equal(payload.model, CE_RANK1.model);
+    assert.equal(payload.ruleset_applied, true);
+    assert.equal(payload.failover_occurred, true);
+    assertFailoverFrom(payload.failover_from[0], CE_RANK2, "transient_provider");
+  });
+});
+
+await test("all candidates exhausted on transient failures -> ERR_ALL_FAILED lists all and no success failover field", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-always" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "all transient failures" });
+    const text = textOf(response);
+    assert.equal(response.result.isError, true);
+    assert.ok(text.startsWith("Error: all 2 candidate launches failed for task_category coding:"));
+    assert.match(text, /  1\. sonnet@medium \(claude\) \[transient_provider\]:/);
+    assert.match(text, /  2\. gpt-5\.5@xhigh \(codex\) \[transient_provider\]:/);
+    assert.doesNotMatch(text, /failover_occurred/);
+  });
+});
+
+await test("error after definitelyStarted is not failover and leaves the agent registered errored", async () => {
+  await withEnv("stall", 2000, { mockHookMode: "post-start-once" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "post start error" });
+    const payload = JSON.parse(textOf(response));
+    assert.notEqual(response.result.isError, true);
+    assert.equal(payload.provider, CE_RANK1.provider);
+    assertNoFailoverFields(payload, "post-start outcome");
+    const pollResp = await callTool(session, "poll_agent", { agent_id: payload.agent_id });
+    const pollPayload = JSON.parse(textOf(pollResp));
+    assert.match(pollPayload.status, /^(errored|finished|processing)$/);
+    assertNoFailoverFields(pollPayload, "post-start poll");
+  });
+});
+
+await test("failover_note identifies rank-1 failure and selected winner", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-once" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "failover note" });
+    const payload = JSON.parse(textOf(response));
+    assert.match(payload.failover_note, /sonnet@medium \(claude\)/);
+    assert.match(payload.failover_note, /gpt-5\.5@xhigh \(codex\)/);
+    await killAgent(session, payload.agent_id);
+  });
+});
+
+await test("classifyFailureReason covers transient and permanent patterns", () => {
+  assert.equal(classifyFailureReason("process exited with 429", ""), "transient_provider");
+  assert.equal(classifyFailureReason("process exited with 503", ""), "transient_provider");
+  assert.equal(classifyFailureReason("quota exceeded", ""), "transient_provider");
+  assert.equal(classifyFailureReason("rate limit", ""), "transient_provider");
+  assert.equal(classifyFailureReason("capacity overloaded", ""), "transient_provider");
+  assert.equal(classifyFailureReason("ETIMEDOUT", ""), "transient_provider");
+  assert.equal(classifyFailureReason("ECONNRESET", ""), "transient_provider");
+  assert.equal(classifyFailureReason("CLI executable not found: /usr/bin/claude", ""), "permanent");
+  assert.equal(classifyFailureReason("Maximum 5 concurrent claude agents already running", ""), "permanent");
+  assert.equal(classifyFailureReason("process exited (code 1) within 600ms of spawn", "bad option"), "permanent");
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

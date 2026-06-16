@@ -45,8 +45,8 @@ applied:
 | Supplied overrides | mode (internal) | Candidate rule (see `routing-table-contract.md`) |
 |---|---|---|
 | none | `auto` | every pairing in the selected branch's `<task_category>`, rank ascending |
-| `provider` only | `provider` | pairings whose model maps to that provider, rank ascending |
-| `provider` + `model` | `provider_model` | pairings matching that model, rank ascending |
+| `provider` only | `provider` | pairings whose model maps to that provider, rank ascending; first candidate only, no fallback |
+| `provider` + `model` | `provider_model` | pairings matching that model, rank ascending; first candidate only, no fallback |
 | `provider` + `model` + `effort` | `explicit` | exactly that one pairing; single attempt, no fallback; attempt directly even if absent from table |
 
 `effort` alone, or `model` without `provider`, are NOT valid modes — they are
@@ -81,11 +81,56 @@ JSON (string in the MCP text content):
   `buildCommand` (e.g. `"high"`, or the clamped value); for `haiku` it is the
   value `buildCommand` ignored — report the pairing's normalized effort.
 - `selection_mode` and `candidates_skipped` are NOT returned (removed): the
-  launch payload carries no routing-internal fields — with ONE deliberate
-  exception: when the advanced ruleset ALTERED the routing decision, the
+  launch payload carries no routing-internal fields — with TWO deliberate
+  exceptions: (1) when the advanced ruleset ALTERED the routing decision, the
   conditional `ruleset_applied` + `ruleset_original_selection` pair is added
-  (`../advanced-ruleset/visibility-and-failover.md`). Which branch/tier was
-  used is still surfaced only via `poll_agent`'s `routing_tier` (`docs/tools.md`).
+  (`../advanced-ruleset/visibility-and-failover.md`); (2) when same-call
+  failover occurred (at least one candidate skipped before the winning launch),
+  the `failover_occurred` + `failover_from` + `failover_note` trio is added
+  (below). Which branch/tier was used is still surfaced only via `poll_agent`'s
+  `routing_tier` (`docs/tools.md`).
+
+### Failover fields (conditional)
+
+Present in the success payload ONLY when at least one candidate was skipped
+before the winning launch (`skipped.length > 0`); absent on a plain
+first-candidate success.
+
+| Field | Type | Condition |
+|---|---|---|
+| `failover_occurred` | `true` | a candidate was skipped before success |
+| `failover_from` | array of `{ provider, model, effort, failure_type }` | same |
+| `failover_note` | string | same |
+
+- `failure_type` is `"transient_provider"` or `"permanent"`
+  (`classifyFailureReason`; see `routing-table-contract.md` attempt loop).
+- `failover_from` lists the skipped candidates in attempt order (rank-1 first).
+- `failover_note` is a human-readable line naming the rank-1 candidate that
+  failed and the winner that launched, e.g.
+  `Rank-1 candidate sonnet@medium (claude) failed with a transient provider error; auto-selected gpt-5.5@xhigh (codex).`
+
+Illustrative success payload after failover:
+
+```json
+{
+  "agent_id": "<uuid>",
+  "status": "processing",
+  "provider": "codex",
+  "model": "gpt-5.5",
+  "effort": "xhigh",
+  "task_category": "coding",
+  "failover_occurred": true,
+  "failover_from": [
+    { "provider": "claude", "model": "sonnet", "effort": "medium", "failure_type": "transient_provider" }
+  ],
+  "failover_note": "Rank-1 candidate sonnet@medium (claude) failed with a transient provider error; auto-selected gpt-5.5@xhigh (codex)."
+}
+```
+
+`poll_agent` reports the ACTUAL final `provider`/`model` (the winner) and, when
+failover occurred, the conditional `failover_occurred` + `failover_from` pair
+(`../advanced-ruleset/visibility-and-failover.md`; `failover_note` is launch-
+only, not repeated by poll).
 
 ## Branch and deadlock
 

@@ -170,6 +170,18 @@ function createMcpSession(entrypoint, options = {}) {
   return { request, initialize, close };
 }
 
+async function enableManualSelection(session) {
+  const response = await session.request("tools/call", {
+    name: "model-selection-mode",
+    arguments: { mode: "user-approved-overrides" },
+  });
+  assert.notEqual(
+    response.result.isError,
+    true,
+    `model-selection-mode failed: ${response.result.content[0].text}`
+  );
+}
+
 function writeFakePathTools(fakeBin) {
   if (process.platform === "win32") {
     writeFileSync(join(fakeBin, "npm.cmd"), "@echo off\r\necho %FAKE_NPM_PREFIX%\r\n");
@@ -466,6 +478,7 @@ await test("explicit-mode override: ruleset replaces the requested triple; tier 
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
     await session.initialize();
+    await enableManualSelection(session);
     const { agentId, launchPayload, pollPayload, tier } = await launchAndPoll(session, {
       task_category: "coding",
       prompt: "explicit launch to be overridden",
@@ -505,6 +518,7 @@ await test("explicit haiku + passthrough: effort normalized to 'none'; no hard f
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
     await session.initialize();
+    await enableManualSelection(session);
     const { agentId, launchPayload, pollPayload } = await launchAndPoll(session, {
       task_category: "coding",
       prompt: "explicit haiku passthrough launch",
