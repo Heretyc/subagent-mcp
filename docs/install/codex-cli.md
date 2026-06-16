@@ -32,11 +32,14 @@ Equivalent hand-edited TOML:
 command = "node"
 args = ["/abs/path/to/subagent-mcp/dist/index.js"]
 startup_timeout_sec = 10
-tool_timeout_sec = 60
+tool_timeout_sec = 900
 
 # Windows: use forward slashes (or doubled backslashes) in TOML
 # args = ["C:/Users/YourName/Dropbox/subagent-mcp/dist/index.js"]
 ```
+
+`tool_timeout_sec = 900` preserves the `wait` tool's 15-minute semantics.
+Restart or reload existing Codex sessions after changing this config.
 
 Hooks are **enabled by default** in Codex 0.131+. Add the block below **only**
 if a profile/admin disabled them:

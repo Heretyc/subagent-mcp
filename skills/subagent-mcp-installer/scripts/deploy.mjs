@@ -166,7 +166,7 @@ function printConfig(install) {
   console.log(JSON.stringify({ type: "command", command: "node", args: [p.claudePreToolHook], timeout: 5 }, null, 2));
   console.log("\n## Codex CLI");
   console.log(`# ~/.codex/config.toml`);
-  console.log(`[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${p.server}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 60`);
+  console.log(`[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${p.server}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 900`);
   console.log(`# ~/.codex/hooks.json -> SessionStart & UserPromptSubmit hook:`);
   console.log(JSON.stringify({ type: "command", command: `node "${p.codexHook}"`, commandWindows: `node "${p.codexHook}"`, timeout: 10 }, null, 2));
 }
@@ -211,7 +211,7 @@ function wireCodex(install) {
       console.error("  [mcp_servers.subagent-mcp] already in config.toml — verify path manually; left as-is");
     } else {
       backup(cfg);
-      const block = `\n[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${p.server}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 60\n`;
+      const block = `\n[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${p.server}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 900\n`;
       writeFileSync(cfg, toml + block);
       console.error(`  appended [mcp_servers.subagent-mcp] -> ${cfg}`);
     }

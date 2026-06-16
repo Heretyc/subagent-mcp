@@ -22,11 +22,14 @@ If you have not registered it yet, add it once:
 command = "node"
 args = ["/abs/path/to/subagent-mcp/dist/index.js"]
 startup_timeout_sec = 10
-tool_timeout_sec = 60
+tool_timeout_sec = 900
 
 # Windows: forward slashes (or doubled backslashes) in TOML
 # args = ["C:/Users/YourName/Dropbox/subagent-mcp/dist/index.js"]
 ```
+
+`tool_timeout_sec = 900` preserves the `wait` tool's 15-minute semantics.
+Restart or reload existing Codex sessions after changing this config.
 
 Or via the CLI helper (writes the same shared file):
 

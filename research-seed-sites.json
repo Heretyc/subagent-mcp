@@ -4,31 +4,34 @@
     "author_url": "https://github.com/Heretyc/",
     "schema_version": "1",
     "generated": "2026-06",
-    "last_run_at": "2026-06-09T00:00:00Z",
-    "run_id": "run-2026-06-09",
-    "site_count": 39,
+    "last_run_at": "2026-06-16T00:00:00Z",
+    "run_id": "run-2026-06-16",
+    "site_count": 46,
     "corpus_skew": {
       "by_tier": {
-        "0": 11,
+        "0": 10,
         "2": 13,
-        "3": 9,
+        "3": 17,
         "5": 6
       },
       "by_domain": {
         "artificialanalysis.ai": 4,
-        "benchlm.ai": 7,
+        "arxiv.org": 1,
+        "benchlm.ai": 9,
         "bird-bench.github.io": 1,
         "buildfast.io": 1,
+        "deploymentsafety.openai.com": 1,
         "dev.to": 1,
         "gorilla.cs.berkeley.edu": 1,
         "interestingengineering.com": 1,
         "kingy.ai": 1,
         "labs.scale.com": 1,
-        "llm-stats.com": 2,
-        "morphllm.com": 1,
+        "llm-stats.com": 3,
+        "morphllm.com": 2,
         "spider2-sql.github.io": 1,
         "thezvi.wordpress.com": 1,
         "venturebeat.com": 1,
+        "aicerts.ai": 1,
         "aisi.gov.uk": 1,
         "anthropic.com": 1,
         "cometapi.com": 1,
@@ -42,10 +45,10 @@
         "vellum.ai": 1
       },
       "by_provider_family": {
-        "claude": 21,
-        "codex": 16
+        "claude": 29,
+        "codex": 24
       },
-      "demoted_count": 25
+      "demoted_count": 27
     }
   },
   "sites": [
@@ -255,6 +258,69 @@
       }
     },
     {
+      "url": "https://arxiv.org/html/2506.01937v1",
+      "domain": "arxiv.org",
+      "tier": 3,
+      "categories": [
+        "prompt_engineering",
+        "quality_review"
+      ],
+      "benchmarks": [
+        "quality_score"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-16",
+      "last_seen": "2026-06-16",
+      "times_seen": 1,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-16",
+            "attempted_at": "2026-06-16T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "prompt_engineering",
+              "quality_review"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "quality_score"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "prompt_engineering": 1,
+            "quality_review": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[T3]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
+    },
+    {
       "url": "https://benchlm.ai",
       "domain": "benchlm.ai",
       "tier": 5,
@@ -320,20 +386,201 @@
     {
       "url": "https://benchlm.ai/benchmarks/frontierMath",
       "domain": "benchlm.ai",
-      "tier": 0,
+      "tier": 3,
       "categories": [
-        "math_proof"
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "frontiermath_score"
+      ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 3,
+      "last_seen": "2026-06-16",
+      "times_seen": 4,
       "label": "[INFERRED]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": [],
+        "floor_protected": true
+      },
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-16",
+            "attempted_at": "2026-06-16T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "frontiermath_score"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1
+          },
+          "total_runs": 1
+        }
+      }
+    },
+    {
+      "url": "https://benchlm.ai/benchmarks/hle",
+      "domain": "benchlm.ai",
+      "tier": 3,
+      "categories": [
+        "data_analysis",
+        "knowledge_synthesis",
+        "molecular_biology",
+        "prompt_engineering"
+      ],
+      "benchmarks": [
+        "data_analysis_score",
+        "knowledge_score"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-16",
+      "last_seen": "2026-06-16",
+      "times_seen": 1,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-16",
+            "attempted_at": "2026-06-16T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "data_analysis",
+              "knowledge_synthesis",
+              "molecular_biology",
+              "prompt_engineering"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "data_analysis_score",
+              "knowledge_score"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "data_analysis": 1,
+            "knowledge_synthesis": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[T3]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": [],
+        "floor_protected": true
+      }
+    },
+    {
+      "url": "https://benchlm.ai/benchmarks/osWorldVerified",
+      "domain": "benchlm.ai",
+      "tier": 3,
+      "categories": [
+        "agentic_execution"
+      ],
+      "benchmarks": [
+        "agentic_score"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-16",
+      "last_seen": "2026-06-16",
+      "times_seen": 1,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-16",
+            "attempted_at": "2026-06-16T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "agentic_score"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "agentic_execution": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[T3]",
       "selection": {
         "demoted": true,
         "health": "demoted",
         "demote_reasons": [
-          "low_health_tier0"
+          "over_source_class_cap"
         ]
       }
     },
@@ -730,9 +977,11 @@
       },
       "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
@@ -1240,6 +1489,69 @@
         "demote_reasons": [
           "over_source_class_cap"
         ]
+      }
+    },
+    {
+      "url": "https://deploymentsafety.openai.com/gpt-5-5/cybersecurity",
+      "domain": "deploymentsafety.openai.com",
+      "tier": 3,
+      "categories": [
+        "security_review",
+        "vulnerability_research"
+      ],
+      "benchmarks": [
+        "cybersecurity_score"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-16",
+      "last_seen": "2026-06-16",
+      "times_seen": 1,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-16",
+            "attempted_at": "2026-06-16T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "security_review",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "cybersecurity_score"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "security_review": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[T3]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {
@@ -1965,6 +2277,66 @@
       }
     },
     {
+      "url": "https://llm-stats.com/benchmarks/screenspot-pro",
+      "domain": "llm-stats.com",
+      "tier": 3,
+      "categories": [
+        "mechanical"
+      ],
+      "benchmarks": [
+        "mechanical_score"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-16",
+      "last_seen": "2026-06-16",
+      "times_seen": 1,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-16",
+            "attempted_at": "2026-06-16T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "mechanical"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "mechanical_score"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "mechanical": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[T3]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
+    },
+    {
       "url": "https://llm-stats.com/blog/research/claude-opus-4-8-launch",
       "domain": "llm-stats.com",
       "tier": 0,
@@ -2530,6 +2902,81 @@
       }
     },
     {
+      "url": "https://www.aicerts.ai/news/deepswes-shakeup-new-ai-coding-benchmark-ranks-gpt-5-5-first/",
+      "domain": "aicerts.ai",
+      "tier": 3,
+      "categories": [
+        "coding",
+        "debugging",
+        "ml_accelerator_design",
+        "prompt_engineering",
+        "vulnerability_research"
+      ],
+      "benchmarks": [
+        "coding_score",
+        "deepswe_score"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-16",
+      "last_seen": "2026-06-16",
+      "times_seen": 1,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-16",
+            "attempted_at": "2026-06-16T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "coding",
+              "debugging",
+              "ml_accelerator_design",
+              "prompt_engineering",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "coding_score",
+              "deepswe_score"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "coding": 1,
+            "debugging": 1,
+            "ml_accelerator_design": 1,
+            "prompt_engineering": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[T3]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": [],
+        "floor_protected": true
+      }
+    },
+    {
       "url": "https://www.aisi.gov.uk/blog/our-evaluation-of-openais-gpt-5-5-cyber-capabilities",
       "domain": "aisi.gov.uk",
       "tier": 3,
@@ -2973,9 +3420,11 @@
       },
       "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
@@ -3992,6 +4441,69 @@
         "demote_reasons": [
           "low_health_tier0"
         ]
+      }
+    },
+    {
+      "url": "https://www.morphllm.com/swe-bench-pro",
+      "domain": "morphllm.com",
+      "tier": 3,
+      "categories": [
+        "architecture",
+        "ml_accelerator_design"
+      ],
+      "benchmarks": [
+        "architecture_score"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-06-16",
+      "last_seen": "2026-06-16",
+      "times_seen": 1,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "run-2026-06-16",
+            "attempted_at": "2026-06-16T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "architecture",
+              "ml_accelerator_design"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "architecture_score"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "architecture": 1,
+            "ml_accelerator_design": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[T3]",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
       }
     },
     {

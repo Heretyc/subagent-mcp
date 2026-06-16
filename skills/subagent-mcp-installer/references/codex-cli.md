@@ -19,11 +19,13 @@ registration serves both; the hook is CLI-only.
 command = "node"
 args = ["<INSTALL>/dist/index.js"]
 startup_timeout_sec = 10
-tool_timeout_sec = 60
+tool_timeout_sec = 900
 ```
 
 Use forward slashes (or doubled backslashes) in TOML paths on Windows. Optional
 per-tool gating: `[mcp_servers.subagent-mcp.tools.<tool>] approval_mode = "approve"`.
+The 900-second tool timeout preserves `wait`'s 15-minute semantics; restart or
+reload existing Codex sessions after changing this config.
 
 ## 2) Per-turn hook — `~/.codex/hooks.json`
 

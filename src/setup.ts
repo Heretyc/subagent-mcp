@@ -192,7 +192,7 @@ export function reconcileCodexToml(
     `command = "node"\n` +
     `args = ["${serverPath}"]\n` +
     `startup_timeout_sec = 10\n` +
-    `tool_timeout_sec = 60\n`;
+    `tool_timeout_sec = 900\n`;
 
   // Main block runs from its header to the next table header — a '[' at the
   // START of a line (its .tools.* subtables are separate tables and are left
@@ -469,7 +469,7 @@ function repairPromptFor(vendor: "claude" | "codex", problem: string): string {
     `subagent-mcp setup hit a problem on my machine: ${problem}. ` +
     `The install root is "${fwd(INSTALL_ROOT)}". Please repair my Codex CLI wiring: ` +
     `(1) ensure ~/.codex/config.toml has [mcp_servers.subagent-mcp] with command = "node", ` +
-    `args = ["${p.server}"], startup_timeout_sec = 10, tool_timeout_sec = 60, and ` +
+    `args = ["${p.server}"], startup_timeout_sec = 10, tool_timeout_sec = 900, and ` +
     `(2) ensure ~/.codex/hooks.json has SessionStart and UserPromptSubmit entries ` +
     `{type:"command", command:'node "${p.codexHook}"', timeout:10}. ` +
     `Back up any file before editing it, then remind me to run /hooks in Codex and trust the hook.`

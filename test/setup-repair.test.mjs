@@ -150,7 +150,7 @@ test("codex toml: absent block -> appended, existing content preserved", () => {
 });
 
 test("codex toml: exact block -> ok, text unchanged", () => {
-  const toml = `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${SERVER}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 60\n`;
+  const toml = `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${SERVER}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 900\n`;
   const r = reconcileCodexToml(toml, SERVER);
   assert.equal(r.status, "ok");
   assert.equal(r.toml, toml);
