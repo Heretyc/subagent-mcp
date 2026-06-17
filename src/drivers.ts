@@ -43,6 +43,28 @@ export class ProviderTransientError extends Error {
   }
 }
 
+export const CLAUDE_SESSION_LIMIT = /^\s*you['’]ve hit your session limit\s*·\s*resets\b/i;
+
+export function isClaudeSessionLimit(text: string): boolean {
+  return CLAUDE_SESSION_LIMIT.test(text);
+}
+
+export function claudeMessageText(message: any): string | null {
+  if (message?.type === "assistant") {
+    const content = message.message?.content;
+    if (!Array.isArray(content)) return null;
+    const text = content
+      .filter((block: any) => block?.type === "text" && typeof block.text === "string")
+      .map((block: any) => block.text)
+      .join("");
+    return text || null;
+  }
+  if (message?.type === "result" && typeof message.result === "string") {
+    return message.result;
+  }
+  return null;
+}
+
 class LogicalProcess extends EventEmitter implements DriverProcess {
   stdout = new PassThrough();
   stderr = new PassThrough();
@@ -161,6 +183,7 @@ function textInput(text: string): JsonObject {
 
 export class MockJsonlDriver implements ProviderDriver {
   static transientPreStartHook: ((provider: Provider) => void) | null = null;
+  static sessionLimitPreStartHook: ((provider: Provider) => void) | null = null;
   static postStartErrorHook: ((provider: Provider) => void) | null = null;
 
   readonly process: DriverProcess;
@@ -201,6 +224,16 @@ export class MockJsonlDriver implements ProviderDriver {
       const err = new ProviderTransientError(`mock transient pre-start failure (${this.provider})`);
       this._definitelyStartedReject(err);
       return Promise.reject(err);
+    }
+    if (MockJsonlDriver.sessionLimitPreStartHook) {
+      MockJsonlDriver.sessionLimitPreStartHook(this.provider);
+      const err = new ProviderTransientError("You've hit your session limit · resets 7:10pm (America/Los_Angeles)");
+      setTimeout(() => {
+        this._definitelyStartedReject(err);
+        this.process.stderr.write(err.message);
+        (this.process as LogicalProcess).close(1);
+      }, 0);
+      return Promise.resolve();
     }
     if (MockJsonlDriver.postStartErrorHook) {
       this._definitelyStartedResolve();
@@ -510,11 +543,21 @@ export class ClaudeSdkDriver implements ProviderDriver {
     let started = false;
     try {
       for await (const message of query) {
-        if (!started) {
+        const text = claudeMessageText(message);
+        if (!started && text && isClaudeSessionLimit(text)) {
+          // Launch-time failover only applies before startup resolves/spawn grace ends;
+          // post-registration session-limit rerouting is intentionally out of scope.
+          this._definitelyStartedReject(new ProviderTransientError(text));
+          this.closedFlag = true;
+          this.process.stderr.write(text);
+          this.process.close(1);
+          return;
+        }
+        this.process.stdout.write(`${JSON.stringify(message)}\n`);
+        if (!started && (message as { type?: unknown })?.type !== "system") {
           started = true;
           this._definitelyStartedResolve();
         }
-        this.process.stdout.write(`${JSON.stringify(message)}\n`);
       }
       this.closedFlag = true;
       this.process.close(0);

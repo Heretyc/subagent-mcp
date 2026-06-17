@@ -7,6 +7,7 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
+import * as os from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export type InitStatus = "created" | "added" | "updated" | "ok" | "removed" | "absent";
@@ -36,7 +37,7 @@ export const INIT_BLOCK = [
   "",
   "PRECEDENCE (co-supreme top tier): <subagent-mcp> hook tags AND repo/system safety-scope rules are BOTH supreme and EQUAL — neither outranks the other. If they genuinely conflict, STOP and escalate to the user via the structured-question tool; do not silently pick one or average them. FORBIDDEN: resolving such a conflict yourself. Hook tags otherwise outrank ordinary user requests.",
   "",
-  'ORCHESTRATION ON — you are the ORCHESTRATOR. Allowed tools: ONLY the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex) and subagent-mcp. NO direct reads or writes of any kind. "Inline-by-right" does not exist. Every step runs in a sub-agent. If one atomic step truly cannot run in a sub-agent, ASK the user via the structured-question tool for a one-time exception for that single step, perform only that step, then resume delegating. SOLE CHANNEL: while subagent-mcp is connected, every sub-agent launch goes through `launch_agent`; never use harness-native sub-agent tools or shell-spawned agents.',
+  'ORCHESTRATION ON — you are the ORCHESTRATOR. Allowed tools: ONLY the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. NO direct reads or writes of any kind. "Inline-by-right" does not exist. Every step runs in a sub-agent. If one atomic step truly cannot run in a sub-agent, ASK the user via the structured-question tool for a one-time exception for that single step, perform only that step, then resume delegating. SOLE CHANNEL: while subagent-mcp is connected, every sub-agent launch goes through `launch_agent`; never use harness-native sub-agent tools or shell-spawned agents.',
   "",
   "ORCHESTRATOR WORKTREE SETUP: launch sub-agents in the main checkout cwd (they no longer self-isolate into per-agent worktrees); SERIALIZE any sub-agents that write the SAME files — never run concurrent writers over overlapping paths (no cwd-level lock exists).",
   "",
@@ -169,16 +170,18 @@ export function upsertInitBlock(
   return { file, status, changed };
 }
 
-function parseArgs(args: string[]) {
+export function parseArgs(args: string[]) {
   const parsed = {
     dryRun: false,
     remove: false,
     force: false,
     copilot: false,
     cursor: false,
+    global: false,
     root: process.cwd(),
     files: null as string[] | null,
   };
+  let rootProvided = false;
   const readValue = (args: string[], i: number, flag: string): string => {
     const value = args[i + 1];
     if (value === undefined || value === "" || value.startsWith("--")) {
@@ -193,8 +196,10 @@ function parseArgs(args: string[]) {
     else if (a === "--force") parsed.force = true;
     else if (a === "--copilot") parsed.copilot = true;
     else if (a === "--cursor") parsed.cursor = true;
+    else if (a === "--global") parsed.global = true;
     else if (a === "--root") {
       parsed.root = readValue(args, i, a);
+      rootProvided = true;
       i++;
     } else if (a === "--files") {
       parsed.files = readValue(args, i, a).split(",").filter(Boolean);
@@ -203,6 +208,9 @@ function parseArgs(args: string[]) {
     else throw new Error(`unknown init argument: ${a}`);
   }
   if (!parsed.root) throw new Error("--root requires a directory");
+  if (parsed.global && (rootProvided || parsed.files || parsed.copilot || parsed.cursor)) {
+    throw new Error("--global cannot be combined with --root/--files/--copilot/--cursor");
+  }
   return parsed;
 }
 
@@ -213,6 +221,14 @@ function isSelfRepo(root: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function globalTargetFiles(home: string = os.homedir()): string[] {
+  return [
+    join(home, ".claude", "CLAUDE.md"),
+    join(home, ".codex", "AGENTS.md"),
+    join(home, ".gemini", "GEMINI.md"),
+  ];
 }
 
 function targetFiles(root: string, opts: ReturnType<typeof parseArgs>): string[] {
@@ -239,19 +255,23 @@ export async function runInit(args = process.argv.slice(3)): Promise<number> {
     console.error(e instanceof Error ? e.message : String(e));
     return 1;
   }
-  const root = resolve(opts.root);
-  if (isSelfRepo(root) && !opts.force) {
-    console.error("Refusing to run init inside the subagent-mcp source repo without --force.");
-    console.error("This repo keeps CLAUDE.md/GEMINI.md as thin redirects; use --root for a consumer repo.");
-    return 1;
-  }
-
   let files: string[];
-  try {
-    files = targetFiles(root, opts);
-  } catch (e) {
-    console.error(e instanceof Error ? e.message : String(e));
-    return 1;
+  if (opts.global) {
+    files = globalTargetFiles();
+  } else {
+    const root = resolve(opts.root);
+    if (isSelfRepo(root) && !opts.force) {
+      console.error("Refusing to run init inside the subagent-mcp source repo without --force.");
+      console.error("This repo keeps CLAUDE.md/GEMINI.md as thin redirects; use --root for a consumer repo.");
+      return 1;
+    }
+
+    try {
+      files = targetFiles(root, opts);
+    } catch (e) {
+      console.error(e instanceof Error ? e.message : String(e));
+      return 1;
+    }
   }
 
   const issues: string[] = [];
