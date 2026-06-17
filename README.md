@@ -46,6 +46,12 @@ the managed invariant block into `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`.
 Use `--dry-run` to preview, `--remove` to uninstall the block, and `--force`
 only if you intentionally run inside this source repo.
 
+To install the block into the providers' **official global user-config files**
+instead — `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md` —
+run `subagent-mcp init --global`. It honors `--dry-run`/`--remove`/`--force`
+and is mutually exclusive with `--root`/`--files`/`--copilot`/`--cursor`. See
+[docs/registration.md](docs/registration.md).
+
 After setup, restart your Claude Code or Codex session. On Codex, run `/hooks` and trust the new hook.
 
 **Updating:** `subagent-mcp update && subagent-mcp setup`
@@ -126,6 +132,7 @@ Each agent transitions through these states:
 - [docs/usage.md](docs/usage.md) -- model & effort matrix, ultracode mechanism, underlying CLI invocations, usage examples.
 - [docs/SPEC.md](docs/SPEC.md) -- full technical specification (architecture, schemas, status lifecycle, error catalogue).
 - [docs/spec/interactive-drivers.md](docs/spec/interactive-drivers.md) -- always-interactive Claude/Codex driver model.
+- [docs/release-notes.md](docs/release-notes.md) -- operator-facing release notes (current: **v2.9.0**).
 
 ---
 

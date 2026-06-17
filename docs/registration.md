@@ -42,6 +42,28 @@ detected vendor. Re-run after upgrading. Pass `--dry-run` to preview.
 Consumer repos can also run `subagent-mcp init --root /path/to/project` to
 upsert managed invariant blocks; use `--dry-run` or `--remove`.
 
+### `init --global` (provider global user-config)
+
+`subagent-mcp init --global` upserts the managed init/directive block into each
+provider's **official global user-config file** instead of a project tree:
+
+| Provider | Global file |
+|---|---|
+| Claude Code | `~/.claude/CLAUDE.md` |
+| Codex | `~/.codex/AGENTS.md` |
+| Gemini CLI | `~/.gemini/GEMINI.md` |
+
+These are the homedir dotdir paths on macOS, Windows, and Linux; scope is
+exactly those three files. The command honors `--dry-run`, `--remove`, and
+`--force`, and is **mutually exclusive** with `--root`, `--files`, `--copilot`,
+and `--cursor`.
+
+```bash
+subagent-mcp init --global            # upsert into the three global files
+subagent-mcp init --global --dry-run  # preview
+subagent-mcp init --global --remove   # remove the managed block
+```
+
 **Developer install from source:**
 
 ```bash

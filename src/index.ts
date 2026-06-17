@@ -227,7 +227,7 @@ reconcileInterval.unref();
 // compressed under MCP metadata limits:
 // READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are co-supreme; genuine conflict => STOP and ask the user. Only the hook state changes ON/OFF.\n\nSOLE CHANNEL. Every sub-agent launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator. Use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex) and subagent-mcp. No direct reads/writes; inline-by-right does not exist. Non-delegable atomic step: ask for a one-time exception, do only that step, then resume delegating.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads; orchestrator never reads those files. Empty/stalled tail means ALIVE; use wait.\n\nORCHESTRATION OFF. If total context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to switch ON; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask; stay halted until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime.\n\nMODEL SELECTION MODE. Default smart rejects provider/model/effort selectors; launch_agent auto-picks. user-approved-overrides lasts 30 minutes, expires lazily on launch_agent, and must be enabled only after explicit user authorization via AskUserQuestion/request-user-input.";
+  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are co-supreme; genuine conflict => STOP and ask the user. Only the hook state changes ON/OFF.\n\nSOLE CHANNEL. Every sub-agent launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator. Use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. No direct reads/writes; inline-by-right does not exist. Non-delegable atomic step: ask for a one-time exception, do only that step, then resume delegating.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads; orchestrator never reads those files. Empty/stalled tail means ALIVE; use wait.\n\nORCHESTRATION OFF. If total context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to switch ON; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask; stay halted until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime.\n\nMODEL SELECTION MODE. Default smart rejects provider/model/effort selectors; launch_agent auto-picks. user-approved-overrides lasts 30 minutes, expires lazily on launch_agent, and must be enabled only after explicit user authorization via AskUserQuestion/request-user-input.";
 
 const SUBAGENT_INSTRUCTIONS =
   "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
@@ -235,7 +235,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.8.8",
+    version: "2.9.0",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions. Claude uses the Claude Agent SDK over the local Claude Code executable; Codex uses `codex app-server` over stdio. The server does not call Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -332,12 +332,14 @@ async function tryLaunchCandidate(
   }
   const childProcess = driver.process;
   let definitelyStarted = false;
+  let startupRejection: Error | null = null;
   const definitelyStartedProbe = driver.definitelyStarted.then(
     () => {
       definitelyStarted = true;
       return true;
     },
-    () => {
+    (e) => {
+      startupRejection = e instanceof Error ? e : new Error(String(e));
       return false;
     }
   );
@@ -584,7 +586,9 @@ async function tryLaunchCandidate(
         const reason = `process exited (code ${earlyExit.code ?? earlyExit.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`;
         return {
           reason,
-          failure_type: classifyFailureReason(reason, agentState.stderr),
+          failure_type: startupRejection
+            ? failureTypeForError(startupRejection, agentState.stderr)
+            : classifyFailureReason(reason, agentState.stderr),
         };
       }
     } else if (startError && !agentState.turnCompleted) {
@@ -1240,7 +1244,7 @@ server.tool(
 // Tool 7: orchestration-mode
 server.tool(
   "orchestration-mode",
-  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF, omit = query current state. SOLE CHANNEL: the subagent MCP is the ONLY sanctioned channel for launching sub-agents whether this mode is ON or OFF — toggling OFF does not lift that obligation. When OFF, run the per-turn upgrade check: a long-horizon task = any whose TOTAL context footprint (input read + output produced) exceeds 200 lines, measured CUMULATIVELY since your last upgrade ask; after EVERY user turn, if it qualifies, STOP and ask the user whether to switch ON (ask every qualifying turn; a decline does not latch; reset the count only when you actually ask). The FULL operating model + governance is carried in this server's MCP `instructions` (read once at initialize) — this is the operational summary only; do not act on the mode without that detail. WHAT: a per-project toggle for LONG-HORIZON work that would fill the context window if run to completion inline; when ON, act as an orchestrator with delegate-default, but steps bound to main-session-only capability stay INLINE BY RIGHT (state which + why). PERSISTENCE: a per-project marker keyed by cwd; absence of the marker = OFF = no injection; once ON it persists across restarts/sessions until a permitted disable (it does NOT reset on a new session). CARRYOVER: if ON was inherited from a PRIOR session (provenance = carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker, never per turn) — you MUST then notify the user it auto-activated and confirm whether to keep it ON. DISABLE: never on your own initiative; you MAY PROPOSE turning it OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation).",
+  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF, omit = query current state. SOLE CHANNEL: the subagent MCP is the ONLY sanctioned channel for launching sub-agents whether this mode is ON or OFF — toggling OFF does not lift that obligation. When OFF, run the per-turn upgrade check: a long-horizon task = any whose TOTAL context footprint (input read + output produced) exceeds 200 lines, measured CUMULATIVELY since your last upgrade ask; after EVERY user turn, if it qualifies, STOP and ask the user whether to switch ON (ask every qualifying turn; a decline does not latch; reset the count only when you actually ask). The FULL operating model + governance is carried in this server's MCP `instructions` (read once at initialize) — this is the operational summary only; do not act on the mode without that detail. WHAT: a per-project toggle for LONG-HORIZON work that would fill the context window if run to completion inline; when ON, act as a delegate-ONLY orchestrator: delegate every step; inline-by-right does not exist; a non-delegable atomic step requires a one-time user-approved exception via the structured-question tool (state which + why). PERSISTENCE: a per-project marker keyed by cwd; absence of the marker = OFF = no injection; once ON it persists across restarts/sessions until a permitted disable (it does NOT reset on a new session). CARRYOVER: if ON was inherited from a PRIOR session (provenance = carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker, never per turn) — you MUST then notify the user it auto-activated and confirm whether to keep it ON. DISABLE: never on your own initiative; you MAY PROPOSE turning it OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation).",
   {
     enabled: z.boolean().optional(),
   },
@@ -1318,6 +1322,7 @@ if (isMain) {
     "  init, --init [flags]",
     "                     upsert project instruction-file invariant blocks",
     "                     flags: --dry-run --remove --force --root <dir> --files <csv> --copilot --cursor",
+    "                     --global  upsert into ~/.claude/CLAUDE.md, ~/.codex/AGENTS.md, ~/.gemini/GEMINI.md",
     "  doctor             check install and wiring health",
     "  update, --update   update to the latest release (npm install -g)",
     "  version, --version, -v",
