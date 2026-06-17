@@ -1,1 +1,4 @@
 directives/*.md text eol=lf
+
+# Vendored third-party code — keep verbatim, exempt from whitespace checks
+tools/vendor/graphify-local/** -whitespace linguist-vendored

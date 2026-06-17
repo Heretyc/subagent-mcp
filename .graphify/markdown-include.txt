@@ -1,0 +1,17 @@
+# Markdown structural ingestion allow-list.
+# One pattern per line, relative to the repository root.
+# Directory entries are recursive; glob patterns are supported.
+# Example: team-notes/**/*.md
+
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+README.md
+docs/
+spec/
+agents/
+scripts/github/
+.github/
+.claude/skills/
+.agents/skills/
+.codex/skills/
