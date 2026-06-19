@@ -181,10 +181,10 @@ export function normalizeEffort(
  * explicit (provider+model+effort all present): one candidate from the user's
  * triple; the table is NOT read (works with a null table).
  *
- * auto/provider/provider_model: read performance.<task_category> as the pairings
- * array directly (defensive .pairings unwrap), sort by rank asc, map each model
- * to a launch id, normalize effort, and drop non-launchable / unknown-effort
- * pairings. An empty result sets noCandidates:true.
+ * auto/provider/provider_model: read <branch>.<task_category> as the pairings
+ * array directly, sort by rank asc, map each model to a launch id, normalize
+ * effort, and drop non-launchable / unknown-effort pairings. An empty result
+ * sets noCandidates:true.
  */
 export function buildCandidates(
   table: RoutingTable | null,
@@ -258,12 +258,7 @@ function readPairings(table: RoutingTable | null, taskCategory: string, branch: 
   const perf = table[branch];
   if (!perf || typeof perf !== "object") return [];
 
-  let raw = (perf as Record<string, unknown>)[taskCategory];
-  // Defensive: tolerate a {pairings:[...]} wrapper even though the contract
-  // says the value IS the array directly.
-  if (raw && !Array.isArray(raw) && typeof raw === "object" && "pairings" in raw) {
-    raw = (raw as { pairings: unknown }).pairings;
-  }
+  const raw = (perf as Record<string, unknown>)[taskCategory];
   if (!Array.isArray(raw)) return [];
 
   const entries = raw.filter(
@@ -339,7 +334,12 @@ export function validatePresence(p: {
     return `Error: provider is required when model is given. You passed model=${model} without provider. Either also pass provider, or omit both.\n${AUTO_HINT}`;
   }
 
-  // 5. explicit mode only: provider+model must satisfy the existing match rule.
+  // fallback_default is valid only for fully explicit launches.
+  if (task_category === "fallback_default" && !(provider && model && effort)) {
+    return `Error: fallback_default is a split hint sentinel, not a launchable routing-table category.\n${SPLIT_HINT}\n${AUTO_HINT}`;
+  }
+
+  // provider+model must satisfy the existing match rule.
   if (provider && model) {
     if (provider === "claude" && !["haiku", "sonnet", "opus", "opus-4-8"].includes(model)) {
       return `Error: Claude provider only supports haiku, sonnet, opus, or opus-4-8. Got: ${model}`;

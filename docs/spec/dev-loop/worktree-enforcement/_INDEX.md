@@ -1,6 +1,7 @@
 # Worktree-Isolation Mandate — Index
 
-Status: MANDATORY, unskippable, max-priority. Provider-equal (Claude Code, Codex,
+Status: MANDATORY, max-priority, unskippable except for delegated sub-agents
+(`SUBAGENT_MCP_SUBAGENT=1`, see item 5). Provider-equal (Claude Code, Codex,
 humans). Integrates with `docs/spec/dev-loop/git-collaboration.md` (reuses its branch
 types and ref rules — this folder does not fork a parallel policy).
 
@@ -21,7 +22,10 @@ types and ref rules — this folder does not fork a parallel policy).
    `git status|log|diff|show|branch --list|worktree list`; grep/glob/ls; fetch without
    merge; read-only queries — anything that does not mutate working tree, index, refs,
    stash, or remote.
-5. Enforcement is UNSKIPPABLE and provider-equal.
+5. Enforcement is mandatory and provider-equal — unskippable for orchestrators and
+   normal sessions. The sole exemption is delegated sub-agents
+   (`SUBAGENT_MCP_SUBAGENT=1`), which `scripts/check_worktree.mjs` short-circuits per the
+   documented carve-out, since the orchestrator already placed them in their target tree.
 
 ## Why
 

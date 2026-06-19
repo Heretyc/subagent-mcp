@@ -26,11 +26,11 @@ caveman-ultra reminder**:
   model, temp-file handoff, persistence, carryover, and the disable-governance
   rule naming both provider tools. The `orchestration-mode` **tool description**
   is the operational summary and points at the instructions.
-- **Per-turn directives** (`directives/**`): the FULL `<ORCHESTRATION-INVARIANT>`
+- **Per-turn directives** (`directives/**`): the FULL `<subagent-mcp state="..." kind="...">`
   block (delegate-default / inline-by-right partition + temp-file IPC +
   disable-governance pointer, ultra-compressed) injects on CLAIM turns only;
   steady state is the per-prompt reminder cadence — the LONG mode-specific
-  `<ORCHESTRATION-INVARIANT>` block (`reminder-on.md` /
+  `<subagent-mcp state="..." kind="...">` block (`reminder-on.md` /
   `reminder-off-<provider>.md`) every 5th prompt, and between prompts a
   state-aware short pointer — `short-on.md` when ON, `short-off.md` when OFF
   (provider-neutral, wrapped in `<SUB-AGENT-INVARIANT>`). The long
@@ -91,16 +91,19 @@ Marker location: `os.tmpdir()/subagent-mcp/orch-<cwdHash>.flag`, where
 lowercases on win32, and strips a trailing `/` — so `C:\X\` and `c:/x` key to
 the same marker on Windows.
 
-Marker fields: `enabled`, `cwd`, `owner_session`, `baseline_turn`,
-`provenance` (`user-enabled` / `carried-over` / `null`), and `carryover_ack`
-(missing fields default to `null` / `false` for backward compatibility).
+Marker fields: `owner_session`, `baseline_turn`, `provenance`
+(`user-enabled` / `carried-over` / `null`), and `carryover_ack` (missing
+fields default to `null` / `false` for backward compatibility). There is NO
+`enabled` or `cwd` field (see `src/orchestration/marker.ts`): the PRESENCE of
+the marker file = enabled, and the cwd is encoded in the FILENAME
+(`orch-<cwdHash>.flag`), not stored as a field.
 
 ## Cadence and toggle (per-prompt reminder counter)
 
 - A per-prompt counter (`src/orchestration/reminder.ts`, state file
   `remind-<cwdHash>.json`, owner-stamped by session; a session change restarts
   it) drives the cadence in BOTH marker states. Every 5th counted prompt emits
-  the LONG mode-specific `<ORCHESTRATION-INVARIANT>` block
+  the LONG mode-specific `<subagent-mcp state="..." kind="...">` block
   (`reminder-on.md` when ON, `reminder-off-<provider>.md` when OFF); every
   prompt between emits the state-aware short pointer — `short-on.md` when ON,
   `short-off.md` when OFF.
@@ -108,10 +111,8 @@ Marker fields: `enabled`, `cwd`, `owner_session`, `baseline_turn`,
   directive plus the ON reminder block and re-baseline the counter to the
   period boundary, so the next LONG fires exactly 5 prompts later. FULL fires
   on claim turns only; steady state is the leaner tagged reminder.
-- The OFF long variants and OFF short pointer (`short-off.md`) carry the
-  5-CALL RULE: ask via the provider question tool before enabling when work
-  outgrows 5 tool calls, and keep subagent-mcp as the sole sub-agent channel
-  even while OFF.
+- The OFF long variants and OFF short pointer (`short-off.md`) keep
+  subagent-mcp as the sole sub-agent channel even while OFF.
 - Codex `SessionStart` covers turn 0 directly when active (FULL + ON reminder
   on FRESH, CARRYOVER notice prepended when inherited; counter re-baselined);
   Codex `UserPromptSubmit` runs the normal counter cadence.
@@ -192,9 +193,9 @@ flips, but with no hook host nothing is injected per turn.
    both states.
 3. Split delivery: heavy operating-model + governance guidance lives in MCP
    server `instructions` (read once at initialize); the hook injects the compact
-   `<ORCHESTRATION-INVARIANT>` directive on claim turns (codex variant keeps its
+   `<subagent-mcp state="..." kind="...">` directive on claim turns (codex variant keeps its
    leading self-deactivation SCOPE line) and the
-   `<ORCHESTRATION-INVARIANT>`/rule-carrier cadence on all other prompts.
+   `<subagent-mcp state="..." kind="...">`/rule-carrier cadence on all other prompts.
 4. Packaging: Claude Code CLI + Codex CLI bundle the hook AND the MCP server =
    full feature. Claude Desktop + Codex Desktop toggle but do not inject =
    documented degradation.

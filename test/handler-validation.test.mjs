@@ -89,6 +89,18 @@ test("explicit codex mode passes -> null", () => {
     "fully-explicit codex launch is valid");
 });
 
+test("fallback_default explicit mode passes -> null", () => {
+  assert.equal(
+    validatePresence({
+      task_category: "fallback_default",
+      provider: "claude",
+      model: "sonnet",
+      effort: "high",
+    }),
+    null,
+    "fallback_default is allowed only for fully-explicit launches");
+});
+
 // ---------------------------------------------------------------------------
 // ERR_BAD_CATEGORY (matrix row 36) — category absent or unknown, validated
 // FIRST (before P/M/E rules). Renders `Got: <none>` when absent, else the value.
@@ -192,6 +204,44 @@ test("ROW 33 (contentious): model + effort, NO provider -> ERR_EFFORT_NEEDS_BOTH
 // WHY: the explicit triple must still satisfy the provider/model pairing rule;
 // these messages have NO AUTO_HINT (they predate auto-mode and are unchanged).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// ERR_FALLBACK_DEFAULT (matrix rows 39-41): fallback_default is a split hint
+// sentinel, not a launchable routing-table category. Only explicit mode can
+// pass because it does not read the table.
+// ---------------------------------------------------------------------------
+const FALLBACK_DEFAULT_ERROR =
+  "Error: fallback_default is a split hint sentinel, not a launchable routing-table category.\n" +
+  SPLIT_HINT + "\n" +
+  AUTO_HINT;
+
+test("ERR_FALLBACK_DEFAULT: category only -> exact text + SPLIT_HINT then AUTO_HINT", () => {
+  const msg = validatePresence({ task_category: "fallback_default" });
+  assert.equal(
+    msg,
+    FALLBACK_DEFAULT_ERROR,
+    "fallback_default auto mode must return split guidance instead of validating as launchable");
+});
+
+test("ERR_FALLBACK_DEFAULT: provider override -> exact text", () => {
+  const msg = validatePresence({ task_category: "fallback_default", provider: "claude" });
+  assert.equal(
+    msg,
+    FALLBACK_DEFAULT_ERROR,
+    "fallback_default provider mode must return ERR_FALLBACK_DEFAULT");
+});
+
+test("ERR_FALLBACK_DEFAULT: provider+model override -> exact text", () => {
+  const msg = validatePresence({
+    task_category: "fallback_default",
+    provider: "codex",
+    model: "sonnet",
+  });
+  assert.equal(
+    msg,
+    FALLBACK_DEFAULT_ERROR,
+    "fallback_default provider_model mode must return ERR_FALLBACK_DEFAULT even when provider/model would otherwise mismatch");
+});
+
 test("explicit mismatch: claude + gpt-5.5 -> Claude constraint message", () => {
   const msg = validatePresence({
     task_category: "coding",

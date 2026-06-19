@@ -124,7 +124,7 @@ pairing's `effort` before passing to `buildCommand`:
 1. If the tier is already a launch-enum value, pass it through, THEN apply the
    model-specific clamps below.
 2. `none` (haiku has no effort) → for `haiku`, effort is ignored by
-   `buildCommand`; pass `high` as a placeholder (it is dropped) and report the
+   `buildCommand`; pass `none` as a placeholder (it is dropped) and report the
    pairing tier `none`-equivalent as the launched effort label.
 3. Model-specific clamps (mirror `src/effort.ts` so the resolver never feeds an
    invalid combo into `buildCommand`):
