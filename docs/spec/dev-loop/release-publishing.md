@@ -4,19 +4,20 @@ Status: normative. Read before publishing any package version, refreshing npm
 registry auth, or diagnosing a publish failure. Lessons encoded from the
 v2.8.0 release (2026-06-11).
 
-## Dual-registry contract (BOTH are mandatory per release)
+## Registry contract (npmjs primary, GitHub Packages optional)
 
 | Registry | Role | Routed by |
 |---|---|---|
-| GitHub Packages (`npm.pkg.github.com`) | primary publish target | `package.json` `publishConfig` |
-| Public npmjs.com (`registry.npmjs.org`) | REQUIRED public mirror, same version | explicit scope flag (below) |
+| Public npmjs.com (`registry.npmjs.org`) | DEFAULT publish target | `package.json` `publishConfig` |
+| GitHub Packages (`npm.pkg.github.com`) | OPTIONAL secondary channel, same version | explicit `--registry` flag (below) |
 
-A release is **NOT complete** until npmjs `dist-tags.latest` equals the new
-tag. Publishing only via `publishConfig` leaves npmjs stale — in the v2.8.0
-release, npmjs sat at 2.7.1 while GitHub Packages served 2.8.0, and machine
-installs (which resolve through the `@heretyc` scope mapping to GitHub
-Packages) kept working, **masking the gap**. Verify both registries every
-release; never infer one from the other.
+`publishConfig` now points at npmjs, so a bare `npm publish` goes to npmjs by
+default — that is the primary, required channel. A release is **NOT complete**
+until npmjs `dist-tags.latest` equals the new tag. GitHub Packages is an
+OPTIONAL mirror: publish there only when you want the `@heretyc` scope to
+resolve through GitHub Packages too, and do it with an explicit
+`--registry=https://npm.pkg.github.com`. When you publish both, verify each
+registry directly; never infer one from the other.
 
 ## Procedure
 
@@ -32,31 +33,37 @@ release; never infer one from the other.
    `npm version <patch|minor|major> --no-git-tag-version` for package manifests,
    then update the MCP server version in `src/index.ts` to the same value.
 
-1. **GitHub Packages:** from the merged release tree in a compliant worktree,
-   run `npm publish` (`prepublishOnly` runs the full suite). `publishConfig`
-   routes it. Record the tarball `shasum` from the publish log.
-2. **Promote the SAME artifact to npmjs** (never rebuild — the mirror must be
-   byte-identical):
+1. **npmjs (default, required):** from the merged release tree, run `npm publish`
+   (`prepublishOnly` runs the full suite). `publishConfig` routes it to npmjs.
+   `--auth-type=web` is REQUIRED for the per-publish 2FA flow (below) and the
+   command must run in the operator's **interactive shell** — not a
+   captured/CI shell:
 
    ```sh
-   npm pack @heretyc/subagent-mcp@<ver>   # scope mapping resolves to GitHub Packages
+   npm publish --access public --auth-type=web
+   ```
+
+   Record the tarball `shasum` from the publish log.
+
+2. **GitHub Packages (optional secondary):** to also serve the SAME artifact
+   from GitHub Packages, publish it explicitly (never rebuild — the mirror must
+   be byte-identical):
+
+   ```sh
+   npm pack @heretyc/subagent-mcp@<ver>   # from npmjs, the default registry
    # confirm the .tgz shasum matches step 1's publish log — on mismatch STOP;
    # do not publish a divergent artifact, diagnose the pack source first
    npm publish ./heretyc-subagent-mcp-<ver>.tgz \
-     --@heretyc:registry=https://registry.npmjs.org --access public --auth-type=web
+     --registry=https://npm.pkg.github.com --access public
    ```
-
-   `--auth-type=web` is REQUIRED (per-publish 2FA, below) and the command must
-   run in the operator's **interactive shell** — not a captured/CI shell.
 
 3. **Verify REGISTRY-DIRECT**, never through npm config:
    - npmjs: `GET https://registry.npmjs.org/@heretyc%2Fsubagent-mcp` →
      `dist-tags.latest == <ver>` AND `versions.<ver>.dist.shasum` equals the
-     step-1 publish-log shasum (byte-identical mirror proof).
-   - GitHub Packages: authed
+     step-1 publish-log shasum.
+   - GitHub Packages (only if you published there): authed
      `npm view @heretyc/subagent-mcp dist-tags --@heretyc:registry=https://npm.pkg.github.com`
-     (scope-specific flag for consistency with the traps below; the scope
-     mapping resolves there anyway).
+     (scope-specific flag for consistency with the traps below).
 
 ## Windows shell traps (operator + agent shells)
 
@@ -87,19 +94,15 @@ the 2026-06-14 prep run; route around them, never retry the command verbatim.
 
 ## Resolution traps (each cost a debugging round on 2026-06-11)
 
-- The `~/.npmrc` scope mapping (`@heretyc:registry=https://npm.pkg.github.com`)
-  **overrides the generic `--registry` flag** for scoped packages, on BOTH
-  `npm view` and `npm publish`. A "verified on npmjs" result obtained through
-  npm tooling may silently be a GitHub Packages answer. Use the
-  **scope-specific flag** (`--@heretyc:registry=...`) to retarget, and verify
-  with direct HTTP.
-- The tarball's `package.json` carries `publishConfig` pointing at GitHub
-  Packages. Do **NOT** strip or rewrite it for the npmjs publish — the npmjs
-  copies of prior versions carry the same `publishConfig` (it does not block a
-  scope-flag publish), and the mirror must stay byte-identical.
-- `npm error You cannot publish over the previously published versions` during
-  an npmjs attempt usually means routing **fell through to GitHub Packages**
-  (where the version already exists). Fix the routing; do not bump the version.
+- The `~/.npmrc` scope mapping (if set to
+  `@heretyc:registry=https://npm.pkg.github.com`) **overrides the generic
+  `--registry` flag** for scoped packages, on BOTH `npm view` and `npm publish`.
+  A result obtained through npm tooling may silently be a GitHub Packages answer.
+  Use the **scope-specific flag** (`--@heretyc:registry=...`) to retarget, and
+  verify with direct HTTP.
+- `npm error You cannot publish over the previously published versions` usually
+  means routing **fell through to the wrong registry** (where the version
+  already exists). Fix the routing; do not bump the version.
 
 ## npmjs auth — passkeys, no TOTP (confirmed working flow, 2026-06-11 v2.8.0)
 
@@ -122,7 +125,7 @@ the 2026-06-14 prep run; route around them, never retry the command verbatim.
   rights (bypasses per-publish 2FA) configured for `registry.npmjs.org` in
   `~/.npmrc`. Never echo tokens into chat, logs, or commits.
 
-## GitHub Packages auth
+## GitHub Packages auth (only when publishing the optional secondary)
 
 `~/.npmrc` `//npm.pkg.github.com/:_authToken=<PAT>` with `write:packages` —
 see `docs/registration.md` for the consumer-side setup.
