@@ -1,7 +1,22 @@
 {
   "name": "@heretyc/subagent-mcp",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "MCP server that launches and manages always-interactive Claude Code and Codex sub-agent sessions (no direct Anthropic/OpenAI API).",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "claude",
+    "claude-code",
+    "codex",
+    "orchestration",
+    "subagent",
+    "sub-agent",
+    "multi-agent",
+    "ai-agents",
+    "anthropic",
+    "openai"
+  ],
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -47,7 +62,7 @@
     "node": ">=18"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
+    "registry": "https://registry.npmjs.org",
     "access": "public"
   }
 }

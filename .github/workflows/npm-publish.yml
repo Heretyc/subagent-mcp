@@ -28,8 +28,9 @@ jobs:
       - run: npm run check:versions
       - run: npm run build
       - run: npm test
-      # publishConfig.registry targets GitHub Packages, so override to public npm
-      # explicitly. Trusted Publishing (OIDC) needs id-token: write and no token.
+      # publishConfig.registry now targets npmjs (the default), so a bare publish
+      # already routes here; --registry is kept explicit for clarity. Trusted
+      # Publishing (OIDC) needs id-token: write and no token.
       - run: npm publish --provenance --access public --registry https://registry.npmjs.org
 
   github-packages:
@@ -47,6 +48,8 @@ jobs:
       - run: npm run check:versions
       - run: npm run build
       - run: npm test
-      - run: npm publish
+      # publishConfig now defaults to npmjs, so route this job to GitHub Packages
+      # explicitly with --registry; a bare publish would otherwise hit npmjs.
+      - run: npm publish --registry=https://npm.pkg.github.com
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

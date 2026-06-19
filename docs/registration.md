@@ -25,7 +25,14 @@ See [README.md](../README.md) for the project overview and
 
 ## Install
 
-**GitHub Packages install (auto-wires Claude and Codex):**
+**npmjs install (default; auto-wires Claude and Codex):**
+
+```bash
+npm install -g @heretyc/subagent-mcp
+subagent-mcp setup
+```
+
+Use GitHub Packages only when an internal workflow requires that registry:
 
 ```bash
 # One-time: configure registry + auth (classic PAT with read:packages)
@@ -64,16 +71,12 @@ subagent-mcp init --global --dry-run  # preview
 subagent-mcp init --global --remove   # remove the managed block
 ```
 
-**Developer install from source:**
+### Developer install from source
 
-```bash
-git clone https://github.com/Heretyc/subagent-mcp
-cd subagent-mcp
-npm install
-npm run build
-```
+See [CONTRIBUTING.md](../CONTRIBUTING.md) §Local Setup for clone, install, build, and run steps.
 
-Server entry point after build: `dist/index.js`. Wire manually per the sections below.
+Once built, wire the from-source binary into your vendor config using the
+per-platform steps below.
 
 ---
 

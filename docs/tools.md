@@ -1,6 +1,6 @@
 # Tool Reference
 
-The six tools exposed by `subagent-mcp`. See [README.md](../README.md) for the
+The eight tools exposed by `subagent-mcp`. See [README.md](../README.md) for the
 overview and [docs/SPEC.md](SPEC.md) for full parameter schemas and return
 shapes.
 
@@ -118,3 +118,31 @@ With `verbose: true`, every entry in `finished` gains a `final_output` field car
 ```
 
 Each finished job is reported exactly once per `wait` call (deduplicated by an internal `waitReported` flag). Calling `wait` again after a timeout will block for another 15 minutes.
+
+---
+
+## `orchestration-mode`
+
+Toggle or query the per-project ORCHESTRATION MODE marker (keyed by cwd).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `enabled` | boolean | No | `true` = ON, `false` = OFF, omit = query current state |
+
+Returns: `{ orchestration_mode, marker_path }`.
+
+When ON, act as a delegate-only orchestrator: every step runs in a sub-agent; inline-by-right does not exist; a non-delegable atomic step needs a one-time user-approved exception. The marker persists across restarts/sessions until a permitted disable. DISABLE is never on your own initiative — you may PROPOSE OFF, but only explicit user permission (via the structured-question tool) may set `enabled:false`. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing.
+
+---
+
+## `model-selection-mode`
+
+Set or query the per-project MODEL SELECTION MODE, which gates `launch_agent`'s `provider`/`model`/`effort` selectors: smart (auto-pick) or user-approved-overrides (30-min override window).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `mode` | `"smart" \| "user-approved-overrides"` | No | Omit to query current state |
+
+Returns: `{ model_selection_mode, enabled_at, window_remaining_ms, marker_path }`.
+
+`smart` is the DEFAULT (used whenever unset): `launch_agent` REJECTS any call supplying provider/model/effort and the server auto-picks the best model for the `task_category`. `user-approved-overrides` opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (reverts to smart on the next `launch_agent` call after 30 minutes); re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set `user-approved-overrides` without explicit interactive user authorization via the structured-question tool; never enable it on your own initiative. State (mode + enable-timestamp) persists across MCP server restarts.
