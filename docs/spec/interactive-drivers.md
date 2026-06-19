@@ -35,8 +35,14 @@ sends `initialize`, `initialized`, `thread/start`, and the first `turn/start`.
 turns submit after the active turn completes.
 
 Supported options are preserved where the protocol exposes them: `cwd`, model,
-effort, approval policy, and sandbox policy. Unsupported startup or protocol
-failures fail the MCP call loudly.
+and effort. Approval policy and sandbox policy are NOT configurable today —
+`drivers.ts` hardcodes them (`approvalPolicy: 'never'`,
+`sandboxPolicy: dangerFullAccess`) and neither appears in `DriverLaunchOptions`.
+Unsupported startup or protocol failures fail the MCP call loudly.
+
+> **PLANNED / FUTURE (not yet implemented):** configurable approval policy and
+> sandbox policy via `DriverLaunchOptions`. Until then the hardcoded values above
+> are authoritative.
 
 ## Lifecycle
 

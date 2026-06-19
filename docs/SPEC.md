@@ -1,4 +1,7 @@
-# subagent-mcp v2.2.0 -- Technical Specification
+# subagent-mcp -- Technical Specification
+
+<!-- Version is not pinned here; `package.json` "version" is the source of truth. -->
+
 
 **Author:** Lexi Blackburn | **License:** Apache-2.0 | **Repo:** https://github.com/Heretyc/subagent-mcp
 

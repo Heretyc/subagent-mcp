@@ -49,6 +49,10 @@ reset|clean|stash|push`, dependency/lockfile edits, code-gen that writes — is 
 - Standalone-runnable and hook-runnable.
 - Prints `WORKTREE-GATE: PASS` (exit 0) OR `WORKTREE-GATE: FAIL` + numbered reasons +
   the exact remediation command (exit 1).
+- Third path — delegated sub-agents (`SUBAGENT_MCP_SUBAGENT=1`): short-circuits BEFORE
+  any isolation check, prints `check_worktree: delegated sub-agent
+  (SUBAGENT_MCP_SUBAGENT=1) — worktree isolation skipped; operating in provided cwd.`
+  (exit 0), and does NOT emit `WORKTREE-GATE: PASS`.
 
 ## Git hooks
 

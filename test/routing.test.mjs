@@ -505,6 +505,40 @@ test("composite category: prompt_engineering reads branch array like a normal ca
     "composite category entries must flow through the same effort normalization path");
 });
 
+test("strict table shape: object with pairings wrapper signals no-candidates", () => {
+  const malformedWrappedTable = {
+    performance: {
+      architecture: {
+        pairings: [
+          {
+            model: "claude-opus-4-8",
+            effort: "high",
+            rank: 1,
+          },
+        ],
+      },
+    },
+    cost_efficiency: {
+      architecture: {
+        pairings: [
+          {
+            model: "claude-haiku-4-5",
+            effort: "none",
+            rank: 1,
+          },
+        ],
+      },
+    },
+  };
+
+  const result = buildCandidates(malformedWrappedTable, "architecture", {}, "performance");
+  assert.equal(result.mode, "auto");
+  assert.equal(result.noCandidates, true,
+    "category values must be direct arrays; a { pairings: [...] } wrapper must not be silently unwrapped");
+  assert.equal(result.candidates.length, 0,
+    "malformed wrapped categories must lead to ERR_NO_CANDIDATES at the handler layer");
+});
+
 // ---------------------------------------------------------------------------
 // Print summary and fail if any test failed
 // ---------------------------------------------------------------------------
