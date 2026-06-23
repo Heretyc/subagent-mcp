@@ -209,9 +209,11 @@ export function sessionKey(payload: HookPayload): string | undefined {
 /**
  * Decide whether a marker that is already active is being seen by a FRESH claim
  * or by a CARRYOVER from a prior/other session. Orchestration mode now PERSISTS
- * across process restarts/sessions (absence of a marker = OFF; an explicitly
- * enabled marker stays ON until a permitted disable), so the first turn of a new
- * session can inherit a marker some earlier session left behind.
+ * across process restarts/sessions (under default-ON, absence of an active
+ * disable record = ON; OFF is an active session-keyed disable record; the legacy
+ * owner_session marker is only used to detect carried-over/legacy ON for the
+ * one-time remain-enabled notice), so the first turn of a new session can inherit
+ * a marker some earlier session left behind.
  *
  * FRESH: the marker has never been claimed (baseline_turn == null OR
  *   owner_session == null) — i.e. it was just enabled in THIS session via the
@@ -328,7 +330,8 @@ export function runHook(
     const cwd = payload.cwd || process.cwd();
     const current = sessionKey(payload);
 
-    if (!marker.isActive(cwd)) {
+    if (current) marker.writeCurrentSession(cwd, current);
+    if (!marker.isActive(cwd, current)) {
       // OFF: no claim machinery — just the per-prompt reminder cadence.
       const r = reminder.advance(cwd, current);
       return cadenceEmit(
