@@ -38,6 +38,7 @@ import {
   disable,
   isActive,
   readMarker,
+  writeDisable,
   writeMarker,
 } from "../dist/orchestration/marker.js";
 import {
@@ -121,9 +122,12 @@ test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule ca
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    assert.equal(isActive(cwd), false, "precondition: marker absent");
+    const session = `s-off:${cwd}`;
+    assert.equal(isActive(cwd, session), true, "fresh sessions are ON by default");
+    writeDisable(session);
+    assert.equal(isActive(cwd, session), false, "precondition: session disabled");
     const adapter = makeAdapter();
-    const payload = { cwd, session_id: "s-off", transcript_path: undefined };
+    const payload = { cwd, session_id: session, transcript_path: undefined };
     for (let prompt = 1; prompt <= 10; prompt++) {
       const out = runHook(payload, env, adapter);
       if (prompt % REMINDER_PERIOD === 0) {
@@ -132,7 +136,7 @@ test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule ca
         assert.equal(out, SHORT_OFF_TEXT, `prompt ${prompt} must emit the OFF one-line rule carrier`);
       }
     }
-    assert.equal(readReminder(cwd).counts["s-off"], 10, "counter persisted across prompts");
+    assert.equal(readReminder(cwd).counts[session], 10, "counter persisted across prompts");
   } finally {
     cleanup(cwd, root);
   }
@@ -147,8 +151,13 @@ test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)",
   const { root, env } = makeDirectivesEnv();
   try {
     const adapter = makeAdapter();
+    const sessions = [`s-A:${cwd}`, `s-B:${cwd}`];
+    for (const session of sessions) {
+      writeDisable(session);
+      assert.equal(isActive(cwd, session), false, `${session} precondition: session disabled`);
+    }
     for (let round = 1; round <= 5; round++) {
-      for (const session of ["s-A", "s-B"]) {
+      for (const session of sessions) {
         const out = runHook({ cwd, session_id: session, transcript_path: undefined }, env, adapter);
         if (round === 5) {
           assert.equal(out, REM_OFF_TEXT, `${session} round 5 must be its LONG block`);
@@ -158,8 +167,8 @@ test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)",
       }
     }
     const counts = readReminder(cwd).counts;
-    assert.equal(counts["s-A"], 5, "session A keeps its own count");
-    assert.equal(counts["s-B"], 5, "session B keeps its own count");
+    assert.equal(counts[sessions[0]], 5, "session A keeps its own count");
+    assert.equal(counts[sessions[1]], 5, "session B keeps its own count");
   } finally {
     cleanup(cwd, root);
   }
@@ -170,15 +179,21 @@ test("OFF: a new session starts its own count without disturbing others", () => 
   const { root, env } = makeDirectivesEnv();
   try {
     const adapter = makeAdapter();
+    const sessionA = `s-A:${cwd}`;
+    const sessionB = `s-B:${cwd}`;
+    writeDisable(sessionA);
+    writeDisable(sessionB);
+    assert.equal(isActive(cwd, sessionA), false, "session A precondition: disabled");
+    assert.equal(isActive(cwd, sessionB), false, "session B precondition: disabled");
     for (let prompt = 1; prompt <= 3; prompt++) {
-      runHook({ cwd, session_id: "s-A", transcript_path: undefined }, env, adapter);
+      runHook({ cwd, session_id: sessionA, transcript_path: undefined }, env, adapter);
     }
-    assert.equal(readReminder(cwd).counts["s-A"], 3);
-    const out = runHook({ cwd, session_id: "s-B", transcript_path: undefined }, env, adapter);
+    assert.equal(readReminder(cwd).counts[sessionA], 3);
+    const out = runHook({ cwd, session_id: sessionB, transcript_path: undefined }, env, adapter);
     assert.equal(out, SHORT_OFF_TEXT, "first prompt of a new session emits the OFF rule carrier");
     const counts = readReminder(cwd).counts;
-    assert.equal(counts["s-B"], 1, "a new session starts its own count at 1");
-    assert.equal(counts["s-A"], 3, "the other session's count is untouched");
+    assert.equal(counts[sessionB], 1, "a new session starts its own count at 1");
+    assert.equal(counts[sessionA], 3, "the other session's count is untouched");
   } finally {
     cleanup(cwd, root);
   }
@@ -382,7 +397,10 @@ test("missing OFF reminder asset -> '' on the LONG OFF prompt (fail-safe)", () =
   const { root, env } = makeDirectivesEnv({ withReminderOff: false });
   try {
     const adapter = makeAdapter();
-    const payload = { cwd, session_id: "s", transcript_path: undefined };
+    const session = `s-missing-off:${cwd}`;
+    writeDisable(session);
+    assert.equal(isActive(cwd, session), false, "precondition: session disabled");
+    const payload = { cwd, session_id: session, transcript_path: undefined };
     for (let prompt = 1; prompt <= 4; prompt++) {
       assert.equal(runHook(payload, env, adapter), SHORT_OFF_TEXT);
     }

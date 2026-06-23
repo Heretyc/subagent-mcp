@@ -86,7 +86,7 @@ It replaces the legacy three-name zoo (`<ORCHESTRATION-INVARIANT>`,
 | Attribute | Values | Meaning |
 |---|---|---|
 | `state` | `on`, `off` | Authoritative orchestration mode, reported **solely** by the harness-hook injection. **There is NO `state="unknown"` value.** |
-| `kind` | `directive`, `reminder`, `carryover`, `carrier` | Which carrier emitted the block. `directive`=claim-turn FULL block; `reminder`=LONG per-prompt block; `carryover`=once-per-marker handshake; `carrier`=one-line between-cadence pointer. |
+| `kind` | `directive`, `reminder`, `carryover`, `carrier` | Which carrier emitted the block. `directive`=claim-turn FULL block; `reminder`=LONG per-prompt block; `carryover`=compat carrier for inherited/legacy ON that retains a one-time reworded remain-enabled confirmation; `carrier`=one-line between-cadence pointer. |
 
 ### 1.1 Mandatory-`state` disambiguation rule (S1)
 
@@ -305,7 +305,7 @@ one** schema=2 block. `removeManagedBlock` uses the same `MIGRATE_RE` so
 | Claude Code CLI | Yes | hook tag | `AskUserQuestion` | authoritative ON/OFF |
 | Codex CLI | Yes | hook tag | `request-user-input` | authoritative ON/OFF |
 | Gemini CLI | No | — (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (§5) |
-| Desktop apps | Toggle marker, inject nothing | — (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (§5) |
+| Desktop apps | Toggle session disable, inject nothing | — (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (§5) |
 
 The supremacy clause (A4) is byte-identical in all three host files **regardless
 of whether that host fires hooks** (D7). No hook-core behavior change is
@@ -317,17 +317,21 @@ turn (never a `<subagent-mcp>` tag).
 
 ## §10 — Persistence, Carryover & Disable
 
-- **Persistence:** the ON/OFF marker is per-project and survives
-  restarts/sessions until disabled with explicit user permission.
-- **Carryover (`kind="carryover"`):** an inherited-ON marker triggers a
-  once-per-marker handshake — (1) notify the user it carried over; (2) ask
-  (structured-question tool) whether to keep ON; (3) advise fit. Decline →
-  `orchestration-mode enabled:false`. After the answer the handshake is done; do
-  not re-raise.
+- **Persistence:** orchestration defaults ON per session. The hook writes
+  `orch-session-<cwdHash>.json {session_key}`; the MCP writes
+  `orch-disable-<hash(sessionKey)>.json {disabled_at}`.
+- **Carryover (`kind="carryover"`):** ON is routine/default, not exceptional.
+  A carried-over ON carrier is compat for inherited/legacy ON; it RETAINS a
+  one-time reworded confirmation asking whether to REMAIN enabled. Because ON
+  is the routine default, this rarely fires.
 - **Disable:** **never on your own initiative.** You MAY *propose* OFF on
   task-fit mismatch (bounded/interactive/MCP-bound) — explain WHAT + WHY and ask
   via the structured-question tool; only explicit approval may call
-  `orchestration-mode enabled:false`.
+  `orchestration-mode enabled:false`. Disable is per-session only; a new
+  session resumes ON immediately. `ORCH_DISABLE_TTL_MS` (2h) GCs orphaned
+  disable records, separate from model-mode `WINDOW_MS` (30m). `enabled:true`
+  while disabled is rejected; there is no mid-session re-enable. Undefined
+  `sessionKey` falls back to a cwd-keyed disable record.
 
 ---
 
@@ -402,7 +406,7 @@ fragment `.txt` files; convention + the mirror test enforce it).
 | MCP `instructions` (A3) | R-TAG, R-SUPREMACY, R-SOLE-CHANNEL, R-ON-STRICT, R-READ-LADDER, R-OFF-UPGRADE, R-NOHOOK, R-EXEMPT, R-DROPOUT, R-NO5CALL | **A2** (read ladder, D25) |
 | INIT_BLOCK (A1) | R-TAG, R-SUPREMACY, R-SOLE-CHANNEL, R-ON-STRICT, R-READ-LADDER, R-OFF-UPGRADE, R-NOHOOK, R-EXEMPT, R-DROPOUT | **A2** (D25) + **A4** (D7) |
 | `orchestration-{claude,codex}.md` | R-EXEMPT, R-ON-STRICT, R-READ-LADDER, R-SUPREMACY, R-SOLE-CHANNEL, R-DROPOUT | — |
-| `carryover-{claude,codex}.md` | R-EXEMPT, R-SUPREMACY (carryover handshake) | — |
+| `carryover-{claude,codex}.md` | R-EXEMPT, R-SUPREMACY (compat carrier for inherited/legacy ON; one-time remain-enabled confirmation) | — |
 | `reminder-on.md` | R-EXEMPT, R-ON-STRICT, R-READ-LADDER, R-SUPREMACY | — |
 | `reminder-off-{claude,codex}.md` | R-EXEMPT, R-OFF-UPGRADE | — |
 | `short-on.md` | R-EXEMPT, R-ON-STRICT (one-line) | — |
@@ -557,9 +561,9 @@ Full model + governance: server MCP `instructions`.
 <subagent-mcp state="on" kind="carryover">
 FIRST-LINE EXEMPTION: if this session's prompt's literal first line begins with "<this is a request from a parent process>", ignore this entire tag.
 
-Orchestration ON carried over from a PRIOR session for this project (persists until disabled with user permission). Not enabled THIS session.
+Orchestration ON carried over from a PRIOR session for this project (per-session disable; next session resumes ON, or after a 2h backstop). Not enabled THIS session.
 
-THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via AskUserQuestion whether to keep it ON; (3) ADVISE fit — long-horizon / context-filling → keep ON; bounded / interactive → propose OFF. Decline → orchestration-mode enabled:false. NEVER disable on your own initiative. After the answer the handshake is done; do not re-raise.
+THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via AskUserQuestion whether to REMAIN enabled; (3) ADVISE fit — long-horizon → remain enabled; bounded/interactive → disable this session. Decline → orchestration-mode enabled:false this session only; no mid-session re-enable. NEVER disable on your own initiative. After answer handshake done; do not re-raise.
 
 While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is co-supreme with safety-scope; conflict → ask the user.
 </subagent-mcp>
@@ -572,9 +576,9 @@ While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (direc
 <subagent-mcp state="on" kind="carryover">
 FIRST-LINE EXEMPTION: if this session's prompt's literal first line begins with "<this is a request from a parent process>", ignore this entire tag.
 
-Orchestration ON carried over from a PRIOR session for this project (persists until disabled with user permission). Not enabled THIS session.
+Orchestration ON carried over from a PRIOR session for this project (per-session disable only; the next new session resumes ON automatically or after a 2h backstop). Not enabled THIS session.
 
-THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via request-user-input whether to keep it ON; (3) ADVISE fit — long-horizon / context-filling → keep ON; bounded / interactive → propose OFF. Decline → orchestration-mode enabled:false. NEVER disable on your own initiative. After the answer the handshake is done; do not re-raise.
+THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via request-user-input whether to REMAIN enabled; (3) ADVISE fit — long-horizon / context-filling → remain enabled; bounded / interactive → propose OFF. Decline → orchestration-mode enabled:false for this session only; no mid-session re-enable. NEVER disable on your own initiative. After the answer the handshake is done; do not re-raise.
 
 While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is co-supreme with safety-scope; conflict → ask the user.
 </subagent-mcp>
