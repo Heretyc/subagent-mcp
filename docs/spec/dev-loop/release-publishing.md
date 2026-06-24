@@ -65,6 +65,32 @@ registry directly; never infer one from the other.
      `npm view @heretyc/subagent-mcp dist-tags --@heretyc:registry=https://npm.pkg.github.com`
      (scope-specific flag for consistency with the traps below).
 
+## Shipped parts and pre-publish tests
+
+These travel inside the tarball via the whole-dir `dist` entry — no
+`files`-array change — and the build regenerates them every time, so a publish
+of a stale tree cannot ship a drifted copy:
+
+- `dist/advanced-ruleset.py` — gen-scaffold embed + `copy-provider.mjs`
+  hard-fail copy; preserved on update (`../advanced-ruleset/scaffold-and-deployment.md`).
+- `dist/global-concurrency.jsonc` — the global concurrent-subagent cap config.
+  Shipped by the SAME chain: `gen-ruleset-scaffold.mjs` also emits
+  `src/config-scaffold.ts` and `copy-provider.mjs` also copies
+  `src/global-concurrency.jsonc → dist/`, both HARD-FAILING the build if the
+  source is missing. Preserved on update by the parallel three-site bracket
+  (`../global-concurrency/cap-contract.md` §6). `npm run build` must regenerate
+  and copy it before publish.
+
+Pre-publish test expectations — `npm test` (run by `prepublishOnly`) must
+include:
+
+- `test/global-concurrency-cap.test.mjs` — clamp table, template parses,
+  reject-at-cap, reserve-under-cap, release-idempotent
+  (`../global-concurrency/cap-contract.md` §9). A red bar here blocks the
+  publish exactly as the version-sync gate does.
+
+The four version surfaces in the step-0 gate are unchanged by this feature.
+
 ## Windows shell traps (operator + agent shells)
 
 Release/PR/commit commands on Windows fail in two shell-specific ways. Both bit

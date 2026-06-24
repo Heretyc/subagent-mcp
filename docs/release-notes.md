@@ -8,6 +8,27 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.10.0
+
+### Global concurrent-subagent cap
+
+Adds a machine-global live subagent cap across all sessions and processes on
+the machine. The shared-state count includes agents from other active sessions
+and the whole recursive descendant tree; slots free when agents finish or are
+killed.
+
+- New `global-concurrency.jsonc` config with `globalConcurrentSubagents`
+  (default `20`, minimum `10`). Invalid, unset, or `0` values reset to `20`;
+  values `1`-`9` are pinned to `10`.
+- The config has no environment-variable override, is re-read on every
+  `launch_agent` call, and is retained across installs / updates like the
+  advanced routing directives file.
+- At cap, `launch_agent` is rejected immediately, never queued. Operators free
+  slots manually with `list_agents` + `kill_agent`; there is no automatic
+  cleanup or zombie reaping.
+- Adds unit coverage for config validation, template parsing, cap rejection,
+  slot reservation, and idempotent release.
+
 ## v2.9.0
 
 ### Claude session-limit failover

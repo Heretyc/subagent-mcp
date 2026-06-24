@@ -88,8 +88,8 @@ function deploy(root, pkg) {
   if (!existsSync(tarball)) die(`expected tarball not found: ${tarball}`);
 
   // Resolve the prospective install root BEFORE installing: npm install -g
-  // replaces the package dir in place, so a user-edited advanced-ruleset.py
-  // must be snapshotted now or it is gone with the old dir.
+  // replaces the package dir in place, so user-edited retained config files
+  // must be snapshotted now or they are gone with the old dir.
   const gRoot = run("npm", ["root", "-g"], root).trim();
   // Scoped packages install under <gRoot>/@scope/name, unscoped under <gRoot>/name.
   // Derive from pkg.name so the install root matches npm's real layout either way.
@@ -100,6 +100,13 @@ function deploy(root, pkg) {
     userRuleset = readFileSync(live, "utf8");
     const snap = join(tmpdir(), `advanced-ruleset.py.bak-deploy-${Date.now()}`);
     try { writeFileSync(snap, userRuleset); console.error(`  backed up user advanced-ruleset.py -> ${snap}`); } catch { /* in-memory copy still restores */ }
+  }
+  const configLive = join(install, "dist", "global-concurrency.jsonc");
+  let userConfig = null;
+  if (existsSync(configLive)) {
+    userConfig = readFileSync(configLive, "utf8");
+    const snap = join(tmpdir(), `global-concurrency.jsonc.bak-deploy-${Date.now()}`);
+    try { writeFileSync(snap, userConfig); console.error(`  backed up user global-concurrency.jsonc -> ${snap}`); } catch { /* in-memory copy still restores */ }
   }
 
   console.error("==> global install");
@@ -118,6 +125,15 @@ function deploy(root, pkg) {
       console.error("  restored user advanced-ruleset.py (package update never overwrites user edits)");
     }
   }
+  if (userConfig !== null) {
+    const shipped = existsSync(configLive) ? readFileSync(configLive, "utf8") : null;
+    if (shipped === userConfig) {
+      console.error("  global-concurrency.jsonc unchanged — left as-is");
+    } else {
+      writeFileSync(configLive, userConfig);
+      console.error("  restored user global-concurrency.jsonc (package update never overwrites user edits)");
+    }
+  }
   return install;
 }
 
@@ -129,6 +145,7 @@ function verify(install) {
     "dist/hooks/orchestration-claude-pretool.js",
     "dist/hooks/orchestration-codex.js",
     "dist/advanced-ruleset.py",
+    "dist/global-concurrency.jsonc",
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
     "directives/short-on.md",

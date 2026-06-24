@@ -38,6 +38,9 @@ decoupled copy). When they disagree, **this skill wins**.
    root. A user-edited `dist/advanced-ruleset.py` is NEVER overwritten on
    update: `deploy.mjs` snapshots it before `npm install -g` and restores it
    after.
+   `dist/global-concurrency.jsonc` is also user-editable retained config; the
+   same snapshot/restore mechanism preserves user edits to the global
+   concurrency cap across installs and updates.
 3. **Standards-compliant per vendor.** Use each vendor's official registration
    path and config schema, verbatim from the specs in
    `references/compliance.md`. No bespoke shims.
