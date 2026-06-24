@@ -1,6 +1,7 @@
 node_modules/
 dist/
 src/ruleset-scaffold.ts
+src/config-scaffold.ts
 *.log
 .env
 claude-cicd-policy-pack.zip

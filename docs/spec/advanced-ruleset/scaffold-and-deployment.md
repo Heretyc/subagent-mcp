@@ -107,6 +107,21 @@ a deleted file stays absent until the next process start.
 - NEVER downgrade the dist scaffold copy to warn-and-skip.
 - NEVER claim `src/` ships in the npm pack — only `dist/` does.
 
+## Reused by the global-concurrency cap config
+
+The `global-concurrency.jsonc` cap config reuses THIS leaf's mechanism
+verbatim: the same three-site backup/restore bracket (CLI self-update +
+installer `deploy.mjs` + runtime recreate-if-absent), the same
+gen-scaffold → git-ignored embed → copy-provider hard-fail build chain, the
+same `verify()` / `verifyInstall()` existence checks, and the same
+never-overwrite-user-edits guarantee. The gen step is the SAME
+`scripts/gen-ruleset-scaffold.mjs` extended to also emit
+`src/config-scaffold.ts`; the copy step is the SAME `scripts/copy-provider.mjs`
+extended to also copy `src/global-concurrency.jsonc → dist/`. Full details and
+the cap's own contract live in `../global-concurrency/cap-contract.md` (§6
+Retention). Nothing in the ruleset bracket above changes — the cap adds a
+parallel copy of it.
+
 ## When to stop and ask the owner
 
 Moving the scaffold out of `dist/`, renaming it, or weakening the

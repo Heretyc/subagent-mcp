@@ -137,6 +137,20 @@ The last four are **composite-inferred**: they carry no dedicated benchmark and 
 
 ---
 
+## Configuration
+
+### Global concurrent-subagent cap
+
+subagent-mcp enforces a machine-global cap on the number of **live concurrent subagents** across all agentic sessions and MCP server processes on the machine. The count includes agents started by other active sessions and the whole recursive descendant tree; slots free as agents finish or are killed.
+
+The cap is configured in `global-concurrency.jsonc`, a dedicated dist-sibling file in the install directory. It is separate from the advanced routing directives file, ships as a commented template, and is retained across installs and updates by the same preserve-user-edits mechanism as the advanced routing directives.
+
+Set `globalConcurrentSubagents` in that file. The default is `20`; the minimum valid value is `10`. Validation is forced: `0`, unset, missing, or invalid values reset to `20`, and values `1` through `9` are pinned up to `10`. There is no environment-variable override; the file is the sole source of truth. The file is re-read on every `launch_agent` call, so edits take effect on the next launch with no server restart.
+
+When the cap is reached, `launch_agent` is rejected immediately; it never queues. Because the count includes other active sessions and the entire descendant tree, free slots manually with `list_agents` and `kill_agent` before retrying. There is no automatic cleanup or zombie reaping.
+
+---
+
 ## Tools
 
 Eight tools are exposed over the stdio MCP transport.

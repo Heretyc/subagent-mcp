@@ -1,0 +1,29 @@
+// subagent-mcp — Global Concurrent Subagent Cap
+// ------------------------------------------------------------------
+// SOLE source of truth for the machine-wide limit on how many subagents
+// may be ALIVE AT ONCE across EVERY session, process, and user on this
+// machine. There is NO environment-variable override.
+//
+// The whole recursive descendant tree counts toward this ONE number: a
+// subagent that itself launches subagents adds to the same machine-wide
+// total, and OTHER active agentic sessions count too.
+//
+// RE-READ on every launch_agent call — edits take effect immediately, no
+// server restart required.
+//
+// Value rules (forcibly applied to the number below):
+//   - missing / unset / non-integer / 0 / negative  -> reset to default 20
+//   - 1 through 9                                    -> forced UP to minimum 10
+//   - 10 or greater                                 -> used as-is
+//
+// When the cap is reached, launch_agent is REJECTED (never queued). Free a
+// slot with list_agents + kill_agent, then retry.
+//
+// Slots free automatically as agents finish or are killed. There is NO
+// zombie reaping. If a server process CRASHES, its slots stay counted until
+// you delete the stale slot files by hand:
+//   Windows:      %ProgramData%\subagent-mcp\slots
+//   macOS/Linux:  /tmp/subagent-mcp/slots
+{
+  "globalConcurrentSubagents": 20
+}

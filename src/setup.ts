@@ -283,6 +283,7 @@ export function verifyInstall(root: string = INSTALL_ROOT): string[] {
   const required = [
     "dist/index.js",
     "dist/advanced-ruleset.py",
+    "dist/global-concurrency.jsonc",
     "dist/hooks/orchestration-claude.js",
     "dist/hooks/orchestration-claude-pretool.js",
     "dist/hooks/orchestration-codex.js",

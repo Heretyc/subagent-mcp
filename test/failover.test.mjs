@@ -14,14 +14,17 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { classifyFailureReason } from "../dist/index.js";
+import { slotDir } from "../dist/concurrency.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const preloadPath = join(repoRoot, "test", "fixtures", "fake-ruleset-preload.cjs");
@@ -70,6 +73,19 @@ function prependPath(env, dir) {
     next.PATHEXT = next.PATHEXT || ".COM;.EXE;.BAT;.CMD";
   }
   return next;
+}
+
+function cleanupSharedSlotMarkers() {
+  try {
+    const dir = slotDir();
+    for (const file of readdirSync(dir)) {
+      if (file.startsWith("slot-") && file.endsWith(".json")) {
+        try {
+          unlinkSync(join(dir, file));
+        } catch {}
+      }
+    }
+  } catch {}
 }
 
 function createMcpSession(entrypoint, options = {}) {
@@ -311,10 +327,12 @@ async function withEnv(codexMode, graceMs, options, fn) {
   const { tempRoot, workDir, env, entrypoint, modeFile } = makeFailoverEnv(codexMode, graceMs, options);
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
+    cleanupSharedSlotMarkers();
     await session.initialize();
     await fn({ session, modeFile });
   } finally {
     await session.close();
+    cleanupSharedSlotMarkers();
     rmSync(tempRoot, { recursive: true, force: true });
   }
 }

@@ -43,6 +43,14 @@ import {
   RULESET_HARD_FAIL_MSG,
   type RulesetStdinPayload,
 } from "./ruleset.js";
+import {
+  CONFIG_FILENAME,
+  defaultConfigPath,
+  globalCapMessage,
+  readGlobalCap,
+  releaseSlot,
+  reserveSlot,
+} from "./concurrency.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
@@ -65,6 +73,7 @@ interface AgentState {
   lastActivity: number;
   cwd: string;
   ucSettingsPath?: string;
+  slotPath?: string | null;
   waitReported: boolean;
   routingTier?: "cost_efficiency" | "performance" | "manual";
   // Set ONLY when the advanced ruleset actually ALTERED the routing decision
@@ -235,7 +244,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.9.2",
+    version: "2.10.0",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions. Claude uses the Claude Agent SDK over the local Claude Code executable; Codex uses `codex app-server` over stdio. The server does not call Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -489,6 +498,8 @@ async function tryLaunchCandidate(
 
     // Always clean up ultracode settings file on close
     cleanupUcSettings(agentState);
+    releaseSlot(agentState.slotPath ?? null);
+    agentState.slotPath = null;
 
     // Always record actual close time (unless already finalized)
     if (agentState.exitedAt === null) agentState.exitedAt = Date.now();
@@ -756,6 +767,13 @@ server.tool(
 
     // 6. Attempt loop: best→worst. Register on first successful driver start; silently
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
+    const cap = readGlobalCap();
+    const reservationId = randomUUID();
+    const reservation = reserveSlot(reservationId, cap);
+    if (!reservation.ok) {
+      return errorResult(globalCapMessage(reservation.current, cap, defaultConfigPath()));
+    }
+
     const skipped: {
       model: string;
       effort: string;
@@ -763,74 +781,92 @@ server.tool(
       reason: string;
       failure_type: FailureType;
     }[] = [];
-    for (const candidate of candidates) {
-      const outcome = await tryLaunchCandidate(
-        candidate,
-        prompt,
-        agentCwd,
-        routingTier,
-        rulesetApplied && rulesetOriginalSelection !== undefined
-          ? { applied: true, originalSelection: rulesetOriginalSelection }
-          : undefined
-      );
-      if ("agentId" in outcome) {
-        if (branch === "performance") {
-          deadlockWindow.consume();
-        }
-        if (skipped.length > 0) {
+    let launched = false;
+    try {
+      for (const candidate of candidates) {
+        const outcome = await tryLaunchCandidate(
+          candidate,
+          prompt,
+          agentCwd,
+          routingTier,
+          rulesetApplied && rulesetOriginalSelection !== undefined
+            ? { applied: true, originalSelection: rulesetOriginalSelection }
+            : undefined
+        );
+        if ("agentId" in outcome) {
+          if (branch === "performance") {
+            deadlockWindow.consume();
+          }
           const registeredAgent = agents.get(outcome.agentId);
           if (registeredAgent) {
-            registeredAgent.failoverFrom = skipped.map((s) => ({
-              provider: s.provider,
-              model: s.model,
-              effort: s.effort,
-              failure_type: s.failure_type,
-            }));
+            registeredAgent.slotPath = reservation.slotPath;
+            // The child can reach a terminal state DURING tryLaunchCandidate's
+            // awaits — before slotPath was set — so its close handler ran
+            // releaseSlot(undefined) (a no-op) and left the slot leaked. Detect
+            // that here and release now. slotPath is unique per reservation, so
+            // this never frees another agent's slot.
+            if (registeredAgent.exitCode !== null) {
+              releaseSlot(registeredAgent.slotPath);
+              registeredAgent.slotPath = null;
+            }
+            if (skipped.length > 0) {
+              registeredAgent.failoverFrom = skipped.map((s) => ({
+                provider: s.provider,
+                model: s.model,
+                effort: s.effort,
+                failure_type: s.failure_type,
+              }));
+            }
           }
+          launched = true;
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  agent_id: outcome.agentId,
+                  status: "processing",
+                  provider: candidate.provider,
+                  model: candidate.model,
+                  effort: candidate.effort,
+                  task_category,
+                  ...(rulesetApplied
+                    ? {
+                        ruleset_applied: true,
+                        ruleset_original_selection: rulesetOriginalSelection,
+                      }
+                    : {}),
+                  ...(skipped.length > 0
+                    ? {
+                        failover_occurred: true,
+                        failover_from: skipped.map((s) => ({
+                          provider: s.provider,
+                          model: s.model,
+                          effort: s.effort,
+                          failure_type: s.failure_type,
+                        })),
+                        failover_note: buildFailoverNote(skipped, candidate),
+                      }
+                    : {}),
+                }),
+              },
+            ],
+          };
         }
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                agent_id: outcome.agentId,
-                status: "processing",
-                provider: candidate.provider,
-                model: candidate.model,
-                effort: candidate.effort,
-                task_category,
-                ...(rulesetApplied
-                  ? {
-                      ruleset_applied: true,
-                      ruleset_original_selection: rulesetOriginalSelection,
-                    }
-                  : {}),
-                ...(skipped.length > 0
-                  ? {
-                      failover_occurred: true,
-                      failover_from: skipped.map((s) => ({
-                        provider: s.provider,
-                        model: s.model,
-                        effort: s.effort,
-                        failure_type: s.failure_type,
-                      })),
-                      failover_note: buildFailoverNote(skipped, candidate),
-                    }
-                  : {}),
-              }),
-            },
-          ],
-        };
+        skipped.push({
+          model: candidate.model,
+          effort: candidate.effort,
+          provider: candidate.provider,
+          reason: outcome.reason,
+          failure_type: outcome.failure_type,
+        });
+        if (!pureAuto) {
+          break;
+        }
       }
-      skipped.push({
-        model: candidate.model,
-        effort: candidate.effort,
-        provider: candidate.provider,
-        reason: outcome.reason,
-        failure_type: outcome.failure_type,
-      });
-      if (!pureAuto) {
-        break;
+    } finally {
+      if (!launched) {
+        releaseSlot(reservation.slotPath);
       }
     }
 
@@ -990,6 +1026,8 @@ server.tool(
       // POSIX, SIGKILL the process (close handler records the real exit code).
       agent.status = "stopped";
       agent.driver.kill();
+      releaseSlot(agent.slotPath ?? null);
+      agent.slotPath = null;
       if (isWindows && agent.process.pid) {
         spawn("taskkill", ["/pid", String(agent.process.pid), "/t", "/f"], {
           windowsHide: true,
@@ -1425,7 +1463,9 @@ if (isMain) {
       ...pkg.name.split("/")
     );
     const rulesetPath = join(installRoot, "dist", "advanced-ruleset.py");
+    const cfgPath = join(installRoot, "dist", CONFIG_FILENAME);
     let previousRuleset: Buffer | null = null;
+    let previousCfg: Buffer | null = null;
     if (existsSync(rulesetPath)) {
       previousRuleset = readFileSync(rulesetPath);
       const backupPath = join(
@@ -1438,6 +1478,24 @@ if (isMain) {
       } catch (e) {
         console.error(
           `update refused before install: failed to back up advanced-ruleset.py: ${
+            e instanceof Error ? e.message : String(e)
+          }`
+        );
+        process.exit(1);
+      }
+    }
+    if (existsSync(cfgPath)) {
+      previousCfg = readFileSync(cfgPath);
+      const backupPath = join(
+        tmpdir(),
+        `${CONFIG_FILENAME}.bak-update-${Date.now()}`
+      );
+      try {
+        writeFileSync(backupPath, previousCfg);
+        console.log(`backed up user ${CONFIG_FILENAME} to ${backupPath}`);
+      } catch (e) {
+        console.error(
+          `update refused before install: failed to back up ${CONFIG_FILENAME}: ${
             e instanceof Error ? e.message : String(e)
           }`
         );
@@ -1465,6 +1523,26 @@ if (isMain) {
         } catch (e) {
           console.error(
             `update failed to restore advanced-ruleset.py: ${
+              e instanceof Error ? e.message : String(e)
+            }`
+          );
+          process.exit(1);
+        }
+      }
+      if (previousCfg !== null) {
+        try {
+          const freshCfg = existsSync(cfgPath)
+            ? readFileSync(cfgPath)
+            : null;
+          if (freshCfg === null || !previousCfg.equals(freshCfg)) {
+            writeFileSync(cfgPath, previousCfg);
+            console.log(
+              `restored user ${CONFIG_FILENAME} (package update never overwrites user edits)`
+            );
+          }
+        } catch (e) {
+          console.error(
+            `update failed to restore ${CONFIG_FILENAME}: ${
               e instanceof Error ? e.message : String(e)
             }`
           );
