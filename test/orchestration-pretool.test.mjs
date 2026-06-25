@@ -14,6 +14,20 @@ import { join } from "node:path";
 
 import { touchAlive, LIVENESS_TTL_MS } from "../dist/orchestration/liveness.js";
 import { runClaudePreTool } from "../dist/orchestration/pretool.js";
+import {
+  slotPathForAgent,
+  writeSlotMetadata,
+  ZOMBIE_LIVE_IDLE_MS,
+} from "../dist/zombie.js";
+
+const ORIGINAL_SUBAGENT_SLOT_DIR = process.env.SUBAGENT_SLOT_DIR;
+const TEST_SUBAGENT_SLOT_DIR = mkdtempSync(join(tmpdir(), "orch-pretool-default-slots-"));
+process.env.SUBAGENT_SLOT_DIR = TEST_SUBAGENT_SLOT_DIR;
+process.on("exit", () => {
+  if (ORIGINAL_SUBAGENT_SLOT_DIR === undefined) delete process.env.SUBAGENT_SLOT_DIR;
+  else process.env.SUBAGENT_SLOT_DIR = ORIGINAL_SUBAGENT_SLOT_DIR;
+  rmSync(TEST_SUBAGENT_SLOT_DIR, { recursive: true, force: true });
+});
 
 let passed = 0;
 let failed = 0;
@@ -44,6 +58,18 @@ function cleanup(p) {
   rmSync(p.cwd, { recursive: true, force: true });
 }
 
+function withSlotDir(fn) {
+  const previous = process.env.SUBAGENT_SLOT_DIR;
+  const dir = mkdtempSync(join(tmpdir(), "orch-pretool-slots-"));
+  process.env.SUBAGENT_SLOT_DIR = dir;
+  try {
+    return fn(dir);
+  } finally {
+    process.env.SUBAGENT_SLOT_DIR = previous;
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 test("liveness missing/stale -> fail open", () => {
   const p = payload("Task");
   try {
@@ -68,6 +94,29 @@ test("native Task/Agent/Explore tools are denied while server is alive", () => {
   }
 });
 
+test("native denial remains valid JSON and carries zombie context when culled", () => {
+  touchAlive();
+  const p = payload("Task");
+  try {
+    withSlotDir((slotDir) => {
+      writeSlotMetadata(slotPathForAgent(slotDir, "agent-pretool"), {
+        agent_id: "agent-pretool",
+        server_pid: 123,
+        child_pid: process.pid,
+        last_activity_ms: Date.now() - ZOMBIE_LIVE_IDLE_MS - 1000,
+        status: "processing",
+      });
+      const result = runClaudePreTool(p, {});
+      assert.equal(result?.hookSpecificOutput.permissionDecision, "deny");
+      assert.equal(result?.hookSpecificOutput.additionalContext, "zombies: agent-pretool");
+      assert.doesNotThrow(() => JSON.parse(JSON.stringify(result)),
+        "PreToolUse output must remain JSON-serializable");
+    });
+  } finally {
+    cleanup(p);
+  }
+});
+
 test("ordinary tools are never blocked or counted (no 5-call rule)", () => {
   touchAlive();
   const p = payload("Bash");
@@ -75,6 +124,59 @@ test("ordinary tools are never blocked or counted (no 5-call rule)", () => {
     for (let i = 0; i < 12; i++) {
       assert.equal(runClaudePreTool(p, {}), null, `call ${i + 1} stays allowed`);
     }
+  } finally {
+    cleanup(p);
+  }
+});
+
+test("ordinary allowed tools return hook-visible zombie context when culled", () => {
+  touchAlive();
+  const p = payload("Bash");
+  try {
+    withSlotDir((slotDir) => {
+      writeSlotMetadata(slotPathForAgent(slotDir, "agent-pretool-allowed"), {
+        agent_id: "agent-pretool-allowed",
+        server_pid: 123,
+        child_pid: process.pid,
+        last_activity_ms: Date.now() - ZOMBIE_LIVE_IDLE_MS - 1000,
+        status: "processing",
+      });
+      const result = runClaudePreTool(p, {});
+      assert.equal(result?.hookSpecificOutput.permissionDecision, "allow");
+      assert.equal(result?.hookSpecificOutput.additionalContext, "zombies: agent-pretool-allowed");
+      assert.doesNotThrow(() => JSON.parse(JSON.stringify(result)),
+        "allowed PreToolUse zombie output must remain JSON-serializable");
+    });
+  } finally {
+    cleanup(p);
+  }
+});
+
+test("fail-open liveness path still reports zombie context when culled", () => {
+  const p = payload("Task");
+  try {
+    withSlotDir((slotDir) => {
+      writeSlotMetadata(slotPathForAgent(slotDir, "agent-pretool-liveness"), {
+        agent_id: "agent-pretool-liveness",
+        server_pid: 123,
+        child_pid: process.pid,
+        last_activity_ms: Date.now() - ZOMBIE_LIVE_IDLE_MS - 1000,
+        status: "processing",
+      });
+      const result = runClaudePreTool(p, {}, Date.now() + LIVENESS_TTL_MS + 1);
+      assert.equal(result?.hookSpecificOutput.permissionDecision, "allow");
+      assert.equal(result?.hookSpecificOutput.additionalContext, "zombies: agent-pretool-liveness");
+    });
+  } finally {
+    cleanup(p);
+  }
+});
+
+test("ordinary allowed tools still return null when no zombies are culled", () => {
+  touchAlive();
+  const p = payload("Bash");
+  try {
+    assert.equal(runClaudePreTool(p, {}), null);
   } finally {
     cleanup(p);
   }

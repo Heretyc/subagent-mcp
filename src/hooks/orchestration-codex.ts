@@ -3,8 +3,10 @@ import { pathToFileURL } from "node:url";
 
 import {
   claimAndEmit,
+  appendHookZombieReport,
   classifyClaim,
   countJsonlType,
+  cullHookZombies,
   runHook,
   sessionKey,
   type HookPayload,
@@ -102,9 +104,14 @@ export function runCodexHook(
 ): string {
   try {
     if (payload.hook_event_name === "SessionStart") {
-      if (adapter.isSubagent(payload, env)) return "";
+      const zombieRecords = cullHookZombies();
+      if (adapter.isSubagent(payload, env)) {
+        return appendHookZombieReport("", zombieRecords);
+      }
       const cwd = payload.cwd || process.cwd();
-      if (!marker.isActive(cwd)) return "";
+      if (!marker.isActive(cwd)) {
+        return appendHookZombieReport("", zombieRecords);
+      }
 
       const current = sessionKey(payload);
       const turn = adapter.currentTurn(payload.transcript_path);
@@ -115,7 +122,10 @@ export function runCodexHook(
       // semantics — FULL + ON reminder, ack-latched CARRYOVER prepend, counter
       // re-baseline). SessionStart claims even on SAME-SESSION (resume) so
       // turn 0 is always covered.
-      return claimAndEmit(cwd, current, turn, m, kind, env, adapter);
+      return appendHookZombieReport(
+        claimAndEmit(cwd, current, turn, m, kind, env, adapter),
+        zombieRecords
+      );
     }
     // UserPromptSubmit (and any other event) -> normal cadence.
     return runHook(payload, env, adapter);

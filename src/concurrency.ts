@@ -4,6 +4,21 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CONCURRENCY_SCAFFOLD } from "./config-scaffold.js";
+import {
+  cullStaleSlots,
+  ZOMBIE_FORCE_GRACE_MS,
+  ZOMBIE_LIVE_IDLE_MS,
+  ZOMBIE_TERMINAL_IDLE_MS,
+  buildProcessTreeKillCommands,
+  drainZombieIntents,
+  drainZombieReports,
+  parseSlotMetadata,
+  readSlotMetadata,
+  slotPathForAgent,
+  writeSlotMetadata,
+  type CullDeps,
+  type ZombieRecord,
+} from "./zombie.js";
 
 export const DEFAULT_CAP: number = 20;
 export const MIN_CAP: number = 10;
@@ -23,6 +38,22 @@ export interface RejectedSlot {
 }
 
 export type SlotReservation = ReservedSlot | RejectedSlot;
+
+export {
+  cullStaleSlots,
+  ZOMBIE_FORCE_GRACE_MS,
+  ZOMBIE_LIVE_IDLE_MS,
+  ZOMBIE_TERMINAL_IDLE_MS,
+  buildProcessTreeKillCommands,
+  drainZombieIntents,
+  drainZombieReports,
+  parseSlotMetadata,
+  readSlotMetadata,
+  slotPathForAgent,
+  writeSlotMetadata,
+  type CullDeps,
+  type ZombieRecord,
+};
 
 export function clampCap(raw: unknown): number {
   if (!Number.isInteger(raw)) return DEFAULT_CAP;
@@ -67,6 +98,7 @@ export function readGlobalCap(path: string = defaultConfigPath()): number {
 }
 
 export function slotDir(): string {
+  if (process.env.SUBAGENT_SLOT_DIR) return process.env.SUBAGENT_SLOT_DIR;
   if (platform() === "win32") {
     return join(
       process.env.ProgramData || process.env.ALLUSERSPROFILE || "C:\\ProgramData",
@@ -85,15 +117,26 @@ export function countSlots(dir: string = slotDir()): number {
   }
 }
 
-export function reserveSlot(agentId: string, max: number, dir: string = slotDir()): SlotReservation {
+export function scheduleForceKill(ms: number, kill: () => void): void {
+  const timer = setTimeout(kill, ms);
+  timer.unref();
+}
+
+export const NONBLOCKING_CULL_DEPS: CullDeps = {
+  scheduleForceKill,
+};
+
+export function reserveSlot(
+  agentId: string,
+  max: number,
+  dir: string = slotDir(),
+  cullDeps?: CullDeps
+): SlotReservation {
   try {
     mkdirSync(dir, { recursive: true, mode: 0o1777 });
-    const slotPath = join(dir, `slot-${agentId}.json`);
-    writeFileSync(
-      slotPath,
-      JSON.stringify({ pid: process.pid, cwd: process.cwd(), startedAt: new Date().toISOString() }),
-      { mode: 0o600 }
-    );
+    cullStaleSlots(dir, cullDeps);
+    const slotPath = slotPathForAgent(dir, agentId);
+    writeSlotMetadata(slotPath, { agent_id: agentId });
     const n = countSlots(dir);
     if (n > max) {
       try {

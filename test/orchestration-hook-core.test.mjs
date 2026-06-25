@@ -32,7 +32,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { runHook, REMINDER_PERIOD } from "../dist/orchestration/hook-core.js";
+import { cullHookZombies, runHook, REMINDER_PERIOD } from "../dist/orchestration/hook-core.js";
 import {
   enable,
   disable,
@@ -45,6 +45,21 @@ import {
   readReminder,
   reminderPath,
 } from "../dist/orchestration/reminder.js";
+import {
+  drainZombieReports,
+  slotPathForAgent,
+  writeSlotMetadata,
+  ZOMBIE_LIVE_IDLE_MS,
+} from "../dist/zombie.js";
+
+const ORIGINAL_SUBAGENT_SLOT_DIR = process.env.SUBAGENT_SLOT_DIR;
+const TEST_SUBAGENT_SLOT_DIR = mkdtempSync(join(tmpdir(), "orch-hook-default-slots-"));
+process.env.SUBAGENT_SLOT_DIR = TEST_SUBAGENT_SLOT_DIR;
+process.on("exit", () => {
+  if (ORIGINAL_SUBAGENT_SLOT_DIR === undefined) delete process.env.SUBAGENT_SLOT_DIR;
+  else process.env.SUBAGENT_SLOT_DIR = ORIGINAL_SUBAGENT_SLOT_DIR;
+  rmSync(TEST_SUBAGENT_SLOT_DIR, { recursive: true, force: true });
+});
 
 let passed = 0;
 let failed = 0;
@@ -113,6 +128,19 @@ function cleanup(cwd, root) {
   rmSync(reminderPath(cwd), { force: true });
   rmSync(cwd, { recursive: true, force: true });
   rmSync(root, { recursive: true, force: true });
+}
+
+function withSlotDir(fn) {
+  const previous = process.env.SUBAGENT_SLOT_DIR;
+  const dir = mkdtempSync(join(tmpdir(), "orch-hook-slots-"));
+  process.env.SUBAGENT_SLOT_DIR = dir;
+  try {
+    return fn(dir);
+  } finally {
+    if (previous === undefined) delete process.env.SUBAGENT_SLOT_DIR;
+    else process.env.SUBAGENT_SLOT_DIR = previous;
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -409,6 +437,70 @@ test("missing OFF reminder asset -> '' on the LONG OFF prompt (fail-safe)", () =
   } finally {
     cleanup(cwd, root);
   }
+});
+
+test("hook culls stale slots, reports zombies once, and preserves server report", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  try {
+    withSlotDir((slotDir) => {
+      const agentId = "agent-hook";
+      writeSlotMetadata(slotPathForAgent(slotDir, agentId), {
+        agent_id: agentId,
+        server_pid: 123,
+        child_pid: process.pid,
+        last_activity_ms: Date.now() - ZOMBIE_LIVE_IDLE_MS - 1000,
+        status: "processing",
+      });
+      const session = `s-hook-zombie:${cwd}`;
+      writeDisable(session);
+      const payload = { cwd, session_id: session, transcript_path: undefined };
+      const first = runHook(payload, env, makeAdapter());
+      assert.match(first, /SHORT-OFF-RULE-CARRIER/);
+      assert.match(first, /zombies: agent-hook/);
+
+      const second = runHook(payload, env, makeAdapter());
+      assert.doesNotMatch(second, /zombies: agent-hook/,
+        "a second hook with no stale slot must not duplicate the hook report");
+
+      const reports = drainZombieReports(slotDir);
+      assert.equal(reports.length, 1,
+        "hook must leave the server-side report for the next MCP response");
+      assert.equal(reports[0].agent_id, agentId);
+    });
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("hook culler blocks through force-after-grace instead of unref scheduling", () => {
+  withSlotDir((slotDir) => {
+    const now = 10_000_000;
+    const calls = [];
+    const sleeps = [];
+    const agentId = "agent-hook-blocking";
+    writeSlotMetadata(slotPathForAgent(slotDir, agentId), {
+      agent_id: agentId,
+      server_pid: 123,
+      child_pid: 424242,
+      last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+      status: "processing",
+    });
+    const records = cullHookZombies({
+      now: () => now,
+      platform: "win32",
+      forceGraceMs: () => 7,
+      runCommand: (command, args) => calls.push({ command, args }),
+      sleepMs: (ms) => sleeps.push(ms),
+    });
+    assert.equal(records.length, 1);
+    assert.equal(records[0].agent_id, agentId);
+    assert.deepEqual(sleeps, [7]);
+    assert.deepEqual(calls, [
+      { command: "taskkill", args: ["/PID", "424242", "/T"] },
+      { command: "taskkill", args: ["/PID", "424242", "/T", "/F"] },
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------

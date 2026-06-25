@@ -28,11 +28,12 @@ Launch time is the **initial heartbeat**: a freshly spawned agent starts with
 | `finished` | Current turn completed, or driver exited 0 | reportable; may still be alive |
 | `stopped` | Terminated by `kill_agent` | yes |
 | `errored` | Non-zero exit | yes |
+| `zombie_killed` | Stale live or terminal-but-alive process tree culled by tool/hook maintenance | yes |
 
 `alive === true` for `processing`/`stalled`, and also for `finished` when the
 driver remains open (`exitCode === null`). A turn-finished but alive agent can
 accept `send_message`, which moves it back to `processing` for the next turn.
-`stopped`/`errored` are closed terminal states.
+`stopped`/`errored`/`zombie_killed` are closed terminal states.
 
 The per-provider concurrency cap (max 5, see
 [SPEC.md](../SPEC.md#concurrency-model)) counts only `processing` agents. A
@@ -61,8 +62,11 @@ exported as `HEARTBEAT_TIMEOUT_MS = 600000` (10 minutes). Its order is:
    `turn/completed` for Codex app-server) set `finished` in the stdout handler.
 
 `setInterval` every 10,000 ms folds each live agent's `process.exitCode` into
-`AgentState` and applies the helper. `poll_agent` and `list_agents`
-additionally run the same reconcile synchronously before returning, eliminating
-the up-to-10s lag for already-closed drivers. Stalled does not by itself end a
-`wait`; `wait` returns on unreported `finished`, `errored`, or `stopped` states.
-`stalled` agents are never auto-killed; prefer `wait`/re-poll over `kill_agent`.
+`AgentState` and applies the helper. Tool handlers also run zombie maintenance:
+live agents idle for more than 6 minutes and terminal-but-alive agents idle for
+more than 30 seconds are marked `zombie_killed`; stale live process trees are
+gracefully terminated, then force-killed after 20 seconds. `poll_agent` and
+`list_agents` reconcile synchronously before returning, eliminating the
+up-to-10s lag for already-closed drivers. Stalled does not by itself end a
+`wait`; `wait` returns on unreported `finished`, `errored`, `stopped`, or
+`zombie_killed` states.
