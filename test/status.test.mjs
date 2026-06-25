@@ -213,6 +213,12 @@ test("buildLivenessFields: stopped has alive=false and no hint", () => {
   assert.equal(f.hint, undefined);
 });
 
+test("buildLivenessFields: zombie_killed has alive=false and no hint", () => {
+  const f = buildLivenessFields("zombie_killed", -1, NOW - 1000, NOW);
+  assert.equal(f.alive, false);
+  assert.equal(f.hint, undefined);
+});
+
 test("buildLivenessFields: alive is false if exitCode set even on live label", () => {
   // Defensive: status reconcile runs first, but exitCode is the source of truth.
   const f = buildLivenessFields("processing", 0, NOW, NOW);

@@ -8,7 +8,7 @@ this page records what each release changes for operators.
 
 ---
 
-## v2.10.0
+## v2.10.1
 
 ### Global concurrent-subagent cap
 
@@ -23,9 +23,10 @@ killed.
 - The config has no environment-variable override, is re-read on every
   `launch_agent` call, and is retained across installs / updates like the
   advanced routing directives file.
-- At cap, `launch_agent` is rejected immediately, never queued. Operators free
-  slots manually with `list_agents` + `kill_agent`; there is no automatic
-  cleanup or zombie reaping.
+- Before cap rejection, launch/tool/hook paths cull zombie agents by default:
+  stale live agents after 6 minutes idle, terminal-but-alive agents after 30
+  seconds, with graceful process-tree termination then force after 20 seconds.
+  Tool and hook reports include `zombies` when cleanup occurs.
 - Adds unit coverage for config validation, template parsing, cap rejection,
   slot reservation, and idempotent release.
 

@@ -46,7 +46,7 @@ test("formatLocalIso zone name is non-empty string in parens", () => {
 
 // --- selectUnreported tests ---
 // Invariant: agent is reportable ONLY when terminal AND exitedAt !== null AND !waitReported
-// Terminal = finished | errored | stopped. Live (processing | stalled) is never reportable.
+// Terminal = finished | errored | stopped | zombie_killed. Live (processing | stalled) is never reportable.
 
 function makeAgent(id, status, waitReported, exitedAt = null) {
   return { id, status, waitReported, exitedAt };
@@ -73,6 +73,13 @@ test("selectUnreported: finished+exitedAt set -> selected", () => {
   const result = selectUnreported(agents);
   assert.equal(result.length, 1, "finished+exitedAt set must be selected");
   assert.equal(result[0].id, "b");
+});
+
+test("selectUnreported: zombie_killed+exitedAt set -> selected", () => {
+  const agents = [makeAgent("z", "zombie_killed", false, Date.now())];
+  const result = selectUnreported(agents);
+  assert.equal(result.length, 1, "zombie_killed+exitedAt set must be selected");
+  assert.equal(result[0].id, "z");
 });
 
 // finished with exitedAt=null → NOT selected
@@ -127,6 +134,7 @@ test("selectUnreported: full mixed set - only terminal+exitedAt+!reported", () =
     makeAgent("b", "finished",   false, now),     // yes
     makeAgent("c", "errored",    false, now),     // yes
     makeAgent("d", "stopped",    false, now),     // yes
+    makeAgent("z", "zombie_killed", false, now),   // yes
     makeAgent("e", "stalled",    false, now),     // no (live, not terminal)
     makeAgent("f", "finished",   true,  now),     // no (reported)
     makeAgent("g", "errored",    true,  now),     // no (reported)
@@ -136,7 +144,7 @@ test("selectUnreported: full mixed set - only terminal+exitedAt+!reported", () =
   ];
   const result = selectUnreported(agents);
   const ids = result.map((a) => a.id).sort();
-  assert.deepEqual(ids, ["b", "c", "d"], `Expected [b,c,d] got [${ids}]`);
+  assert.deepEqual(ids, ["b", "c", "d", "z"], `Expected [b,c,d,z] got [${ids}]`);
 });
 
 // empty input

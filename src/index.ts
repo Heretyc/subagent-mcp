@@ -45,11 +45,22 @@ import {
 } from "./ruleset.js";
 import {
   CONFIG_FILENAME,
+  NONBLOCKING_CULL_DEPS,
+  ZOMBIE_FORCE_GRACE_MS,
+  ZOMBIE_LIVE_IDLE_MS,
+  ZOMBIE_TERMINAL_IDLE_MS,
+  buildProcessTreeKillCommands,
+  drainZombieIntents,
+  drainZombieReports,
   defaultConfigPath,
   globalCapMessage,
+  readSlotMetadata,
   readGlobalCap,
   releaseSlot,
   reserveSlot,
+  slotDir,
+  writeSlotMetadata,
+  type ZombieRecord,
 } from "./concurrency.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
@@ -134,6 +145,201 @@ const TASK_CATEGORY_GLOSS =
 
 function errorResult(text: string) {
   return { content: [{ type: "text" as const, text }], isError: true };
+}
+
+function envDuration(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function zombieLiveIdleMs(): number {
+  return envDuration("SUBAGENT_ZOMBIE_LIVE_IDLE_MS", ZOMBIE_LIVE_IDLE_MS);
+}
+
+function zombieTerminalIdleMs(): number {
+  return envDuration("SUBAGENT_ZOMBIE_TERMINAL_IDLE_MS", ZOMBIE_TERMINAL_IDLE_MS);
+}
+
+function zombieForceGraceMs(): number {
+  return envDuration("SUBAGENT_ZOMBIE_FORCE_GRACE_MS", ZOMBIE_FORCE_GRACE_MS);
+}
+
+function zombieReport(records: ZombieRecord[]): string | undefined {
+  const ids = Array.from(new Set(records.map((r) => r.agent_id))).filter(Boolean);
+  return ids.length > 0 ? `zombies: ${ids.join(",")}` : undefined;
+}
+
+function withZombieReport<T extends { content?: { type: string; text: string }[] }>(
+  result: T,
+  records: ZombieRecord[]
+): T {
+  const report = zombieReport(records);
+  if (!report || !result.content?.[0] || result.content[0].type !== "text") return result;
+  const text = result.content[0].text;
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      parsed.zombie_report = report;
+      result.content[0].text = JSON.stringify(parsed, null, text.includes("\n") ? 2 : undefined);
+      return result;
+    }
+  } catch {}
+  result.content[0].text = `${text}\n${report}`;
+  return result;
+}
+
+function updateSlotMetadata(agent: AgentState): void {
+  if (!agent.slotPath) return;
+  writeSlotMetadata(agent.slotPath, {
+    agent_id: agent.id,
+    server_pid: process.pid,
+    child_pid: agent.process.pid ?? null,
+    cwd: agent.cwd,
+    started_at: new Date(agent.startedAt).toISOString(),
+    started_at_ms: agent.startedAt,
+    last_activity_ms: agent.lastActivity,
+    status: agent.status,
+  });
+}
+
+function spawnProcessTreeKill(pid: number, force: boolean): void {
+  const commands = buildProcessTreeKillCommands(pid);
+  const command = force ? commands.force : commands.graceful;
+  try {
+    const child = spawn(command.command, command.args, {
+      stdio: "ignore",
+      windowsHide: true,
+      detached: false,
+    });
+    child.unref();
+  } catch {}
+}
+
+function scheduleZombieForceKill(agent: AgentState): void {
+  const pid = agent.process.pid;
+  if (!pid || agent.driver.closed) return;
+  const timer = setTimeout(() => {
+    if (!agent.driver.closed && agent.status === "zombie_killed") {
+      try {
+        agent.driver.kill();
+      } catch {}
+      spawnProcessTreeKill(pid, true);
+    }
+  }, zombieForceGraceMs());
+  timer.unref();
+}
+
+function markZombieKilled(
+  agent: AgentState,
+  reason: "stale_live" | "terminal_but_alive",
+  now: number
+): ZombieRecord {
+  agent.status = "zombie_killed";
+  agent.exitCode = agent.exitCode ?? -1;
+  agent.exitedAt = agent.exitedAt ?? now;
+  agent.waitReported = false;
+  releaseSlot(agent.slotPath ?? null);
+  const slotPath = agent.slotPath ?? "";
+  agent.slotPath = null;
+  const pid = agent.process.pid ?? null;
+  const record: ZombieRecord = {
+    kind: "zombie_killed",
+    agent_id: agent.id,
+    child_pid: pid,
+    server_pid: process.pid,
+    slot_path: slotPath,
+    reason,
+    detected_at_ms: now,
+    last_activity_ms: agent.lastActivity,
+    message: `zombies: culled ${agent.id}`,
+  };
+  if (pid && !agent.driver.closed) {
+    if (reason === "terminal_but_alive") {
+      try {
+        agent.driver.kill();
+      } catch {}
+      spawnProcessTreeKill(pid, true);
+    } else {
+      spawnProcessTreeKill(pid, false);
+      scheduleZombieForceKill(agent);
+    }
+  }
+  return record;
+}
+
+function applyZombieRecord(record: ZombieRecord, now: number): ZombieRecord | null {
+  const agent = agents.get(record.agent_id);
+  if (!agent || agent.status === "zombie_killed") return null;
+  agent.status = "zombie_killed";
+  agent.exitCode = agent.exitCode ?? -1;
+  agent.exitedAt = agent.exitedAt ?? now;
+  agent.waitReported = false;
+  releaseSlot(agent.slotPath ?? null);
+  agent.slotPath = null;
+  try {
+    if (!agent.driver.closed) agent.driver.kill();
+  } catch {}
+  return { ...record, detected_at_ms: record.detected_at_ms || now };
+}
+
+function runToolMaintenance(): ZombieRecord[] {
+  const now = Date.now();
+  const records: ZombieRecord[] = [];
+  const applied = new Set<string>();
+
+  for (const record of [...drainZombieIntents(slotDir()), ...drainZombieReports(slotDir())]) {
+    if (applied.has(record.agent_id)) continue;
+    const appliedRecord = applyZombieRecord(record, now);
+    if (appliedRecord) {
+      records.push(appliedRecord);
+      applied.add(record.agent_id);
+    }
+  }
+
+  for (const agent of agents.values()) {
+    if (agent.status === "zombie_killed") continue;
+    reconcileAgent(agent, now);
+    const slotMeta = agent.slotPath ? readSlotMetadata(agent.slotPath) : null;
+    if (slotMeta?.last_activity_ms !== null && slotMeta?.last_activity_ms !== undefined) {
+      agent.lastActivity = Math.min(agent.lastActivity, slotMeta.last_activity_ms);
+    }
+    const live = agent.status === "processing" || agent.status === "stalled";
+    if (live && now - agent.lastActivity > zombieLiveIdleMs()) {
+      const record = markZombieKilled(agent, "stale_live", now);
+      records.push(record);
+      applied.add(agent.id);
+      continue;
+    }
+    const terminalButAlive =
+      (agent.status === "finished" || agent.status === "errored" || agent.status === "stopped") &&
+      !agent.driver.closed &&
+      agent.exitedAt !== null &&
+      now - agent.exitedAt > zombieTerminalIdleMs();
+    if (terminalButAlive) {
+      const record = markZombieKilled(agent, "terminal_but_alive", now);
+      records.push(record);
+      applied.add(agent.id);
+      continue;
+    }
+    updateSlotMetadata(agent);
+  }
+
+  return records;
+}
+
+function withMaintenance<P>(
+  handler: (params: P, zombieRecords: ZombieRecord[]) => Promise<any> | any
+): any {
+  return async (params: P) => {
+    const zombieRecords = runToolMaintenance();
+    const result = await handler(params, zombieRecords);
+    if (result && typeof result === "object" && "content" in result) {
+      return withZombieReport(result as { content?: { type: string; text: string }[] }, zombieRecords);
+    }
+    return result;
+  };
 }
 
 export function classifyFailureReason(reason: string, stderr: string): FailureType {
@@ -244,7 +450,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.10.0",
+    version: "2.10.1",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions. Claude uses the Claude Agent SDK over the local Claude Code executable; Codex uses `codex app-server` over stdio. The server does not call Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -443,6 +649,7 @@ async function tryLaunchCandidate(
         // Heartbeat refreshes only on parsed visible provider stream items,
         // not on raw stdout bytes.
         agentState.lastActivity = at;
+        updateSlotMetadata(agentState);
         agentState.visibleStream = retainLastN(
           agentState.visibleStream,
           items.map((it) => ({ ...it, at })),
@@ -503,6 +710,11 @@ async function tryLaunchCandidate(
 
     // Always record actual close time (unless already finalized)
     if (agentState.exitedAt === null) agentState.exitedAt = Date.now();
+
+    if (agentState.status === "zombie_killed") {
+      if (agentState.exitCode === null) agentState.exitCode = code !== null ? code : -1;
+      return;
+    }
 
     if (agentState.status === "stopped") {
       // Record real exit code but preserve "stopped" status
@@ -649,7 +861,7 @@ server.tool(
     cwd: z.string().optional(),
     deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const { task_category, provider, model, effort, deadlock } = params;
     // D19/D20/S8: server silently upserts the parent-process marker as the TRUE
     // first line of every sub-agent prompt (idempotent; never duplicates; never
@@ -769,7 +981,7 @@ server.tool(
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
     const cap = readGlobalCap();
     const reservationId = randomUUID();
-    const reservation = reserveSlot(reservationId, cap);
+    const reservation = reserveSlot(reservationId, cap, slotDir(), NONBLOCKING_CULL_DEPS);
     if (!reservation.ok) {
       return errorResult(globalCapMessage(reservation.current, cap, defaultConfigPath()));
     }
@@ -800,6 +1012,7 @@ server.tool(
           const registeredAgent = agents.get(outcome.agentId);
           if (registeredAgent) {
             registeredAgent.slotPath = reservation.slotPath;
+            updateSlotMetadata(registeredAgent);
             // The child can reach a terminal state DURING tryLaunchCandidate's
             // awaits — before slotPath was set — so its close handler ran
             // releaseSlot(undefined) (a no-op) and left the slot leaked. Detect
@@ -888,7 +1101,7 @@ server.tool(
     return errorResult(
       `Error: all ${skipped.length} candidate launches failed for task_category ${task_category}:\n${lines}\n${SPLIT_HINT}\n${AUTO_HINT}`
     );
-  }
+  })
 );
 
 // Tool 2: poll_agent
@@ -899,7 +1112,7 @@ server.tool(
     agent_id: z.string(),
     verbose: z.boolean().optional().default(false),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const agent = agents.get(params.agent_id);
     if (!agent) {
       return {
@@ -975,7 +1188,7 @@ server.tool(
         },
       ],
     };
-  }
+  })
 );
 
 // Tool 3: kill_agent
@@ -985,7 +1198,7 @@ server.tool(
   {
     agent_id: z.string(),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const agent = agents.get(params.agent_id);
     if (!agent) {
       return {
@@ -1063,7 +1276,7 @@ server.tool(
         isError: true,
       };
     }
-  }
+  })
 );
 
 // Tool 4: send_message
@@ -1074,7 +1287,7 @@ server.tool(
     agent_id: z.string(),
     message: z.string().min(1),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const agent = agents.get(params.agent_id);
     if (!agent) {
       return {
@@ -1112,6 +1325,7 @@ server.tool(
       agent.waitReported = false;
       agent.turnCompleted = false;
       agent.lastActivity = now;
+      updateSlotMetadata(agent);
       return {
         content: [
           {
@@ -1137,7 +1351,7 @@ server.tool(
         isError: true,
       };
     }
-  }
+  })
 );
 
 // Tool 5: list_agents
@@ -1145,7 +1359,7 @@ server.tool(
   "list_agents",
   "List all agents with token-efficient core metrics (status, `alive`, `idle_seconds`). `stalled` is ALIVE-but-quiet, NOT dead (full status semantics on poll_agent). Use `poll_agent` for per-agent stream items, hints, and final output.",
   {},
-  async () => {
+  withMaintenance(async () => {
     const now = Date.now();
     const agentList = Array.from(agents.values()).map((agent) => {
       // Reconcile exit synchronously so already-exited processes are reported
@@ -1179,17 +1393,17 @@ server.tool(
         },
       ],
     };
-  }
+  })
 );
 
 // Tool 6: wait
 server.tool(
   "wait",
-  "Blocks until one or more sub-agents reach a reportable state (turn-finished, errored, or stopped), returning exit code when known + local-time timestamp; or returns the live-job list after a 15-minute timeout. A `finished` agent can still be alive and accept `send_message` when exit_code is null. A `stalled` agent is still ALIVE and does NOT end the wait. Pass `verbose: true` to add each finished agent's `final_output`.",
+  "Blocks until one or more sub-agents reach a reportable state (turn-finished, errored, stopped, or zombie_killed), returning exit code when known + local-time timestamp; or returns the live-job list after a 15-minute timeout. A `finished` agent can still be alive and accept `send_message` when exit_code is null. A `stalled` agent is still ALIVE and does NOT end the wait. Pass `verbose: true` to add each finished agent's `final_output`.",
   {
     verbose: z.boolean().optional().default(false),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const { verbose } = params;
     const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
     const TIMEOUT_MS = 15 * 60 * 1000;
@@ -1232,7 +1446,7 @@ server.tool(
 
     // Step 2: nothing alive and nothing unreported (includes stopped-but-not-yet-closed).
     // `stalled` is a LIVE state — it keeps the wait pending, it never ends it.
-    const TERMINAL_SET = new Set(["finished", "errored", "stopped"]);
+    const TERMINAL_SET = new Set(["finished", "errored", "stopped", "zombie_killed"]);
     const hasPending = Array.from(agents.values()).some(
       (a) =>
         a.status === "processing" ||
@@ -1276,7 +1490,7 @@ server.tool(
     return {
       content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
     };
-  }
+  })
 );
 
 // Tool 7: orchestration-mode
@@ -1286,7 +1500,7 @@ server.tool(
   {
     enabled: z.boolean().optional(),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const cwd = process.cwd();
     const key = orchestrationMarker.readCurrentSession(cwd);
     if (params.enabled === true) {
@@ -1334,7 +1548,7 @@ server.tool(
         },
       ],
     };
-  }
+  })
 );
 
 // Tool 8: model-selection-mode
@@ -1344,7 +1558,7 @@ server.tool(
   {
     mode: z.enum(["smart", "user-approved-overrides"]).optional(),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const cwd = process.cwd();
     if (params.mode) modelMode.setMode(cwd, params.mode);
     const r = modelMode.resolveMode(cwd);
@@ -1365,7 +1579,7 @@ server.tool(
         },
       ],
     };
-  }
+  })
 );
 
 // Connect the stdio transport only when run as the entry point (the bin), NOT

@@ -7,8 +7,6 @@
 
 MCP server that launches and manages always-interactive Claude Code and Codex sub-agent sessions — on macOS, Linux, and Windows. No direct API calls. No API keys.
 
----
-
 ## Install
 
 ### Prerequisites (runtime)
@@ -46,8 +44,6 @@ npm install -g @heretyc/subagent-mcp
 
 > **Note:** GitHub Packages requires authentication even for public packages. If you see `401 Unauthorized`, verify your PAT has the `read:packages` scope and has not expired. GitHub Packages does not render a README page — the live documentation appears on [npmjs.com](https://www.npmjs.com/package/@heretyc/subagent-mcp).
 
----
-
 ## Quick Start
 
 **1. Install** (see [Install](#install) above):
@@ -78,8 +74,6 @@ subagent-mcp init --global
 
 For manual wiring, Gemini CLI, Claude Desktop, and developer install from source, see [docs/registration.md](docs/registration.md).
 
----
-
 ## Features
 
 - Start Claude or Codex interactive sessions as managed sub-agents from any MCP host
@@ -91,8 +85,6 @@ For manual wiring, Gemini CLI, Claude Desktop, and developer install from source
 - stdio MCP transport; built with `@modelcontextprotocol/sdk` + `zod`
 - `orchestration-mode` tool — toggles orchestrator directives injected by bundled Claude Code / Codex hooks; Claude also gets a deterministic `PreToolUse` gate
 
----
-
 ## Orchestration Mode
 
 **ON:** the agent operates as an orchestrator — hook injection governs each session turn, preventing inline reads or writes, and all work is delegated through sub-agent tools.
@@ -101,11 +93,7 @@ For manual wiring, Gemini CLI, Claude Desktop, and developer install from source
 
 Toggle with the `orchestration-mode` tool. Desktop hosts toggle the mode but receive no hook injection. See [docs/spec/dev-loop/orchestration-directive-architecture.md](docs/spec/dev-loop/orchestration-directive-architecture.md) for full semantics.
 
----
-
 ## Auto Mode
-
-Pass `task_category` to `launch_agent` and the server picks the best provider, model, and effort for that category, with automatic fallback.
 
 `launch_agent` supports **auto mode**: pass `prompt` + `task_category` and the server picks the best provider/model/effort for that category from its routing table, silently falling back to the next-best candidate on any launch-time failure.
 
@@ -135,8 +123,6 @@ The last four are **composite-inferred**: they carry no dedicated benchmark and 
 
 **Atomic-split guidance:** if you are unsure which category fits, do NOT submit one large amorphous task. Break the work into smaller atomic steps each mapping to a single category and launch one agent per step.
 
----
-
 ## Configuration
 
 ### Global concurrent-subagent cap
@@ -147,9 +133,7 @@ The cap is configured in `global-concurrency.jsonc`, a dedicated dist-sibling fi
 
 Set `globalConcurrentSubagents` in that file. The default is `20`; the minimum valid value is `10`. Validation is forced: `0`, unset, missing, or invalid values reset to `20`, and values `1` through `9` are pinned up to `10`. There is no environment-variable override; the file is the sole source of truth. The file is re-read on every `launch_agent` call, so edits take effect on the next launch with no server restart.
 
-When the cap is reached, `launch_agent` is rejected immediately; it never queues. Because the count includes other active sessions and the entire descendant tree, free slots manually with `list_agents` and `kill_agent` before retrying. There is no automatic cleanup or zombie reaping.
-
----
+When the cap is reached, `launch_agent` is rejected immediately; it never queues. Before cap checks, hooks and tool calls run default zombie culling with no config knob: live agents idle for more than 6 minutes and terminal-but-alive agents idle for more than 30 seconds are terminated process-tree-first, then force-killed after 20 seconds if needed. Reports include `zombies`, and `poll_agent` keeps the tail with `zombie_killed` when culling terminates an agent.
 
 ## Tools
 
@@ -168,8 +152,6 @@ Eight tools are exposed over the stdio MCP transport.
 
 Full parameters, return shapes, and the `alive` / `idle_seconds` / `hint` / `recent_stream` fields are in [docs/tools.md](docs/tools.md).
 
----
-
 ## Agent Lifecycle
 
 Each agent transitions through these states:
@@ -184,8 +166,6 @@ Each agent transitions through these states:
 
 `processing` and `stalled` are live. `stalled` means the driver is alive but quiet (>= 10 min no visible stream); it recovers automatically and is never auto-killed — do not `kill_agent` a stalled agent. `wait` does not return on `stalled`. Full semantics: [docs/reference/status-lifecycle.md](docs/reference/status-lifecycle.md).
 
----
-
 ## Documentation
 
 | Document | Contents |
@@ -197,8 +177,6 @@ Each agent transitions through these states:
 | [docs/spec/interactive-drivers.md](docs/spec/interactive-drivers.md) | Always-interactive Claude/Codex driver model |
 | [docs/release-notes.md](docs/release-notes.md) | Operator-facing release notes |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor guide — dev environment, build, test, publish |
-
----
 
 ## License
 

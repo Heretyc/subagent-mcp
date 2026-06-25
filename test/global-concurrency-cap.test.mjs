@@ -8,8 +8,13 @@ import {
   clampCap,
   countSlots,
   parseConcurrencyConfig,
+  readSlotMetadata,
   releaseSlot,
   reserveSlot,
+  slotPathForAgent,
+  writeSlotMetadata,
+  ZOMBIE_FORCE_GRACE_MS,
+  ZOMBIE_LIVE_IDLE_MS,
 } from "../dist/concurrency.js";
 
 let passed = 0;
@@ -86,8 +91,49 @@ test("reserveSlot succeeds under cap and creates a new slot file", () => {
   const result = reserveSlot("y", max, dir);
   assert.equal(result.ok, true);
   assert.equal(existsSync(result.slotPath), true);
+  const metadata = readSlotMetadata(result.slotPath);
+  assert.equal(metadata.agent_id, "y");
+  assert.equal(metadata.server_pid, process.pid);
+  assert.equal(typeof metadata.last_activity_ms, "number");
   assert.equal(countSlots(dir), max);
   releaseFixture = { dir, slotPath: result.slotPath, max };
+});
+
+test("reserveSlot can cull stale slots without blocking for force grace", () => {
+  const dir = tmpSlotDir();
+  const max = 1;
+  const now = 1_000_000;
+  const calls = [];
+  const scheduled = [];
+  try {
+    mkdirSync(dir, { recursive: true });
+    const stale = slotPathForAgent(dir, "stale");
+    writeSlotMetadata(stale, {
+      agent_id: "stale",
+      child_pid: 1234,
+      started_at_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+      last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+    });
+    const result = reserveSlot("new", max, dir, {
+      now: () => now,
+      platform: "win32",
+      runCommand: (command, args) => calls.push({ command, args }),
+      sleepMs: () => assert.fail("reserveSlot server path must not block for force grace"),
+      scheduleForceKill: (ms, kill) => scheduled.push({ ms, kill }),
+    });
+    assert.equal(result.ok, true);
+    assert.equal(existsSync(stale), false);
+    assert.deepEqual(calls, [{ command: "taskkill", args: ["/PID", "1234", "/T"] }]);
+    assert.equal(scheduled.length, 1);
+    assert.equal(scheduled[0].ms, ZOMBIE_FORCE_GRACE_MS);
+    scheduled[0].kill();
+    assert.deepEqual(calls, [
+      { command: "taskkill", args: ["/PID", "1234", "/T"] },
+      { command: "taskkill", args: ["/PID", "1234", "/T", "/F"] },
+    ]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("releaseSlot drops the reserved slot count and is idempotent", () => {

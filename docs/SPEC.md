@@ -2,10 +2,7 @@
 
 <!-- Version is not pinned here; `package.json` "version" is the source of truth. -->
 
-
 **Author:** Lexi Blackburn | **License:** Apache-2.0 | **Repo:** https://github.com/Heretyc/subagent-mcp
-
----
 
 ## Non-Goals
 
@@ -43,14 +40,12 @@ All logs go to stderr; stdout carries only JSON-RPC messages.
 | Tool | Key params (zod) | Success return shape |
 |------|-----------------|----------------------|
 | `launch_agent` | `task_category` enum, `prompt` string, optional `provider`/`model`/`effort` overrides, `deadlock?` boolean, `cwd?` string | `{ agent_id, status, provider, model, effort, task_category }` |
-| `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream }` (+ `hint` when status is `stalled`; + `final_output` string when `verbose` is `true`) |
+| `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream, routing_tier }` (+ `hint` when stalled; + `final_output` when `verbose`; + `ruleset_applied`/`ruleset_original_selection` when ruleset altered routing; + `zombie_report`/`zombies` when culling) |
 | `kill_agent` | `agent_id` string | `{ agent_id, status, message }` (not-running is not an error) |
 | `send_message` | `agent_id` string, `message` string | `{ agent_id, status: "sent", message }` |
 | `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd_basename, alive, idle_seconds }] }` (token-efficient core metrics; no `hint`, no `verbose` arg, no tails or stream items -- use `poll_agent`) |
 
 stdout_tail: last 2000 chars. stderr_tail: last 1000 chars. `recent_stream`: last 3 parsed visible provider stream items, each timestamped. `alive`: true while the driver is open (`processing`, `stalled`, or turn-`finished` with `exitCode === null`). `idle_seconds`: `Math.floor((now - lastActivity) / 1000)` since the last visible-stream heartbeat. `poll_agent` and `list_agents` reconcile driver exit synchronously. Errors set `isError: true`; text begins with `"Error: "`.
-
----
 
 ## Effort Resolution and Ultracode Mechanism
 
@@ -147,11 +142,13 @@ normative interactive-only driver model.
 ## Status Lifecycle and Health Monitor
 
 The full status table (`processing`, `stalled`, `finished`, `errored`,
-`stopped`), the visible-stream heartbeat, the `alive`/`idle_seconds`/`hint`
+`stopped`, `zombie_killed`), the visible-stream heartbeat, the `alive`/`idle_seconds`/`hint`
 fields, the `computeStatusTransition` ordering, the `HEARTBEAT_TIMEOUT_MS = 600000`
 (10-minute) boundary, and synchronous exit reconciliation are documented in
 [reference/status-lifecycle.md](reference/status-lifecycle.md). `stalled` is a
-live, non-failure state; `processing` is the active live state.
+live, non-failure state; `processing` is the active live state. Tool and hook
+maintenance cull stale live agents after 6 minutes idle and terminal-but-alive
+agents after 30 seconds, reporting `zombies` / `zombie_report`.
 
 ---
 
@@ -188,7 +185,7 @@ All error responses set `isError: true` on the MCP content object.
 
 ## AgentState Structure
 
-`AgentState` fields: `id` (UUID), `provider`, `model` (alias), `status`, `process` (driver process facade), `driver` (provider driver), `stdout` (full string), `stderr` (full string), `exitCode`, `startedAt` (ms), `lastActivity` (ms, stamped by each visible-stream heartbeat), `cwd`, `recentStream` (last 3 parsed visible stream items with timestamps), `ucSettingsPath?` (temp file path, Claude ultracode only).
+`AgentState` fields: `id` (UUID), `provider`, `model` (alias), `status`, `process` (driver process facade), `driver` (provider driver), `stdout` (full string), `stderr` (full string), `exitCode`, `startedAt` (ms), `lastActivity` (ms, stamped by visible-stream heartbeat), `cwd`, `recentStream` (last 3 parsed stream items), `ucSettingsPath?` (Claude ultracode temp file), `slotPath?`, `exitedAt?`, `waitReported?`.
 
 ---
 
