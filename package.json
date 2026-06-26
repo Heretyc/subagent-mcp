@@ -33,6 +33,7 @@
   "scripts": {
     "check:versions": "node scripts/check_version_sync.mjs",
     "build": "npm run check:versions && node scripts/gen-ruleset-scaffold.mjs && tsc && node scripts/copy-provider.mjs",
+    "verify:npmjs-release": "node scripts/verify_npmjs_release.mjs",
     "start": "node dist/index.js",
     "postinstall": "node scripts/postinstall.mjs",
     "prepare": "npm run build",

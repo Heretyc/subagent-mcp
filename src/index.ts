@@ -1625,7 +1625,17 @@ if (isMain) {
   }
   if (arg === "update" || arg === "--update") {
     const pkg = readPkg();
-    const npmArgs = ["install", "-g", `${pkg.name}@latest`];
+    const scope = pkg.name.startsWith("@") ? pkg.name.split("/")[0] : null;
+    const npmjsRegistryArgs = [
+      "--registry=https://registry.npmjs.org",
+      ...(scope ? [`--${scope}:registry=https://registry.npmjs.org`] : []),
+    ];
+    const npmArgs = [
+      "install",
+      "-g",
+      ...npmjsRegistryArgs,
+      `${pkg.name}@latest`,
+    ];
     console.log(`subagent-mcp ${pkg.version} -> npm ${npmArgs.join(" ")}`);
     // npm on Windows is npm.cmd; spawning a .cmd without a shell fails
     // (EINVAL on modern Node). Resolve the underlying npm-cli.js and run it
