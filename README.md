@@ -29,6 +29,8 @@ npm install -g @heretyc/subagent-mcp
 
 **Use this path for all standard installs.**
 
+`subagent-mcp update` always refreshes from npmjs, even on machines whose `.npmrc` routes `@heretyc` packages through GitHub Packages.
+
 ### GitHub Packages (org-internal pin / supply-chain auditing)
 
 Use this path when your organization's `.npmrc` already routes the `@heretyc` scope through GitHub Packages, when you need supply-chain audit tracing against the org-internal artifact, or when you run inside a GitHub Actions workflow whose `GITHUB_TOKEN` carries `read:packages`. Otherwise prefer npmjs above — it is simpler and needs no credentials.
