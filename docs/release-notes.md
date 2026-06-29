@@ -8,6 +8,15 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.10.3
+
+### Silent launch zombie reaping
+
+- `launch_agent` still runs zombie maintenance before spawning, but no longer
+  returns a caller-facing `zombie_report` field.
+- Zombie cleanup remains visible through `poll_agent`, `list_agents`, and
+  `wait`, where culled agents report `zombie_killed` as before.
+
 ## v2.10.1
 
 ### Global concurrent-subagent cap
