@@ -330,11 +330,13 @@ function runToolMaintenance(): ZombieRecord[] {
 }
 
 function withMaintenance<P>(
-  handler: (params: P, zombieRecords: ZombieRecord[]) => Promise<any> | any
+  handler: (params: P, zombieRecords: ZombieRecord[]) => Promise<any> | any,
+  options: { omitZombieReport?: boolean } = {}
 ): any {
   return async (params: P) => {
     const zombieRecords = runToolMaintenance();
     const result = await handler(params, zombieRecords);
+    if (options.omitZombieReport) return result;
     if (result && typeof result === "object" && "content" in result) {
       return withZombieReport(result as { content?: { type: string; text: string }[] }, zombieRecords);
     }
@@ -450,7 +452,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.10.2",
+    version: "2.10.3",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -1101,7 +1103,7 @@ server.tool(
     return errorResult(
       `Error: all ${skipped.length} candidate launches failed for task_category ${task_category}:\n${lines}\n${SPLIT_HINT}\n${AUTO_HINT}`
     );
-  })
+  }, { omitZombieReport: true }) // ponytail: launch_agent still reaps, but callers do not receive zombie_report.
 );
 
 // Tool 2: poll_agent

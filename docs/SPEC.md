@@ -39,7 +39,7 @@ All logs go to stderr; stdout carries only JSON-RPC messages.
 
 | Tool | Key params (zod) | Success return shape |
 |------|-----------------|----------------------|
-| `launch_agent` | `task_category` enum, `prompt` string, optional `provider`/`model`/`effort` overrides, `deadlock?` boolean, `cwd?` string | `{ agent_id, status, provider, model, effort, task_category }` |
+| `launch_agent` | `task_category` enum, `prompt` string, optional `provider`/`model`/`effort` overrides, `deadlock?` boolean, `cwd?` string | `{ agent_id, status, provider, model, effort, task_category }`; runs zombie maintenance silently and omits `zombie_report` |
 | `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream, routing_tier }` (+ `hint` when stalled; + `final_output` when `verbose`; + `ruleset_applied`/`ruleset_original_selection` when ruleset altered routing; + `zombie_report`/`zombies` when culling) |
 | `kill_agent` | `agent_id` string | `{ agent_id, status, message }` (not-running is not an error) |
 | `send_message` | `agent_id` string, `message` string | `{ agent_id, status: "sent", message }` |
@@ -148,7 +148,9 @@ fields, the `computeStatusTransition` ordering, the `HEARTBEAT_TIMEOUT_MS = 6000
 [reference/status-lifecycle.md](reference/status-lifecycle.md). `stalled` is a
 live, non-failure state; `processing` is the active live state. Tool and hook
 maintenance cull stale live agents after 6 minutes idle and terminal-but-alive
-agents after 30 seconds, reporting `zombies` / `zombie_report`.
+agents after 30 seconds. `launch_agent` runs this silently without
+`zombie_report`; other tools still report `zombies` / `zombie_report`, and
+culled agents remain `zombie_killed` via `poll_agent`, `list_agents`, and `wait`.
 
 ---
 

@@ -538,6 +538,54 @@ await test("zombie culling: live idle agent is killed nonblocking and poll retai
   }
 });
 
+await test("zombie culling: launch_agent reaps silently and status remains visible", async () => {
+  const { tempRoot, workDir, env, slotDir } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: {
+      ...env,
+      MOCK_NO_TURN_COMPLETE: "1",
+      SUBAGENT_ZOMBIE_LIVE_IDLE_MS: "10000",
+      SUBAGENT_ZOMBIE_FORCE_GRACE_MS: "10",
+    },
+  });
+  try {
+    await session.initialize();
+    await enableManualSelection(session);
+    const { agentId } = await launchAndPoll(session, {
+      task_category: "coding",
+      provider: "codex",
+      model: "gpt-5.5",
+      prompt: "launch silent cull target",
+    });
+    await waitForPoll(
+      session,
+      agentId,
+      (payload) => payload.stdout_tail.includes("launch silent cull target"),
+      "mock output capture before launch cull"
+    );
+    rewriteSlot(slotDir, agentId, { last_activity_ms: Date.now() - 20000, status: "processing" });
+
+    const { launchPayload } = await launchAndPoll(session, {
+      task_category: "coding",
+      provider: "codex",
+      model: "gpt-5.5",
+      prompt: "trigger silent cull",
+    });
+    assert.equal(launchPayload.zombie_report, undefined);
+
+    const pollPayload = await pollAgent(session, agentId);
+    assert.equal(pollPayload.status, "zombie_killed");
+
+    const listResp = await session.request("tools/call", { name: "list_agents", arguments: {} });
+    const listPayload = JSON.parse(listResp.result.content[0].text);
+    assert.ok(listPayload.agents.some((a) => a.id === agentId && a.status === "zombie_killed"));
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 await test("zombie culling: terminal-but-alive driver becomes zombie_killed and wait reports it", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   const session = createMcpSession(distIndex, {

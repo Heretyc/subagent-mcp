@@ -19,6 +19,10 @@ blocks. The limit value lives in a user-editable `global-concurrency.jsonc`
 config that is re-read live on every call and preserved across package updates
 by the same bracket that protects `advanced-ruleset.py`.
 
+`launch_agent` silently runs zombie reaping before cap rejection but does not
+return `zombie_report`; culled `zombie_killed` status remains observable through
+`poll_agent`, `list_agents`, and `wait`.
+
 ## Leaves (read the smallest matched file)
 
 | File | Contains | Read when |
