@@ -135,7 +135,7 @@ The cap is configured in `global-concurrency.jsonc`, a dedicated dist-sibling fi
 
 Set `globalConcurrentSubagents` in that file. The default is `20`; the minimum valid value is `10`. Validation is forced: `0`, unset, missing, or invalid values reset to `20`, and values `1` through `9` are pinned up to `10`. There is no environment-variable override; the file is the sole source of truth. The file is re-read on every `launch_agent` call, so edits take effect on the next launch with no server restart.
 
-When the cap is reached, `launch_agent` is rejected immediately; it never queues. Before cap checks, hooks and tool calls run default zombie culling with no config knob: live agents idle for more than 6 minutes and terminal-but-alive agents idle for more than 30 seconds are terminated process-tree-first, then force-killed after 20 seconds if needed. Reports include `zombies`, and `poll_agent` keeps the tail with `zombie_killed` when culling terminates an agent.
+When the cap is reached, `launch_agent` is rejected immediately; it never queues. Before cap checks, hooks and tool calls run default zombie culling with no config knob: stale slots whose owner server is gone may terminate their managed child process-tree, while live owned slots are heartbeated and preserved; terminal-but-alive agents idle for more than 30 seconds are force-killed. Reports include `zombies`, and `poll_agent` keeps the tail with `zombie_killed` when culling terminates an agent.
 
 ## Tools
 

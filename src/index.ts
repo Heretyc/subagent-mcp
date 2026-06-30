@@ -82,6 +82,7 @@ interface AgentState {
   exitedAt: number | null;
   startedAt: number;
   lastActivity: number;
+  slotLastActivity: number;
   cwd: string;
   ucSettingsPath?: string;
   slotPath?: string | null;
@@ -190,8 +191,34 @@ function withZombieReport<T extends { content?: { type: string; text: string }[]
   return result;
 }
 
-function updateSlotMetadata(agent: AgentState): void {
+function slotHeartbeatIntervalMs(): number {
+  return Math.max(1000, Math.min(30_000, Math.floor(zombieLiveIdleMs() / 3)));
+}
+
+function isLiveAgent(agent: AgentState): boolean {
+  return agent.status === "processing" || agent.status === "stalled";
+}
+
+function isSameOwnerSlot(
+  agent: AgentState,
+  slotMeta: ReturnType<typeof readSlotMetadata>
+): boolean {
+  if (!slotMeta) return true;
+  if (slotMeta.agent_id !== agent.id) return false;
+  return slotMeta.server_pid === null || slotMeta.server_pid === process.pid;
+}
+
+function adoptNewerSlotActivity(agent: AgentState, slotMeta: ReturnType<typeof readSlotMetadata>): void {
+  if (!slotMeta?.last_activity_ms || !isSameOwnerSlot(agent, slotMeta)) return;
+  if (slotMeta.last_activity_ms > agent.slotLastActivity) {
+    agent.slotLastActivity = slotMeta.last_activity_ms;
+  }
+}
+
+function updateSlotMetadata(agent: AgentState, slotActivityMs?: number): void {
   if (!agent.slotPath) return;
+  const lastActivityMs = Math.max(agent.slotLastActivity, agent.lastActivity, slotActivityMs ?? 0);
+  agent.slotLastActivity = lastActivityMs;
   writeSlotMetadata(agent.slotPath, {
     agent_id: agent.id,
     server_pid: process.pid,
@@ -199,9 +226,23 @@ function updateSlotMetadata(agent: AgentState): void {
     cwd: agent.cwd,
     started_at: new Date(agent.startedAt).toISOString(),
     started_at_ms: agent.startedAt,
-    last_activity_ms: agent.lastActivity,
+    last_activity_ms: lastActivityMs,
     status: agent.status,
   });
+}
+
+function refreshLiveSlotMetadata(agent: AgentState, now: number): void {
+  if (!agent.slotPath || !isLiveAgent(agent)) return;
+  const slotMeta = readSlotMetadata(agent.slotPath);
+  if (!isSameOwnerSlot(agent, slotMeta)) return;
+  adoptNewerSlotActivity(agent, slotMeta);
+  const diskActivityMs = slotMeta?.last_activity_ms ?? null;
+  const shouldRefresh =
+    slotMeta === null ||
+    diskActivityMs === null ||
+    diskActivityMs < agent.slotLastActivity ||
+    now - agent.slotLastActivity >= slotHeartbeatIntervalMs();
+  if (shouldRefresh) updateSlotMetadata(agent, now);
 }
 
 function spawnProcessTreeKill(pid: number, force: boolean): void {
@@ -301,17 +342,13 @@ function runToolMaintenance(): ZombieRecord[] {
   for (const agent of agents.values()) {
     if (agent.status === "zombie_killed") continue;
     reconcileAgent(agent, now);
-    const slotMeta = agent.slotPath ? readSlotMetadata(agent.slotPath) : null;
-    if (slotMeta?.last_activity_ms !== null && slotMeta?.last_activity_ms !== undefined) {
-      agent.lastActivity = Math.min(agent.lastActivity, slotMeta.last_activity_ms);
-    }
-    const live = agent.status === "processing" || agent.status === "stalled";
-    if (live && now - agent.lastActivity > zombieLiveIdleMs()) {
-      const record = markZombieKilled(agent, "stale_live", now);
-      records.push(record);
-      applied.add(agent.id);
+    const live = isLiveAgent(agent);
+    if (live) {
+      refreshLiveSlotMetadata(agent, now);
       continue;
     }
+    const slotMeta = agent.slotPath ? readSlotMetadata(agent.slotPath) : null;
+    adoptNewerSlotActivity(agent, slotMeta);
     const terminalButAlive =
       (agent.status === "finished" || agent.status === "errored" || agent.status === "stopped") &&
       !agent.driver.closed &&
@@ -430,6 +467,7 @@ const reconcileInterval = setInterval(() => {
   const now = Date.now();
   for (const agent of agents.values()) {
     reconcileAgent(agent, now);
+    refreshLiveSlotMetadata(agent, now);
   }
 }, 10000);
 reconcileInterval.unref();
@@ -452,7 +490,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.10.3",
+    version: "2.10.4",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -622,6 +660,7 @@ async function tryLaunchCandidate(
     waitReported: false,
     visibleStream: [],
     streamBuf: "",
+    slotLastActivity: now,
   };
 
   childProcess.on("error", (err) => {
@@ -1405,7 +1444,7 @@ server.tool(
   {
     verbose: z.boolean().optional().default(false),
   },
-  withMaintenance(async (params: any) => {
+  withMaintenance(async (params: any, zombieRecords: ZombieRecord[]) => {
     const { verbose } = params;
     const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
     const TIMEOUT_MS = 15 * 60 * 1000;
@@ -1469,6 +1508,7 @@ server.tool(
     while (Date.now() < deadline) {
       await sleep(250);
       unreported = selectUnreported(Array.from(agents.values()));
+      zombieRecords.push(...runToolMaintenance());
       if (unreported.length > 0) {
         for (const a of unreported) a.waitReported = true;
         const payload = { finished: unreported.map(buildFinishedEntry) };

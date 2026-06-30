@@ -127,6 +127,7 @@ test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot
       platform: "win32",
       runCommand: (command, args) => calls.push({ command, args }),
       sleepMs: (ms) => sleeps.push(ms),
+      isProcessAlive: (pid) => pid !== 777,
     });
     assert.equal(records.length, 1);
     assert.equal(records[0].kind, "zombie_killed");
@@ -146,6 +147,61 @@ test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot
     assert.equal(firstIntentDrain.length, 1);
     assert.equal(firstIntentDrain[0].agent_id, "agent-c");
     assert.deepEqual(drainZombieIntents(dir), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cullStaleSlots keeps stale slots owned by a live server", () => {
+  const dir = tmpSlotDir();
+  const now = 1_000_000;
+  try {
+    mkdirSync(dir, { recursive: true });
+    const slot = slotPathForAgent(dir, "agent-live-owner");
+    writeSlotMetadata(slot, {
+      agent_id: "agent-live-owner",
+      server_pid: 777,
+      child_pid: 888,
+      cwd: "/tmp/work",
+      started_at_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+      last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+    });
+    const records = cullStaleSlots(dir, {
+      now: () => now,
+      platform: "win32",
+      runCommand: () => assert.fail("live owned slot must not be killed"),
+      isProcessAlive: (pid) => pid === 777,
+      sleepMs: () => assert.fail("live owned slot must not sleep for force grace"),
+    });
+    assert.equal(records.length, 0);
+    assert.equal(existsSync(slot), true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cullStaleSlots frees unmanaged stale slots without killing child pid", () => {
+  const dir = tmpSlotDir();
+  const now = 1_000_000;
+  try {
+    mkdirSync(dir, { recursive: true });
+    const slot = slotPathForAgent(dir, "agent-unmanaged");
+    writeFileSync(slot, JSON.stringify({
+      schema_version: 1,
+      agent_id: "agent-unmanaged",
+      server_pid: null,
+      child_pid: 888,
+      last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+    }));
+    const records = cullStaleSlots(dir, {
+      now: () => now,
+      platform: "win32",
+      runCommand: () => assert.fail("unmanaged stale slot must not kill child pid"),
+      sleepMs: () => assert.fail("unmanaged stale slot must not sleep for force grace"),
+    });
+    assert.equal(records.length, 1);
+    assert.equal(records[0].child_pid, 888);
+    assert.equal(existsSync(slot), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -187,6 +243,7 @@ test("cullStaleSlots frees stale legacy slots without killing server pid", () =>
     }));
     const records = cullStaleSlots(dir, {
       now: () => now,
+      isProcessAlive: () => false,
       runCommand: () => assert.fail("legacy server pid must not be killed"),
       sleepMs: () => assert.fail("no child pid means no grace sleep"),
     });

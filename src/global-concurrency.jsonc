@@ -17,9 +17,10 @@
 //   - 10 or greater                                 -> used as-is
 //
 // Zombie culling is always enabled. There is no config knob. Before cap
-// rejection, launch/tool/hook paths cull stale live agents idle for 6min and
-// terminal-but-alive agents idle for 30s. Culling gracefully terminates the
-// full process tree, then force-kills after 20s when needed.
+// rejection, launch/tool/hook paths refresh live owned slots, preserve stale
+// slots whose owner server is still alive, and cull stale slots whose owner is
+// gone. Managed stale slots terminate the child process tree, then force-kill
+// after 20s when needed; unmanaged stale slots are only unlinked.
 //
 // When the cap is reached after culling, launch_agent is REJECTED (never
 // queued). Free a slot with list_agents + kill_agent, then retry.
