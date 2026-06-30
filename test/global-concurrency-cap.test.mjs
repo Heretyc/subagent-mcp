@@ -110,6 +110,7 @@ test("reserveSlot can cull stale slots without blocking for force grace", () => 
     const stale = slotPathForAgent(dir, "stale");
     writeSlotMetadata(stale, {
       agent_id: "stale",
+      server_pid: 777,
       child_pid: 1234,
       started_at_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
       last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
@@ -119,6 +120,7 @@ test("reserveSlot can cull stale slots without blocking for force grace", () => 
       platform: "win32",
       runCommand: (command, args) => calls.push({ command, args }),
       sleepMs: () => assert.fail("reserveSlot server path must not block for force grace"),
+      isProcessAlive: (pid) => pid !== 777,
       scheduleForceKill: (ms, kill) => scheduled.push({ ms, kill }),
     });
     assert.equal(result.ok, true);

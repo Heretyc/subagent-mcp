@@ -201,6 +201,17 @@ function send(obj) {
   process.stdout.write(JSON.stringify(obj) + "\\n");
 }
 
+function completeLater(fn) {
+  const delayMs = Number(process.env.MOCK_DELAY_TURN_COMPLETE_MS || 0);
+  const finish = () => {
+    fn();
+    if (process.env.MOCK_EXIT_AFTER_TURN === "1") {
+      setTimeout(() => process.exit(0), 20);
+    }
+  };
+  delayMs > 0 ? setTimeout(finish, delayMs) : finish();
+}
+
 rl.on("line", (line) => {
   if (!line.trim()) return;
   const msg = JSON.parse(line);
@@ -210,14 +221,11 @@ rl.on("line", (line) => {
   if (provider === "claude") {
     send({ type: "assistant", message: { content: [{ type: "text", text: "ack:" + text }] } });
     if (process.env.MOCK_NO_TURN_COMPLETE === "1") return;
-    send({ type: "result", result: "done:" + text });
+    completeLater(() => send({ type: "result", result: "done:" + text }));
   } else {
     send({ type: "agent_message", message: "ack:" + text });
     if (process.env.MOCK_NO_TURN_COMPLETE === "1") return;
-    send({ type: "turn.completed", turn });
-  }
-  if (process.env.MOCK_EXIT_AFTER_TURN === "1") {
-    setTimeout(() => process.exit(0), 20);
+    completeLater(() => send({ type: "turn.completed", turn }));
   }
 });
 `,
@@ -503,7 +511,7 @@ async function launchManualCodex(session, prompt, extraArgs = {}) {
   return { agentId, launchPayload, pollPayload };
 }
 
-await test("zombie culling: live idle agent is killed nonblocking and poll retains tail", async () => {
+await test("zombie maintenance: live owned stale slot is refreshed, not killed", async () => {
   const { tempRoot, workDir, env, slotDir } = makeTempEnv();
   const session = createMcpSession(distIndex, {
     cwd: workDir,
@@ -516,70 +524,61 @@ await test("zombie culling: live idle agent is killed nonblocking and poll retai
   });
   try {
     await session.initialize();
-    const { agentId } = await launchManualCodex(session, "live idle cull");
+    const { agentId } = await launchManualCodex(session, "live stale owned slot");
     await waitForPoll(
       session,
       agentId,
-      (payload) => payload.stdout_tail.includes("live idle cull"),
-      "mock output capture before live cull"
+      (payload) => payload.stdout_tail.includes("live stale owned slot"),
+      "mock output capture before live stale refresh"
     );
-    rewriteSlot(slotDir, agentId, { last_activity_ms: Date.now() - 20000, status: "processing" });
+    const staleActivity = Date.now() - 20000;
+    rewriteSlot(slotDir, agentId, { last_activity_ms: staleActivity, status: "processing" });
     const listResp = await session.request("tools/call", { name: "list_agents", arguments: {} });
     const listPayload = JSON.parse(listResp.result.content[0].text);
-    assert.equal(listPayload.zombie_report, `zombies: ${agentId}`);
+    assert.equal(listPayload.zombie_report, undefined);
 
     const pollPayload = await pollAgent(session, agentId);
-    assert.equal(pollPayload.status, "zombie_killed");
-    assert.equal(pollPayload.alive, false);
-    assert.ok(pollPayload.stdout_tail.includes("live idle cull"));
+    assert.notEqual(pollPayload.status, "zombie_killed");
+    assert.equal(pollPayload.alive, true);
+    assert.ok(pollPayload.stdout_tail.includes("live stale owned slot"));
+    const { metadata } = findSlotForAgent(slotDir, agentId);
+    assert.ok(metadata.last_activity_ms > staleActivity);
   } finally {
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });
   }
 });
 
-await test("zombie culling: launch_agent reaps silently and status remains visible", async () => {
+await test("wait loop refreshes live stale slot metadata while blocked", async () => {
   const { tempRoot, workDir, env, slotDir } = makeTempEnv();
   const session = createMcpSession(distIndex, {
     cwd: workDir,
     env: {
       ...env,
-      MOCK_NO_TURN_COMPLETE: "1",
-      SUBAGENT_ZOMBIE_LIVE_IDLE_MS: "10000",
+      MOCK_DELAY_TURN_COMPLETE_MS: "900",
+      SUBAGENT_ZOMBIE_LIVE_IDLE_MS: "1000",
       SUBAGENT_ZOMBIE_FORCE_GRACE_MS: "10",
     },
   });
   try {
     await session.initialize();
-    await enableManualSelection(session);
-    const { agentId } = await launchAndPoll(session, {
-      task_category: "coding",
-      provider: "codex",
-      model: "gpt-5.5",
-      prompt: "launch silent cull target",
-    });
+    const { agentId } = await launchManualCodex(session, "wait stale refresh target");
     await waitForPoll(
       session,
       agentId,
-      (payload) => payload.stdout_tail.includes("launch silent cull target"),
-      "mock output capture before launch cull"
+      (payload) => payload.stdout_tail.includes("wait stale refresh target"),
+      "mock output capture before wait refresh"
     );
-    rewriteSlot(slotDir, agentId, { last_activity_ms: Date.now() - 20000, status: "processing" });
+    const waitPromise = session.request("tools/call", { name: "wait", arguments: {} });
+    await sleep(100);
+    const staleActivity = Date.now() - 2000;
+    rewriteSlot(slotDir, agentId, { last_activity_ms: staleActivity, status: "processing" });
 
-    const { launchPayload } = await launchAndPoll(session, {
-      task_category: "coding",
-      provider: "codex",
-      model: "gpt-5.5",
-      prompt: "trigger silent cull",
-    });
-    assert.equal(launchPayload.zombie_report, undefined);
-
-    const pollPayload = await pollAgent(session, agentId);
-    assert.equal(pollPayload.status, "zombie_killed");
-
-    const listResp = await session.request("tools/call", { name: "list_agents", arguments: {} });
-    const listPayload = JSON.parse(listResp.result.content[0].text);
-    assert.ok(listPayload.agents.some((a) => a.id === agentId && a.status === "zombie_killed"));
+    const waitResp = await waitPromise;
+    const waitPayload = JSON.parse(waitResp.result.content[0].text);
+    assert.ok(waitPayload.finished.some((a) => a.id === agentId && a.status === "finished"));
+    const { metadata } = findSlotForAgent(slotDir, agentId);
+    assert.ok(metadata.last_activity_ms > staleActivity);
   } finally {
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });

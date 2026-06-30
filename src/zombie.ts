@@ -44,6 +44,7 @@ export interface CullDeps {
   platform?: NodeJS.Platform;
   runCommand?: (command: string, args: string[]) => void;
   sleepMs?: (ms: number) => void;
+  isProcessAlive?: (pid: number) => boolean;
   forceGraceMs?: () => number;
   scheduleForceKill?: (ms: number, kill: () => void) => void;
 }
@@ -170,6 +171,19 @@ function defaultRunCommand(command: string, args: string[]): void {
   execFileSync(command, args, { stdio: "ignore" });
 }
 
+function defaultIsProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+function livePid(pid: number | null): pid is number {
+  return typeof pid === "number" && Number.isInteger(pid) && pid > 0;
+}
+
 function defaultSleepMs(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
@@ -179,6 +193,7 @@ export function cullStaleSlots(dir: string, deps: CullDeps = {}): ZombieRecord[]
   const runCommand = deps.runCommand ?? defaultRunCommand;
   const sleepMs = deps.sleepMs ?? defaultSleepMs;
   const forceGraceMs = deps.forceGraceMs?.() ?? ZOMBIE_FORCE_GRACE_MS;
+  const isProcessAlive = deps.isProcessAlive ?? defaultIsProcessAlive;
   const p = deps.platform ?? platform();
   const records: ZombieRecord[] = [];
   let files: string[];
@@ -192,8 +207,14 @@ export function cullStaleSlots(dir: string, deps: CullDeps = {}): ZombieRecord[]
     const meta = readSlotMetadata(slotPath);
     if (!meta?.last_activity_ms) continue;
     if (now - meta.last_activity_ms <= ZOMBIE_LIVE_IDLE_MS) continue;
+    const ownerPid = livePid(meta.server_pid) ? meta.server_pid : null;
+    if (ownerPid !== null) {
+      try {
+        if (isProcessAlive(ownerPid)) continue;
+      } catch {}
+    }
     const pid = meta.child_pid;
-    if (pid && pid !== process.pid) {
+    if (ownerPid !== null && livePid(pid) && pid !== process.pid) {
       const commands = buildProcessTreeKillCommands(pid, p);
       try {
         runCommand(commands.graceful.command, commands.graceful.args);

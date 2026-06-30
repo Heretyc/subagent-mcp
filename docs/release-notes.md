@@ -8,6 +8,34 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.10.4
+
+### Live slot heartbeat and owner-aware reaping
+
+- Live `processing` and `stalled` agents now refresh global slot metadata from
+  the server reconcile timer and from the `wait` loop, not only from external
+  tool-call cadence.
+- Older slot-file timestamps no longer move an in-memory live agent heartbeat
+  backward or self-classify the agent as stale.
+- Cross-process stale culling skips slots owned by a still-live server PID, and
+  only kills a managed child when ownership metadata shows the owner is gone.
+
+### RCA
+
+- Trigger: long-running `wait` calls could block for up to 15 minutes while
+  live slot files stopped being refreshed.
+- Impact: other sessions could misclassify healthy Claude/Codex drivers as
+  stale, unlink their slots, and undercount the global cap while processes
+  accumulated.
+- Root cause: slot liveness used provider-visible activity plus MCP tool-call
+  maintenance cadence instead of a wall-clock owner heartbeat.
+- Contributing factors: stale disk metadata could drag fresh in-memory state
+  backward, and cross-process culling did not check owner-server liveness.
+- Detection gap: tests covered stale slot reaping, but not live owned stale
+  slots during blocked `wait` calls.
+- Fix/tests: live slot heartbeats, owner-aware stale culling, and regression
+  tests for safe no-kill behavior and `wait`-loop refresh.
+
 ## v2.10.3
 
 ### Silent launch zombie reaping

@@ -82,27 +82,27 @@ and from orchestration hooks.
 
 Thresholds:
 
-- `stale_live`: `processing` or `stalled` with no activity for more than
-  `ZOMBIE_LIVE_IDLE_MS = 6 * 60 * 1000` (6 minutes).
+- `stale_live`: slot metadata older than `ZOMBIE_LIVE_IDLE_MS = 6 * 60 * 1000`
+  and owner `server_pid` missing or no longer alive; live owners refresh slots.
 - `terminal_but_alive`: `finished`, `errored`, or `stopped` whose driver is
   still open more than `ZOMBIE_TERMINAL_IDLE_MS = 30 * 1000` after `exitedAt`.
 - Grace before force: `ZOMBIE_FORCE_GRACE_MS = 20 * 1000` (20 seconds).
 
-Tool-path culling uses `SUBAGENT_ZOMBIE_LIVE_IDLE_MS`,
-`SUBAGENT_ZOMBIE_TERMINAL_IDLE_MS`, and `SUBAGENT_ZOMBIE_FORCE_GRACE_MS` as
+Tool-path maintenance uses `SUBAGENT_ZOMBIE_LIVE_IDLE_MS` for heartbeat pacing
+and `SUBAGENT_ZOMBIE_TERMINAL_IDLE_MS` / `SUBAGENT_ZOMBIE_FORCE_GRACE_MS` as
 test seams. Hook-side force grace uses `SUBAGENT_ZOMBIE_FORCE_GRACE_MS`.
 
-For stale live processes, culling first sends a graceful full process-tree
-terminate, then force-kills after the grace window:
+For stale slots, culling first checks owner `server_pid`; live owners are skipped.
+If owner is gone and `child_pid` exists, culling terminates the full tree:
 
 ```text
 Windows: graceful taskkill /PID <pid> /T; force taskkill /PID <pid> /T /F
 POSIX:   graceful kill -TERM -<pid>;     force kill -KILL -<pid>
 ```
 
-Terminal-but-alive entries are force-killed immediately on the tool path. The
-owning server marks the agent `zombie_killed`, sets `exitCode` to `-1` if
-unset, releases the slot, and makes it reportable through `wait`.
+Unmanaged stale slots (no `server_pid`) are unlinked without killing child PIDs.
+Terminal-but-alive entries are force-killed immediately; the owning server marks
+them `zombie_killed`, sets `exitCode` to `-1`, releases slot, reports via `wait`.
 
 Cross-process hook culling records `zombie_killed` JSONL reports in the slot
 directory and unlinks stale slots. The owning server drains those reports on
@@ -157,9 +157,10 @@ Validation:
 //   - 10 or greater                                 -> used as-is
 //
 // Zombie culling is always enabled. There is no config knob. Before cap
-// rejection, launch/tool/hook paths cull stale live agents idle for 6min and
-// terminal-but-alive agents idle for 30s. Culling gracefully terminates the
-// full process tree, then force-kills after 20s when needed.
+// rejection, launch/tool/hook paths refresh live owned slots, preserve stale
+// slots whose owner server is still alive, and cull stale slots whose owner is
+// gone. Managed stale slots terminate the child process tree, then force-kill
+// after 20s when needed; unmanaged stale slots are only unlinked.
 //
 // When the cap is reached after culling, launch_agent is REJECTED (never
 // queued). Free a slot with list_agents + kill_agent, then retry.
