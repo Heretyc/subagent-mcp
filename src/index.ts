@@ -113,8 +113,6 @@ interface AgentState {
 }
 
 const agents = new Map<string, AgentState>();
-const MAX_CLAUDE = 5;
-const MAX_CODEX = 5;
 const deadlockWindow = createDeadlockWindow();
 // Advanced-ruleset gate: per-process latch with exactly the deadlock-window
 // scoping. The env-check runs lazily at the FIRST launch_agent call; success
@@ -429,17 +427,6 @@ function cleanupUcSettings(agentState: AgentState): void {
   }
 }
 
-// Concurrency cap accounting: only `processing` agents count against a
-// provider's cap. `stalled` agents (live but quiet past the heartbeat window) do
-// NOT count, freeing a slot while they idle.
-function countProcessing(provider: Provider): number {
-  let count = 0;
-  for (const a of agents.values()) {
-    if (a.provider === provider && a.status === "processing") count++;
-  }
-  return count;
-}
-
 // Synchronously reconcile a single agent's status against the pure transition
 // helper. Folds the live process exitCode into AgentState first so an already-
 // exited process is reported as completed/failed immediately (no monitor lag).
@@ -533,14 +520,6 @@ async function tryLaunchCandidate(
     originalSelection: { provider: string; model: string; effort: string };
   }
 ): Promise<{ agentId: string } | { reason: string; failure_type: FailureType }> {
-  // Concurrency cap for this provider.
-  const running = countProcessing(candidate.provider);
-  const max = candidate.provider === "claude" ? MAX_CLAUDE : MAX_CODEX;
-  if (running >= max) {
-    const reason = `Maximum ${max} concurrent ${candidate.provider} agents already running. Current: ${running}`;
-    return { reason, failure_type: "permanent" };
-  }
-
   // Build the command. haiku ignores effort; pass "high" placeholder for the
   // "none" sentinel (buildCommand drops it for haiku anyway).
   const effortForBuild = candidate.effort === "none" ? "high" : candidate.effort;

@@ -287,6 +287,8 @@ export function verifyInstall(root: string = INSTALL_ROOT): string[] {
     "dist/hooks/orchestration-claude.js",
     "dist/hooks/orchestration-claude-pretool.js",
     "dist/hooks/orchestration-codex.js",
+    "directives/carryover-claude.md",
+    "directives/carryover-codex.md",
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
     "directives/short-on.md",
