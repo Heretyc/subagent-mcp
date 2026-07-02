@@ -4,6 +4,7 @@ version: 3.1.0
 description: Impartially PROFILE the cross-provider sub-agent fleet against the FIXED 14 work-categories (directly benchmarked parents + 4 composite-inferred) whenever a new model ships (or on demand). Discover every model published in the recent window by the in-scope provider families, gather ALL public benchmark scores + statistics, map them onto the directly benchmarked parent categories (composites composed from parents, never directly benchmarked), then JUDGE each model+effort pairing into per-category tier rankings (best→worst) SOLELY from the discovered research, with a recorded rationale per tier placement. Emits exactly 3 artifacts: routing-table.json (lean), routing-table-audit.json (full provenance), research-seed-sites.json (accumulating learned source list). Single-family and multi-family are both fully-supported, first-class paths; provider mix is optional. The 14 categories are immutable inputs — this skill never derives, chooses, renames, reorders, or reshuffles them. Use when a new model is released, when asked to profile new model, re-profile models, re-profile the fleet, rebalance routing, update routing table, refresh model profiles, re-run model research, regenerate routing-table.json, refresh tier rankings, or to answer "which model for X now" after a model launch. Orchestrator-only pipeline: model discovery + maximalist benchmark research, pivotal-question interview, flagship judging + merge, 3-artifact emission, 3-pass adversarial validation, and provider/seed validators + scenario routing tests. Sub-agents dispatched via `mcp__subagent-mcp__launch_agent`; cross-family critics are available when ≥2 families are reachable.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: May 2026
+updated: 2026-07-02
 ---
 
 # Model Profiler
@@ -23,8 +24,11 @@ This SKILL.md is the index — load only the current phase's detail leaf, never 
 ## Required Runner (read first)
 
 **Run ONLY on the highest available flagship model the operating provider offers (whatever
-that currently is), at its highest OR second-highest effort setting** (e.g. Opus 4.8 @
-`xhigh` or `high`; the provider-equivalent top model+effort otherwise). It is
+that currently is), at its highest OR second-highest effort setting** (i.e. a top-tier
+reasoning model at high effort; the provider-equivalent top model+effort otherwise). Note:
+binding an explicit runner model/effort for sub-agents is itself gated — see the gating
+preamble in `references/dispatch-mechanics.md` (`smart` mode rejects selector-bearing launches
+unless the `user-approved-overrides` window is open). It is
 orchestrator-only: the runner dispatches every research/judging/validation step via
 `mcp__subagent-mcp__launch_agent` and must sustain multi-phase reasoning across the whole
 run. **Never run on Haiku, a non-flagship tier, an effort below second-highest, or any

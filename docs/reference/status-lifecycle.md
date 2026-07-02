@@ -35,12 +35,13 @@ driver remains open (`exitCode === null`). A turn-finished but alive agent can
 accept `send_message`, which moves it back to `processing` for the next turn.
 `stopped`/`errored`/`zombie_killed` are closed terminal states.
 
-The per-provider concurrency cap (max 5, see
-[SPEC.md](../SPEC.md#concurrency-model)) counts only `processing` agents. A
-`processing` agent is actively emitting visible stream content and so carries
-real provider load; a `stalled` agent is quiet by definition (no visible stream
-for >= 10 minutes) and does NOT reserve a cap slot. More than 5 live processes
-per provider can coexist when some are `stalled` -- intended.
+Concurrency admission is one machine-global, provider-agnostic cap (see
+[SPEC.md](../SPEC.md#concurrency-model) and
+[cap-contract.md](../spec/global-concurrency/cap-contract.md)); there are no
+per-provider caps. A slot is reserved when the agent is admitted at launch and
+is released ONLY when its driver closes (or via kill / failed-launch cleanup /
+zombie culling). Status is orthogonal to slot occupancy: a `stalled` agent keeps
+its slot until driver close, exactly like a `processing` one.
 
 ---
 

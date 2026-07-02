@@ -72,6 +72,14 @@ validator scripts:
 - `scripts/validate_seed_sites.mjs`
 - `scripts/validate_routing_audit.mjs`
 
+**Doc-invariant guard tests** (fail the suite on documentation drift):
+
+- `test/no-per-provider-cap.test.mjs` — asserts no doc reintroduces
+  per-provider concurrency-cap language; the cap is a single machine-global,
+  provider-agnostic value (default 20).
+- `test/rag-pointers.test.mjs` — asserts the RAG retrieval map (`retrieval-map.md`)
+  and doc cross-pointers stay valid (every indexed path exists).
+
 ## Contribution Workflow
 
 1. Inspect `git status --short --branch` before work.
@@ -85,10 +93,28 @@ validator scripts:
 
 See [docs/spec/dev-loop/git-collaboration.md](docs/spec/dev-loop/git-collaboration.md) for the extended git-collaboration rules.
 
+### Worktree-per-task, hooks, and pre-commit gate
+
+- **Git hooks.** Install the repo hooks once (`git config core.hooksPath .githooks`).
+  They run the pre-commit compliance and contradiction checks locally.
+- **Worktree-per-task.** All mutating work happens in a **linked worktree on a
+  `<type>/<subject>` branch outside the repo dir** — never in the primary
+  checkout. Run the pre-action gate `node scripts/check_worktree.mjs` before any
+  mutating action; on failure, create/enter a compliant worktree first.
+- **Contradiction-checker pre-commit.** Before committing any executable/source
+  or build-participating change, run `node scripts/check_mcp_compliance.mjs`
+  (a FAIL blocks the commit), then the contradiction-checker per
+  [docs/spec/dev-loop/contradiction-checker.md](docs/spec/dev-loop/contradiction-checker.md).
+  Never commit around a `blocked`/`needs_user` result.
+
 ## GitHub Gates (CI/CD)
 
 - Claude Code Routines are the canonical CI/CD path.
 - `.github/workflows/claude-routine.yml` is the GitHub-standard dispatch bridge to Claude routine CI/CD.
+- `.github/workflows/pr-gate.yml` is a **required check** — it runs the test
+  suite (including the doc-invariant guard tests above) on every PR; a failure
+  blocks merge.
+- `.github/workflows/worktree-guard.yml` enforces the worktree-isolation mandate.
 - PRs must pass required checks, independent review, CODEOWNER review when applicable, and resolved conversations before merge.
 - Agent-authored PRs use the same CI, review, and merge gates as human PRs.
 - Workflow changes are executable code and require owner/CODEOWNER review.

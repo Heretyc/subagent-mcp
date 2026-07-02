@@ -7,8 +7,8 @@ Where this contract and implementation disagree, change this contract first.
 ## Scope
 
 One machine-global cap limits subagents ALIVE AT ONCE across all sessions,
-processes, users, and recursive descendants on the host. It is separate from
-the per-provider in-memory `MAX_CLAUDE` / `MAX_CODEX` processing caps.
+processes, users, and recursive descendants on the host. This machine-global cap
+is the SOLE admission control; no per-provider caps exist.
 
 - Descendant counting is emergent: every descendant runs its own MCP server and
   reserves into the same shared slot directory.

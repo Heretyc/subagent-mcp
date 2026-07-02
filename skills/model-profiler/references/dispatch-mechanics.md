@@ -5,6 +5,28 @@ sub-agent fan-out actually work (single-family or mixed-provider — provider mi
 
 ---
 
+## ⚠️ GATING PREAMBLE — read before using ANY selector below (REQUIRED)
+
+**The default model-selection mode is `smart`.** In `smart` mode the server **REJECTS any
+`launch_agent` call that supplies a `provider`, `model`, or `effort` selector** — i.e. every
+operator-selected `provider`/`model`/`effort` workflow described in this document is
+**unavailable by default**.
+
+To use the explicit-selector workflows here, the operator MUST first enable
+`user-approved-overrides` via the `model-selection-mode` tool, and that switch requires
+**explicit interactive user authorization**. Once enabled:
+
+- The override window lasts **30 minutes wall-clock**.
+- Enforcement is **lazy** (checked at call time, not on a timer).
+- Re-enabling does **NOT** refresh or extend the window — no refresh on re-enable.
+- When the window lapses, mode reverts to `smart` and selector-bearing calls are rejected again.
+
+If the window is not open, do NOT hand-bind `provider`/`model`/`effort`; use auto mode
+(`prompt` + `task_category` only). The selector tables in the sections below apply ONLY while
+the `user-approved-overrides` window is open.
+
+---
+
 ## Canonical dispatch — `mcp__subagent-mcp__launch_agent` (both providers)
 
 **Launch ALL sub-agents — Claude and Codex — via `mcp__subagent-mcp__launch_agent`.** This is the
@@ -91,6 +113,8 @@ $p | codex exec -C <workdir> -m <member-id> -c 'model_reasoning_effort="<effort>
 treat the agent as **STALLED**.
 
 **Fallback dispatch.** On STALLED or terminal `blocked`/error:
+> Note: any explicit-selector relaunch (binding `provider`/`model`/`effort`) requires the
+> `user-approved-overrides` window to be OPEN (see Gating Preamble); otherwise relaunch in auto mode.
 1. Relaunch via an **alternate provider/model** from `routing-table.json`.
    - Bare standing-profile runs: prefer Claude-backed research fallback when Codex is
      usage-limited or unavailable, even if this makes the fallback single-family. Single-family is a
