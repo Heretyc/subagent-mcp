@@ -531,6 +531,23 @@ function rewriteSlot(slotDir, agentId, patch) {
   return path;
 }
 
+function writeZombieIntent(slotDir, agentId) {
+  const { path, metadata } = findSlotForAgent(slotDir, agentId);
+  const record = {
+    kind: "zombie_killed",
+    agent_id: agentId,
+    child_pid: metadata.child_pid,
+    server_pid: metadata.server_pid,
+    slot_path: path,
+    reason: "stale_live",
+    detected_at_ms: Date.now(),
+    last_activity_ms: metadata.last_activity_ms,
+    message: `zombies: culled stale subagent ${agentId}`,
+  };
+  writeFileSync(join(slotDir, "zombie-intents.jsonl"), `${JSON.stringify(record)}\n`);
+  return record;
+}
+
 async function launchManualCodex(session, prompt, extraArgs = {}) {
   await enableManualSelection(session);
   const { agentId, launchPayload, pollPayload } = await launchAndPoll(session, {
@@ -648,6 +665,35 @@ await test("zombie culling: terminal-but-alive driver becomes zombie_killed and 
   }
 });
 
+await test("zombie culling: wait reaps without surfacing zombie_report", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: { ...env, SUBAGENT_ZOMBIE_TERMINAL_IDLE_MS: "500" },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchManualCodex(session, "terminal idle wait cull");
+    await waitForPoll(
+      session,
+      agentId,
+      (payload) => payload.status === "finished" && payload.exit_code === null,
+      "turn completion before wait cull"
+    );
+    await sleep(650);
+
+    const waitResp = await session.request("tools/call", { name: "wait", arguments: {} });
+    const waitText = waitResp.result.content[0].text;
+    const waitPayload = JSON.parse(waitText);
+    assert.equal(waitPayload.zombie_report, undefined);
+    assert.doesNotMatch(waitText, /zombies:/);
+    assert.ok(waitPayload.finished.some((a) => a.id === agentId && a.status === "zombie_killed"));
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 await test("zombie culling: hook intent marks agent zombie_killed with tail retention", async () => {
   const { tempRoot, workDir, env, slotDir } = makeTempEnv();
   const session = createMcpSession(distIndex, {
@@ -664,19 +710,7 @@ await test("zombie culling: hook intent marks agent zombie_killed with tail rete
       "mock output capture before intent cull",
       { verbose: true }
     );
-    const { path, metadata } = findSlotForAgent(slotDir, agentId);
-    const record = {
-      kind: "zombie_killed",
-      agent_id: agentId,
-      child_pid: metadata.child_pid,
-      server_pid: metadata.server_pid,
-      slot_path: path,
-      reason: "stale_live",
-      detected_at_ms: Date.now(),
-      last_activity_ms: metadata.last_activity_ms,
-      message: `zombies: culled stale subagent ${agentId}`,
-    };
-    writeFileSync(join(slotDir, "zombie-intents.jsonl"), `${JSON.stringify(record)}\n`);
+    const record = writeZombieIntent(slotDir, agentId);
     const pollResp = await session.request("tools/call", {
       name: "poll_agent",
       arguments: { agent_id: agentId, verbose: true },
@@ -685,6 +719,141 @@ await test("zombie culling: hook intent marks agent zombie_killed with tail rete
     assert.equal(pollPayload.zombie_report, `zombies: ${agentId}`);
     assert.equal(pollPayload.status, "zombie_killed");
     assert.ok(pollPayload.stdout_tail.includes("hook intent cull"));
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("zombie culling: launch_agent reaps without surfacing zombie_report", async () => {
+  const { tempRoot, workDir, env, slotDir } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: { ...env, MOCK_NO_TURN_COMPLETE: "1" },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchManualCodex(session, "launch silent cull target");
+    await waitForPoll(
+      session,
+      agentId,
+      (payload) => payload.stdout_tail.includes("launch silent cull target"),
+      "mock output capture before launch cull",
+      { verbose: true }
+    );
+    writeZombieIntent(slotDir, agentId);
+
+    await enableManualSelection(session);
+    const launchResp = await session.request("tools/call", {
+      name: "launch_agent",
+      arguments: {
+        task_category: "coding",
+        provider: "codex",
+        model: "gpt-5.5",
+        prompt: "launch after silent cull",
+      },
+    });
+    const launchText = launchResp.result.content[0].text;
+    const launchPayload = JSON.parse(launchText);
+    assert.equal(launchPayload.zombie_report, undefined);
+    assert.doesNotMatch(launchText, /zombies:/);
+
+    const culled = await pollAgent(session, agentId);
+    assert.equal(culled.status, "zombie_killed");
+    assert.equal(culled.zombie_report, undefined);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("zombie culling: kill_agent and send_message reap without surfacing zombie_report", async () => {
+  const { tempRoot, workDir, env, slotDir } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: { ...env, MOCK_NO_TURN_COMPLETE: "1" },
+  });
+  try {
+    await session.initialize();
+    const first = await launchManualCodex(session, "kill silent cull target");
+    await waitForPoll(
+      session,
+      first.agentId,
+      (payload) => payload.stdout_tail.includes("kill silent cull target"),
+      "mock output capture before kill cull",
+      { verbose: true }
+    );
+    writeZombieIntent(slotDir, first.agentId);
+    const killResp = await session.request("tools/call", {
+      name: "kill_agent",
+      arguments: { agent_id: first.agentId },
+    });
+    const killText = killResp.result.content[0].text;
+    assert.doesNotMatch(killText, /zombies:/);
+    assert.equal(JSON.parse(killText).zombie_report, undefined);
+
+    const second = await launchManualCodex(session, "send silent cull target");
+    await waitForPoll(
+      session,
+      second.agentId,
+      (payload) => payload.stdout_tail.includes("send silent cull target"),
+      "mock output capture before send cull",
+      { verbose: true }
+    );
+    writeZombieIntent(slotDir, second.agentId);
+    const sendResp = await session.request("tools/call", {
+      name: "send_message",
+      arguments: { agent_id: second.agentId, message: "after cull" },
+    });
+    const sendText = sendResp.result.content[0].text;
+    assert.doesNotMatch(sendText, /zombies:/);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("zombie culling: mode tools reap without surfacing zombie_report", async () => {
+  const { tempRoot, workDir, env, slotDir } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: { ...env, MOCK_NO_TURN_COMPLETE: "1" },
+  });
+  try {
+    await session.initialize();
+    const first = await launchManualCodex(session, "orchestration mode silent cull target");
+    await waitForPoll(
+      session,
+      first.agentId,
+      (payload) => payload.stdout_tail.includes("orchestration mode silent cull target"),
+      "mock output capture before orchestration-mode cull",
+      { verbose: true }
+    );
+    writeZombieIntent(slotDir, first.agentId);
+    const orchResp = await session.request("tools/call", {
+      name: "orchestration-mode",
+      arguments: {},
+    });
+    const orchText = orchResp.result.content[0].text;
+    assert.equal(JSON.parse(orchText).zombie_report, undefined);
+    assert.doesNotMatch(orchText, /zombies:/);
+
+    const second = await launchManualCodex(session, "model mode silent cull target");
+    await waitForPoll(
+      session,
+      second.agentId,
+      (payload) => payload.stdout_tail.includes("model mode silent cull target"),
+      "mock output capture before model-selection-mode cull",
+      { verbose: true }
+    );
+    writeZombieIntent(slotDir, second.agentId);
+    const modeResp = await session.request("tools/call", {
+      name: "model-selection-mode",
+      arguments: {},
+    });
+    const modeText = modeResp.result.content[0].text;
+    assert.equal(JSON.parse(modeText).zombie_report, undefined);
+    assert.doesNotMatch(modeText, /zombies:/);
   } finally {
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });

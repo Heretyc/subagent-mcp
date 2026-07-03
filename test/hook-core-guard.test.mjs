@@ -19,7 +19,7 @@ async function importSource() {
 function assertSourceGuard() {
   const source = readFileSync(sourcePath, "utf8");
   const resolverMatch = source.match(
-    /export function resolveDirectivesDir[\s\S]*?\n}\n\n\/\*\* Read a directive asset/
+    /export function resolveDirectivesDir[\s\S]*?\r?\n}\r?\n\r?\n\/\*\* Read a directive asset/
   );
 
   assert.ok(resolverMatch, "expected resolveDirectivesDir source to be present");
@@ -33,7 +33,7 @@ function assertSourceGuard() {
   assert.match(resolver, /directives/);
 
   const readDirectiveMatch = source.match(
-    /export function readDirective[\s\S]*?\n}\n\n\/\*\*/
+    /export function readDirective[\s\S]*?\r?\n}\r?\n\r?\n\/\*\*/
   );
   assert.ok(readDirectiveMatch, "expected readDirective source to be present");
   assert.match(

@@ -8,7 +8,7 @@ const repo = join(__dirname, "..");
 
 function run() {
   const source = readFileSync(join(repo, "src", "concurrency.ts"), "utf8");
-  const reserveSlot = source.match(/export function reserveSlot\([\s\S]*?\n}\n\nexport function releaseSlot/);
+  const reserveSlot = source.match(/export function reserveSlot\([\s\S]*?\r?\n}\r?\n\r?\nexport function releaseSlot/);
 
   assert.ok(reserveSlot, "reserveSlot source should be present");
 

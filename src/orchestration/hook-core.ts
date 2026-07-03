@@ -340,17 +340,6 @@ export function cullHookZombies(deps: CullDeps = hookCullDeps()): ZombieRecord[]
   }
 }
 
-export function hookZombieReportText(records: ZombieRecord[]): string {
-  const ids = Array.from(new Set(records.map((r) => r.agent_id))).filter(Boolean);
-  return ids.length > 0 ? `zombies: ${ids.join(",")}` : "";
-}
-
-export function appendHookZombieReport(out: string, records: ZombieRecord[]): string {
-  const report = hookZombieReportText(records);
-  if (!report) return out;
-  return out ? `${out}\n${report}` : report;
-}
-
 /**
  * Core hook logic. Returns the string to inject, or '' to inject nothing.
  *
@@ -374,10 +363,10 @@ export function runHook(
   adapter: ProviderAdapter
 ): string {
   try {
-    const zombieRecords = cullHookZombies();
+    cullHookZombies();
 
     if (adapter.isSubagent(payload, env)) {
-      return appendHookZombieReport("", zombieRecords);
+      return "";
     }
 
     const cwd = payload.cwd || process.cwd();
@@ -387,16 +376,13 @@ export function runHook(
     if (!marker.isActive(cwd, current)) {
       // OFF: no claim machinery — just the per-prompt reminder cadence.
       const r = reminder.advance(cwd, current);
-      return appendHookZombieReport(
-        cadenceEmit(
-          env,
-          adapter,
-          adapter.reminderOffFile,
-          adapter.shortOffFile,
-          r.count,
-          r.persisted
-        ),
-        zombieRecords
+      return cadenceEmit(
+        env,
+        adapter,
+        adapter.reminderOffFile,
+        adapter.shortOffFile,
+        r.count,
+        r.persisted
       );
     }
 
@@ -405,24 +391,18 @@ export function runHook(
 
     if (kind === "fresh" || kind === "carryover") {
       const turn = adapter.currentTurn(payload.transcript_path);
-      return appendHookZombieReport(
-        claimAndEmit(cwd, current, turn, m, kind, env, adapter),
-        zombieRecords
-      );
+      return claimAndEmit(cwd, current, turn, m, kind, env, adapter);
     }
 
     // SAME-SESSION: per-prompt reminder cadence, ON variant.
     const r = reminder.advance(cwd, current);
-    return appendHookZombieReport(
-      cadenceEmit(
-        env,
-        adapter,
-        adapter.reminderOnFile,
-        adapter.shortOnFile,
-        r.count,
-        r.persisted
-      ),
-      zombieRecords
+    return cadenceEmit(
+      env,
+      adapter,
+      adapter.reminderOnFile,
+      adapter.shortOnFile,
+      r.count,
+      r.persisted
     );
   } catch {
     // Any failure -> inject nothing. Never crash or stall the host turn.

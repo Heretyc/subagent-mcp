@@ -107,12 +107,11 @@ them `zombie_killed`, sets `exitCode` to `-1`, releases slot, reports via `wait`
 Cross-process hook culling records `zombie_killed` JSONL reports in the slot
 directory and unlinks stale slots. The owning server drains those reports on
 the next tool call, updates in-memory state, and preserves output tails already
-captured by that server. Hook injections and non-`launch_agent` tool responses
-append/report `zombies: <agent_ids>`; JSON tool payloads receive
-`zombie_report` when possible. `launch_agent` still runs this culling before
-cap rejection, but omits `zombie_report`; killed zombies free slots before the
-cap check decides whether to reject and remain visible through `poll_agent`,
-`list_agents`, and `wait` as `zombie_killed`.
+captured by that server. All tool and hook paths still run culling, but only
+`poll_agent` and `list_agents` surface the caller-visible
+`zombie_report: "zombies: <agent_ids>"` message. Killed zombies free slots
+before cap checks and remain visible through `poll_agent`, `list_agents`, and
+`wait` as `zombie_killed`.
 
 If a process crashes and no hook/tool later culls its marker, the marker can
 still over-count until reboot on POSIX or manual deletion on Windows.

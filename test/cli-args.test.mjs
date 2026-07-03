@@ -146,7 +146,7 @@ test("update: preserves user-edited advanced-ruleset.py", () => {
     mkdirSync(dirname(ruleset), { recursive: true });
     writeFileSync(ruleset, userRuleset);
 
-    const fakeNpmCli = join(fakeBin, "npm-cli.js");
+    const fakeNpmCli = join(fakeBin, "npm-cli.cjs");
     writeFileSync(
       fakeNpmCli,
       [
@@ -176,7 +176,7 @@ test("update: preserves user-edited advanced-ruleset.py", () => {
     chmodSync(fakeNpm, 0o755);
     writeFileSync(
       join(fakeBin, "npm.cmd"),
-      `@IF EXIST "%~dp0\\node.exe" ("%~dp0\\node.exe" "%~dp0\\npm-cli.js" %*) ELSE ("${process.execPath}" "%~dp0\\npm-cli.js" %*)\r\n`
+      `@IF EXIST "%~dp0\\node.exe" ("%~dp0\\node.exe" "%~dp0\\npm-cli.cjs" %*) ELSE ("${process.execPath}" "%~dp0\\npm-cli.cjs" %*)\r\n`
     );
 
     const r = runBin(["update"], {

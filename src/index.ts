@@ -374,12 +374,12 @@ function runToolMaintenance(): ZombieRecord[] {
 
 function withMaintenance<P>(
   handler: (params: P, zombieRecords: ZombieRecord[]) => Promise<any> | any,
-  options: { omitZombieReport?: boolean } = {}
+  options: { includeZombieReport?: boolean } = {}
 ): any {
   return async (params: P) => {
     const zombieRecords = runToolMaintenance();
     const result = await handler(params, zombieRecords);
-    if (options.omitZombieReport) return result;
+    if (!options.includeZombieReport) return result;
     if (result && typeof result === "object" && "content" in result) {
       return withZombieReport(result as { content?: { type: string; text: string }[] }, zombieRecords);
     }
@@ -1236,7 +1236,7 @@ server.tool(
     return errorResult(
       `Error: all ${skipped.length} candidate launches failed for task_category ${task_category}:\n${lines}\n${SPLIT_HINT}\n${AUTO_HINT}`
     );
-  }, { omitZombieReport: true }) // ponytail: launch_agent still reaps, but callers do not receive zombie_report.
+  }) // ponytail: launch_agent still reaps, but callers do not receive zombie_report.
 );
 
 // Tool 2: poll_agent
@@ -1324,7 +1324,7 @@ server.tool(
         },
       ],
     };
-  })
+  }, { includeZombieReport: true })
 );
 
 // Tool 3: kill_agent
@@ -1531,7 +1531,7 @@ server.tool(
         },
       ],
     };
-  })
+  }, { includeZombieReport: true })
 );
 
 // Tool 6: wait

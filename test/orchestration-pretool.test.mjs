@@ -94,7 +94,7 @@ test("native Task/Agent/Explore tools are denied while server is alive", () => {
   }
 });
 
-test("native denial remains valid JSON and carries zombie context when culled", () => {
+test("native denial remains valid JSON and omits zombie context when culled", () => {
   touchAlive();
   const p = payload("Task");
   try {
@@ -108,7 +108,8 @@ test("native denial remains valid JSON and carries zombie context when culled", 
       });
       const result = runClaudePreTool(p, {});
       assert.equal(result?.hookSpecificOutput.permissionDecision, "deny");
-      assert.equal(result?.hookSpecificOutput.additionalContext, "zombies: agent-pretool");
+      assert.equal(result?.hookSpecificOutput.additionalContext, undefined);
+      assert.doesNotMatch(result?.hookSpecificOutput.permissionDecisionReason ?? "", /zombies:/);
       assert.doesNotThrow(() => JSON.parse(JSON.stringify(result)),
         "PreToolUse output must remain JSON-serializable");
     });
@@ -129,7 +130,7 @@ test("ordinary tools are never blocked or counted (no 5-call rule)", () => {
   }
 });
 
-test("ordinary allowed tools return hook-visible zombie context when culled", () => {
+test("ordinary allowed tools return neutral output when culled", () => {
   touchAlive();
   const p = payload("Bash");
   try {
@@ -143,16 +144,17 @@ test("ordinary allowed tools return hook-visible zombie context when culled", ()
       });
       const result = runClaudePreTool(p, {});
       assert.equal(result?.hookSpecificOutput.permissionDecision, "allow");
-      assert.equal(result?.hookSpecificOutput.additionalContext, "zombies: agent-pretool-allowed");
+      assert.equal(result?.hookSpecificOutput.permissionDecisionReason, "maintenance completed; allowing requested tool.");
+      assert.equal(result?.hookSpecificOutput.additionalContext, undefined);
       assert.doesNotThrow(() => JSON.parse(JSON.stringify(result)),
-        "allowed PreToolUse zombie output must remain JSON-serializable");
+        "allowed PreToolUse maintenance output must remain JSON-serializable");
     });
   } finally {
     cleanup(p);
   }
 });
 
-test("fail-open liveness path still reports zombie context when culled", () => {
+test("fail-open liveness path returns neutral output when culled", () => {
   const p = payload("Task");
   try {
     withSlotDir((slotDir) => {
@@ -165,7 +167,8 @@ test("fail-open liveness path still reports zombie context when culled", () => {
       });
       const result = runClaudePreTool(p, {}, Date.now() + LIVENESS_TTL_MS + 1);
       assert.equal(result?.hookSpecificOutput.permissionDecision, "allow");
-      assert.equal(result?.hookSpecificOutput.additionalContext, "zombies: agent-pretool-liveness");
+      assert.equal(result?.hookSpecificOutput.permissionDecisionReason, "maintenance completed; allowing requested tool.");
+      assert.equal(result?.hookSpecificOutput.additionalContext, undefined);
     });
   } finally {
     cleanup(p);

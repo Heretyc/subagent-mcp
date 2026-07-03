@@ -439,7 +439,7 @@ test("missing OFF reminder asset -> '' on the LONG OFF prompt (fail-safe)", () =
   }
 });
 
-test("hook culls stale slots, reports zombies once, and preserves server report", () => {
+test("hook culls stale slots silently and preserves server report", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
@@ -457,7 +457,7 @@ test("hook culls stale slots, reports zombies once, and preserves server report"
       const payload = { cwd, session_id: session, transcript_path: undefined };
       const first = runHook(payload, env, makeAdapter());
       assert.match(first, /SHORT-OFF-RULE-CARRIER/);
-      assert.match(first, /zombies: agent-hook/);
+      assert.doesNotMatch(first, /zombies: agent-hook/);
 
       const second = runHook(payload, env, makeAdapter());
       assert.doesNotMatch(second, /zombies: agent-hook/,
