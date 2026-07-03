@@ -411,10 +411,17 @@ function failureTypeForError(error: Error, stderr: string): FailureType {
 }
 
 const isWindows = process.platform === "win32";
-const NPM_PREFIX = execSync("npm prefix -g", { encoding: "utf-8" }).trim();
+
+// Resolved lazily and memoized on first use so that plain CLI invocations never
+// spawn `npm prefix -g` at import time. The server warms this once during
+// startup (see main()) so a live, long-lived server never stalls mid-request.
+let npmPrefixCache: string | undefined;
 
 function getNpmPrefix(): string {
-  return NPM_PREFIX;
+  if (npmPrefixCache === undefined) {
+    npmPrefixCache = execSync("npm prefix -g", { encoding: "utf-8" }).trim();
+  }
+  return npmPrefixCache;
 }
 
 type BackgroundResumeAgent = Pick<
@@ -580,7 +587,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.12.0",
+    version: "2.12.1",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
