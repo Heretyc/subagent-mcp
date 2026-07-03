@@ -19,6 +19,10 @@ import {
   type CullDeps,
   type ZombieRecord,
 } from "../concurrency.js";
+import {
+  appendUpdateNotice,
+  readInstalledPackageInfo,
+} from "./update-check.js";
 
 /**
  * Provider-agnostic core of the UserPromptSubmit / SessionStart hook.
@@ -340,6 +344,18 @@ export function cullHookZombies(deps: CullDeps = hookCullDeps()): ZombieRecord[]
   }
 }
 
+function appendHookUpdateNotice(
+  out: string,
+  current: string | undefined,
+  env: NodeJS.ProcessEnv
+): string {
+  try {
+    return appendUpdateNotice(out, readInstalledPackageInfo().version, current, env);
+  } catch {
+    return out;
+  }
+}
+
 /**
  * Core hook logic. Returns the string to inject, or '' to inject nothing.
  *
@@ -371,19 +387,21 @@ export function runHook(
 
     const cwd = payload.cwd || process.cwd();
     const current = sessionKey(payload);
+    const updateNoticeSessionId =
+      typeof payload.session_id === "string" ? payload.session_id : undefined;
 
     if (current) marker.writeCurrentSession(cwd, current);
     if (!marker.isActive(cwd, current)) {
       // OFF: no claim machinery — just the per-prompt reminder cadence.
       const r = reminder.advance(cwd, current);
-      return cadenceEmit(
+      return appendHookUpdateNotice(cadenceEmit(
         env,
         adapter,
         adapter.reminderOffFile,
         adapter.shortOffFile,
         r.count,
         r.persisted
-      );
+      ), updateNoticeSessionId, env);
     }
 
     const m = marker.readMarker(cwd);
@@ -391,19 +409,23 @@ export function runHook(
 
     if (kind === "fresh" || kind === "carryover") {
       const turn = adapter.currentTurn(payload.transcript_path);
-      return claimAndEmit(cwd, current, turn, m, kind, env, adapter);
+      return appendHookUpdateNotice(
+        claimAndEmit(cwd, current, turn, m, kind, env, adapter),
+        updateNoticeSessionId,
+        env
+      );
     }
 
     // SAME-SESSION: per-prompt reminder cadence, ON variant.
     const r = reminder.advance(cwd, current);
-    return cadenceEmit(
+    return appendHookUpdateNotice(cadenceEmit(
       env,
       adapter,
       adapter.reminderOnFile,
       adapter.shortOnFile,
       r.count,
       r.persisted
-    );
+    ), updateNoticeSessionId, env);
   } catch {
     // Any failure -> inject nothing. Never crash or stall the host turn.
     return "";

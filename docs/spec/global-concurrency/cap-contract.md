@@ -119,10 +119,16 @@ still over-count until reboot on POSIX or manual deletion on Windows.
 ## Config
 - Canonical source: `src/global-concurrency.jsonc`.
 - Installed path: `dist/global-concurrency.jsonc` beside compiled modules.
-- Key: `globalConcurrentSubagents`.
+- Keys: `globalConcurrentSubagents`, `checkForUpdates`.
 - Default: `20`; minimum valid: `10`.
 - Re-read on every `launch_agent`; no restart and no cache.
 - JSONC supports whole-line `//` comments only.
+
+`checkForUpdates` defaults true on missing, invalid, or unreadable config. False
+skips the startup npmjs metadata fetch and suppresses hook update notices.
+`SUBAGENT_UPDATE_CHECK=0` or `SUBAGENT_UPDATE_CHECK=false` (case-insensitive)
+also disables both paths for the process. Hook notices dedupe by payload
+`session_id` when present; hosts that omit it use timestamp-only throttling.
 
 Validation:
 
@@ -141,7 +147,7 @@ Validation:
 // ------------------------------------------------------------------
 // SOLE source of truth for the machine-wide limit on how many subagents
 // may be ALIVE AT ONCE across EVERY session, process, and user on this
-// machine. There is NO environment-variable override.
+// machine. There is NO environment-variable override for the cap.
 //
 // The whole recursive descendant tree counts toward this ONE number: a
 // subagent that itself launches subagents adds to the same machine-wide
@@ -163,8 +169,13 @@ Validation:
 //
 // When the cap is reached after culling, launch_agent is REJECTED (never
 // queued). Free a slot with list_agents + kill_agent, then retry.
+//
+// checkForUpdates controls the silent npmjs update check started when the MCP
+// server connects. Default true. Set to false to skip the registry fetch and
+// suppress hook notices. SUBAGENT_UPDATE_CHECK=0 or false also disables it.
 {
-  "globalConcurrentSubagents": 20
+  "globalConcurrentSubagents": 20,
+  "checkForUpdates": true
 }
 ```
 
@@ -190,11 +201,13 @@ path/default/minimum details.
 ## Fail-Open Policy
 Filesystem errors in cap state fail open: allow launch and warn on stderr.
 `countSlots` returns `0` on read errors; `reserveSlot` returns an accepted null
-slot on mkdir/write/count errors; `readGlobalCap` returns the default on config
-read/parse errors.
+slot on mkdir/write/count errors; `readGlobalCap` and `readCheckForUpdates`
+return defaults on config read/parse errors.
 
 ## Tests
 `test/global-concurrency-cap.test.mjs` covers config validation, JSONC parsing,
 reserve/reject/rollback, release idempotence, and scaffold parsing.
+`test/update-check.test.mjs` covers update-check fetch failures, persistence,
+notice throttling/session suppression, stale notice cleanup, and opt-outs.
 `test/zombie.test.mjs` covers slot metadata, stale culling, graceful/force
 process-tree commands, JSONL zombie reports, and hook/tool report behavior.

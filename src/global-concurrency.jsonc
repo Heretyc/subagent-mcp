@@ -2,7 +2,7 @@
 // ------------------------------------------------------------------
 // SOLE source of truth for the machine-wide limit on how many subagents
 // may be ALIVE AT ONCE across EVERY session, process, and user on this
-// machine. There is NO environment-variable override.
+// machine. There is NO environment-variable override for the cap.
 //
 // The whole recursive descendant tree counts toward this ONE number: a
 // subagent that itself launches subagents adds to the same machine-wide
@@ -24,6 +24,11 @@
 //
 // When the cap is reached after culling, launch_agent is REJECTED (never
 // queued). Free a slot with list_agents + kill_agent, then retry.
+//
+// checkForUpdates controls the silent npmjs update check started when the MCP
+// server connects. Default true. Set to false to skip the registry fetch and
+// suppress hook notices. SUBAGENT_UPDATE_CHECK=0 or false also disables it.
 {
-  "globalConcurrentSubagents": 20
+  "globalConcurrentSubagents": 20,
+  "checkForUpdates": true
 }

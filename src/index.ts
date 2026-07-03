@@ -65,6 +65,7 @@ import {
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
+import { checkForNpmUpdate } from "./orchestration/update-check.js";
 import { ensureParentMarker } from "./launch-prompt.js";
 
 type FailureType = "transient_provider" | "permanent";
@@ -1946,6 +1947,7 @@ if (isMain) {
   // (the tool's enabled:false writes a disable record via writeDisable /
   // writeDisableCwd; it does not call disable().)
   getNpmPrefix();
+  void checkForNpmUpdate().catch(() => {});
   startLivenessHeartbeat();
   const transport = new StdioServerTransport();
   await server.connect(transport);

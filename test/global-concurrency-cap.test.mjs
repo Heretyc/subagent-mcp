@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import {
   clampCap,
   countSlots,
+  parseCheckForUpdatesConfig,
   parseConcurrencyConfig,
   readSlotMetadata,
   releaseSlot,
@@ -68,6 +69,15 @@ test("parseConcurrencyConfig handles shipped template, clamp, missing, malformed
   assert.equal(parseConcurrencyConfig("{}"), 20);
   assert.equal(parseConcurrencyConfig("{not json"), 20);
   assert.equal(parseConcurrencyConfig('// c\n{"globalConcurrentSubagents":50}'), 50);
+});
+
+test("parseCheckForUpdatesConfig defaults true unless explicitly false", () => {
+  const template = readFileSync("dist/global-concurrency.jsonc", "utf8");
+  assert.equal(parseCheckForUpdatesConfig(template), true);
+  assert.equal(parseCheckForUpdatesConfig("{}"), true);
+  assert.equal(parseCheckForUpdatesConfig("{not json"), true);
+  assert.equal(parseCheckForUpdatesConfig('{"checkForUpdates":"false"}'), true);
+  assert.equal(parseCheckForUpdatesConfig('{"checkForUpdates":false}'), false);
 });
 
 test("reserveSlot rejects at cap and rolls back its own marker", () => {

@@ -22,6 +22,7 @@ import {
 
 export const DEFAULT_CAP: number = 20;
 export const MIN_CAP: number = 10;
+export const DEFAULT_CHECK_FOR_UPDATES: boolean = true;
 export const CONFIG_FILENAME: string = "global-concurrency.jsonc";
 
 export interface ReservedSlot {
@@ -78,6 +79,16 @@ export function parseConcurrencyConfig(text: string): number {
   return clampCap(raw);
 }
 
+export function parseCheckForUpdatesConfig(text: string): boolean {
+  try {
+    const raw = (JSON.parse(stripJsoncComments(text)) as Record<string, unknown> | null)
+      ?.checkForUpdates;
+    return typeof raw === "boolean" ? raw : DEFAULT_CHECK_FOR_UPDATES;
+  } catch {
+    return DEFAULT_CHECK_FOR_UPDATES;
+  }
+}
+
 export function defaultConfigPath(): string {
   return fileURLToPath(new URL("./" + CONFIG_FILENAME, import.meta.url));
 }
@@ -95,6 +106,15 @@ export function readGlobalCap(path: string = defaultConfigPath()): number {
     return parseConcurrencyConfig(readFileSync(path, "utf8"));
   } catch {
     return DEFAULT_CAP;
+  }
+}
+
+export function readCheckForUpdates(path: string = defaultConfigPath()): boolean {
+  try {
+    ensureConcurrencyConfig(path);
+    return parseCheckForUpdatesConfig(readFileSync(path, "utf8"));
+  } catch {
+    return DEFAULT_CHECK_FOR_UPDATES;
   }
 }
 
