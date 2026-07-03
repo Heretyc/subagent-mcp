@@ -8,6 +8,7 @@ export type Provider = "claude" | "codex";
 export function mapModel(provider: Provider, model: string): string {
   if (provider === "claude") {
     if (model === "opus" || model === "opus-4-8") return "claude-opus-4-8";
+    if (model === "fable") return "claude-fable-5";
     return model; // haiku, sonnet as-is
   } else {
     return model; // gpt-5.5
@@ -40,7 +41,7 @@ export function resolveEffort(
     return { kind: "none" };
   }
 
-  if (provider === "claude" && ["sonnet", "opus", "opus-4-8"].includes(model)) {
+  if (provider === "claude" && ["sonnet", "opus", "opus-4-8", "fable"].includes(model)) {
     if (["medium", "high", "xhigh", "max"].includes(effort)) {
       return { kind: "flag", value: effort };
     }

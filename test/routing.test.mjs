@@ -140,6 +140,12 @@ test("effort normalization: sonnet@ultracode clamps to xhigh (ultracode is opus-
     "sonnet@ultracode must clamp to xhigh; only opus-4-8 accepts ultracode");
 });
 
+test("effort normalization: fable@ultracode clamps to xhigh (ultracode is opus-only)", () => {
+  const result = normalizeEffort("claude", "fable", "ultracode");
+  assert.equal(result, "xhigh",
+    "fable@ultracode must clamp to xhigh; ultracode stays Opus-only");
+});
+
 test("effort normalization: opus-4-8@ultracode stays ultracode", () => {
   const result = normalizeEffort("claude", "opus-4-8", "ultracode");
   assert.equal(result, "ultracode",
@@ -182,6 +188,11 @@ test("mapModelToProvider: full claude ids -> 'claude'", () => {
   assert.equal(mapModelToProvider("claude-opus-4-8"), "claude");
   assert.equal(mapModelToProvider("claude-sonnet-4-6"), "claude");
   assert.equal(mapModelToProvider("claude-haiku-4-5"), "claude");
+  assert.equal(mapModelToProvider("claude-fable-5"), "claude");
+});
+
+test("mapModelToProvider: fable short id -> 'claude'", () => {
+  assert.equal(mapModelToProvider("fable"), "claude");
 });
 
 test("mapModelToProvider: gpt-5.5 -> 'codex'", () => {
@@ -271,6 +282,19 @@ test("explicit mode: returns single triple without reading table (null table wor
   assert.equal(c.provider, "claude");
   assert.equal(c.model, "opus-4-8");
   assert.equal(c.effort, "high");
+});
+
+test("explicit mode with fable: null table works, single candidate returned", () => {
+  const result = buildCandidates(null, "debugging", {
+    provider: "claude",
+    model: "fable",
+    effort: "max",
+  });
+  assert.equal(result.mode, "explicit");
+  assert.equal(result.candidates.length, 1);
+  assert.equal(result.candidates[0].provider, "claude");
+  assert.equal(result.candidates[0].model, "fable");
+  assert.equal(result.candidates[0].effort, "max");
 });
 
 test("explicit mode with codex: null table works, single candidate returned", () => {
@@ -378,6 +402,18 @@ test("full model id claude-haiku-4-5 maps to short launch id haiku", () => {
   const haikuCandidate = result.candidates.find((c) => c.model === "haiku");
   assert.ok(haikuCandidate,
     "claude-haiku-4-5 in table must map to short id haiku for buildCommand");
+});
+
+test("full model id claude-fable-5 maps to short launch id fable from generated routing table", () => {
+  const table = loadRoutingTable();
+  assert.ok(table, "dist routing-table.json must load after build");
+  const result = buildCandidates(table, "debugging", { provider: "claude" }, "performance");
+  const fableCandidate = result.candidates.find((c) => c.model === "fable");
+  assert.ok(fableCandidate,
+    "claude-fable-5 rows in the routing table must map to launch id fable instead of being skipped");
+  assert.equal(fableCandidate.provider, "claude");
+  assert.ok(["high", "xhigh", "max"].includes(fableCandidate.effort),
+    "fable routing-table efforts must remain selectable Claude efforts");
 });
 
 // ---------------------------------------------------------------------------

@@ -24,6 +24,9 @@ test("mapModel opus -> claude-opus-4-8", () => {
 test("mapModel opus-4-8 -> claude-opus-4-8", () => {
   assert.equal(mapModel("claude", "opus-4-8"), "claude-opus-4-8");
 });
+test("mapModel fable -> claude-fable-5", () => {
+  assert.equal(mapModel("claude", "fable"), "claude-fable-5");
+});
 
 // 2. (claude, opus, ultracode) buildCommand: args include "--settings"; file exists with {"ultracode":true}; no "--effort"
 test("(claude,opus,ultracode) buildCommand has --settings, no --effort, file contains ultracode:true", () => {
@@ -73,6 +76,10 @@ test("(claude,sonnet,ultracode) throws", () => {
   assert.throws(() => buildCommand("claude", "sonnet", "ultracode", "test", process.cwd()));
 });
 
+test("(claude,fable,ultracode) throws", () => {
+  assert.throws(() => buildCommand("claude", "fable", "ultracode", "test", process.cwd()));
+});
+
 // 7. (claude, opus, max): args include "--effort","max"
 test("(claude,opus,max) args include --effort max", () => {
   const result = buildCommand("claude", "opus", "max", "test", process.cwd());
@@ -106,6 +113,14 @@ test("(claude,sonnet,xhigh) args include --effort xhigh", () => {
   const effortIdx = result.args.indexOf("--effort");
   assert.ok(effortIdx !== -1, "args should include --effort");
   assert.equal(result.args[effortIdx + 1], "xhigh", "--effort value should be xhigh");
+});
+
+test("(claude,fable,max) maps model and args include --effort max", () => {
+  const result = buildCommand("claude", "fable", "max", "test", process.cwd());
+  const modelIdx = result.args.indexOf("--model");
+  const effortIdx = result.args.indexOf("--effort");
+  assert.equal(result.args[modelIdx + 1], "claude-fable-5", "--model should be claude-fable-5");
+  assert.equal(result.args[effortIdx + 1], "max", "--effort value should be max");
 });
 
 // 11. (claude, haiku, high): args do NOT include "--effort"

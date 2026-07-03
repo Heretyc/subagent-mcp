@@ -59,7 +59,7 @@ runner, `assert/strict`, exit non-zero on any failure. Import the compiled
 4. **effort normalization** — `gpt-5.5@max` resolves to launch effort `xhigh`;
    `sonnet@ultracode` → `xhigh`; `opus-4-8@ultracode` stays `ultracode`;
    `haiku@none` → effort ignored/placeholder.
-5. **model→provider map** — haiku/sonnet/opus/opus-4-8 → claude; gpt-5.5 →
+5. **model→provider map** — haiku/sonnet/opus/opus-4-8/fable → claude; gpt-5.5 →
    codex.
 6. **empty category** — empty category array (`[]`) → resolver signals "no candidates"
    (the value the handler turns into `ERR_NO_CANDIDATES`).

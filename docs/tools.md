@@ -15,7 +15,7 @@ Start a new always-interactive sub-agent session.
 | `task_category` | one of `math_proof`, `security_review`, `debugging`, `quality_review`, `architecture`, `agentic_execution`, `data_analysis`, `coding`, `knowledge_synthesis`, `mechanical`, `prompt_engineering`, `vulnerability_research`, `molecular_biology`, `ml_accelerator_design`, `fallback_default` | Yes | Task shape; routes to the best provider/model/effort for that category |
 | `prompt` | string | Yes | Initial prompt text |
 | `provider` | `"claude" \| "codex"` | No | Override; omit to auto-select |
-| `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "gpt-5.5"` | No | Override; omit to auto-select |
+| `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "fable" \| "gpt-5.5"` | No | Override; omit to auto-select |
 | `effort` | `"medium" \| "high" \| "xhigh" \| "max" \| "ultracode"` | No | Override; omit to auto-select. See haiku note.[^haiku-effort] |
 | `deadlock` | boolean | No | MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory - the 3rd attempt onward. Re-wording or splitting unchanged work does NOT reset attempts. Auto mode only: cannot be combined with provider/model/effort; from the 3rd attempt, drop those params. Passing false is identical to omitting it. |
 | `cwd` | string | No | Working directory for the agent session |
@@ -28,7 +28,7 @@ Returns: `{ agent_id, status, provider, model, effort, task_category }`, plus `r
 
 **Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. Rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`. Passing all three is `explicit` mode — a single direct attempt with no fallback. Omitting or partially supplying them on a bad combination is a hard error (see the spec).
 
-Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`. Codex accepts only `gpt-5.5`.
+Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable`. Codex accepts only `gpt-5.5`.
 
 Spec: [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_INDEX.md) (param contract, presence→behavior matrix, exact error text).
 

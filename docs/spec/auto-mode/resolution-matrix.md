@@ -59,7 +59,7 @@ Validation order in the handler:
 3. If `effort` present and not (`provider` and `model`) → `ERR_EFFORT_NEEDS_BOTH`.
 4. If `model` present and not `provider` → `ERR_MODEL_NEEDS_PROVIDER`.
 5. (explicit mode only) provider+model must match the existing
-   provider↔model rule from `src/index.ts` (claude↔{haiku,sonnet,opus,opus-4-8};
+   provider↔model rule from `src/index.ts` (claude↔{haiku,sonnet,opus,opus-4-8,fable};
    codex↔gpt-5.5); reuse that existing check and its message verbatim.
 6. If `task_category` is `fallback_default` and mode is not `explicit` →
    `ERR_FALLBACK_DEFAULT`.

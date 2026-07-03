@@ -1126,6 +1126,28 @@ await test("explicit launch: selection honored; deadlock:false identical to omit
   }
 });
 
+await test("explicit fable launch: zod enum accepts model and selection is honored", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, { cwd: workDir, env });
+  try {
+    await session.initialize();
+    await enableManualSelection(session);
+    const { agentId, launchPayload } = await launchAndPoll(session, {
+      task_category: "debugging",
+      prompt: "explicit fable launch",
+      provider: "claude",
+      model: "fable",
+      effort: "max",
+    });
+    assertSelection(launchPayload, { provider: "claude", model: "fable", effort: "max" },
+      "explicit fable launch");
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);

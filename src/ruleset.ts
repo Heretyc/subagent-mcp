@@ -239,7 +239,7 @@ const CODEX_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter(
 
 function effortAllowed(model: string, effort: string): boolean {
   if (model === "haiku") return effort === HAIKU_EFFORT;
-  if (model === "sonnet") return SONNET_EFFORTS.includes(effort);
+  if (model === "sonnet" || model === "fable") return SONNET_EFFORTS.includes(effort);
   if (model === "opus" || model === "opus-4-8") {
     return (LAUNCH_EFFORTS as readonly string[]).includes(effort);
   }
@@ -255,7 +255,7 @@ function effortAllowed(model: string, effort: string): boolean {
  *
  * Per element: string provider/model/effort; provider ∈ {claude, codex};
  * model ∈ launch enum; provider↔model legality (claude↔{haiku,sonnet,opus,
- * opus-4-8}, codex↔gpt-5.5); per-model effort legality incl. haiku→"none".
+ * opus-4-8,fable}, codex↔gpt-5.5); per-model effort legality incl. haiku→"none".
  * Extra keys (incl. rank) are ignored on output; duplicates are allowed (the
  * attempt loop just tries them in order). An EMPTY array is VALID — it is the
  * limit case of the allowed filter operation and means "veto the launch"

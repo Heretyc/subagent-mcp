@@ -70,14 +70,14 @@ allowed). Template:
 Validation is against STATIC launch enums, NOT raw routing-table rows: the
 returned list is consumed verbatim by the attempt loop, so every entry must be
 launchable. Table ids like `gpt-5.5-pro` or `claude-fable-5` are NOT valid
-output even though they appear in `routing-table.json`.
+output; use short launch id `fable` for `claude-fable-5`.
 
 | Rule | Detail |
 |---|---|
 | Top level | Bare JSON array. An object wrapper (e.g. `{"candidates": [...]}`) is INVALID. `[]` is VALID — see Veto below. |
 | Element | Object with string `provider`, `model`, `effort`. All other keys — including `rank` — are IGNORED on output. |
 | `provider` | `claude` or `codex`. |
-| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8` (claude) or `gpt-5.5` (codex); the provider↔model pair must be legal. |
+| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude) or `gpt-5.5` (codex); the provider↔model pair must be legal. |
 | `effort` | Per-model table below; the validator does its OWN membership checks. |
 | Duplicates | Allowed — the attempt loop simply tries them in order. |
 | Anything else | Ruleset failure → hard fail. |
@@ -88,6 +88,7 @@ Per-model effort legality:
 |---|---|
 | `haiku` | exactly `"none"` |
 | `sonnet` | `medium`, `high`, `xhigh`, `max` |
+| `fable` | `medium`, `high`, `xhigh`, `max` |
 | `opus`, `opus-4-8` | `medium`, `high`, `xhigh`, `max`, `ultracode` |
 | `gpt-5.5` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
 
@@ -142,7 +143,7 @@ subagent ruleset erroring. Please ask the system administrator to debug before c
   Diagnostics belong on stderr.
 - Output is `{"candidates": [...]}` → not a bare array → hard fail.
 - Output names `gpt-5.5-pro` or `claude-fable-5` → not a launchable model id →
-  hard fail (table ids are not launch ids).
+  hard fail (table ids are not launch ids; use `fable`).
 - `{"provider":"codex","model":"gpt-5.5","effort":"max"}` → illegal effort for
   codex → hard fail. Same for sonnet + `ultracode`.
 - `{"provider":"claude","model":"sonnet","effort":"banana"}` → hard fail (the
