@@ -25,7 +25,7 @@ DROPOUT WHILE ON: if subagent-mcp stops responding while orchestration is ON, HA
 
 NO-HOOK / UNKNOWN STATE: if no harness-hook injection bearing a <subagent-mcp state="..."> tag is present this session (e.g. Gemini, desktop apps, or any host that fires no hook), the state is UNKNOWN — represented by the ABSENCE of any tag, never by a tag value. Emit this UNKNOWN-STATE WARNING to the user: "subagent-mcp: no hook injection detected — orchestration state unknown; defaulting to ON". Briefly explain WHY: no hook injection detected — cannot verify orchestration state; defaulting to ON to prevent uncontrolled inline execution. Then DEFAULT TO ORCHESTRATION ON (fail-safe). One-time opt-out: if you are not currently running an orchestration workflow, you may explicitly opt out of ON for this session by saying so now; this opt-out does not persist and is not recorded. The sub-agent first-line exemption is the ONLY automatic suppressor of this default.
 
-DISABLE: never on your own initiative; you MAY propose OFF on task-fit mismatch via the structured-question tool, and only explicit user approval may call orchestration-mode enabled:false.
+DISABLE: never on your own initiative; you MAY propose OFF on task-fit mismatch via the structured-question tool, and only explicit user approval may set enabled:false — per-session only; the next new session resumes ON; no mid-session re-enable.
 <!-- subagent-mcp:managed:end -->
 
 This repository uses the Claude CI/CD Policy Pack for Git, GitHub, CI/CD, and agentic collaboration.
@@ -33,12 +33,14 @@ This repository uses the Claude CI/CD Policy Pack for Git, GitHub, CI/CD, and ag
 ## Line Limit
 - `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` <=100 lines; other markdown/RAG <=200.
 - If a file would exceed its limit, keep it as an index and move detail into a same-named subdirectory or an appropriate `docs/spec/**` file.
+- `docs/spec/dev-loop/orchestration-directive-architecture.md` is now a retrieval map over its subdirectory leaves (`sections-00-04`, `sections-05-09`, `sections-10-13`, `derivation-map`, `appendix-a1-a4`, `appendix-a5-directives`, `appendix-a6-a7`); load the map first, then the matched leaf.
 
 ## Provider Entry Points
 - Read this file first.
 - `CLAUDE.md`/`GEMINI.md` redirect here; add no durable operating rules.
 
 ## Context Routing
+- ALWAYS load `retrieval-map.md` (repo root) at session start — it is the retrieval index for all repo documentation.
 - This file is the only always-loaded repository instruction file.
 - Do not preload decomposed SOPs, reference folders, or entire directories.
 - Before reading a referenced file, identify the concrete trigger below.
@@ -50,8 +52,9 @@ This repository uses the Claude CI/CD Policy Pack for Git, GitHub, CI/CD, and ag
 - `agents/GIT_COLLABORATION.md`: compact git-write checklist; read after the git SOP; skip for read-only or non-git tasks.
 - `docs/spec/dev-loop/claude-routine-prompt.md`: read before changing the exact Claude Routine Instructions text.
 - `docs/spec/dev-loop/claude-routines-cicd.md`: read before editing `.github/workflows/*`, required-check names, workflow permissions, `workflow_dispatch` I/O, dispatch bridge logic, or any GitHub event/status mapping to Claude Routine execution.
+- `docs\spec\dev-loop\dependabot-ci-guard.md`: read before editing `.github/dependabot.yml`, auto-merge/branch-protection rules for Dependabot PRs, or any CI gate that guards dependency-update branches. Skip for read-only status/diff/log.
 - `docs/spec/prompt-review/eight-perspective-review.md`: read before creating or changing repo instruction files, reusable prompts/templates/SOPs under `docs/spec`, skills, policy gates, CI/CD agent instructions, or text future agents must follow. Skip for one-off notes, changelogs, or agent-state md.
-- `src/routing-table.json` (+ `.spec/references/work-categories.md`): read when choosing model/provider/effort, routing work across Claude/Codex, classifying a prompt into a work-category, or wiring subagent-mcp routing. The JSON is the routing artifact; `work-categories.md` the fixed taxonomy; re-profile new models via the `model-profiler` skill.
+- `src/routing-table.json` (+ `.spec/references/work-categories.md`): read when choosing model/provider/effort, routing work across Claude/Codex, classifying a prompt into a work-category, or wiring subagent-mcp routing. The JSON is the routing artifact; `work-categories.md` the fixed taxonomy; re-profile new models via the `model-profiler` skill. The `classification_precedence` array in `routing-table.json` is the SOLE ordering authority for classification — never infer ordering from any other source.
 - `skills/model-profiler/SKILL.md`: read/run when a new model ships, or when asked to re-profile the fleet / refresh tier rankings / regenerate `src/routing-table.json`; invoke the `model-profiler` skill (bare prompt `Run the model-profiler skill.` uses the standing repo profile); orchestrator-only, flagship runner required; emits `src/routing-table.json` + `src/routing-table-audit.json` + `research-seed-sites.json`.
 - `docs/spec/task-taxonomy/_INDEX.md`: read when defining, citing, or changing the fixed 14-category task taxonomy (immutable) or its provenance, not routing.
 - `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior; for the advanced-ruleset.py override hook, its python execution/IO contract, launch visibility fields, or the post-spawn failover window, read `docs/spec/advanced-ruleset/_INDEX.md` first.

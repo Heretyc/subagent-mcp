@@ -8,6 +8,65 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.10.4
+
+### Live slot heartbeat and owner-aware reaping
+
+- Live `processing` and `stalled` agents now refresh global slot metadata from
+  the server reconcile timer and from the `wait` loop, not only from external
+  tool-call cadence.
+- Older slot-file timestamps no longer move an in-memory live agent heartbeat
+  backward or self-classify the agent as stale.
+- Cross-process stale culling skips slots owned by a still-live server PID, and
+  only kills a managed child when ownership metadata shows the owner is gone.
+
+### RCA
+
+- Trigger: long-running `wait` calls could block for up to 15 minutes while
+  live slot files stopped being refreshed.
+- Impact: other sessions could misclassify healthy Claude/Codex drivers as
+  stale, unlink their slots, and undercount the global cap while processes
+  accumulated.
+- Root cause: slot liveness used provider-visible activity plus MCP tool-call
+  maintenance cadence instead of a wall-clock owner heartbeat.
+- Contributing factors: stale disk metadata could drag fresh in-memory state
+  backward, and cross-process culling did not check owner-server liveness.
+- Detection gap: tests covered stale slot reaping, but not live owned stale
+  slots during blocked `wait` calls.
+- Fix/tests: live slot heartbeats, owner-aware stale culling, and regression
+  tests for safe no-kill behavior and `wait`-loop refresh.
+
+## v2.10.3
+
+### Silent launch zombie reaping
+
+- `launch_agent` still runs zombie maintenance before spawning, but no longer
+  returns a caller-facing `zombie_report` field.
+- Zombie cleanup remains visible through `poll_agent`, `list_agents`, and
+  `wait`, where culled agents report `zombie_killed` as before.
+
+## v2.10.1
+
+### Global concurrent-subagent cap
+
+Adds a machine-global live subagent cap across all sessions and processes on
+the machine. The shared-state count includes agents from other active sessions
+and the whole recursive descendant tree; slots free when agents finish or are
+killed.
+
+- New `global-concurrency.jsonc` config with `globalConcurrentSubagents`
+  (default `20`, minimum `10`). Invalid, unset, or `0` values reset to `20`;
+  values `1`-`9` are pinned to `10`.
+- The config has no environment-variable override, is re-read on every
+  `launch_agent` call, and is retained across installs / updates like the
+  advanced routing directives file.
+- Before cap rejection, launch/tool/hook paths cull zombie agents by default:
+  stale live agents after 6 minutes idle, terminal-but-alive agents after 30
+  seconds, with graceful process-tree termination then force after 20 seconds.
+  Tool and hook reports include `zombies` when cleanup occurs.
+- Adds unit coverage for config validation, template parsing, cap rejection,
+  slot reservation, and idempotent release.
+
 ## v2.9.0
 
 ### Claude session-limit failover

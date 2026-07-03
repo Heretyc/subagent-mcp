@@ -31,7 +31,8 @@ jobs:
       # publishConfig.registry now targets npmjs (the default), so a bare publish
       # already routes here; --registry is kept explicit for clarity. Trusted
       # Publishing (OIDC) needs id-token: write and no token.
-      - run: npm publish --provenance --access public --registry https://registry.npmjs.org
+      - run: npm publish --provenance --access public --registry=https://registry.npmjs.org --@heretyc:registry=https://registry.npmjs.org
+      - run: npm run verify:npmjs-release
 
   github-packages:
     runs-on: ubuntu-latest

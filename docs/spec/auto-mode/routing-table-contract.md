@@ -99,47 +99,13 @@ Pairings within a category are ALREADY ordered best→worst by `rank` per the
 emission contract; the resolver sorts by `rank` ascending defensively rather
 than assuming array order.
 
-## model → provider map
+## model → provider map and effort normalization
 
-Derive provider from the pairing's `model`:
-
-| `model` value(s) | provider |
-|---|---|
-| `haiku`, `sonnet`, `opus`, `opus-4-8` | `claude` |
-| `gpt-5.5` (and any codex sibling id, e.g. `gpt-5.4-mini`, `gpt-5.5-pro`) | `codex` |
-
-Rule: Claude model ids map to `claude`; any GPT/codex-family id maps to
-`codex`. An unknown model id that maps to neither → skip that pairing (treat as
-a launch-time failure for that candidate; advance). Note: the launch model enum
-is currently `["haiku","sonnet","opus","opus-4-8","gpt-5.5"]`; if a future
-pairing names a codex sibling not in that enum, it cannot be launched by the
-current `buildCommand` and is skipped — flag for B2 as a known limitation, do
-not silently coerce it to `gpt-5.5`.
-
-## effort normalization (table tier → launch enum)
-
-Launch enum: `["medium","high","xhigh","max","ultracode"]`. Normalize the
-pairing's `effort` before passing to `buildCommand`:
-
-1. If the tier is already a launch-enum value, pass it through, THEN apply the
-   model-specific clamps below.
-2. `none` (haiku has no effort) → for `haiku`, effort is ignored by
-   `buildCommand`; pass `none` as a placeholder (it is dropped) and report the
-   pairing tier `none`-equivalent as the launched effort label.
-3. Model-specific clamps (mirror `src/effort.ts` so the resolver never feeds an
-   invalid combo into `buildCommand`):
-   - `ultracode` is valid ONLY on `opus`/`opus-4-8`. On any other model →
-     clamp DOWN to `xhigh`.
-   - codex (`gpt-5.5`) has no `max`/`ultracode`: `max` → `xhigh`;
-     `ultracode` → `xhigh`.
-   - haiku ignores effort entirely.
-4. Unknown / unrecognized tier (not in the enum, not `none`) → skip this
-   candidate (advance). Do NOT guess.
-
-The resolver should produce a `{ provider, launchModel, launchEffort }` triple
-per surviving candidate. `buildCommand` + `resolveEffort` remain the final
-authority; if they still throw for an edge combo, the attempt loop treats it as
-a launch failure and advances (auto/partial modes) — defense in depth.
+The `model` → provider map and the `effort` tier → launch-enum normalization
+(with model-specific clamps) are extracted to the leaf
+[routing-table-model-effort.md](routing-table-model-effort.md). The resolver
+produces a `{ provider, launchModel, launchEffort }` triple per surviving
+candidate; `buildCommand` + `resolveEffort` remain the final authority.
 
 ## Candidate-list construction (by mode)
 
@@ -167,12 +133,14 @@ For each candidate in order (best→worst):
 
 1. Normalize to `{provider, launchModel, launchEffort}` (skip on unknown
    model/effort).
-2. Reuse the EXISTING launch path from `src/index.ts` unchanged:
+2. Reuse the EXISTING launch path from `src/index.ts`:
    `buildCommand(provider, launchModel, launchEffort, prompt, cwd)` →
-   `resolveExe(provider)` → `spawn(...)`, plus the concurrency-cap check
-   (`countProcessing` vs `MAX_CLAUDE`/`MAX_CODEX`).
+   `resolveExe(provider)` → `spawn(...)`. The machine-global concurrency slot is
+   reserved ONCE per `launch_agent` call before the candidate loop
+   (`cap-contract.md`), not per candidate; if that single reservation is
+   REJECTED (at cap, or fail-closed on a slot-state I/O error) the whole call
+   fails before any candidate is attempted. There are no per-provider caps.
 3. **"Fails for any reason" = LAUNCH-TIME failure**, specifically:
-   - concurrency limit for that provider already reached;
    - `buildCommand`/`resolveEffort` throws;
    - `resolveExe` returns a path that does not exist / driver spawn throws
      (missing exe, ENOENT, EACCES, etc.);

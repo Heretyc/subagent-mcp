@@ -13,7 +13,7 @@
  * marker MUST mean OFF, and re-enable MUST re-baseline (owner/baseline null).
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -21,12 +21,16 @@ import {
   normalizeCwd,
   cwdHash,
   markerPath,
+  disablePath,
   enable,
   disable,
+  writeDisable,
+  writeDisableCwd,
   isActive,
   readMarker,
   writeMarker,
   clearForCwd,
+  ORCH_DISABLE_TTL_MS,
 } from "../dist/orchestration/marker.js";
 
 let passed = 0;
@@ -115,18 +119,32 @@ test("markerPath: stable across calls and lives under tmp/subagent-mcp", () => {
 // ---------------------------------------------------------------------------
 // enable / disable / isActive / clearForCwd roundtrip (temp cwd)
 // ---------------------------------------------------------------------------
-test("enable -> isActive true; disable -> isActive false (roundtrip)", () => {
+test("default ON; disable records make isActive false; per-session isolation", () => {
   const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
+  const sessA = `sessA-${cwdHash(dir)}`;
+  const sessB = `sessB-${cwdHash(dir)}`;
+  const expiredSess = `expired-${cwdHash(dir)}`;
   try {
-    assert.equal(isActive(dir), false, "fresh temp cwd starts inactive (no marker)");
-    enable(dir);
-    assert.equal(isActive(dir), true, "after enable the marker exists -> active");
-    assert.ok(existsSync(markerPath(dir)), "marker file physically exists after enable");
-    disable(dir);
-    assert.equal(isActive(dir), false, "after disable the marker is gone -> inactive");
-    assert.equal(existsSync(markerPath(dir)), false, "marker file removed after disable");
+    assert.equal(isActive(dir), true, "fresh temp cwd starts active by default");
+
+    writeDisableCwd(dir);
+    assert.equal(isActive(dir), false, "cwd-keyed disable record makes cwd inactive");
+
+    assert.equal(isActive(dir, sessA), true, "fresh session key starts active");
+    writeDisable(sessA);
+    assert.equal(isActive(dir, sessA), false, "session-keyed disable makes that session inactive");
+    assert.equal(isActive(dir, sessB), true, "different session key remains active");
+
+    assert.equal(ORCH_DISABLE_TTL_MS, 2 * 60 * 60 * 1000, "disable TTL is 2h");
+    writeFileSync(disablePath(expiredSess), JSON.stringify({
+      disabled_at: Date.now() - ORCH_DISABLE_TTL_MS - 1,
+    }));
+    assert.equal(isActive(dir, expiredSess), true, "expired disable record is ignored");
+    assert.equal(existsSync(disablePath(expiredSess)), false, "expired disable record is GC'd");
   } finally {
-    disable(dir);
+    rmSync(disablePath(sessA), { force: true });
+    rmSync(disablePath(sessB), { force: true });
+    rmSync(disablePath(expiredSess), { force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });

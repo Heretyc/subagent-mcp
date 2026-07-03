@@ -104,3 +104,16 @@ Boundary). These are the canonical per-key strings:
 | `fallback_default` | no category matches with confidence (under-specified/mixed/tied); read-only; PREFER splitting work into smaller atomic steps each mapping to one category |
 
 Keep the param description string in sync with this table if either is edited.
+
+## Model-selection gating
+
+The override license above ("`provider`/`model`/`effort` licensed on 1st/2nd attempts") is
+ADDITIONALLY gated by `model-selection-mode`:
+
+- Default mode is `smart`; in `smart` the server REJECTS ALL selector-bearing calls (any
+  `provider`/`model`/`effort`), regardless of the 1st/2nd-attempt license.
+- Enable path: call `model-selection-mode(user-approved-overrides)` with explicit interactive
+  user authorization. Only then are selector overrides accepted.
+- The window is 30 minutes wall-clock, enforced lazily (checked at call time); re-enabling does
+  NOT refresh it.
+- On lapse, mode reverts to `smart` and selector-bearing calls are rejected again.

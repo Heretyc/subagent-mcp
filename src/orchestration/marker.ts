@@ -15,15 +15,14 @@ import { join, resolve } from "node:path";
  * the MCP tool (src/index.ts) and the hook entrypoints (src/hooks/*.ts).
  *
  * The marker is a per-project temp file keyed by a hash of the normalized
- * working directory. Presence of the marker = ON; absence = OFF = zero
- * emission. The marker PERSISTS across sessions/restarts: the server does NOT
- * clear it on startup, so a project explicitly enabled stays ON until disabled
- * with permission, and a project never enabled stays OFF (default OFF = no
- * marker). The hook re-claims a carried-over marker for the new session.
+ * working directory. Orchestration is default ON; marker presence is retained
+ * only as legacy state for callers that still write/read it. OFF is represented
+ * by a session-keyed disable record, falling back to cwd-keyed disable state
+ * when no session key is available.
  *
  * FAIL-SAFE: every filesystem operation is wrapped so this module NEVER throws
  * to its caller. Reads that fail return safe defaults. A hook that cannot read
- * the marker must degrade to "OFF / emit nothing", never crash the host turn.
+ * disable state must degrade to ON, never crash the host turn.
  */
 
 export interface MarkerState {
@@ -34,6 +33,7 @@ export interface MarkerState {
 }
 
 const markerDir = join(tmpdir(), "subagent-mcp");
+export const ORCH_DISABLE_TTL_MS = 2 * 60 * 60 * 1000; // 2h GC backstop ONLY (independent of model-mode WINDOW_MS)
 
 /**
  * Shared per-project state dir for ALL hook state files (marker + reminder
@@ -67,15 +67,31 @@ export function normalizeCwd(cwd: string): string {
   return p;
 }
 
-export function cwdHash(cwd: string): string {
+function hashKey(key: string): string {
   return createHash("sha256")
-    .update(normalizeCwd(cwd), "utf8")
+    .update(key, "utf8")
     .digest("hex")
     .slice(0, 16);
 }
 
+export function cwdHash(cwd: string): string {
+  return hashKey(normalizeCwd(cwd));
+}
+
 export function markerPath(cwd: string): string {
   return join(markerDir, "orch-" + cwdHash(cwd) + ".flag");
+}
+
+export function disablePath(sessionKey: string): string {
+  return join(stateDir, `orch-disable-${hashKey(sessionKey)}.json`);
+}
+
+function cwdDisablePath(cwd: string): string {
+  return join(stateDir, `orch-disable-${cwdHash(cwd)}.json`);
+}
+
+export function sessionPointerPath(cwd: string): string {
+  return join(stateDir, `orch-session-${cwdHash(cwd)}.json`);
 }
 
 /**
@@ -98,42 +114,103 @@ export function enable(cwd: string): void {
       carryover_ack: false,
     };
     writeFileSync(markerPath(cwd), JSON.stringify(state), { encoding: "utf8", mode: 0o600 });
+    try {
+      unlinkSync(cwdDisablePath(cwd));
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") {
+        // Fail-safe: enable still succeeds if stale disable cleanup fails.
+      }
+    }
   } catch {
     // Fail-safe: never throw to the caller.
   }
 }
 
 /**
- * Disable orchestration for cwd by removing the marker.
- *
- * No existsSync() guard: that only opens a TOCTOU window where a concurrent
- * clearForCwd/disable for the same cwd removes the file between the check and
- * the unlink. We just unlink and swallow ENOENT (already-gone is success).
- *
- * KNOWN LIMITATION: the marker is keyed by cwd, NOT by session. Two CLI
- * sessions in the same project share one marker, so their enable/disable
- * interleave and the last writer wins. Per-session isolation would require
- * keying the marker by cwd+session_id; not done here because LOCKED DECISION 1
- * keys the marker by working directory alone. (The hook tracks the owning
- * session via owner_session so a carried-over marker is re-claimed, but the
- * marker file itself is still shared per cwd.)
+ * Disable orchestration for cwd using cwd-keyed shared fallback state. The
+ * hook's session-keyed path uses writeDisable(sessionKey) instead.
  */
 export function disable(cwd: string): void {
   try {
-    unlinkSync(markerPath(cwd));
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") {
-      // Any non-ENOENT failure is still swallowed (fail-safe); ENOENT means the
-      // marker was already gone, which is the desired end state anyway.
-    }
+    mkdirSync(markerDir, { recursive: true, mode: 0o700 });
+    writeFileSync(cwdDisablePath(cwd), JSON.stringify({ disabled_at: Date.now() }), {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+  } catch {
+    // Fail-safe: never throw to the caller.
   }
 }
 
-export function isActive(cwd: string): boolean {
+export function writeDisable(sessionKey: string): void {
   try {
-    return existsSync(markerPath(cwd));
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    writeFileSync(disablePath(sessionKey), JSON.stringify({ disabled_at: Date.now() }), {
+      encoding: "utf8",
+      mode: 0o600,
+    });
   } catch {
+    // Fail-safe: never throw to the caller.
+  }
+}
+
+export function writeDisableCwd(cwd: string): void {
+  try {
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    writeFileSync(cwdDisablePath(cwd), JSON.stringify({ disabled_at: Date.now() }), {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+  } catch {
+    // Fail-safe: never throw to the caller.
+  }
+}
+
+export function writeCurrentSession(cwd: string, sessionKey: string): void {
+  try {
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    writeFileSync(sessionPointerPath(cwd), JSON.stringify({ session_key: sessionKey }), {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+  } catch {
+    // Fail-safe: never throw to the caller.
+  }
+}
+
+export function readCurrentSession(cwd: string): string | undefined {
+  try {
+    const raw = readFileSync(sessionPointerPath(cwd), "utf8");
+    const parsed = JSON.parse(raw) as { session_key?: unknown };
+    return typeof parsed.session_key === "string" ? parsed.session_key : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isDisableActive(path: string, now: number): boolean {
+  if (!existsSync(path)) {
     return false;
+  }
+  const raw = readFileSync(path, "utf8");
+  const parsed = JSON.parse(raw) as { disabled_at?: unknown };
+  if (typeof parsed.disabled_at !== "number") {
+    return false;
+  }
+  if (now - parsed.disabled_at <= ORCH_DISABLE_TTL_MS) {
+    return true;
+  }
+  // Lazy GC side-effect: the disable has expired, so remove it.
+  unlinkSync(path);
+  return false;
+}
+
+export function isActive(cwd: string, sessionKey?: string): boolean {
+  try {
+    const path = sessionKey === undefined ? cwdDisablePath(cwd) : disablePath(sessionKey);
+    return !isDisableActive(path, Date.now());
+  } catch {
+    return true;
   }
 }
 
@@ -176,9 +253,8 @@ export function writeMarker(cwd: string, obj: MarkerState): void {
 }
 
 /**
- * Marker removal alias, identical to disable. RETAINED for callers that clear a
- * marker explicitly (e.g. the tool's enabled:false path). NOTE: the server no
- * longer calls this on startup — orchestration mode now PERSISTS across sessions.
+ * Cwd-keyed disable alias, identical to disable. RETAINED for callers that
+ * clear legacy marker state explicitly (e.g. the tool's enabled:false path).
  */
 export function clearForCwd(cwd: string): void {
   disable(cwd);

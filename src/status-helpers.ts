@@ -9,6 +9,7 @@
 //   finished   - current turn completed, or driver exited 0.
 //   errored    - process exited non-zero.
 //   stopped    - process was killed.
+//   zombie_killed - stale process tree was culled outside the owning server.
 //
 // Liveness is driven by a heartbeat: launch time is the initial heartbeat and
 // every subsequent PARSED visible provider stream item refreshes it (raw
@@ -25,7 +26,8 @@ export type AgentStatus =
   | "stalled"
   | "finished"
   | "errored"
-  | "stopped";
+  | "stopped"
+  | "zombie_killed";
 
 export interface StatusTransitionInput {
   status: AgentStatus;
@@ -86,8 +88,7 @@ export function buildLivenessFields(
 ): LivenessFields {
   const idle_seconds = Math.floor((now - lastActivity) / 1000);
   const alive =
-    exitCode === null &&
-    (status === "processing" || status === "stalled" || status === "finished");
+    exitCode === null && (status === "processing" || status === "stalled");
   const fields: LivenessFields = { alive, idle_seconds };
   if (status === "stalled" && includeHint) {
     fields.hint =

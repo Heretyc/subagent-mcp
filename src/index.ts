@@ -43,6 +43,25 @@ import {
   RULESET_HARD_FAIL_MSG,
   type RulesetStdinPayload,
 } from "./ruleset.js";
+import {
+  CONFIG_FILENAME,
+  NONBLOCKING_CULL_DEPS,
+  ZOMBIE_FORCE_GRACE_MS,
+  ZOMBIE_LIVE_IDLE_MS,
+  ZOMBIE_TERMINAL_IDLE_MS,
+  buildProcessTreeKillCommands,
+  drainZombieIntents,
+  drainZombieReports,
+  defaultConfigPath,
+  globalCapMessage,
+  readSlotMetadata,
+  readGlobalCap,
+  releaseSlot,
+  reserveSlot,
+  slotDir,
+  writeSlotMetadata,
+  type ZombieRecord,
+} from "./concurrency.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
@@ -63,8 +82,10 @@ interface AgentState {
   exitedAt: number | null;
   startedAt: number;
   lastActivity: number;
+  slotLastActivity: number;
   cwd: string;
   ucSettingsPath?: string;
+  slotPath?: string | null;
   waitReported: boolean;
   routingTier?: "cost_efficiency" | "performance" | "manual";
   // Set ONLY when the advanced ruleset actually ALTERED the routing decision
@@ -92,8 +113,6 @@ interface AgentState {
 }
 
 const agents = new Map<string, AgentState>();
-const MAX_CLAUDE = 5;
-const MAX_CODEX = 5;
 const deadlockWindow = createDeadlockWindow();
 // Advanced-ruleset gate: per-process latch with exactly the deadlock-window
 // scoping. The env-check runs lazily at the FIRST launch_agent call; success
@@ -125,6 +144,239 @@ const TASK_CATEGORY_GLOSS =
 
 function errorResult(text: string) {
   return { content: [{ type: "text" as const, text }], isError: true };
+}
+
+function envDuration(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function zombieLiveIdleMs(): number {
+  return envDuration("SUBAGENT_ZOMBIE_LIVE_IDLE_MS", ZOMBIE_LIVE_IDLE_MS);
+}
+
+function zombieTerminalIdleMs(): number {
+  return envDuration("SUBAGENT_ZOMBIE_TERMINAL_IDLE_MS", ZOMBIE_TERMINAL_IDLE_MS);
+}
+
+function zombieForceGraceMs(): number {
+  return envDuration("SUBAGENT_ZOMBIE_FORCE_GRACE_MS", ZOMBIE_FORCE_GRACE_MS);
+}
+
+function zombieReport(records: ZombieRecord[]): string | undefined {
+  const ids = Array.from(new Set(records.map((r) => r.agent_id))).filter(Boolean);
+  return ids.length > 0 ? `zombies: ${ids.join(",")}` : undefined;
+}
+
+function withZombieReport<T extends { content?: { type: string; text: string }[] }>(
+  result: T,
+  records: ZombieRecord[]
+): T {
+  const report = zombieReport(records);
+  if (!report || !result.content?.[0] || result.content[0].type !== "text") return result;
+  const text = result.content[0].text;
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      parsed.zombie_report = report;
+      result.content[0].text = JSON.stringify(parsed, null, text.includes("\n") ? 2 : undefined);
+      return result;
+    }
+  } catch {}
+  result.content[0].text = `${text}\n${report}`;
+  return result;
+}
+
+function slotHeartbeatIntervalMs(): number {
+  return Math.max(1000, Math.min(30_000, Math.floor(zombieLiveIdleMs() / 3)));
+}
+
+function isLiveAgent(agent: AgentState): boolean {
+  return agent.status === "processing" || agent.status === "stalled";
+}
+
+function isSameOwnerSlot(
+  agent: AgentState,
+  slotMeta: ReturnType<typeof readSlotMetadata>
+): boolean {
+  if (!slotMeta) return true;
+  if (slotMeta.agent_id !== agent.id) return false;
+  return slotMeta.server_pid === null || slotMeta.server_pid === process.pid;
+}
+
+function adoptNewerSlotActivity(agent: AgentState, slotMeta: ReturnType<typeof readSlotMetadata>): void {
+  if (!slotMeta?.last_activity_ms || !isSameOwnerSlot(agent, slotMeta)) return;
+  if (slotMeta.last_activity_ms > agent.slotLastActivity) {
+    agent.slotLastActivity = slotMeta.last_activity_ms;
+  }
+}
+
+function updateSlotMetadata(agent: AgentState, slotActivityMs?: number): void {
+  if (!agent.slotPath) return;
+  const lastActivityMs = Math.max(agent.slotLastActivity, agent.lastActivity, slotActivityMs ?? 0);
+  agent.slotLastActivity = lastActivityMs;
+  writeSlotMetadata(agent.slotPath, {
+    agent_id: agent.id,
+    server_pid: process.pid,
+    child_pid: agent.process.pid ?? null,
+    cwd: agent.cwd,
+    started_at: new Date(agent.startedAt).toISOString(),
+    started_at_ms: agent.startedAt,
+    last_activity_ms: lastActivityMs,
+    status: agent.status,
+  });
+}
+
+function refreshLiveSlotMetadata(agent: AgentState, now: number): void {
+  if (!agent.slotPath || !isLiveAgent(agent)) return;
+  const slotMeta = readSlotMetadata(agent.slotPath);
+  if (!isSameOwnerSlot(agent, slotMeta)) return;
+  adoptNewerSlotActivity(agent, slotMeta);
+  const diskActivityMs = slotMeta?.last_activity_ms ?? null;
+  const shouldRefresh =
+    slotMeta === null ||
+    diskActivityMs === null ||
+    diskActivityMs < agent.slotLastActivity ||
+    now - agent.slotLastActivity >= slotHeartbeatIntervalMs();
+  if (shouldRefresh) updateSlotMetadata(agent, now);
+}
+
+function spawnProcessTreeKill(pid: number, force: boolean): void {
+  const commands = buildProcessTreeKillCommands(pid);
+  const command = force ? commands.force : commands.graceful;
+  try {
+    const child = spawn(command.command, command.args, {
+      stdio: "ignore",
+      windowsHide: true,
+      detached: false,
+    });
+    child.unref();
+  } catch {}
+}
+
+function scheduleZombieForceKill(agent: AgentState): void {
+  const pid = agent.process.pid;
+  if (!pid || agent.driver.closed) return;
+  const timer = setTimeout(() => {
+    if (!agent.driver.closed && agent.status === "zombie_killed") {
+      try {
+        agent.driver.kill();
+      } catch {}
+      spawnProcessTreeKill(pid, true);
+    }
+  }, zombieForceGraceMs());
+  timer.unref();
+}
+
+function markZombieKilled(
+  agent: AgentState,
+  reason: "stale_live" | "terminal_but_alive",
+  now: number
+): ZombieRecord {
+  agent.status = "zombie_killed";
+  agent.exitCode = agent.exitCode ?? -1;
+  agent.exitedAt = agent.exitedAt ?? now;
+  agent.waitReported = false;
+  releaseSlot(agent.slotPath ?? null);
+  const slotPath = agent.slotPath ?? "";
+  agent.slotPath = null;
+  const pid = agent.process.pid ?? null;
+  const record: ZombieRecord = {
+    kind: "zombie_killed",
+    agent_id: agent.id,
+    child_pid: pid,
+    server_pid: process.pid,
+    slot_path: slotPath,
+    reason,
+    detected_at_ms: now,
+    last_activity_ms: agent.lastActivity,
+    message: `zombies: culled ${agent.id}`,
+  };
+  if (pid && !agent.driver.closed) {
+    if (reason === "terminal_but_alive") {
+      try {
+        agent.driver.kill();
+      } catch {}
+      spawnProcessTreeKill(pid, true);
+    } else {
+      spawnProcessTreeKill(pid, false);
+      scheduleZombieForceKill(agent);
+    }
+  }
+  return record;
+}
+
+function applyZombieRecord(record: ZombieRecord, now: number): ZombieRecord | null {
+  const agent = agents.get(record.agent_id);
+  if (!agent || agent.status === "zombie_killed") return null;
+  agent.status = "zombie_killed";
+  agent.exitCode = agent.exitCode ?? -1;
+  agent.exitedAt = agent.exitedAt ?? now;
+  agent.waitReported = false;
+  releaseSlot(agent.slotPath ?? null);
+  agent.slotPath = null;
+  try {
+    if (!agent.driver.closed) agent.driver.kill();
+  } catch {}
+  return { ...record, detected_at_ms: record.detected_at_ms || now };
+}
+
+function runToolMaintenance(): ZombieRecord[] {
+  const now = Date.now();
+  const records: ZombieRecord[] = [];
+  const applied = new Set<string>();
+
+  for (const record of [...drainZombieIntents(slotDir()), ...drainZombieReports(slotDir())]) {
+    if (applied.has(record.agent_id)) continue;
+    const appliedRecord = applyZombieRecord(record, now);
+    if (appliedRecord) {
+      records.push(appliedRecord);
+      applied.add(record.agent_id);
+    }
+  }
+
+  for (const agent of agents.values()) {
+    if (agent.status === "zombie_killed") continue;
+    reconcileAgent(agent, now);
+    const live = isLiveAgent(agent);
+    if (live) {
+      refreshLiveSlotMetadata(agent, now);
+      continue;
+    }
+    const slotMeta = agent.slotPath ? readSlotMetadata(agent.slotPath) : null;
+    adoptNewerSlotActivity(agent, slotMeta);
+    const terminalButAlive =
+      (agent.status === "finished" || agent.status === "errored" || agent.status === "stopped") &&
+      !agent.driver.closed &&
+      agent.exitedAt !== null &&
+      now - agent.exitedAt > zombieTerminalIdleMs();
+    if (terminalButAlive) {
+      const record = markZombieKilled(agent, "terminal_but_alive", now);
+      records.push(record);
+      applied.add(agent.id);
+      continue;
+    }
+    updateSlotMetadata(agent);
+  }
+
+  return records;
+}
+
+function withMaintenance<P>(
+  handler: (params: P, zombieRecords: ZombieRecord[]) => Promise<any> | any,
+  options: { omitZombieReport?: boolean } = {}
+): any {
+  return async (params: P) => {
+    const zombieRecords = runToolMaintenance();
+    const result = await handler(params, zombieRecords);
+    if (options.omitZombieReport) return result;
+    if (result && typeof result === "object" && "content" in result) {
+      return withZombieReport(result as { content?: { type: string; text: string }[] }, zombieRecords);
+    }
+    return result;
+  };
 }
 
 export function classifyFailureReason(reason: string, stderr: string): FailureType {
@@ -175,17 +427,6 @@ function cleanupUcSettings(agentState: AgentState): void {
   }
 }
 
-// Concurrency cap accounting: only `processing` agents count against a
-// provider's cap. `stalled` agents (live but quiet past the heartbeat window) do
-// NOT count, freeing a slot while they idle.
-function countProcessing(provider: Provider): number {
-  let count = 0;
-  for (const a of agents.values()) {
-    if (a.provider === provider && a.status === "processing") count++;
-  }
-  return count;
-}
-
 // Synchronously reconcile a single agent's status against the pure transition
 // helper. Folds the live process exitCode into AgentState first so an already-
 // exited process is reported as completed/failed immediately (no monitor lag).
@@ -213,6 +454,7 @@ const reconcileInterval = setInterval(() => {
   const now = Date.now();
   for (const agent of agents.values()) {
     reconcileAgent(agent, now);
+    refreshLiveSlotMetadata(agent, now);
   }
 }, 10000);
 reconcileInterval.unref();
@@ -227,7 +469,7 @@ reconcileInterval.unref();
 // compressed under MCP metadata limits:
 // READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are co-supreme; genuine conflict => STOP and ask the user. Only the hook state changes ON/OFF.\n\nSOLE CHANNEL. Every sub-agent launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator. Use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. No direct reads/writes; inline-by-right does not exist. Non-delegable atomic step: ask for a one-time exception, do only that step, then resume delegating.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads; orchestrator never reads those files. Empty/stalled tail means ALIVE; use wait.\n\nORCHESTRATION OFF. If total context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to switch ON; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask; stay halted until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime.\n\nMODEL SELECTION MODE. Default smart rejects provider/model/effort selectors; launch_agent auto-picks. user-approved-overrides lasts 30 minutes, expires lazily on launch_agent, and must be enabled only after explicit user authorization via AskUserQuestion/request-user-input.";
+  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are co-supreme; genuine conflict => STOP and ask. Only the hook flips ON/OFF; absence of any tag = UNKNOWN => fail-safe ON.\n\nSOLE CHANNEL. Every launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator: use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and /workflows. No direct reads/writes; inline-by-right does not exist. Non-delegable step: ask a one-time exception, do only that step, resume delegating.\n\nSUB-AGENT CONTRACT. Every prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 agent for a fact-find, 2-4 for comparisons; never one-shot multi-phase work; split into atomic steps, one agent each. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.\n\nORCHESTRATION OFF. If context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to enable; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime. DISABLE: user-only, never on your own initiative.\n\nMODEL SELECTION. Default smart auto-picks, rejects provider/model/effort selectors. user-approved-overrides honors them 30 min, expires lazily on launch_agent, needs user authorization.";
 
 const SUBAGENT_INSTRUCTIONS =
   "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
@@ -235,9 +477,9 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.9.1",
+    version: "2.11.0",
     description:
-      "Launches always-interactive local Claude and Codex sub-agent sessions. Claude uses the Claude Agent SDK over the local Claude Code executable; Codex uses `codex app-server` over stdio. The server does not call Anthropic or OpenAI HTTP APIs directly.",
+      "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
   {
     instructions:
@@ -278,14 +520,6 @@ async function tryLaunchCandidate(
     originalSelection: { provider: string; model: string; effort: string };
   }
 ): Promise<{ agentId: string } | { reason: string; failure_type: FailureType }> {
-  // Concurrency cap for this provider.
-  const running = countProcessing(candidate.provider);
-  const max = candidate.provider === "claude" ? MAX_CLAUDE : MAX_CODEX;
-  if (running >= max) {
-    const reason = `Maximum ${max} concurrent ${candidate.provider} agents already running. Current: ${running}`;
-    return { reason, failure_type: "permanent" };
-  }
-
   // Build the command. haiku ignores effort; pass "high" placeholder for the
   // "none" sentinel (buildCommand drops it for haiku anyway).
   const effortForBuild = candidate.effort === "none" ? "high" : candidate.effort;
@@ -405,6 +639,7 @@ async function tryLaunchCandidate(
     waitReported: false,
     visibleStream: [],
     streamBuf: "",
+    slotLastActivity: now,
   };
 
   childProcess.on("error", (err) => {
@@ -434,6 +669,7 @@ async function tryLaunchCandidate(
         // Heartbeat refreshes only on parsed visible provider stream items,
         // not on raw stdout bytes.
         agentState.lastActivity = at;
+        updateSlotMetadata(agentState);
         agentState.visibleStream = retainLastN(
           agentState.visibleStream,
           items.map((it) => ({ ...it, at })),
@@ -489,9 +725,16 @@ async function tryLaunchCandidate(
 
     // Always clean up ultracode settings file on close
     cleanupUcSettings(agentState);
+    releaseSlot(agentState.slotPath ?? null);
+    agentState.slotPath = null;
 
     // Always record actual close time (unless already finalized)
     if (agentState.exitedAt === null) agentState.exitedAt = Date.now();
+
+    if (agentState.status === "zombie_killed") {
+      if (agentState.exitCode === null) agentState.exitCode = code !== null ? code : -1;
+      return;
+    }
 
     if (agentState.status === "stopped") {
       // Record real exit code but preserve "stopped" status
@@ -628,7 +871,7 @@ function sameTriples(a: Candidate[], b: Candidate[]): boolean {
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent session. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category` and NO overrides; the server picks the best provider/model/effort for that category from its routing table, launches the top candidate, and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are overrides — licensed on 1st/2nd attempts ONLY when the task verifiably requires a specific capability; STATE that capability when overriding; if you pass `model` you must also pass `provider`, and if you pass `effort` you must pass both `provider` and `model`. SOLE CHANNEL: while this server is connected this tool is the ONLY sanctioned way to spawn sub-agents, in BOTH orchestration states — harness-native Task/Agent tools are FORBIDDEN for sub-agent launches. PROMPT RULE: every sub-agent `prompt`'s first line is the self-identification marker \"<this is a request from a parent process>\"; the server now UPSERTS this marker as the true first line automatically (idempotent — it is never duplicated and your prompt body is never mutated), so you need not add it yourself. Unsure which task_category fits? Don't submit one amorphous task — SPLIT into atomic steps that each map to a single category, one agent per step. ultracode effort is Opus 4.8+ only. Claude uses a Claude Agent SDK logical session over the local Claude executable; Codex uses a `codex app-server` child. Children run with env SUBAGENT_MCP_SUBAGENT=1 so the orchestration hooks skip them (they are not orchestrators and don't re-trigger carryover). Launch returns status `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting the prompt does NOT make it a different task), and NEVER otherwise — from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.",
+  "Spawn a sub-agent session. CONTRACT: every `prompt` states objective + required output format + tools/sources + boundaries; the server auto-upserts the self-identification marker \"<this is a request from a parent process>\" as the true first line (idempotent, never duplicated, body never mutated), so you need not add it. SCALE to complexity: ~1 agent for a simple fact-find, 2-4 for comparisons; never one-shot a multi-phase task — SPLIT into atomic steps that each map to ONE task_category, one agent per step. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category`, NO overrides; the server picks the best provider/model/effort for that category and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are OVERRIDES, licensed on the 1st/2nd attempt ONLY when the task verifiably needs a specific capability — STATE that capability; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8+ only. SOLE CHANNEL: while this server is connected this is the ONLY sanctioned way to spawn sub-agents in BOTH orchestration states; harness-native Task/Agent tools are FORBIDDEN. Children run with env SUBAGENT_MCP_SUBAGENT=1 so orchestration hooks skip them (not orchestrators, no carryover re-trigger). Launch returns `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST set `deadlock=true` when, and ONLY when, 2 attempts for the SAME atomic task have already failed/been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting does NOT make it a new task), and NEVER otherwise — from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
@@ -638,7 +881,7 @@ server.tool(
     cwd: z.string().optional(),
     deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const { task_category, provider, model, effort, deadlock } = params;
     // D19/D20/S8: server silently upserts the parent-process marker as the TRUE
     // first line of every sub-agent prompt (idempotent; never duplicates; never
@@ -756,6 +999,13 @@ server.tool(
 
     // 6. Attempt loop: best→worst. Register on first successful driver start; silently
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
+    const cap = readGlobalCap();
+    const reservationId = randomUUID();
+    const reservation = reserveSlot(reservationId, cap, slotDir(), NONBLOCKING_CULL_DEPS);
+    if (!reservation.ok) {
+      return errorResult(globalCapMessage(reservation.current, cap, defaultConfigPath()));
+    }
+
     const skipped: {
       model: string;
       effort: string;
@@ -763,74 +1013,93 @@ server.tool(
       reason: string;
       failure_type: FailureType;
     }[] = [];
-    for (const candidate of candidates) {
-      const outcome = await tryLaunchCandidate(
-        candidate,
-        prompt,
-        agentCwd,
-        routingTier,
-        rulesetApplied && rulesetOriginalSelection !== undefined
-          ? { applied: true, originalSelection: rulesetOriginalSelection }
-          : undefined
-      );
-      if ("agentId" in outcome) {
-        if (branch === "performance") {
-          deadlockWindow.consume();
-        }
-        if (skipped.length > 0) {
+    let launched = false;
+    try {
+      for (const candidate of candidates) {
+        const outcome = await tryLaunchCandidate(
+          candidate,
+          prompt,
+          agentCwd,
+          routingTier,
+          rulesetApplied && rulesetOriginalSelection !== undefined
+            ? { applied: true, originalSelection: rulesetOriginalSelection }
+            : undefined
+        );
+        if ("agentId" in outcome) {
+          if (branch === "performance") {
+            deadlockWindow.consume();
+          }
           const registeredAgent = agents.get(outcome.agentId);
           if (registeredAgent) {
-            registeredAgent.failoverFrom = skipped.map((s) => ({
-              provider: s.provider,
-              model: s.model,
-              effort: s.effort,
-              failure_type: s.failure_type,
-            }));
+            registeredAgent.slotPath = reservation.slotPath;
+            updateSlotMetadata(registeredAgent);
+            // The child can reach a terminal state DURING tryLaunchCandidate's
+            // awaits — before slotPath was set — so its close handler ran
+            // releaseSlot(undefined) (a no-op) and left the slot leaked. Detect
+            // that here and release now. slotPath is unique per reservation, so
+            // this never frees another agent's slot.
+            if (registeredAgent.exitCode !== null) {
+              releaseSlot(registeredAgent.slotPath);
+              registeredAgent.slotPath = null;
+            }
+            if (skipped.length > 0) {
+              registeredAgent.failoverFrom = skipped.map((s) => ({
+                provider: s.provider,
+                model: s.model,
+                effort: s.effort,
+                failure_type: s.failure_type,
+              }));
+            }
           }
+          launched = true;
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  agent_id: outcome.agentId,
+                  status: "processing",
+                  provider: candidate.provider,
+                  model: candidate.model,
+                  effort: candidate.effort,
+                  task_category,
+                  ...(rulesetApplied
+                    ? {
+                        ruleset_applied: true,
+                        ruleset_original_selection: rulesetOriginalSelection,
+                      }
+                    : {}),
+                  ...(skipped.length > 0
+                    ? {
+                        failover_occurred: true,
+                        failover_from: skipped.map((s) => ({
+                          provider: s.provider,
+                          model: s.model,
+                          effort: s.effort,
+                          failure_type: s.failure_type,
+                        })),
+                        failover_note: buildFailoverNote(skipped, candidate),
+                      }
+                    : {}),
+                }),
+              },
+            ],
+          };
         }
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                agent_id: outcome.agentId,
-                status: "processing",
-                provider: candidate.provider,
-                model: candidate.model,
-                effort: candidate.effort,
-                task_category,
-                ...(rulesetApplied
-                  ? {
-                      ruleset_applied: true,
-                      ruleset_original_selection: rulesetOriginalSelection,
-                    }
-                  : {}),
-                ...(skipped.length > 0
-                  ? {
-                      failover_occurred: true,
-                      failover_from: skipped.map((s) => ({
-                        provider: s.provider,
-                        model: s.model,
-                        effort: s.effort,
-                        failure_type: s.failure_type,
-                      })),
-                      failover_note: buildFailoverNote(skipped, candidate),
-                    }
-                  : {}),
-              }),
-            },
-          ],
-        };
+        skipped.push({
+          model: candidate.model,
+          effort: candidate.effort,
+          provider: candidate.provider,
+          reason: outcome.reason,
+          failure_type: outcome.failure_type,
+        });
+        if (!pureAuto) {
+          break;
+        }
       }
-      skipped.push({
-        model: candidate.model,
-        effort: candidate.effort,
-        provider: candidate.provider,
-        reason: outcome.reason,
-        failure_type: outcome.failure_type,
-      });
-      if (!pureAuto) {
-        break;
+    } finally {
+      if (!launched) {
+        releaseSlot(reservation.slotPath);
       }
     }
 
@@ -852,18 +1121,18 @@ server.tool(
     return errorResult(
       `Error: all ${skipped.length} candidate launches failed for task_category ${task_category}:\n${lines}\n${SPLIT_HINT}\n${AUTO_HINT}`
     );
-  }
+  }, { omitZombieReport: true }) // ponytail: launch_agent still reaps, but callers do not receive zombie_report.
 );
 
 // Tool 2: poll_agent
 server.tool(
   "poll_agent",
-  "Get an agent's current status and output. Status `processing` = ALIVE with visible provider activity in the last 10 minutes; `stalled` = ALIVE but no parsed visible provider stream item for 10 minutes (thinking, or awaiting a temp-file handoff) — NOT dead, so prefer `wait`/re-poll over killing. Always returns `alive` and `idle_seconds`, plus `recent_stream` (the last 3 visible provider stream items, each timestamped) and a `hint` while stalled. Pass `verbose: true` to also return `final_output`, the agent's final assistant turn extracted from its captured stdout.",
+  "Get an agent's current status and output. `processing` = ALIVE with visible provider activity in the last 10 min; `stalled` = ALIVE but no visible provider stream item for 10 min (thinking, or awaiting a temp-file handoff) — NOT dead, so prefer `wait`/re-poll over killing. Always returns `alive` + `idle_seconds`, plus `recent_stream` (last 3 timestamped visible stream items) and a `hint` while stalled. `verbose: true` also returns `final_output`, the agent's final assistant turn from its captured stdout.",
   {
     agent_id: z.string(),
     verbose: z.boolean().optional().default(false),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const agent = agents.get(params.agent_id);
     if (!agent) {
       return {
@@ -939,7 +1208,7 @@ server.tool(
         },
       ],
     };
-  }
+  })
 );
 
 // Tool 3: kill_agent
@@ -949,7 +1218,7 @@ server.tool(
   {
     agent_id: z.string(),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const agent = agents.get(params.agent_id);
     if (!agent) {
       return {
@@ -990,6 +1259,8 @@ server.tool(
       // POSIX, SIGKILL the process (close handler records the real exit code).
       agent.status = "stopped";
       agent.driver.kill();
+      releaseSlot(agent.slotPath ?? null);
+      agent.slotPath = null;
       if (isWindows && agent.process.pid) {
         spawn("taskkill", ["/pid", String(agent.process.pid), "/t", "/f"], {
           windowsHide: true,
@@ -1025,7 +1296,7 @@ server.tool(
         isError: true,
       };
     }
-  }
+  })
 );
 
 // Tool 4: send_message
@@ -1036,7 +1307,7 @@ server.tool(
     agent_id: z.string(),
     message: z.string().min(1),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const agent = agents.get(params.agent_id);
     if (!agent) {
       return {
@@ -1074,6 +1345,7 @@ server.tool(
       agent.waitReported = false;
       agent.turnCompleted = false;
       agent.lastActivity = now;
+      updateSlotMetadata(agent);
       return {
         content: [
           {
@@ -1099,7 +1371,7 @@ server.tool(
         isError: true,
       };
     }
-  }
+  })
 );
 
 // Tool 5: list_agents
@@ -1107,7 +1379,7 @@ server.tool(
   "list_agents",
   "List all agents with token-efficient core metrics (status, `alive`, `idle_seconds`). `stalled` is ALIVE-but-quiet, NOT dead (full status semantics on poll_agent). Use `poll_agent` for per-agent stream items, hints, and final output.",
   {},
-  async () => {
+  withMaintenance(async () => {
     const now = Date.now();
     const agentList = Array.from(agents.values()).map((agent) => {
       // Reconcile exit synchronously so already-exited processes are reported
@@ -1141,17 +1413,17 @@ server.tool(
         },
       ],
     };
-  }
+  })
 );
 
 // Tool 6: wait
 server.tool(
   "wait",
-  "Blocks until one or more sub-agents reach a reportable state (turn-finished, errored, or stopped), returning exit code when known + local-time timestamp; or returns the live-job list after a 15-minute timeout. A `finished` agent can still be alive and accept `send_message` when exit_code is null. A `stalled` agent is still ALIVE and does NOT end the wait. Pass `verbose: true` to add each finished agent's `final_output`.",
+  "Blocks until one or more sub-agents reach a reportable state (turn-finished, errored, stopped, or zombie_killed), returning exit code when known + local-time timestamp; or returns the live-job list after a 15-minute timeout. This is how you learn an agent finished — do NOT poll-loop. A `finished` agent with null exit_code is still alive and accepts `send_message`; a `stalled` agent is still ALIVE and does NOT end the wait. `verbose: true` adds each finished agent's `final_output`.",
   {
     verbose: z.boolean().optional().default(false),
   },
-  async (params) => {
+  withMaintenance(async (params: any, zombieRecords: ZombieRecord[]) => {
     const { verbose } = params;
     const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
     const TIMEOUT_MS = 15 * 60 * 1000;
@@ -1194,7 +1466,7 @@ server.tool(
 
     // Step 2: nothing alive and nothing unreported (includes stopped-but-not-yet-closed).
     // `stalled` is a LIVE state — it keeps the wait pending, it never ends it.
-    const TERMINAL_SET = new Set(["finished", "errored", "stopped"]);
+    const TERMINAL_SET = new Set(["finished", "errored", "stopped", "zombie_killed"]);
     const hasPending = Array.from(agents.values()).some(
       (a) =>
         a.status === "processing" ||
@@ -1215,6 +1487,7 @@ server.tool(
     while (Date.now() < deadline) {
       await sleep(250);
       unreported = selectUnreported(Array.from(agents.values()));
+      zombieRecords.push(...runToolMaintenance());
       if (unreported.length > 0) {
         for (const a of unreported) a.waitReported = true;
         const payload = { finished: unreported.map(buildFinishedEntry) };
@@ -1238,46 +1511,75 @@ server.tool(
     return {
       content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
     };
-  }
+  })
 );
 
 // Tool 7: orchestration-mode
 server.tool(
   "orchestration-mode",
-  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF, omit = query current state. SOLE CHANNEL: the subagent MCP is the ONLY sanctioned channel for launching sub-agents whether this mode is ON or OFF — toggling OFF does not lift that obligation. When OFF, run the per-turn upgrade check: a long-horizon task = any whose TOTAL context footprint (input read + output produced) exceeds 200 lines, measured CUMULATIVELY since your last upgrade ask; after EVERY user turn, if it qualifies, STOP and ask the user whether to switch ON (ask every qualifying turn; a decline does not latch; reset the count only when you actually ask). The FULL operating model + governance is carried in this server's MCP `instructions` (read once at initialize) — this is the operational summary only; do not act on the mode without that detail. WHAT: a per-project toggle for LONG-HORIZON work that would fill the context window if run to completion inline; when ON, act as a delegate-ONLY orchestrator: delegate every step; inline-by-right does not exist; a non-delegable atomic step requires a one-time user-approved exception via the structured-question tool (state which + why). PERSISTENCE: a per-project marker keyed by cwd; absence of the marker = OFF = no injection; once ON it persists across restarts/sessions until a permitted disable (it does NOT reset on a new session). CARRYOVER: if ON was inherited from a PRIOR session (provenance = carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker, never per turn) — you MUST then notify the user it auto-activated and confirm whether to keep it ON. DISABLE: never on your own initiative; you MAY PROPOSE turning it OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation).",
+  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF for THIS session only, omit = query. SOLE CHANNEL holds in BOTH states: subagent-mcp is the only sanctioned way to launch sub-agents; toggling OFF does not lift that. WHAT: default-ON mode for LONG-HORIZON work that would fill the context window if run inline; when ON act as a delegate-ONLY orchestrator — delegate every step, inline-by-right does not exist, a non-delegable atomic step needs a one-time user-approved exception via the structured-question tool (state which + why). OFF upgrade check: a long-horizon task = any whose TOTAL context footprint (input read + output produced) exceeds 200 lines, measured CUMULATIVELY since your last upgrade ask; after EVERY user turn, if it qualifies, STOP and ask whether to remain enabled (every qualifying turn; a decline does not latch; reset the count only when you ask). PERSISTENCE: a permitted disable applies to THIS session only, resumes ON next new session (or after the 2h backstop), no mid-session re-enable. CARRYOVER: if ON was inherited from a prior session (carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker) — notify the user it auto-activated and confirm keeping it ON. DISABLE: never on your own initiative; you may PROPOSE OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation). Full operating model is in this server's MCP `instructions` (read once at initialize) — this is the operational summary only.",
   {
     enabled: z.boolean().optional(),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const cwd = process.cwd();
+    const key = orchestrationMarker.readCurrentSession(cwd);
     if (params.enabled === true) {
-      orchestrationMarker.enable(cwd);
+      if (!orchestrationMarker.isActive(cwd, key)) {
+        return errorResult(
+          "orchestration already disabled for this session, cannot re-enable mid-session; resumes ON automatically next new session (or after the 2h backstop)."
+        );
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              orchestration_mode: "ON",
+              message: "orchestration is ON by default.",
+            }),
+          },
+        ],
+      };
     } else if (params.enabled === false) {
-      orchestrationMarker.disable(cwd);
+      if (key) orchestrationMarker.writeDisable(key);
+      else orchestrationMarker.writeDisableCwd(cwd);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              orchestration_mode: "disabled-this-session",
+              message:
+                "orchestration disabled for THIS session only; the next new session resumes ON automatically (or after the 2h backstop); no mid-session re-enable.",
+            }),
+          },
+        ],
+      };
     }
     // enabled === undefined -> query only; no marker mutation.
+    const active = orchestrationMarker.isActive(cwd, key);
     return {
       content: [
         {
           type: "text",
           text: JSON.stringify({
-            orchestration_mode: orchestrationMarker.isActive(cwd),
-            marker_path: orchestrationMarker.markerPath(cwd),
+            orchestration_mode: active ? "ON" : "disabled-this-session",
           }),
         },
       ],
     };
-  }
+  })
 );
 
 // Tool 8: model-selection-mode
 server.tool(
   "model-selection-mode",
-  "Set or query per-project MODEL SELECTION MODE, which gates launch_agent's `provider`/`model`/`effort` selectors. `mode`: \"smart\" or \"user-approved-overrides\"; omit to query current state. \"smart\" is the DEFAULT and is used whenever the mode is unset — in smart, launch_agent REJECTS any call that supplies provider/model/effort and the server auto-picks the best model for the task_category. \"user-approved-overrides\" opens a 30-MINUTE window during which selectors are HONORED; the window is enforced LAZILY — the mode reverts to smart on the next launch_agent call after the 30 minutes elapse — and re-enabling does NOT extend an already-active window. HONOR-BASED, parallel to orchestration-mode: you MUST NOT set this to \"user-approved-overrides\" without explicit interactive USER authorization obtained via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex; a plain yes/no exchange if neither exists). This tool CANNOT verify that authorization — never enable it on your own initiative. PERSISTENCE: per-project state keyed by cwd; both the mode and the override-window enable-timestamp persist across MCP server restarts (the remaining window is restored, not reset).",
+  "Set or query per-project MODEL SELECTION MODE, which gates launch_agent's `provider`/`model`/`effort` selectors. `mode`: \"smart\" or \"user-approved-overrides\"; omit to query. \"smart\" is the DEFAULT (used whenever unset): launch_agent REJECTS any call supplying provider/model/effort and the server auto-picks the best model for the task_category. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (reverts to smart on the next launch_agent call after the 30 min elapse); re-enabling does NOT extend an active window. HONOR-BASED, parallel to orchestration-mode: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex; a plain yes/no if neither exists). This tool CANNOT verify that authorization — never enable on your own initiative. PERSISTENCE: state keyed by cwd; both the mode and the override-window timestamp survive server restarts (remaining window is restored, not reset).",
   {
     mode: z.enum(["smart", "user-approved-overrides"]).optional(),
   },
-  async (params) => {
+  withMaintenance(async (params: any) => {
     const cwd = process.cwd();
     if (params.mode) modelMode.setMode(cwd, params.mode);
     const r = modelMode.resolveMode(cwd);
@@ -1298,7 +1600,7 @@ server.tool(
         },
       ],
     };
-  }
+  })
 );
 
 // Connect the stdio transport only when run as the entry point (the bin), NOT
@@ -1344,7 +1646,17 @@ if (isMain) {
   }
   if (arg === "update" || arg === "--update") {
     const pkg = readPkg();
-    const npmArgs = ["install", "-g", `${pkg.name}@latest`];
+    const scope = pkg.name.startsWith("@") ? pkg.name.split("/")[0] : null;
+    const npmjsRegistryArgs = [
+      "--registry=https://registry.npmjs.org",
+      ...(scope ? [`--${scope}:registry=https://registry.npmjs.org`] : []),
+    ];
+    const npmArgs = [
+      "install",
+      "-g",
+      ...npmjsRegistryArgs,
+      `${pkg.name}@latest`,
+    ];
     console.log(`subagent-mcp ${pkg.version} -> npm ${npmArgs.join(" ")}`);
     // npm on Windows is npm.cmd; spawning a .cmd without a shell fails
     // (EINVAL on modern Node). Resolve the underlying npm-cli.js and run it
@@ -1396,7 +1708,9 @@ if (isMain) {
       ...pkg.name.split("/")
     );
     const rulesetPath = join(installRoot, "dist", "advanced-ruleset.py");
+    const cfgPath = join(installRoot, "dist", CONFIG_FILENAME);
     let previousRuleset: Buffer | null = null;
+    let previousCfg: Buffer | null = null;
     if (existsSync(rulesetPath)) {
       previousRuleset = readFileSync(rulesetPath);
       const backupPath = join(
@@ -1409,6 +1723,24 @@ if (isMain) {
       } catch (e) {
         console.error(
           `update refused before install: failed to back up advanced-ruleset.py: ${
+            e instanceof Error ? e.message : String(e)
+          }`
+        );
+        process.exit(1);
+      }
+    }
+    if (existsSync(cfgPath)) {
+      previousCfg = readFileSync(cfgPath);
+      const backupPath = join(
+        tmpdir(),
+        `${CONFIG_FILENAME}.bak-update-${Date.now()}`
+      );
+      try {
+        writeFileSync(backupPath, previousCfg);
+        console.log(`backed up user ${CONFIG_FILENAME} to ${backupPath}`);
+      } catch (e) {
+        console.error(
+          `update refused before install: failed to back up ${CONFIG_FILENAME}: ${
             e instanceof Error ? e.message : String(e)
           }`
         );
@@ -1442,6 +1774,26 @@ if (isMain) {
           process.exit(1);
         }
       }
+      if (previousCfg !== null) {
+        try {
+          const freshCfg = existsSync(cfgPath)
+            ? readFileSync(cfgPath)
+            : null;
+          if (freshCfg === null || !previousCfg.equals(freshCfg)) {
+            writeFileSync(cfgPath, previousCfg);
+            console.log(
+              `restored user ${CONFIG_FILENAME} (package update never overwrites user edits)`
+            );
+          }
+        } catch (e) {
+          console.error(
+            `update failed to restore ${CONFIG_FILENAME}: ${
+              e instanceof Error ? e.message : String(e)
+            }`
+          );
+          process.exit(1);
+        }
+      }
       console.log(
         "Update complete. Restart your CLI sessions so the MCP server picks up the new build."
       );
@@ -1467,11 +1819,14 @@ if (isMain) {
     process.exit(1);
   }
   // ORCHESTRATION MODE PERSISTS across restarts/sessions: the server does NOT
-  // clear the marker on startup. DEFAULT OFF now means ABSENCE of a marker — a
-  // project never enabled stays OFF; a project explicitly enabled persists ON
-  // until disabled with explicit user permission. On a new session the bundled
-  // hook detects the carried-over marker and prompts the user to confirm.
-  // (orchestrationMarker.disable is still used by the tool's enabled:false.)
+  // clear the marker on startup. DEFAULT ON now means ABSENCE of a disable
+  // record — a project stays ON with no marker write needed; OFF is only a
+  // per-session disable record that holds while it is active, cleared with
+  // explicit user permission. On a new session a carried-over legacy ON marker
+  // (if any) triggers a one-time prompt asking whether to remain enabled; under
+  // default-ON this rarely fires.
+  // (the tool's enabled:false writes a disable record via writeDisable /
+  // writeDisableCwd; it does not call disable().)
   startLivenessHeartbeat();
   const transport = new StdioServerTransport();
   await server.connect(transport);

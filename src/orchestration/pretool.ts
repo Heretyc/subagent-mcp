@@ -1,5 +1,6 @@
 import { serverAlive } from "./liveness.js";
 import { type HookPayload } from "./hook-core.js";
+import { cullHookZombies, hookZombieReportText } from "./hook-core.js";
 
 const NATIVE_SUBAGENT_TOOLS = new Set(["Task", "Agent", "Explore"]);
 
@@ -12,14 +13,14 @@ export interface PreToolPayload extends HookPayload {
 export interface PreToolDecision {
   hookSpecificOutput: {
     hookEventName: "PreToolUse";
-    permissionDecision: "deny" | "ask";
+    permissionDecision: "deny" | "ask" | "allow";
     permissionDecisionReason: string;
     additionalContext?: string;
   };
 }
 
 function decision(
-  permissionDecision: "deny" | "ask",
+  permissionDecision: "deny" | "ask" | "allow",
   permissionDecisionReason: string,
   additionalContext?: string
 ): PreToolDecision {
@@ -48,20 +49,27 @@ export function runClaudePreTool(
   now: number = Date.now()
 ): PreToolDecision | null {
   try {
+    const zombieReport = hookZombieReportText(cullHookZombies());
     if (env.SUBAGENT_MCP_SUBAGENT === "1") return null;
-    if (!serverAlive(now)) return null;
+
+    const zombieAllowedDecision = zombieReport
+      ? decision("allow", "zombies culled; allowing requested tool.", zombieReport)
+      : null;
+
+    if (!serverAlive(now)) return zombieAllowedDecision;
 
     const tool = typeof payload.tool_name === "string" ? payload.tool_name : "";
-    if (!tool) return null;
+    if (!tool) return zombieAllowedDecision;
 
     if (NATIVE_SUBAGENT_TOOLS.has(tool)) {
       return decision(
         "deny",
-        "subagent-mcp is alive; harness-native Task/Agent/Explore is not the sanctioned sub-agent channel. Use the subagent-mcp launch_agent MCP tool with the parent-process sentinel as prompt line 1."
+        "subagent-mcp is alive; harness-native Task/Agent/Explore is not the sanctioned sub-agent channel. Use the subagent-mcp launch_agent MCP tool with the parent-process sentinel as prompt line 1.",
+        zombieReport || undefined
       );
     }
 
-    return null;
+    return zombieAllowedDecision;
   } catch {
     return null;
   }

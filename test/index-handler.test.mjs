@@ -13,6 +13,8 @@ import {
   copyFileSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -199,6 +201,17 @@ function send(obj) {
   process.stdout.write(JSON.stringify(obj) + "\\n");
 }
 
+function completeLater(fn) {
+  const delayMs = Number(process.env.MOCK_DELAY_TURN_COMPLETE_MS || 0);
+  const finish = () => {
+    fn();
+    if (process.env.MOCK_EXIT_AFTER_TURN === "1") {
+      setTimeout(() => process.exit(0), 20);
+    }
+  };
+  delayMs > 0 ? setTimeout(finish, delayMs) : finish();
+}
+
 rl.on("line", (line) => {
   if (!line.trim()) return;
   const msg = JSON.parse(line);
@@ -207,13 +220,12 @@ rl.on("line", (line) => {
   const text = msg.message || "";
   if (provider === "claude") {
     send({ type: "assistant", message: { content: [{ type: "text", text: "ack:" + text }] } });
-    send({ type: "result", result: "done:" + text });
+    if (process.env.MOCK_NO_TURN_COMPLETE === "1") return;
+    completeLater(() => send({ type: "result", result: "done:" + text }));
   } else {
     send({ type: "agent_message", message: "ack:" + text });
-    send({ type: "turn.completed", turn });
-  }
-  if (process.env.MOCK_EXIT_AFTER_TURN === "1") {
-    setTimeout(() => process.exit(0), 20);
+    if (process.env.MOCK_NO_TURN_COMPLETE === "1") return;
+    completeLater(() => send({ type: "turn.completed", turn }));
   }
 });
 `,
@@ -430,9 +442,11 @@ function makeTempEnv() {
   const fakeBin = join(tempRoot, "bin");
   const workDir = join(tempRoot, "work");
   const fakePrefix = join(tempRoot, "empty-prefix");
+  const slotDir = join(tempRoot, "slots");
   mkdirSync(fakeBin);
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
+  mkdirSync(slotDir);
   writeFakePathTools(fakeBin);
   const mockDriverScript = writeMockDriverScript(tempRoot);
   // Advanced-ruleset + grace-window neutralization, so every legacy assertion
@@ -458,11 +472,189 @@ function makeTempEnv() {
         .filter(Boolean)
         .join(" "),
       FAKE_RULESET_MODE_FILE: modeFile,
+      SUBAGENT_SLOT_DIR: slotDir,
     },
     fakeBin
   );
-  return { tempRoot, workDir, env };
+  return { tempRoot, workDir, env, slotDir };
 }
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function findSlotForAgent(slotDir, agentId) {
+  for (const file of readdirSync(slotDir)) {
+    if (!file.startsWith("slot-") || !file.endsWith(".json")) continue;
+    const path = join(slotDir, file);
+    const metadata = JSON.parse(readFileSync(path, "utf8"));
+    if (metadata.agent_id === agentId) return { path, metadata };
+  }
+  throw new Error(`slot for ${agentId} not found in ${slotDir}`);
+}
+
+function rewriteSlot(slotDir, agentId, patch) {
+  const { path, metadata } = findSlotForAgent(slotDir, agentId);
+  writeFileSync(path, JSON.stringify({ ...metadata, ...patch }));
+  return path;
+}
+
+async function launchManualCodex(session, prompt, extraArgs = {}) {
+  await enableManualSelection(session);
+  const { agentId, launchPayload, pollPayload } = await launchAndPoll(session, {
+    task_category: "coding",
+    provider: "codex",
+    model: "gpt-5.5",
+    prompt,
+    ...extraArgs,
+  });
+  return { agentId, launchPayload, pollPayload };
+}
+
+await test("zombie maintenance: live owned stale slot is refreshed, not killed", async () => {
+  const { tempRoot, workDir, env, slotDir } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: {
+      ...env,
+      MOCK_NO_TURN_COMPLETE: "1",
+      SUBAGENT_ZOMBIE_LIVE_IDLE_MS: "10000",
+      SUBAGENT_ZOMBIE_FORCE_GRACE_MS: "10",
+    },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchManualCodex(session, "live stale owned slot");
+    await waitForPoll(
+      session,
+      agentId,
+      (payload) => payload.stdout_tail.includes("live stale owned slot"),
+      "mock output capture before live stale refresh"
+    );
+    const staleActivity = Date.now() - 20000;
+    rewriteSlot(slotDir, agentId, { last_activity_ms: staleActivity, status: "processing" });
+    const listResp = await session.request("tools/call", { name: "list_agents", arguments: {} });
+    const listPayload = JSON.parse(listResp.result.content[0].text);
+    assert.equal(listPayload.zombie_report, undefined);
+
+    const pollPayload = await pollAgent(session, agentId);
+    assert.notEqual(pollPayload.status, "zombie_killed");
+    assert.equal(pollPayload.alive, true);
+    assert.ok(pollPayload.stdout_tail.includes("live stale owned slot"));
+    const { metadata } = findSlotForAgent(slotDir, agentId);
+    assert.ok(metadata.last_activity_ms > staleActivity);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("wait loop refreshes live stale slot metadata while blocked", async () => {
+  const { tempRoot, workDir, env, slotDir } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: {
+      ...env,
+      MOCK_DELAY_TURN_COMPLETE_MS: "900",
+      SUBAGENT_ZOMBIE_LIVE_IDLE_MS: "1000",
+      SUBAGENT_ZOMBIE_FORCE_GRACE_MS: "10",
+    },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchManualCodex(session, "wait stale refresh target");
+    await waitForPoll(
+      session,
+      agentId,
+      (payload) => payload.stdout_tail.includes("wait stale refresh target"),
+      "mock output capture before wait refresh"
+    );
+    const waitPromise = session.request("tools/call", { name: "wait", arguments: {} });
+    await sleep(100);
+    const staleActivity = Date.now() - 2000;
+    rewriteSlot(slotDir, agentId, { last_activity_ms: staleActivity, status: "processing" });
+
+    const waitResp = await waitPromise;
+    const waitPayload = JSON.parse(waitResp.result.content[0].text);
+    assert.ok(waitPayload.finished.some((a) => a.id === agentId && a.status === "finished"));
+    const { metadata } = findSlotForAgent(slotDir, agentId);
+    assert.ok(metadata.last_activity_ms > staleActivity);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("zombie culling: terminal-but-alive driver becomes zombie_killed and wait reports it", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: { ...env, SUBAGENT_ZOMBIE_TERMINAL_IDLE_MS: "500" },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchManualCodex(session, "terminal idle cull");
+    await waitForPoll(
+      session,
+      agentId,
+      (payload) => payload.status === "finished" && payload.exit_code === null,
+      "turn completion before terminal cull"
+    );
+    await sleep(650);
+    const listResp = await session.request("tools/call", { name: "list_agents", arguments: {} });
+    const listPayload = JSON.parse(listResp.result.content[0].text);
+    assert.equal(listPayload.zombie_report, `zombies: ${agentId}`);
+
+    const waitResp = await session.request("tools/call", { name: "wait", arguments: {} });
+    const waitPayload = JSON.parse(waitResp.result.content[0].text);
+    assert.ok(waitPayload.finished.some((a) => a.id === agentId && a.status === "zombie_killed"));
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("zombie culling: hook intent marks agent zombie_killed with tail retention", async () => {
+  const { tempRoot, workDir, env, slotDir } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: { ...env, MOCK_NO_TURN_COMPLETE: "1" },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchManualCodex(session, "hook intent cull");
+    await waitForPoll(
+      session,
+      agentId,
+      (payload) => payload.stdout_tail.includes("hook intent cull"),
+      "mock output capture before intent cull"
+    );
+    const { path, metadata } = findSlotForAgent(slotDir, agentId);
+    const record = {
+      kind: "zombie_killed",
+      agent_id: agentId,
+      child_pid: metadata.child_pid,
+      server_pid: metadata.server_pid,
+      slot_path: path,
+      reason: "stale_live",
+      detected_at_ms: Date.now(),
+      last_activity_ms: metadata.last_activity_ms,
+      message: `zombies: culled stale subagent ${agentId}`,
+    };
+    writeFileSync(join(slotDir, "zombie-intents.jsonl"), `${JSON.stringify(record)}\n`);
+    const pollResp = await session.request("tools/call", {
+      name: "poll_agent",
+      arguments: { agent_id: agentId },
+    });
+    const pollPayload = JSON.parse(pollResp.result.content[0].text);
+    assert.equal(pollPayload.zombie_report, `zombies: ${agentId}`);
+    assert.equal(pollPayload.status, "zombie_killed");
+    assert.ok(pollPayload.stdout_tail.includes("hook intent cull"));
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
 
 // ---------------------------------------------------------------------------
 // 4b. pure-auto launch → routing_tier === "cost_efficiency"
