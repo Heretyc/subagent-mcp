@@ -15,7 +15,7 @@ Start a new always-interactive sub-agent session.
 | `task_category` | one of `math_proof`, `security_review`, `debugging`, `quality_review`, `architecture`, `agentic_execution`, `data_analysis`, `coding`, `knowledge_synthesis`, `mechanical`, `prompt_engineering`, `vulnerability_research`, `molecular_biology`, `ml_accelerator_design`, `fallback_default` | Yes | Task shape; routes to the best provider/model/effort for that category |
 | `prompt` | string | Yes | Initial prompt text |
 | `provider` | `"claude" \| "codex"` | No | Override; omit to auto-select |
-| `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "gpt-5.5"` | No | Override; omit to auto-select |
+| `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "fable" \| "gpt-5.5"` | No | Override; omit to auto-select |
 | `effort` | `"medium" \| "high" \| "xhigh" \| "max" \| "ultracode"` | No | Override; omit to auto-select. See haiku note.[^haiku-effort] |
 | `deadlock` | boolean | No | MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory - the 3rd attempt onward. Re-wording or splitting unchanged work does NOT reset attempts. Auto mode only: cannot be combined with provider/model/effort; from the 3rd attempt, drop those params. Passing false is identical to omitting it. |
 | `cwd` | string | No | Working directory for the agent session |
@@ -28,7 +28,7 @@ Returns: `{ agent_id, status, provider, model, effort, task_category }`, plus `r
 
 **Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. Rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`. Passing all three is `explicit` mode — a single direct attempt with no fallback. Omitting or partially supplying them on a bad combination is a hard error (see the spec).
 
-Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`. Codex accepts only `gpt-5.5`.
+Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable`. Codex accepts only `gpt-5.5`.
 
 Spec: [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_INDEX.md) (param contract, presence→behavior matrix, exact error text).
 
@@ -43,7 +43,7 @@ Get current status and output tail of an agent.
 | `agent_id` | string | Yes | UUID returned by `launch_agent` |
 | `verbose` | boolean | No | When `true`, also return `final_output` (default: `false`) |
 
-Returns: `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream, routing_tier }` plus `hint` when `status` is `stalled`, plus `final_output` when `verbose` is `true`, plus `ruleset_applied` and `ruleset_original_selection` ONLY when the advanced ruleset altered the routing decision. When maintenance culls stale processes, non-`launch_agent` responses also report `zombie_report` / `zombies: <agent_ids>`.
+Returns: `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream, routing_tier }` plus `hint` when `status` is `stalled`, plus `final_output` when `verbose` is `true`, plus `ruleset_applied` and `ruleset_original_selection` ONLY when the advanced ruleset altered the routing decision. When maintenance culls stale processes, `poll_agent` reports `zombie_report: "zombies: <agent_ids>"`.
 
 `stdout_tail` is capped at the last 2000 characters; `stderr_tail` at 1000 characters. `recent_stream` holds exactly the last 3 parsed visible provider-stream items, each with its timestamp. `alive` is `true` while the driver is open (`processing`, `stalled`, or a `finished` turn that can still accept `send_message`); `idle_seconds` is whole seconds since the last visible-stream heartbeat. Exit is reconciled synchronously on each call, so a closed driver is reported `finished`/`errored` immediately. A `stalled` agent is alive but quiet -- prefer `wait`/re-poll over killing it. With `verbose: true`, `final_output` holds the agent's final assistant turn text extracted from its full captured stdout (falls back to the raw stdout if it cannot be parsed). `routing_tier` is `cost_efficiency`, `performance`, or `manual` (`manual` = launched with explicit provider+model+effort overrides); it is omitted for agents launched before this feature (tier unknown). `ruleset_applied` and `ruleset_original_selection` are present ONLY when the advanced ruleset altered the routing decision for the launch (see [docs/spec/advanced-ruleset/visibility-and-failover.md](spec/advanced-ruleset/visibility-and-failover.md)).
 
@@ -78,7 +78,7 @@ Returns: `{ agent_id, status, message }`
 
 List all agents known to the server (all statuses).
 
-No parameters and no `verbose` arg. Returns token-efficient core metrics: `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd_basename, alive, idle_seconds }] }`. No `hint`, no tails, no `recent_stream`, no `final_output` -- use `poll_agent` for those. Exit is reconciled synchronously per agent on each call.
+No parameters and no `verbose` arg. Returns token-efficient core metrics: `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd_basename, alive, idle_seconds }] }`. No `hint`, no tails, no `recent_stream`, no `final_output` -- use `poll_agent` for those. Exit is reconciled synchronously per agent on each call. When maintenance culls stale processes, `list_agents` reports `zombie_report: "zombies: <agent_ids>"`.
 
 ---
 

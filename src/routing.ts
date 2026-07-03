@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import type { Provider } from "./effort.js";
 
 /** Launch model enum accepted by buildCommand. */
-export const LAUNCH_MODELS = ["haiku", "sonnet", "opus", "opus-4-8", "gpt-5.5"] as const;
+export const LAUNCH_MODELS = ["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5"] as const;
 type LaunchModel = (typeof LAUNCH_MODELS)[number];
 
 /** Launch effort enum accepted by buildCommand/resolveEffort. */
@@ -37,12 +37,14 @@ const FULL_TO_SHORT: Record<string, LaunchModel | Set<LaunchModel>> = {
   "claude-opus-4-8": new Set(["opus", "opus-4-8"]),
   "claude-sonnet-4-6": "sonnet",
   "claude-haiku-4-5": "haiku",
+  "claude-fable-5": "fable",
   "gpt-5.5": "gpt-5.5",
   // Short ids may already appear in a hand-authored table; map them through.
   haiku: "haiku",
   sonnet: "sonnet",
   opus: "opus",
   "opus-4-8": "opus-4-8",
+  fable: "fable",
 };
 
 export interface RoutingTable {
@@ -125,6 +127,7 @@ export function mapModelToProvider(model: string): Provider | null {
     model === "sonnet" ||
     model === "opus" ||
     model === "opus-4-8" ||
+    model === "fable" ||
     model.startsWith("claude-")
   ) {
     return "claude";
@@ -341,8 +344,8 @@ export function validatePresence(p: {
 
   // provider+model must satisfy the existing match rule.
   if (provider && model) {
-    if (provider === "claude" && !["haiku", "sonnet", "opus", "opus-4-8"].includes(model)) {
-      return `Error: Claude provider only supports haiku, sonnet, opus, or opus-4-8. Got: ${model}`;
+    if (provider === "claude" && !["haiku", "sonnet", "opus", "opus-4-8", "fable"].includes(model)) {
+      return `Error: Claude provider only supports haiku, sonnet, opus, opus-4-8, or fable. Got: ${model}`;
     }
     if (provider === "codex" && model !== "gpt-5.5") {
       return `Error: Codex provider only supports gpt-5.5. Got: ${model}`;

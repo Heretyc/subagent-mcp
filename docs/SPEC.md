@@ -42,10 +42,10 @@ All logs go to stderr; stdout carries only JSON-RPC messages.
 | Tool | Key params (zod) | Success return shape |
 |------|-----------------|----------------------|
 | `launch_agent` | `task_category` enum, `prompt` string, optional `provider`/`model`/`effort` overrides, `deadlock?` boolean, `cwd?` string | `{ agent_id, status, provider, model, effort, task_category }`; runs zombie maintenance silently and omits `zombie_report` |
-| `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream, routing_tier }` (+ `hint` when stalled; + `final_output` when `verbose`; + `ruleset_applied`/`ruleset_original_selection` when ruleset altered routing; + `zombie_report`/`zombies` when culling) |
+| `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream, routing_tier }` (+ `hint` when stalled; + `final_output` when `verbose`; + `ruleset_applied`/`ruleset_original_selection` when ruleset altered routing; + `zombie_report` when culling) |
 | `kill_agent` | `agent_id` string | `{ agent_id, status, message }` (not-running is not an error) |
 | `send_message` | `agent_id` string, `message` string | `{ agent_id, status: "sent", message }` |
-| `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd_basename, alive, idle_seconds }] }` (token-efficient core metrics; no `hint`, no `verbose` arg, no tails or stream items -- use `poll_agent`) |
+| `list_agents` | (none) | `{ agents: [{ id, provider, model, status, started_at, last_activity, cwd_basename, alive, idle_seconds }] }` (+ `zombie_report` when culling; token-efficient core metrics; no `hint`, no `verbose` arg, no tails or stream items -- use `poll_agent`) |
 
 stdout_tail: last 2000 chars. stderr_tail: last 1000 chars. `recent_stream`: last 3 parsed visible provider stream items, each timestamped. `alive`: true while the driver is open (`processing`, `stalled`, or turn-`finished` with `exitCode === null`). `idle_seconds`: `Math.floor((now - lastActivity) / 1000)` since the last visible-stream heartbeat. `poll_agent` and `list_agents` reconcile driver exit synchronously. Errors set `isError: true`; text begins with `"Error: "`.
 
@@ -65,6 +65,7 @@ ultracode `--settings` activation/cleanup mechanism are documented in
 | `sonnet` | `sonnet` (passed as-is) | claude |
 | `opus` | `claude-opus-4-8` | claude |
 | `opus-4-8` | `claude-opus-4-8` | claude |
+| `fable` | `claude-fable-5` | claude |
 | `gpt-5.5` | `gpt-5.5` (passed as-is) | codex |
 
 ---
@@ -156,9 +157,9 @@ fields, the `computeStatusTransition` ordering, the `HEARTBEAT_TIMEOUT_MS = 6000
 [reference/status-lifecycle.md](reference/status-lifecycle.md). `stalled` is a
 live, non-failure state; `processing` is the active live state. Tool and hook
 maintenance cull stale live agents after 6 minutes idle and terminal-but-alive
-agents after 30 seconds. `launch_agent` runs this silently without
-`zombie_report`; other tools still report `zombies` / `zombie_report`, and
-culled agents remain `zombie_killed` via `poll_agent`, `list_agents`, and `wait`.
+agents after 30 seconds. All tool and hook paths still run culling, but only
+`poll_agent` and `list_agents` surface `zombie_report`; culled agents remain
+`zombie_killed` via `poll_agent`, `list_agents`, and `wait`.
 
 ---
 
@@ -168,7 +169,7 @@ Every error string the server can return:
 
 | Error text | Source |
 |-----------|--------|
-| `Error: Claude provider only supports haiku, sonnet, opus, or opus-4-8. Got: <model>` | `launch_agent`, provider/model mismatch |
+| `Error: Claude provider only supports haiku, sonnet, opus, opus-4-8, or fable. Got: <model>` | `launch_agent`, provider/model mismatch |
 | `Error: Codex provider only supports gpt-5.5. Got: <model>` | `launch_agent`, provider/model mismatch |
 | `Global concurrent-subagent limit reached: <current> of <max> live subagents are already running across all sessions on this machine. This global count includes agents started by OTHER active agentic sessions and the ENTIRE recursive descendant tree, not just this session's direct children. launch_agent was REJECTED — this cap never queues or blocks; no slot frees itself by waiting. Free a slot manually first: call list_agents to see live agents, then kill_agent to terminate ones you no longer need, and retry. The limit is "globalConcurrentSubagents" in <configPath> (default 20, minimum 10).` | `launch_agent`, global concurrency cap (`globalCapMessage`) |
 | `Error: ultracode effort is only available on Opus 4.8+ (got <provider>/<model>). Use xhigh for other models.` | `resolveEffort`, ultracode on wrong model |

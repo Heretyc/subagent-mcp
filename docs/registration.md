@@ -49,6 +49,23 @@ detected vendor. Re-run after upgrading. Pass `--dry-run` to preview.
 Consumer repos can also run `subagent-mcp init --root /path/to/project` to
 upsert managed invariant blocks; use `--dry-run` or `--remove`.
 
+### Global settings
+
+The installed `dist/global-concurrency.jsonc` file holds machine-local settings:
+
+- `globalConcurrentSubagents`: live subagent cap; default `20`, minimum `10`.
+- `checkForUpdates`: silent npmjs update check; default `true`.
+
+When `checkForUpdates` is true, the MCP server starts a non-blocking npmjs
+metadata check after launch. If a newer `@heretyc/subagent-mcp` exists, the CLI
+hook appends this notice at most once per session and no more than every 12
+hours: run `subagent-mcp update`, then `subagent-mcp setup`. If a hook host
+omits `session_id`, the notice falls back to timestamp-only throttling.
+
+Set `"checkForUpdates": false` to skip the registry fetch and suppress the hook
+notice. `SUBAGENT_UPDATE_CHECK=0` or `SUBAGENT_UPDATE_CHECK=false`
+(case-insensitive) disables the same behavior for that process.
+
 ### `init --global` (provider global user-config)
 
 `subagent-mcp init --global` upserts the managed init/directive block into each

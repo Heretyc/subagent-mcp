@@ -20,7 +20,7 @@ function resolveEffort(provider, model, effort):
   if provider == "claude" AND model == "haiku":
     RETURN { kind: "none" }       # --> no --effort flag at all
 
-  if provider == "claude" AND model IN ["sonnet", "opus", "opus-4-8"]:
+  if provider == "claude" AND model IN ["sonnet", "opus", "opus-4-8", "fable"]:
     if effort IN ["medium", "high", "xhigh", "max"]:
       RETURN { kind: "flag", value: effort }
 
@@ -42,6 +42,7 @@ Decision table:
 | claude | sonnet | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | opus / opus-4-8 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | opus / opus-4-8 | ultracode | `{ kind: "settings" }` -- temp file path |
+| claude | fable | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | any | ultracode (non-4.8) | THROW error |
 | codex | gpt-5.5 | medium/high/xhigh | `{ kind: "flag", value: effort }` |
 | codex | gpt-5.5 | max | THROW error |

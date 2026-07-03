@@ -2,7 +2,7 @@
  * Lifecycle matrix tests for src/index.ts handlers.
  *
  * Coverage the routing/driver unit tests cannot give:
- *   1. Every registered launch model (haiku, sonnet, opus, opus-4-8, gpt-5.5)
+ *   1. Every registered launch model (haiku, sonnet, opus, opus-4-8, fable, gpt-5.5)
  *      launches at medium/default effort and round-trips a ping -> pong through
  *      its provider driver. This is the regression net for the model-id bug:
  *      if a model id is rejected by its provider, its row fails here.
@@ -33,6 +33,7 @@ const MODEL_MATRIX = [
   { provider: "claude", model: "sonnet", effort: "medium" },
   { provider: "claude", model: "opus", effort: "medium" },
   { provider: "claude", model: "opus-4-8", effort: "medium" },
+  { provider: "claude", model: "fable", effort: "medium" },
   { provider: "codex", model: "gpt-5.5", effort: "medium" },
 ];
 

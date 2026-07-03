@@ -8,6 +8,21 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.12.2
+
+### Update notices, fable routing, and zombie report visibility
+
+- `zombie_report` is now caller-visible only from `poll_agent` and
+  `list_agents`, using one shared `zombies: <agent_ids>` format; all other
+  tool responses, hook stdout, and pretool output keep culling silent.
+- The server now checks npmjs dist-tags on connect and, when a newer version is
+  available, appends a throttled hook notice to run `subagent-mcp update` and
+  then `subagent-mcp setup`; `checkForUpdates` and `SUBAGENT_UPDATE_CHECK=0`
+  disable the check.
+- Adds `fable` as the launch id for `claude-fable-5` in auto-routing and
+  explicit Claude overrides with medium/high/xhigh/max effort; ultracode remains
+  Opus-4.8 only.
+
 ## v2.10.4
 
 ### Live slot heartbeat and owner-aware reaping
@@ -63,7 +78,8 @@ killed.
 - Before cap rejection, launch/tool/hook paths cull zombie agents by default:
   stale live agents after 6 minutes idle, terminal-but-alive agents after 30
   seconds, with graceful process-tree termination then force after 20 seconds.
-  Tool and hook reports include `zombies` when cleanup occurs.
+  As of v2.12.2, only `poll_agent` and `list_agents` surface the caller-visible
+  zombie report when cleanup occurs.
 - Adds unit coverage for config validation, template parsing, cap rejection,
   slot reservation, and idempotent release.
 

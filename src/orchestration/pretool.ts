@@ -1,6 +1,6 @@
 import { serverAlive } from "./liveness.js";
 import { type HookPayload } from "./hook-core.js";
-import { cullHookZombies, hookZombieReportText } from "./hook-core.js";
+import { cullHookZombies } from "./hook-core.js";
 
 const NATIVE_SUBAGENT_TOOLS = new Set(["Task", "Agent", "Explore"]);
 
@@ -49,27 +49,26 @@ export function runClaudePreTool(
   now: number = Date.now()
 ): PreToolDecision | null {
   try {
-    const zombieReport = hookZombieReportText(cullHookZombies());
+    const zombieRecords = cullHookZombies();
     if (env.SUBAGENT_MCP_SUBAGENT === "1") return null;
 
-    const zombieAllowedDecision = zombieReport
-      ? decision("allow", "zombies culled; allowing requested tool.", zombieReport)
+    const maintenanceAllowedDecision = zombieRecords.length > 0
+      ? decision("allow", "maintenance completed; allowing requested tool.")
       : null;
 
-    if (!serverAlive(now)) return zombieAllowedDecision;
+    if (!serverAlive(now)) return maintenanceAllowedDecision;
 
     const tool = typeof payload.tool_name === "string" ? payload.tool_name : "";
-    if (!tool) return zombieAllowedDecision;
+    if (!tool) return maintenanceAllowedDecision;
 
     if (NATIVE_SUBAGENT_TOOLS.has(tool)) {
       return decision(
         "deny",
-        "subagent-mcp is alive; harness-native Task/Agent/Explore is not the sanctioned sub-agent channel. Use the subagent-mcp launch_agent MCP tool with the parent-process sentinel as prompt line 1.",
-        zombieReport || undefined
+        "subagent-mcp is alive; harness-native Task/Agent/Explore is not the sanctioned sub-agent channel. Use the subagent-mcp launch_agent MCP tool with the parent-process sentinel as prompt line 1."
       );
     }
 
-    return zombieAllowedDecision;
+    return maintenanceAllowedDecision;
   } catch {
     return null;
   }

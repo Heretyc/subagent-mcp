@@ -65,6 +65,7 @@ await test("validateRulesetOutput: accepts all legal triples; strips rank/extra 
     { provider: "claude", model: "sonnet", effort: "high", rank: 1, note: "extra ignored" },
     { provider: "codex", model: "gpt-5.5", effort: "xhigh", rank: 2 },
     { provider: "claude", model: "haiku", effort: "none" },
+    { provider: "claude", model: "fable", effort: "max" },
     { provider: "claude", model: "opus", effort: "ultracode" },
     { provider: "claude", model: "opus-4-8", effort: "max" },
   ]);
@@ -73,6 +74,7 @@ await test("validateRulesetOutput: accepts all legal triples; strips rank/extra 
     { provider: "claude", model: "sonnet", effort: "high" },
     { provider: "codex", model: "gpt-5.5", effort: "xhigh" },
     { provider: "claude", model: "haiku", effort: "none" },
+    { provider: "claude", model: "fable", effort: "max" },
     { provider: "claude", model: "opus", effort: "ultracode" },
     { provider: "claude", model: "opus-4-8", effort: "max" },
   ], "candidates must carry exactly provider/model/effort — rank and extra keys stripped");
@@ -104,6 +106,7 @@ await test("validateRulesetOutput: rejection matrix (per-model effort legality, 
     [{ provider: "codex", model: "gpt-5.5", effort: "ultracode" }, "ultracode is opus-only"],
     [{ provider: "claude", model: "sonnet", effort: "ultracode" }, "ultracode is opus-only, sonnet must reject"],
     [{ provider: "claude", model: "sonnet", effort: "low" }, "low effort is banned policy-wide"],
+    [{ provider: "claude", model: "fable", effort: "ultracode" }, "ultracode is opus-only, fable must reject"],
     [{ provider: "claude", model: "haiku", effort: "high" }, "haiku effort must be exactly \"none\""],
     [{ provider: "claude", model: "sonnet", effort: "banana" }, "junk effort that effort.ts's lenient default would have coerced to high"],
     [{ provider: "claude", model: "banana", effort: "high" }, "unknown model"],

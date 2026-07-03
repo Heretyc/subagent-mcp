@@ -65,6 +65,13 @@ test("provider_model mode (category + provider + model) passes -> null", () => {
     "provider+model override is a valid mode");
 });
 
+test("provider_model mode accepts claude+fable -> null", () => {
+  assert.equal(
+    validatePresence({ task_category: "debugging", provider: "claude", model: "fable" }),
+    null,
+    "fable is a first-class Claude launch model");
+});
+
 test("explicit mode (category + provider + model + effort) passes -> null", () => {
   assert.equal(
     validatePresence({
@@ -251,8 +258,21 @@ test("explicit mismatch: claude + gpt-5.5 -> Claude constraint message", () => {
   });
   assert.equal(
     msg,
-    "Error: Claude provider only supports haiku, sonnet, opus, or opus-4-8. Got: gpt-5.5",
+    "Error: Claude provider only supports haiku, sonnet, opus, opus-4-8, or fable. Got: gpt-5.5",
     "claude+gpt-5.5 returns the existing Claude-constraint message verbatim");
+});
+
+test("explicit mismatch: codex + fable -> Codex constraint message", () => {
+  const msg = validatePresence({
+    task_category: "coding",
+    provider: "codex",
+    model: "fable",
+    effort: "high",
+  });
+  assert.equal(
+    msg,
+    "Error: Codex provider only supports gpt-5.5. Got: fable",
+    "codex+fable must be rejected because fable is Claude-only");
 });
 
 test("explicit mismatch: codex + sonnet -> Codex constraint message", () => {

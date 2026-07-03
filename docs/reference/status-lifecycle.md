@@ -70,6 +70,6 @@ gracefully terminated, then force-killed after 20 seconds. `poll_agent` and
 `list_agents` reconcile synchronously before returning, eliminating the
 up-to-10s lag for already-closed drivers. Stalled does not by itself end a
 `wait`; `wait` returns on unreported `finished`, `errored`, `stopped`, or
-`zombie_killed` states. `launch_agent` also runs zombie maintenance before
-launching, but does not return `zombie_report`; culled status remains visible
-through `poll_agent`, `list_agents`, and `wait`.
+`zombie_killed` states. All tool and hook paths still run zombie maintenance,
+but only `poll_agent` and `list_agents` surface the `zombie_report` message.
+Culled status remains visible through `poll_agent`, `list_agents`, and `wait`.

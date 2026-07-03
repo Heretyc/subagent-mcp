@@ -124,6 +124,11 @@ queue. You change the number in the `global-concurrency.jsonc` file in the
 install folder (minimum 10); the file is re-read on every launch, so no restart
 is needed.
 
+The same settings file includes `checkForUpdates` (default `true`). When a newer
+npm version exists, the per-turn hook can show a throttled notice to run
+`subagent-mcp update` and then `subagent-mcp setup`. Set `checkForUpdates` to
+`false`, or run with `SUBAGENT_UPDATE_CHECK=0` / `false`, to disable that check.
+
 ## Basic debugging
 
 - **"An agent looks stuck."** A quiet agent is usually **still alive**, not

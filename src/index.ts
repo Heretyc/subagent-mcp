@@ -65,6 +65,7 @@ import {
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
+import { checkForNpmUpdate } from "./orchestration/update-check.js";
 import { ensureParentMarker } from "./launch-prompt.js";
 
 type FailureType = "transient_provider" | "permanent";
@@ -374,12 +375,12 @@ function runToolMaintenance(): ZombieRecord[] {
 
 function withMaintenance<P>(
   handler: (params: P, zombieRecords: ZombieRecord[]) => Promise<any> | any,
-  options: { omitZombieReport?: boolean } = {}
+  options: { includeZombieReport?: boolean } = {}
 ): any {
   return async (params: P) => {
     const zombieRecords = runToolMaintenance();
     const result = await handler(params, zombieRecords);
-    if (options.omitZombieReport) return result;
+    if (!options.includeZombieReport) return result;
     if (result && typeof result === "object" && "content" in result) {
       return withZombieReport(result as { content?: { type: string; text: string }[] }, zombieRecords);
     }
@@ -587,7 +588,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.12.1",
+    version: "2.12.2",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -991,7 +992,7 @@ server.tool(
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
     provider: z.enum(["claude", "codex"]).optional(),
-    model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "gpt-5.5"]).optional(),
+    model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5"]).optional(),
     effort: z.enum(["medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
     deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
@@ -1236,7 +1237,7 @@ server.tool(
     return errorResult(
       `Error: all ${skipped.length} candidate launches failed for task_category ${task_category}:\n${lines}\n${SPLIT_HINT}\n${AUTO_HINT}`
     );
-  }, { omitZombieReport: true }) // ponytail: launch_agent still reaps, but callers do not receive zombie_report.
+  }) // ponytail: launch_agent still reaps, but callers do not receive zombie_report.
 );
 
 // Tool 2: poll_agent
@@ -1324,7 +1325,7 @@ server.tool(
         },
       ],
     };
-  })
+  }, { includeZombieReport: true })
 );
 
 // Tool 3: kill_agent
@@ -1531,7 +1532,7 @@ server.tool(
         },
       ],
     };
-  })
+  }, { includeZombieReport: true })
 );
 
 // Tool 6: wait
@@ -1946,6 +1947,7 @@ if (isMain) {
   // (the tool's enabled:false writes a disable record via writeDisable /
   // writeDisableCwd; it does not call disable().)
   getNpmPrefix();
+  void checkForNpmUpdate().catch(() => {});
   startLivenessHeartbeat();
   const transport = new StdioServerTransport();
   await server.connect(transport);
