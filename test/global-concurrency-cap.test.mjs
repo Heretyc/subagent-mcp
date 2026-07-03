@@ -99,6 +99,21 @@ test("reserveSlot succeeds under cap and creates a new slot file", () => {
   releaseFixture = { dir, slotPath: result.slotPath, max };
 });
 
+test("reserveSlot rejects when slot directory cannot be created", () => {
+  const dir = tmpSlotDir();
+  const max = 3;
+  writeFileSync(dir, "not a directory");
+  try {
+    const result = reserveSlot("blocked", max, dir);
+    assert.equal(result.ok, false);
+    assert.equal(result.current, -1);
+    assert.equal(result.max, max);
+    assert.match(result.error, /EEXIST|not a directory|file already exists/i);
+  } finally {
+    rmSync(dir, { force: true });
+  }
+});
+
 test("reserveSlot can cull stale slots without blocking for force grace", () => {
   const dir = tmpSlotDir();
   const max = 1;

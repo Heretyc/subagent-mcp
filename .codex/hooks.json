@@ -1,6 +1,28 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$root = (& git rev-parse --show-toplevel).Trim(); if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & node (Join-Path $root 'dist/hooks/orchestration-codex.js'); exit $LASTEXITCODE\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$root = (& git rev-parse --show-toplevel).Trim(); if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & node (Join-Path $root 'dist/hooks/orchestration-codex.js'); exit $LASTEXITCODE\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$root = (& git rev-parse --show-toplevel).Trim(); if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & node (Join-Path $root 'dist/hooks/orchestration-codex.js'); exit $LASTEXITCODE\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$root = (& git rev-parse --show-toplevel).Trim(); if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & node (Join-Path $root 'dist/hooks/orchestration-codex.js'); exit $LASTEXITCODE\"",
+            "timeout": 10
+          }
+        ]
+      },
       {
         "hooks": [
           {

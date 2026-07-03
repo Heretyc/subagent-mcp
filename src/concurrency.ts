@@ -35,6 +35,7 @@ export interface RejectedSlot {
   ok: false;
   current: number;
   max: number;
+  error?: string;
 }
 
 export type SlotReservation = ReservedSlot | RejectedSlot;
@@ -146,8 +147,9 @@ export function reserveSlot(
     }
     return { ok: true, slotPath, current: n, max };
   } catch (e) {
-    console.error(`[concurrency] reserve failed, failing open: ${e instanceof Error ? e.message : String(e)}`);
-    return { ok: true, current: 0, max, slotPath: null };
+    const error = e instanceof Error ? e.message : String(e);
+    console.error(`[concurrency] reserve failed, rejecting launch: ${error}`);
+    return { ok: false, current: -1, max, error };
   }
 }
 

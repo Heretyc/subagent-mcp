@@ -29,12 +29,13 @@
                                       "molecular_biology",
                                       "ml_accelerator_design"
                                   ],
+    "_ordering_authority":  "classification_precedence is the SOLE ordering authority; categories is lookup-only.",
     "classification_rule":  "walk_precedence_first_match_wins; on_adjacent_tie_escalate_one_tier_up; if_no_match -\u003e fallback_default",
     "fallback_default":  {
                              "id":  "fallback_default",
                              "precedence":  99,
                              "status":  "fallback_default",
-                             "rag_pointer":  ".spec/references/routing-table.md",
+                             "rag_pointer":  ".spec/references/retrieval-map.md",
                              "pairings":  [
 
                                           ]
