@@ -31,6 +31,7 @@ export interface ProviderDriver {
   readonly definitelyStarted: Promise<void>;
   start(message: string): Promise<void>;
   send(message: string): Promise<void>;
+  notifyTaskComplete?(text?: string): Promise<void>;
   kill(): void;
 }
 
@@ -140,6 +141,13 @@ class AsyncInputQueue<T> implements AsyncIterable<T> {
     for (const taker of this.takers.splice(0)) taker({ value: undefined, done: true });
   }
 
+  // True when the consumer (SDK query loop) is blocked awaiting input and nothing
+  // is buffered — i.e. the model turn ended and it is idle. A watchdog uses this
+  // to decide whether a resume turn is warranted.
+  get isAwaitingInput(): boolean {
+    return !this.closed && this.items.length === 0 && this.takers.length > 0;
+  }
+
   [Symbol.asyncIterator](): AsyncIterator<T> {
     return {
       next: () => {
@@ -179,6 +187,51 @@ function userMessage(text: string): JsonObject {
 
 function textInput(text: string): JsonObject {
   return { type: "text", text, text_elements: [] };
+}
+
+// Server->client RPC methods that block on a client answer (elicitation /
+// approval). Matched case-insensitively so provider-namespaced variants
+// (e.g. "codex/requestUserInput", "session/requestApproval") are covered.
+function isElicitationMethod(method: string): boolean {
+  return /requestuserinput|elicit|approv/i.test(method);
+}
+
+// Shape the `result` payload for an elicitation reply. When the RPC offered a
+// discrete option set, select only an exact case-insensitive label match and
+// echo its identifier; otherwise pass the answer through as text.
+function buildElicitationResult(options: JsonObject[] | undefined, answer: string): JsonObject {
+  if (options && options.length > 0) {
+    const norm = answer.trim().toLowerCase();
+    const chosen = options.find((opt) => {
+      const label = optionLabel(opt);
+      return label !== null && norm === label.trim().toLowerCase();
+    });
+    if (chosen) {
+      const id = optionId(chosen);
+      return id !== null ? { optionId: id } : { option: chosen };
+    }
+  }
+  return { text: answer };
+}
+
+function optionLabel(opt: JsonObject): string | null {
+  for (const key of ["label", "name", "title", "text", "value", "id"]) {
+    const v = opt[key];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return null;
+}
+
+function optionId(opt: JsonObject): string | number | null {
+  for (const key of ["id", "value", "optionId", "label", "name"]) {
+    const v = opt[key];
+    if (typeof v === "string" || typeof v === "number") return v;
+  }
+  return null;
+}
+
+function isJsonRpcId(id: unknown): id is string | number {
+  return typeof id === "string" || typeof id === "number";
 }
 
 export class MockJsonlDriver implements ProviderDriver {
@@ -290,6 +343,10 @@ export class CodexAppServerDriver implements ProviderDriver {
   private initialized = false;
   private turnInFlight = false;
   private readonly maxQueueDepth = 32;
+  // An inbound server->client RPC (elicitation, e.g. requestUserInput / approval)
+  // awaiting a reply. While set, the next send() answers this request instead of
+  // enqueuing a new turn — otherwise the in-flight question turn wedges the queue.
+  private pendingServerRequest: { id: string | number; method: string; options?: JsonObject[] } | null = null;
 
   constructor(private readonly child: ChildProcess, private readonly options: DriverLaunchOptions) {
     this.process = new LogicalProcess(child.pid);
@@ -338,6 +395,18 @@ export class CodexAppServerDriver implements ProviderDriver {
     if (!this.initialized || !this.threadId) {
       return Promise.reject(new Error("codex app-server thread is not initialized"));
     }
+    if (this.pendingServerRequest) {
+      // The message is the user's answer to a parked server-side elicitation.
+      // Reply on the same JSON-RPC id (mirroring the { id, result } envelope our
+      // own request() responses arrive in) instead of enqueuing a fresh turn.
+      const req = this.pendingServerRequest;
+      this.pendingServerRequest = null;
+      return writeLine(this.child.stdin, {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: buildElicitationResult(req.options, message),
+      });
+    }
     if (this.queuedTurns.length >= this.maxQueueDepth) {
       return Promise.reject(new Error(`provider input queue is full (${this.maxQueueDepth})`));
     }
@@ -353,6 +422,7 @@ export class CodexAppServerDriver implements ProviderDriver {
     (this.process as LogicalProcess).kill("SIGKILL");
     this.rejectPending(new Error("codex app-server driver was killed"));
     this.queuedTurns.length = 0;
+    this.pendingServerRequest = null;
   }
 
   private async drainQueuedTurns(): Promise<void> {
@@ -440,6 +510,17 @@ export class CodexAppServerDriver implements ProviderDriver {
       } else {
         pending.resolve(message);
       }
+    } else if (
+      isJsonRpcId(message.id) &&
+      typeof message.method === "string" &&
+      isElicitationMethod(message.method)
+    ) {
+      // Inbound server->client RPC (elicitation) that is NOT a reply to one of
+      // our requests. Park it so the next send() answers it instead of queuing a
+      // new turn; leaving it unanswered wedges the in-flight question turn.
+      const params = (message.params ?? {}) as JsonObject;
+      const options = Array.isArray(params.options) ? (params.options as JsonObject[]) : undefined;
+      this.pendingServerRequest = { id: message.id, method: message.method, options };
     }
 
     if (message.method === "turn/started" && message.params && typeof message.params === "object") {
@@ -485,6 +566,10 @@ export class ClaudeSdkDriver implements ProviderDriver {
   private queue: Promise<void> = Promise.resolve();
   private queryHandle: { close?: () => void } | null = null;
   private closedFlag = false;
+  // Debounce for notifyTaskComplete(): set when a resume turn is pushed, cleared
+  // as soon as the model streams any message (see pump). Prevents a stalled agent
+  // from being resumed more than once per idle cycle.
+  private resumePending = false;
 
   constructor(private readonly queryFn: (params: JsonObject) => AsyncGenerator<unknown, void>) {}
 
@@ -530,6 +615,30 @@ export class ClaudeSdkDriver implements ProviderDriver {
     return next;
   }
 
+  // Wake the SDK query loop after the agent's own background task finishes. The
+  // loop parks on `await next input` once the model turn ends; nothing else
+  // pushes a resume, so a sub-agent that spawned a bg task would stall forever.
+  // Pushes a synthetic user turn through the SAME input queue send() uses.
+  //
+  // WIRING: the notification source (task_notification for THIS agent's bg task)
+  // is not visible inside drivers.ts. The owning server/monitor must call
+  // driver.notifyTaskComplete() when it observes this agent's background
+  // task_notification while the agent is `stalled` with an empty input queue
+  // (see AsyncInputQueue.isAwaitingInput). Guarded so repeat calls are no-ops
+  // until the model next produces output.
+  notifyTaskComplete(text?: string): Promise<void> {
+    if (this.closed || this.resumePending) return Promise.resolve();
+    this.resumePending = true;
+    const resumeText =
+      text ?? "Your background task has completed. Resume and continue where you left off.";
+    const next = this.queue.then(() => {
+      if (this.closed) return;
+      return this.input.push(userMessage(resumeText));
+    });
+    this.queue = next.catch(() => {});
+    return next;
+  }
+
   kill(): void {
     if (this.closedFlag) return;
     this.closedFlag = true;
@@ -543,6 +652,9 @@ export class ClaudeSdkDriver implements ProviderDriver {
     let started = false;
     try {
       for await (const message of query) {
+        // The model is producing output again: clear the resume debounce so a
+        // future bg-task completion can wake it once more.
+        this.resumePending = false;
         const text = claudeMessageText(message);
         if (!started && text && isClaudeSessionLimit(text)) {
           // Launch-time failover only applies before startup resolves/spawn grace ends;

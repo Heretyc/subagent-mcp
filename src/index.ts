@@ -80,6 +80,8 @@ interface AgentState {
   stderr: string;
   exitCode: number | null;
   exitedAt: number | null;
+  lastExitCode: number | null;
+  lastExitedAt: number | null;
   startedAt: number;
   lastActivity: number;
   slotLastActivity: number;
@@ -103,6 +105,11 @@ interface AgentState {
   // stdout chunks). Held until its terminating newline arrives so a valid event
   // is never dropped. Flushed on close.
   streamBuf: string;
+  // Claude SDK background-task wake state. When stream activity arrives after a
+  // turn has already completed, we mark it here and resume once via the driver.
+  bgTaskResumeObservedAt?: number;
+  bgTaskResumeSentAt?: number;
+  bgTaskResumeInFlight?: boolean;
   /** Set only when at least one candidate was skipped before this agent launched. */
   failoverFrom?: {
     provider: string;
@@ -114,6 +121,7 @@ interface AgentState {
 
 const agents = new Map<string, AgentState>();
 const deadlockWindow = createDeadlockWindow();
+const STDOUT_RING_BYTES = 2 * 1024 * 1024;
 // Advanced-ruleset gate: per-process latch with exactly the deadlock-window
 // scoping. The env-check runs lazily at the FIRST launch_agent call; success
 // latches enabled/disabled for the process lifetime, failure never latches.
@@ -403,13 +411,103 @@ function failureTypeForError(error: Error, stderr: string): FailureType {
 }
 
 const isWindows = process.platform === "win32";
+const NPM_PREFIX = execSync("npm prefix -g", { encoding: "utf-8" }).trim();
 
-let _npmPrefix: string | null = null;
 function getNpmPrefix(): string {
-  if (!_npmPrefix) {
-    _npmPrefix = execSync("npm prefix -g", { encoding: "utf-8" }).trim();
+  return NPM_PREFIX;
+}
+
+type BackgroundResumeAgent = Pick<
+  AgentState,
+  | "provider"
+  | "status"
+  | "driver"
+  | "lastActivity"
+  | "lastExitCode"
+  | "lastExitedAt"
+  | "exitCode"
+  | "exitedAt"
+  | "waitReported"
+  | "turnCompleted"
+  | "bgTaskResumeObservedAt"
+  | "bgTaskResumeSentAt"
+  | "bgTaskResumeInFlight"
+>;
+
+const CLAUDE_BACKGROUND_RESUME_TEXT =
+  "Your background task has completed. Resume and continue where you left off.";
+
+export function isClaudeBackgroundWakeLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  try {
+    const evt = JSON.parse(trimmed) as Record<string, unknown>;
+    if (evt.type === "result") return false;
+    const method = typeof evt.method === "string" ? evt.method : "";
+    const type = typeof evt.type === "string" ? evt.type : "";
+    const name = typeof evt.name === "string" ? evt.name : "";
+    const marker = `${method} ${type} ${name}`.toLowerCase();
+    if (marker.includes("task_notification") || marker.includes("task-notification")) return true;
+    if (marker.includes("background") && marker.includes("complete")) return true;
+    if (marker.includes("taskoutput") && marker.includes("complete")) return true;
+    // No concrete Claude bg-task-complete JSONL fixture exists in-repo. As a
+    // backstop, any non-result JSONL activity after a finished turn means the
+    // still-live SDK stream observed something new and needs a nudge.
+    return true;
+  } catch {
+    return false;
   }
-  return _npmPrefix;
+}
+
+function noteBackgroundResumeSignal(agent: BackgroundResumeAgent, at: number): void {
+  if (agent.provider !== "claude" || agent.driver.closed) return;
+  agent.bgTaskResumeObservedAt = Math.max(agent.bgTaskResumeObservedAt ?? 0, at);
+}
+
+export async function maybeResumeAfterBackgroundTask(
+  agent: BackgroundResumeAgent,
+  now = Date.now()
+): Promise<boolean> {
+  if (agent.provider !== "claude") return false;
+  if (agent.driver.closed) return false;
+  if (agent.bgTaskResumeInFlight) return false;
+  const observedAt = agent.bgTaskResumeObservedAt ?? 0;
+  if (observedAt === 0 || observedAt <= (agent.bgTaskResumeSentAt ?? 0)) return false;
+  agent.bgTaskResumeInFlight = true;
+  try {
+    if (typeof agent.driver.notifyTaskComplete === "function") {
+      await agent.driver.notifyTaskComplete(CLAUDE_BACKGROUND_RESUME_TEXT);
+    } else {
+      await agent.driver.send(CLAUDE_BACKGROUND_RESUME_TEXT);
+    }
+    agent.bgTaskResumeSentAt = observedAt;
+    agent.status = "processing";
+    agent.lastExitCode = agent.exitCode;
+    agent.lastExitedAt = agent.exitedAt;
+    agent.exitCode = null;
+    agent.exitedAt = null;
+    agent.waitReported = false;
+    agent.turnCompleted = false;
+    agent.lastActivity = now;
+    return true;
+  } finally {
+    agent.bgTaskResumeInFlight = false;
+  }
+}
+
+function handleCompletedStdoutLines(agent: AgentState, lines: string[], at: number): void {
+  let turnWasComplete = agent.turnCompleted === true;
+  for (const line of lines) {
+    if (turnWasComplete && isClaudeBackgroundWakeLine(line)) {
+      noteBackgroundResumeSignal(agent, at);
+    }
+    if (isTurnCompletedLine(agent.provider, line)) {
+      turnWasComplete = true;
+      agent.turnCompleted = true;
+      agent.status = "finished";
+      if (agent.exitedAt === null) agent.exitedAt = at;
+    }
+  }
 }
 
 function resolveExe(provider: Provider): string {
@@ -455,6 +553,11 @@ const reconcileInterval = setInterval(() => {
   for (const agent of agents.values()) {
     reconcileAgent(agent, now);
     refreshLiveSlotMetadata(agent, now);
+    if (agent.bgTaskResumeObservedAt && agent.bgTaskResumeObservedAt > (agent.bgTaskResumeSentAt ?? 0)) {
+      void maybeResumeAfterBackgroundTask(agent, now).then((resumed) => {
+        if (resumed) updateSlotMetadata(agent);
+      });
+    }
   }
 }, 10000);
 reconcileInterval.unref();
@@ -477,7 +580,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.11.0",
+    version: "2.12.0",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -628,6 +731,8 @@ async function tryLaunchCandidate(
     stderr: "",
     exitCode: null,
     exitedAt: null,
+    lastExitCode: null,
+    lastExitedAt: null,
     // Launch time is the initial heartbeat. Only PARSED VISIBLE provider stream
     // items refresh lastActivity afterwards (see the stdout handler); raw
     // stdout/stderr chunks do NOT, so `stalled` means exactly "no visible
@@ -664,6 +769,9 @@ async function tryLaunchCandidate(
       // Accumulate all complete lines into stored stdout.
       for (const line of lines) {
         agentState.stdout += line + "\n";
+        if (agentState.stdout.length > STDOUT_RING_BYTES) {
+          agentState.stdout = agentState.stdout.slice(-STDOUT_RING_BYTES);
+        }
       }
       if (items.length > 0) {
         // Heartbeat refreshes only on parsed visible provider stream items,
@@ -680,10 +788,11 @@ async function tryLaunchCandidate(
       // logical interactive session can remain available for later messages.
       // Scan COMPLETE lines only so a marker split across chunks is matched
       // once fully assembled (never on a partial fragment).
-      if (lines.some((l) => isTurnCompletedLine(agentState.provider, l))) {
-        agentState.turnCompleted = true;
-        agentState.status = "finished";
-        if (agentState.exitedAt === null) agentState.exitedAt = at;
+      handleCompletedStdoutLines(agentState, lines, at);
+      if (agentState.bgTaskResumeObservedAt && agentState.bgTaskResumeObservedAt > (agentState.bgTaskResumeSentAt ?? 0)) {
+        void maybeResumeAfterBackgroundTask(agentState, at).then((resumed) => {
+          if (resumed) updateSlotMetadata(agentState);
+        });
       }
     });
   }
@@ -705,14 +814,13 @@ async function tryLaunchCandidate(
       agentState.streamBuf = "";
       for (const line of lines) {
         agentState.stdout += line + "\n";
+        if (agentState.stdout.length > STDOUT_RING_BYTES) {
+          agentState.stdout = agentState.stdout.slice(-STDOUT_RING_BYTES);
+        }
       }
       // A completion marker may arrive only in this final flush (no trailing
       // newline) — the grace window's success exception needs it.
-      if (lines.some((l) => isTurnCompletedLine(agentState.provider, l))) {
-        agentState.turnCompleted = true;
-        agentState.status = "finished";
-        if (agentState.exitedAt === null) agentState.exitedAt = at;
-      }
+      handleCompletedStdoutLines(agentState, lines, at);
       if (items.length > 0) {
         agentState.lastActivity = at;
         agentState.visibleStream = retainLastN(
@@ -1177,13 +1285,10 @@ server.tool(
             model: agent.model,
             status: agent.status,
             exit_code: agent.exitCode,
-            stdout_tail: stdoutTail,
-            stderr_tail: stderrTail,
             started_at: agent.startedAt,
             last_activity: agent.lastActivity,
             cwd: agent.cwd,
             ...liveness,
-            ...(agent.routingTier !== undefined ? { routing_tier: agent.routingTier } : {}),
             ...(agent.rulesetApplied
               ? {
                   ruleset_applied: true,
@@ -1202,7 +1307,11 @@ server.tool(
               at: it.at !== undefined ? formatLocalIso(it.at) : null,
             })),
             ...(params.verbose
-              ? { final_output: extractFinalTurn(agent.provider, agent.stdout) }
+              ? {
+                  stdout_tail: stdoutTail,
+                  stderr_tail: stderrTail,
+                  final_output: extractFinalTurn(agent.provider, agent.stdout),
+                }
               : {}),
           }),
         },
@@ -1340,6 +1449,8 @@ server.tool(
       await agent.driver.send(params.message);
       const now = Date.now();
       agent.status = "processing";
+      agent.lastExitCode = agent.exitCode;
+      agent.lastExitedAt = agent.exitedAt;
       agent.exitCode = null;
       agent.exitedAt = null;
       agent.waitReported = false;
@@ -1460,7 +1571,7 @@ server.tool(
       for (const a of unreported) a.waitReported = true;
       const payload = { finished: unreported.map(buildFinishedEntry) };
       return {
-        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: "text", text: JSON.stringify(payload) }],
       };
     }
 
@@ -1479,7 +1590,7 @@ server.tool(
         message: "No agents are running or waiting to finish.",
       };
       return {
-        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: "text", text: JSON.stringify(payload) }],
       };
     }
 
@@ -1492,7 +1603,7 @@ server.tool(
         for (const a of unreported) a.waitReported = true;
         const payload = { finished: unreported.map(buildFinishedEntry) };
         return {
-          content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify(payload) }],
         };
       }
     }
@@ -1509,7 +1620,7 @@ server.tool(
       hint: "15 minutes elapsed with no agent finishing. Call wait again to block for another 15 minutes or until the next agent finishes.",
     };
     return {
-      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(payload) }],
     };
   })
 );
@@ -1827,6 +1938,7 @@ if (isMain) {
   // default-ON this rarely fires.
   // (the tool's enabled:false writes a disable record via writeDisable /
   // writeDisableCwd; it does not call disable().)
+  getNpmPrefix();
   startLivenessHeartbeat();
   const transport = new StdioServerTransport();
   await server.connect(transport);

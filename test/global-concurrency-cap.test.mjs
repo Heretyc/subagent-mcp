@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -78,7 +78,27 @@ test("reserveSlot rejects at cap and rolls back its own marker", () => {
     const result = reserveSlot("x", max, dir);
     assert.equal(result.ok, false);
     assert.equal(result.current, max);
+    assert.equal(existsSync(slotPathForAgent(dir, "x")), false);
     assert.equal(countSlots(dir), max);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("reserveSlot backs out the loser when contenders exceed max one", () => {
+  const dir = tmpSlotDir();
+  const max = 1;
+  try {
+    const first = reserveSlot("first", max, dir);
+    const second = reserveSlot("second", max, dir);
+    const results = [first, second];
+    assert.equal(results.filter((result) => result.ok).length, 1);
+    assert.equal(results.filter((result) => !result.ok).length, 1);
+    assert.equal(countSlots(dir), max);
+    assert.equal(readdirSync(dir).filter((f) => f.startsWith("slot-")).length, max);
+    assert.equal(existsSync(slotPathForAgent(dir, "second")), false);
+    assert.equal(second.ok, false);
+    assert.equal(second.current, max);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

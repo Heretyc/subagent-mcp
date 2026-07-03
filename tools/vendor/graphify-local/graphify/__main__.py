@@ -79,51 +79,6 @@ _PLATFORM_CONFIG: dict[str, dict] = {
         "skill_dst": Path(".agents") / "skills" / "graphify" / "SKILL.md",
         "claude_md": False,
     },
-    "opencode": {
-        "skill_file": "skill-opencode.md",
-        "skill_dst": Path(".config") / "opencode" / "skills" / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
-    "aider": {
-        "skill_file": "skill-aider.md",
-        "skill_dst": Path(".aider") / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
-    "copilot": {
-        "skill_file": "skill-copilot.md",
-        "skill_dst": Path(".copilot") / "skills" / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
-    "claw": {
-        "skill_file": "skill-claw.md",
-        "skill_dst": Path(".openclaw") / "skills" / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
-    "droid": {
-        "skill_file": "skill-droid.md",
-        "skill_dst": Path(".factory") / "skills" / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
-    "trae": {
-        "skill_file": "skill-trae.md",
-        "skill_dst": Path(".trae") / "skills" / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
-    "trae-cn": {
-        "skill_file": "skill-trae.md",
-        "skill_dst": Path(".trae-cn") / "skills" / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
-    "hermes": {
-        "skill_file": "skill-claw.md",
-        "skill_dst": Path(".hermes") / "skills" / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
-    "kiro": {
-        "skill_file": "skill-kiro.md",
-        "skill_dst": Path(".kiro") / "skills" / "graphify" / "SKILL.md",
-        "claude_md": False,
-    },
     "antigravity": {
         "skill_file": "skill.md",
         "skill_dst": Path(".agents") / "skills" / "graphify" / "SKILL.md",
@@ -182,9 +137,6 @@ def install(platform: str = "claude") -> None:
             claude_md.parent.mkdir(parents=True, exist_ok=True)
             claude_md.write_text(_SKILL_REGISTRATION.lstrip(), encoding="utf-8")
             print(f"  CLAUDE.md        ->  created at {claude_md}")
-
-    if platform == "opencode":
-        _install_opencode_plugin(Path("."))
 
     # Refresh version stamps in all other previously-installed skill dirs so
     # stale-version warnings don't fire for platforms not explicitly re-installed.
@@ -357,75 +309,6 @@ def gemini_uninstall(project_dir: Path | None = None) -> None:
     _uninstall_gemini_hook(project_dir or Path("."))
 
 
-_VSCODE_INSTRUCTIONS_MARKER = "## graphify"
-_VSCODE_INSTRUCTIONS_SECTION = """\
-## graphify
-
-Before answering architecture or codebase questions, read `graphify-out/GRAPH_REPORT.md` if it exists.
-If `graphify-out/wiki/index.md` exists, navigate it for deep questions.
-Type `/graphify` in Copilot Chat to build or update the knowledge graph.
-"""
-
-
-def vscode_install(project_dir: Path | None = None) -> None:
-    """Install graphify skill for VS Code Copilot Chat + write .github/copilot-instructions.md."""
-    skill_src = Path(__file__).parent / "skill-vscode.md"
-    if not skill_src.exists():
-        skill_src = Path(__file__).parent / "skill-copilot.md"
-    skill_dst = Path.home() / ".copilot" / "skills" / "graphify" / "SKILL.md"
-    skill_dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(skill_src, skill_dst)
-    (skill_dst.parent / ".graphify_version").write_text(__version__, encoding="utf-8")
-    print(f"  skill installed  ->  {skill_dst}")
-
-    instructions = (project_dir or Path(".")) / ".github" / "copilot-instructions.md"
-    instructions.parent.mkdir(parents=True, exist_ok=True)
-    if instructions.exists():
-        content = instructions.read_text(encoding="utf-8")
-        if _VSCODE_INSTRUCTIONS_MARKER in content:
-            print(f"  {instructions}  ->  already configured (no change)")
-        else:
-            instructions.write_text(content.rstrip() + "\n\n" + _VSCODE_INSTRUCTIONS_SECTION, encoding="utf-8")
-            print(f"  {instructions}  ->  graphify section added")
-    else:
-        instructions.write_text(_VSCODE_INSTRUCTIONS_SECTION, encoding="utf-8")
-        print(f"  {instructions}  ->  created")
-
-    print()
-    print("VS Code Copilot Chat configured. Type /graphify in the chat panel to build the graph.")
-    print("Note: for GitHub Copilot CLI (terminal), use: graphify copilot install")
-
-
-def vscode_uninstall(project_dir: Path | None = None) -> None:
-    """Remove graphify VS Code Copilot Chat skill and .github/copilot-instructions.md section."""
-    skill_dst = Path.home() / ".copilot" / "skills" / "graphify" / "SKILL.md"
-    if skill_dst.exists():
-        skill_dst.unlink()
-        print(f"  skill removed    ->  {skill_dst}")
-    version_file = skill_dst.parent / ".graphify_version"
-    if version_file.exists():
-        version_file.unlink()
-    for d in (skill_dst.parent, skill_dst.parent.parent, skill_dst.parent.parent.parent):
-        try:
-            d.rmdir()
-        except OSError:
-            break
-
-    instructions = (project_dir or Path(".")) / ".github" / "copilot-instructions.md"
-    if not instructions.exists():
-        return
-    content = instructions.read_text(encoding="utf-8")
-    if _VSCODE_INSTRUCTIONS_MARKER not in content:
-        return
-    cleaned = re.sub(r"\n*## graphify\n.*?(?=\n## |\Z)", "", content, flags=re.DOTALL).rstrip()
-    if cleaned:
-        instructions.write_text(cleaned + "\n", encoding="utf-8")
-        print(f"  graphify section removed from {instructions}")
-    else:
-        instructions.unlink()
-        print(f"  {instructions}  ->  deleted (was empty after removal)")
-
-
 _ANTIGRAVITY_RULES_PATH = Path(".agents") / "rules" / "graphify.md"
 _ANTIGRAVITY_WORKFLOW_PATH = Path(".agents") / "workflows" / "graphify.md"
 
@@ -452,69 +335,6 @@ Follow the graphify skill installed at ~/.agents/skills/graphify/SKILL.md to run
 
 If no path argument is given, use `.` (current directory).
 """
-
-
-_KIRO_STEERING = """\
----
-inclusion: always
----
-
-graphify: A knowledge graph of this project lives in `graphify-out/`. \
-If `graphify-out/GRAPH_REPORT.md` exists, read it before answering architecture questions, \
-tracing dependencies, or searching files — it contains god nodes, community structure, \
-and surprising connections the graph found. Navigate by graph structure instead of grepping raw files.
-"""
-
-_KIRO_STEERING_MARKER = "graphify: A knowledge graph of this project"
-
-
-def _kiro_install(project_dir: Path) -> None:
-    """Write graphify skill + steering file for Kiro IDE/CLI."""
-    project_dir = project_dir or Path(".")
-
-    # Skill file → .kiro/skills/graphify/SKILL.md
-    skill_src = Path(__file__).parent / "skill-kiro.md"
-    skill_dst = project_dir / ".kiro" / "skills" / "graphify" / "SKILL.md"
-    skill_dst.parent.mkdir(parents=True, exist_ok=True)
-    skill_dst.write_text(skill_src.read_text(encoding="utf-8"), encoding="utf-8")
-    print(f"  {skill_dst.relative_to(project_dir)}  ->  /graphify skill")
-
-    # Steering file → .kiro/steering/graphify.md (always-on)
-    steering_dir = project_dir / ".kiro" / "steering"
-    steering_dir.mkdir(parents=True, exist_ok=True)
-    steering_dst = steering_dir / "graphify.md"
-    if steering_dst.exists() and _KIRO_STEERING_MARKER in steering_dst.read_text(encoding="utf-8"):
-        print(f"  .kiro/steering/graphify.md  ->  already configured")
-    else:
-        steering_dst.write_text(_KIRO_STEERING, encoding="utf-8")
-        print(f"  .kiro/steering/graphify.md  ->  always-on steering written")
-
-    print()
-    print("Kiro will now read the knowledge graph before every conversation.")
-    print("Use /graphify to build or update the graph.")
-
-
-def _kiro_uninstall(project_dir: Path) -> None:
-    """Remove graphify skill + steering file for Kiro."""
-    project_dir = project_dir or Path(".")
-    removed = []
-
-    skill_dst = project_dir / ".kiro" / "skills" / "graphify" / "SKILL.md"
-    if skill_dst.exists():
-        skill_dst.unlink()
-        removed.append(str(skill_dst.relative_to(project_dir)))
-        # Remove parent dir if empty
-        try:
-            skill_dst.parent.rmdir()
-        except OSError:
-            pass
-
-    steering_dst = project_dir / ".kiro" / "steering" / "graphify.md"
-    if steering_dst.exists():
-        steering_dst.unlink()
-        removed.append(str(steering_dst.relative_to(project_dir)))
-
-    print("Removed: " + (", ".join(removed) if removed else "nothing to remove"))
 
 
 def _antigravity_install(project_dir: Path) -> None:
@@ -846,13 +666,11 @@ def _agents_install(project_dir: Path, platform: str) -> None:
 
     if platform == "codex":
         _install_codex_hook(project_dir or Path("."))
-    elif platform == "opencode":
-        _install_opencode_plugin(project_dir or Path("."))
 
     print()
     print(f"{platform.capitalize()} will now check the knowledge graph before answering")
     print("codebase questions and rebuild it after code changes.")
-    if platform not in ("codex", "opencode"):
+    if platform != "codex":
         print()
         print("Note: unlike Claude Code, there is no PreToolUse hook equivalent for")
         print(f"{platform.capitalize()} — the AGENTS.md rules are the always-on mechanism.")
@@ -884,8 +702,6 @@ def _agents_uninstall(project_dir: Path, platform: str = "") -> None:
         target.unlink()
         print(f"AGENTS.md was empty after removal - deleted {target.resolve()}")
 
-    if platform == "opencode":
-        _uninstall_opencode_plugin(project_dir or Path("."))
 
 
 def claude_install(project_dir: Path | None = None) -> None:
@@ -1047,7 +863,7 @@ def main() -> None:
         print("Usage: graphify <command>")
         print()
         print("Commands:")
-        print("  install [--platform P]  copy skill to platform config dir (claude|windows|codex|opencode|aider|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro)")
+        print("  install [--platform P]  copy skill to platform config dir (claude|windows|codex|gemini|cursor|antigravity)")
         print("  path \"A\" \"B\"            shortest path between two nodes in graph.json")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
         print("  explain \"X\"             plain-language explanation of a node and its neighbors")
@@ -1089,28 +905,8 @@ def main() -> None:
         print("  claude uninstall        remove graphify section from CLAUDE.md + PreToolUse hook")
         print("  codex install           write AGENTS.md section + UserPromptSubmit hook (Codex)")
         print("  codex uninstall         remove AGENTS.md section + graphify Codex hook")
-        print("  opencode install        write graphify section to AGENTS.md + tool.execute.before plugin (OpenCode)")
-        print("  opencode uninstall      remove graphify section from AGENTS.md + plugin")
-        print("  aider install           write graphify section to AGENTS.md (Aider)")
-        print("  aider uninstall         remove graphify section from AGENTS.md")
-        print("  copilot install         copy graphify skill to ~/.copilot/skills (GitHub Copilot CLI)")
-        print("  copilot uninstall       remove graphify skill from ~/.copilot/skills")
-        print("  vscode install          configure VS Code Copilot Chat (skill + .github/copilot-instructions.md)")
-        print("  vscode uninstall        remove VS Code Copilot Chat configuration")
-        print("  claw install            write graphify section to AGENTS.md (OpenClaw)")
-        print("  claw uninstall          remove graphify section from AGENTS.md")
-        print("  droid install           write graphify section to AGENTS.md (Factory Droid)")
-        print("  droid uninstall        remove graphify section from AGENTS.md")
-        print("  trae install            write graphify section to AGENTS.md (Trae)")
-        print("  trae uninstall         remove graphify section from AGENTS.md")
-        print("  trae-cn install         write graphify section to AGENTS.md (Trae CN)")
-        print("  trae-cn uninstall      remove graphify section from AGENTS.md")
         print("  antigravity install     write .agents/rules + .agents/workflows + skill (Google Antigravity)")
         print("  antigravity uninstall   remove .agents/rules, .agents/workflows, and skill")
-        print("  hermes install          write skill to ~/.hermes/skills/graphify/ (Hermes)")
-        print("  hermes uninstall        remove skill from ~/.hermes/skills/graphify/")
-        print("  kiro install            write skill to .kiro/skills/graphify/ + steering file (Kiro IDE/CLI)")
-        print("  kiro uninstall          remove skill + steering file")
         print()
         return
 
@@ -1158,47 +954,7 @@ def main() -> None:
         else:
             print("Usage: graphify cursor [install|uninstall]", file=sys.stderr)
             sys.exit(1)
-    elif cmd == "vscode":
-        subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
-        if subcmd == "install":
-            vscode_install()
-        elif subcmd == "uninstall":
-            vscode_uninstall()
-        else:
-            print("Usage: graphify vscode [install|uninstall]", file=sys.stderr)
-            sys.exit(1)
-    elif cmd == "copilot":
-        subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
-        if subcmd == "install":
-            install(platform="copilot")
-        elif subcmd == "uninstall":
-            skill_dst = Path.home() / _PLATFORM_CONFIG["copilot"]["skill_dst"]
-            removed = []
-            if skill_dst.exists():
-                skill_dst.unlink()
-                removed.append(f"skill removed: {skill_dst}")
-            version_file = skill_dst.parent / ".graphify_version"
-            if version_file.exists():
-                version_file.unlink()
-            for d in (skill_dst.parent, skill_dst.parent.parent, skill_dst.parent.parent.parent):
-                try:
-                    d.rmdir()
-                except OSError:
-                    break
-            print("; ".join(removed) if removed else "nothing to remove")
-        else:
-            print("Usage: graphify copilot [install|uninstall]", file=sys.stderr)
-            sys.exit(1)
-    elif cmd == "kiro":
-        subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
-        if subcmd == "install":
-            _kiro_install(Path("."))
-        elif subcmd == "uninstall":
-            _kiro_uninstall(Path("."))
-        else:
-            print("Usage: graphify kiro [install|uninstall]", file=sys.stderr)
-            sys.exit(1)
-    elif cmd in ("aider", "codex", "opencode", "claw", "droid", "trae", "trae-cn", "hermes"):
+    elif cmd == "codex":
         subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
         if subcmd == "install":
             _agents_install(Path("."), cmd)

@@ -370,8 +370,38 @@ await test("fallback_default handler returns SPLIT_HINT, not profiler guidance",
   }
 });
 
+const COST_EFFICIENCY_ARCHITECTURE = {
+  provider: "codex",
+  model: "gpt-5.4-mini",
+  effort: "medium",
+};
+const PERFORMANCE_ARCHITECTURE = {
+  provider: "claude",
+  model: "claude-fable-5",
+  effort: "max",
+};
+const EXPLICIT_CLAUDE_SONNET = {
+  provider: "claude",
+  model: "sonnet",
+  effort: "medium",
+};
+
+function assertNoRoutingTier(payload, label) {
+  assert.equal(payload.routing_tier, undefined, `${label} must not expose routing_tier`);
+}
+
+function assertSelection(payload, expected, label) {
+  assert.equal(payload.provider, expected.provider, `${label} provider`);
+  assert.equal(payload.model, expected.model, `${label} model`);
+  assert.equal(payload.effort, expected.effort, `${label} effort`);
+}
+
+function selectionOf(payload) {
+  return { provider: payload.provider, model: payload.model, effort: payload.effort };
+}
+
 // ---------------------------------------------------------------------------
-// Helpers for routing-tier e2e tests (4b-4f)
+// Helpers for routing e2e tests (4b-4f)
 // ---------------------------------------------------------------------------
 async function launchAndPoll(session, launchArgs) {
   const launchResp = await session.request("tools/call", {
@@ -390,7 +420,9 @@ async function launchAndPoll(session, launchArgs) {
     arguments: { agent_id: agentId },
   });
   const pollPayload = JSON.parse(pollResp.result.content[0].text);
-  return { agentId, launchPayload, pollPayload, tier: pollPayload.routing_tier };
+  assertNoRoutingTier(launchPayload, "launch_agent payload");
+  assertNoRoutingTier(pollPayload, "poll_agent payload");
+  return { agentId, launchPayload, pollPayload };
 }
 
 async function killAgent(session, agentId) {
@@ -418,19 +450,19 @@ async function killAgent(session, agentId) {
   );
 }
 
-async function pollAgent(session, agentId) {
+async function pollAgent(session, agentId, extraArgs = {}) {
   const pollResp = await session.request("tools/call", {
     name: "poll_agent",
-    arguments: { agent_id: agentId },
+    arguments: { agent_id: agentId, ...extraArgs },
   });
   return JSON.parse(pollResp.result.content[0].text);
 }
 
-async function waitForPoll(session, agentId, predicate, label) {
+async function waitForPoll(session, agentId, predicate, label, extraArgs = {}) {
   const deadline = Date.now() + 2000;
   let payload;
   while (Date.now() < deadline) {
-    payload = await pollAgent(session, agentId);
+    payload = await pollAgent(session, agentId, extraArgs);
     if (predicate(payload)) return payload;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
@@ -529,7 +561,8 @@ await test("zombie maintenance: live owned stale slot is refreshed, not killed",
       session,
       agentId,
       (payload) => payload.stdout_tail.includes("live stale owned slot"),
-      "mock output capture before live stale refresh"
+      "mock output capture before live stale refresh",
+      { verbose: true }
     );
     const staleActivity = Date.now() - 20000;
     rewriteSlot(slotDir, agentId, { last_activity_ms: staleActivity, status: "processing" });
@@ -537,7 +570,7 @@ await test("zombie maintenance: live owned stale slot is refreshed, not killed",
     const listPayload = JSON.parse(listResp.result.content[0].text);
     assert.equal(listPayload.zombie_report, undefined);
 
-    const pollPayload = await pollAgent(session, agentId);
+    const pollPayload = await pollAgent(session, agentId, { verbose: true });
     assert.notEqual(pollPayload.status, "zombie_killed");
     assert.equal(pollPayload.alive, true);
     assert.ok(pollPayload.stdout_tail.includes("live stale owned slot"));
@@ -567,7 +600,8 @@ await test("wait loop refreshes live stale slot metadata while blocked", async (
       session,
       agentId,
       (payload) => payload.stdout_tail.includes("wait stale refresh target"),
-      "mock output capture before wait refresh"
+      "mock output capture before wait refresh",
+      { verbose: true }
     );
     const waitPromise = session.request("tools/call", { name: "wait", arguments: {} });
     await sleep(100);
@@ -627,7 +661,8 @@ await test("zombie culling: hook intent marks agent zombie_killed with tail rete
       session,
       agentId,
       (payload) => payload.stdout_tail.includes("hook intent cull"),
-      "mock output capture before intent cull"
+      "mock output capture before intent cull",
+      { verbose: true }
     );
     const { path, metadata } = findSlotForAgent(slotDir, agentId);
     const record = {
@@ -644,7 +679,7 @@ await test("zombie culling: hook intent marks agent zombie_killed with tail rete
     writeFileSync(join(slotDir, "zombie-intents.jsonl"), `${JSON.stringify(record)}\n`);
     const pollResp = await session.request("tools/call", {
       name: "poll_agent",
-      arguments: { agent_id: agentId },
+      arguments: { agent_id: agentId, verbose: true },
     });
     const pollPayload = JSON.parse(pollResp.result.content[0].text);
     assert.equal(pollPayload.zombie_report, `zombies: ${agentId}`);
@@ -657,25 +692,21 @@ await test("zombie culling: hook intent marks agent zombie_killed with tail rete
 });
 
 // ---------------------------------------------------------------------------
-// 4b. pure-auto launch → routing_tier === "cost_efficiency"
+// 4b. pure-auto launch uses cost_efficiency internally without exposing it.
 //     WHY: with no deadlock window active, pure-auto must route through
 //     cost_efficiency (the default branch). If "performance" is returned, the
 //     default branch is wrong.
 // ---------------------------------------------------------------------------
-await test("pure-auto launch: routing_tier is cost_efficiency (no window active)", async () => {
+await test("pure-auto launch: cost_efficiency selection, routing_tier absent", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   const session = createMcpSession(distIndex, { cwd: workDir, env });
   try {
     await session.initialize();
-    const { tier } = await launchAndPoll(session, {
+    const { launchPayload } = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "test pure-auto routing",
     });
-    assert.equal(
-      tier,
-      "cost_efficiency",
-      "pure-auto with no active window must route through cost_efficiency branch"
-    );
+    assert.ok(launchPayload.agent_id, "pure-auto launch should still succeed");
   } finally {
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });
@@ -734,8 +765,7 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       prompt: "deadlock trigger",
       deadlock: true,
     });
-    assert.equal(r1.tier, "performance",
-      "deadlock=true must arm window and route through performance branch");
+    const performanceSelection = selectionOf(r1.launchPayload);
     await killAgent(session, r1.agentId);
 
     // 2. pure-auto → consume(→1). Performance.
@@ -743,7 +773,7 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       task_category: "architecture",
       prompt: "pure auto one",
     });
-    assert.equal(r2.tier, "performance",
+    assert.deepEqual(selectionOf(r2.launchPayload), performanceSelection,
       "pure-auto with active window (2 remaining) must use performance branch");
     await killAgent(session, r2.agentId);
 
@@ -755,8 +785,8 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       provider: "claude",
       model: "sonnet",
     });
-    assert.equal(r3.tier, "cost_efficiency",
-      "override launch must not switch branch even when window active, and must not consume a counter");
+    assertSelection(r3.launchPayload, EXPLICIT_CLAUDE_SONNET,
+      "override launch must honor the override selection");
     await killAgent(session, r3.agentId);
 
     // 4. pure-auto → consume(→0). Performance (3rd and final consume).
@@ -764,8 +794,8 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       task_category: "architecture",
       prompt: "third consume",
     });
-    assert.equal(r4.tier, "performance",
-      "pure-auto on last window counter (1→0) must still route performance before depleting");
+    assert.deepEqual(selectionOf(r4.launchPayload), performanceSelection,
+      "pure-auto on last window counter must still route performance before depleting");
     await killAgent(session, r4.agentId);
 
     // 5. pure-auto → window inactive(0). cost_efficiency.
@@ -773,7 +803,7 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       task_category: "architecture",
       prompt: "after window exhausted",
     });
-    assert.equal(r5.tier, "cost_efficiency",
+    assert.notDeepEqual(selectionOf(r5.launchPayload), performanceSelection,
       "pure-auto after window exhausted must revert to cost_efficiency branch");
     await killAgent(session, r5.agentId);
   } finally {
@@ -800,14 +830,14 @@ await test("re-arm: second deadlock=true resets window for 3 more performance la
       prompt: "first deadlock",
       deadlock: true,
     });
-    assert.equal(r1.tier, "performance");
+    const performanceSelection = selectionOf(r1.launchPayload);
     await killAgent(session, r1.agentId);
 
     const r2 = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "pure auto before re-arm",
     });
-    assert.equal(r2.tier, "performance");
+    assert.deepEqual(selectionOf(r2.launchPayload), performanceSelection, "pure auto before re-arm");
     await killAgent(session, r2.agentId);
 
     // Re-arm with 1 remaining → resets to 3. This call itself is launch 1 of 3.
@@ -816,7 +846,7 @@ await test("re-arm: second deadlock=true resets window for 3 more performance la
       prompt: "second deadlock re-arm",
       deadlock: true,
     });
-    assert.equal(r3.tier, "performance",
+    assert.deepEqual(selectionOf(r3.launchPayload), performanceSelection,
       "re-arm must produce performance (first of 3 new launches after re-arm)");
     await killAgent(session, r3.agentId);
 
@@ -824,14 +854,14 @@ await test("re-arm: second deadlock=true resets window for 3 more performance la
       task_category: "architecture",
       prompt: "pure auto post-rearm one",
     });
-    assert.equal(r4.tier, "performance", "second of 3 performance launches after re-arm");
+    assert.deepEqual(selectionOf(r4.launchPayload), performanceSelection, "second of 3 performance launches after re-arm");
     await killAgent(session, r4.agentId);
 
     const r5 = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "pure auto post-rearm two",
     });
-    assert.equal(r5.tier, "performance", "third of 3 performance launches after re-arm");
+    assert.deepEqual(selectionOf(r5.launchPayload), performanceSelection, "third of 3 performance launches after re-arm");
     await killAgent(session, r5.agentId);
 
     // Window now exhausted.
@@ -839,7 +869,7 @@ await test("re-arm: second deadlock=true resets window for 3 more performance la
       task_category: "architecture",
       prompt: "after re-arm window exhausted",
     });
-    assert.equal(r6.tier, "cost_efficiency",
+    assert.notDeepEqual(selectionOf(r6.launchPayload), performanceSelection,
       "after 3 performance launches from re-arm, must revert to cost_efficiency");
     await killAgent(session, r6.agentId);
   } finally {
@@ -885,19 +915,19 @@ await test("deadlock=true + provider: isError true with deadlock error text", as
 });
 
 // ---------------------------------------------------------------------------
-// 4f. explicit provider+model+effort → routing_tier === "manual"
+// 4f. explicit provider+model+effort stays manual internally, but the tier is hidden.
 //     deadlock:false is identical to omitting deadlock (no change to routing).
-//     WHY: explicit launches bypass the branch selection entirely; routing_tier
-//     must always be "manual" so callers can distinguish auto from override.
+//     WHY: explicit launches bypass the branch selection entirely without
+//     exposing the internal routing tier to callers.
 // ---------------------------------------------------------------------------
-await test("explicit launch: routing_tier is manual; deadlock:false identical to omitted", async () => {
+await test("explicit launch: selection honored; deadlock:false identical to omitted", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   const session = createMcpSession(distIndex, { cwd: workDir, env });
   try {
     await session.initialize();
     await enableManualSelection(session);
 
-    // Explicit (provider+model+effort) → routing_tier="manual".
+    // Explicit (provider+model+effort) stays manual internally.
     const r1 = await launchAndPoll(session, {
       task_category: "coding",
       prompt: "explicit launch",
@@ -905,8 +935,8 @@ await test("explicit launch: routing_tier is manual; deadlock:false identical to
       model: "sonnet",
       effort: "medium",
     });
-    assert.equal(r1.tier, "manual",
-      "explicit provider+model+effort launch must have routing_tier='manual'");
+    assertSelection(r1.launchPayload, EXPLICIT_CLAUDE_SONNET,
+      "explicit provider+model+effort launch");
     await killAgent(session, r1.agentId);
 
     // deadlock:false + explicit → same result as omitting deadlock.
@@ -918,8 +948,8 @@ await test("explicit launch: routing_tier is manual; deadlock:false identical to
       effort: "medium",
       deadlock: false,
     });
-    assert.equal(r2.tier, "manual",
-      "deadlock:false must be identical to omitting deadlock; explicit launches still route as 'manual'");
+    assertSelection(r2.launchPayload, EXPLICIT_CLAUDE_SONNET,
+      "deadlock:false explicit launch");
     await killAgent(session, r2.agentId);
   } finally {
     await session.close();
