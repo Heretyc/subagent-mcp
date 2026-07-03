@@ -24,6 +24,7 @@ permissions:
 
 jobs:
   validate-branch:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Validate head branch name against the worktree formula

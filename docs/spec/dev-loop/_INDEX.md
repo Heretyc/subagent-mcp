@@ -11,6 +11,8 @@ agents. It is not product behavior.
   GitHub Actions dispatch bridge contract.
 - `claude-routine-prompt.md`: exact copy/paste Instructions field text for the
   canonical Claude Routine CI/CD gate.
+- `dependabot-ci-guard.md`: Dependabot dependency-update PR CI/branch-guard and
+  auto-merge gate procedure.
 - `contradiction-checker.md`: pre-commit contradiction-checker sub-agent
   contract — dispatch rules, contradiction classes (spec conflicts, stale
   build-participating docs, unstaged build-affecting files), JSON return shape.
