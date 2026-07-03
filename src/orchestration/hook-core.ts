@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
 import {
   closeSync,
+  existsSync,
   openSync,
   readFileSync,
   readSync,
   statSync,
 } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 
 import * as marker from "./marker.js";
 import * as reminder from "./reminder.js";
@@ -81,9 +82,21 @@ export interface ProviderAdapter {
  * === <repoRoot>/directives.
  */
 export function resolveDirectivesDir(env: NodeJS.ProcessEnv): string {
-  const root = env.CLAUDE_PLUGIN_ROOT || env.PLUGIN_ROOT;
-  if (root) {
-    return join(root, "directives");
+  const rootEnvName =
+    env.CLAUDE_PLUGIN_ROOT !== undefined
+      ? "CLAUDE_PLUGIN_ROOT"
+      : env.PLUGIN_ROOT !== undefined
+        ? "PLUGIN_ROOT"
+        : undefined;
+  if (rootEnvName) {
+    const root = env[rootEnvName] ?? "";
+    const directivesDir = join(root, "directives");
+    if (!isAbsolute(root) || !existsSync(directivesDir)) {
+      throw new Error(
+        `${rootEnvName} must be an absolute path with an existing directives directory: ${root}`
+      );
+    }
+    return directivesDir;
   }
   const here = dirname(fileURLToPath(import.meta.url));
   // Compiled location is dist/orchestration/hook-core.js, so ../../directives
@@ -98,8 +111,9 @@ export function readDirective(
   env: NodeJS.ProcessEnv,
   fileName: string
 ): string {
+  const directivesDir = resolveDirectivesDir(env);
   try {
-    return readFileSync(join(resolveDirectivesDir(env), fileName), "utf8");
+    return readFileSync(join(directivesDir, fileName), "utf8");
   } catch {
     return "";
   }

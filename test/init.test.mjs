@@ -147,7 +147,7 @@ await test("runInit: dry-run reports targets but writes nothing", async () => {
   const root = tempRoot();
   try {
     const { value: code, out } = await withCapturedConsole(() =>
-      runInit(["--root", root, "--dry-run", "--copilot", "--cursor"])
+      runInit(["--root", root, "--dry-run"])
     );
     assert.equal(code, 0);
     assert.equal(existsSync(join(root, "AGENTS.md")), false);

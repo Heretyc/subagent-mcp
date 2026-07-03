@@ -137,15 +137,20 @@ export function reserveSlot(
     mkdirSync(dir, { recursive: true, mode: 0o1777 });
     cullStaleSlots(dir, cullDeps);
     const slotPath = slotPathForAgent(dir, agentId);
+    const before = countSlots(dir);
+    if (before >= max) {
+      return { ok: false, current: before, max };
+    }
+    // ponytail: count->write->recount narrows the TOCTOU; a cross-process lock would close it fully.
     writeSlotMetadata(slotPath, { agent_id: agentId });
-    const n = countSlots(dir);
-    if (n > max) {
+    const after = countSlots(dir);
+    if (after > max) {
       try {
         unlinkSync(slotPath);
       } catch {}
-      return { ok: false, current: n - 1, max };
+      return { ok: false, current: countSlots(dir), max };
     }
-    return { ok: true, slotPath, current: n, max };
+    return { ok: true, slotPath, current: after, max };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     console.error(`[concurrency] reserve failed, rejecting launch: ${error}`);

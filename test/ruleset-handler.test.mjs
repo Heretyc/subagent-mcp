@@ -46,6 +46,17 @@ const VETO_ERROR = `Error: advanced ruleset returned zero candidates for task_ca
 // Fixture-table candidates as the server builds them (cost_efficiency/coding).
 const CE_RANK1 = { provider: "claude", model: "sonnet", effort: "medium" };
 const CE_RANK2 = { provider: "codex", model: "gpt-5.5", effort: "xhigh" };
+const PERF_RANK1 = { provider: "claude", model: "opus-4-8", effort: "high" };
+
+function assertNoRoutingTier(payload, label) {
+  assert.equal(payload.routing_tier, undefined, `${label} must not expose routing_tier`);
+}
+
+function assertSelection(payload, expected, label) {
+  assert.equal(payload.provider, expected.provider, `${label} provider`);
+  assert.equal(payload.model, expected.model, `${label} model`);
+  assert.equal(payload.effort, expected.effort, `${label} effort`);
+}
 
 let passed = 0;
 let failed = 0;
@@ -253,7 +264,9 @@ async function launchAndPoll(session, launchArgs) {
     arguments: { agent_id: agentId },
   });
   const pollPayload = JSON.parse(pollResp.result.content[0].text);
-  return { agentId, launchPayload, pollPayload, tier: pollPayload.routing_tier };
+  assertNoRoutingTier(launchPayload, "launch_agent payload");
+  assertNoRoutingTier(pollPayload, "poll_agent payload");
+  return { agentId, launchPayload, pollPayload };
 }
 
 async function killAgent(session, agentId) {
@@ -358,14 +371,10 @@ await test("gate runs once per process: 3 launches → exactly 1 env-check; payl
         task_category: "coding",
         prompt: `gate-once launch ${i + 1}`,
       });
-      assert.deepEqual(
-        Object.keys(launchPayload).sort(),
-        ["agent_id", "effort", "model", "provider", "status", "task_category"],
-        "disabled ruleset must leave the success payload key set exactly as pre-feature"
-      );
       assert.equal(launchPayload.provider, CE_RANK1.provider);
       assert.equal(launchPayload.model, CE_RANK1.model);
       assert.equal(launchPayload.effort, CE_RANK1.effort);
+      assertNoRulesetFields(launchPayload, "launch_agent payload");
       assertNoRulesetFields(pollPayload, "poll_agent payload");
       await killAgent(session, agentId);
     }
@@ -413,7 +422,7 @@ await test("routing override: reorder honored verbatim; original vs final expose
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
     await session.initialize();
-    const { agentId, launchPayload, pollPayload, tier } = await launchAndPoll(session, {
+    const { agentId, launchPayload, pollPayload } = await launchAndPoll(session, {
       task_category: "coding",
       prompt: "reorder launch",
     });
@@ -429,8 +438,6 @@ await test("routing override: reorder honored verbatim; original vs final expose
     assert.equal(pollPayload.ruleset_applied, true,
       "poll_agent must persist the altered-decision visibility");
     assert.deepEqual(pollPayload.ruleset_original_selection, CE_RANK1);
-    assert.equal(tier, "cost_efficiency",
-      "routing_tier reflects the branch — the ruleset never touches tier/deadlock state");
     assert.deepEqual(logLines(logFile), ["env-check", "route"],
       "routing mode runs ONCE per launch_agent call, never per failover attempt");
     await killAgent(session, agentId);
@@ -473,13 +480,13 @@ await test("passthrough: ruleset ran but did not alter — visibility fields ABS
 //    and the visibility fields are how the caller learns its request was
 //    overridden.
 // ---------------------------------------------------------------------------
-await test("explicit-mode override: ruleset replaces the requested triple; tier stays manual", async () => {
+await test("explicit-mode override: ruleset replaces the requested triple; routing_tier absent", async () => {
   const { tempRoot, workDir, env, entrypoint } = makeRulesetTempEnv("ok-enabled-replace");
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
     await session.initialize();
     await enableManualSelection(session);
-    const { agentId, launchPayload, pollPayload, tier } = await launchAndPoll(session, {
+    const { agentId, launchPayload, pollPayload } = await launchAndPoll(session, {
       task_category: "coding",
       prompt: "explicit launch to be overridden",
       provider: "claude",
@@ -495,8 +502,6 @@ await test("explicit-mode override: ruleset replaces the requested triple; tier 
       { provider: "claude", model: "sonnet", effort: "medium" },
       "original selection must be the caller's explicit triple");
     assert.equal(pollPayload.ruleset_applied, true);
-    assert.equal(tier, "manual",
-      "explicit launches keep routing_tier=manual even when the ruleset overrides the triple");
     await killAgent(session, agentId);
   } finally {
     await session.close();
@@ -683,7 +688,7 @@ await test("deadlock window: ruleset failure does not consume a window counter",
       prompt: "deadlock trigger",
       deadlock: true,
     });
-    assert.equal(r1.tier, "performance", "deadlock=true must arm and route performance");
+    assertSelection(r1.launchPayload, PERF_RANK1, "deadlock=true must arm and route performance");
     await killAgent(session, r1.agentId);
 
     // 2. Ruleset breaks → pure-auto launch hard-fails. Window must stay at 2.
@@ -700,17 +705,17 @@ await test("deadlock window: ruleset failure does not consume a window counter",
     //      be cost_efficiency.
     writeFileSync(modeFile, "ok-enabled-passthrough");
     const r3 = await launchAndPoll(session, { task_category: "coding", prompt: "post-failure one" });
-    assert.equal(r3.tier, "performance", "window must still hold 2 counters after the ruleset failure");
+    assertSelection(r3.launchPayload, PERF_RANK1, "window must still hold 2 counters after the ruleset failure");
     await killAgent(session, r3.agentId);
 
     const r4 = await launchAndPoll(session, { task_category: "coding", prompt: "post-failure two" });
-    assert.equal(r4.tier, "performance",
-      "the ruleset hard-fail must NOT have consumed a window counter (this is the 3rd and final consume)");
+    assertSelection(r4.launchPayload, PERF_RANK1,
+      "the ruleset hard-fail must NOT have consumed a window counter");
     await killAgent(session, r4.agentId);
 
     // 5. Window exhausted → back to cost_efficiency.
     const r5 = await launchAndPoll(session, { task_category: "coding", prompt: "after exhaustion" });
-    assert.equal(r5.tier, "cost_efficiency", "window depleted after exactly 3 successful consumes");
+    assertSelection(r5.launchPayload, CE_RANK1, "window depleted after exactly 3 successful consumes");
     await killAgent(session, r5.agentId);
   } finally {
     await session.close();

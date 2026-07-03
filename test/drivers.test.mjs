@@ -62,6 +62,7 @@ import readline from "node:readline";
 const logFile = process.env.APP_SERVER_LOG;
 const holdFirstMs = Number(process.env.HOLD_FIRST_MS || "0");
 let turn = 0;
+let pendingElicitation = null;
 
 function send(obj) {
   process.stdout.write(JSON.stringify(obj) + "\\n");
@@ -76,6 +77,19 @@ rl.on("line", (line) => {
   if (!line.trim()) return;
   const msg = JSON.parse(line);
   log(msg);
+  if (pendingElicitation && msg.id === pendingElicitation.requestId && msg.result) {
+    send({
+      method: "turn/completed",
+      params: {
+        turn: {
+          id: pendingElicitation.turnId,
+          items: [{ type: "agentMessage", text: "answered:" + JSON.stringify(msg.result) }],
+        },
+      },
+    });
+    pendingElicitation = null;
+    return;
+  }
   if (msg.method === "initialize") {
     if (process.env.FAIL_INIT === "1") {
       send({ id: msg.id, error: { message: "init failed" } });
@@ -97,6 +111,21 @@ rl.on("line", (line) => {
     send({ id: msg.id, result: { turn: { id: turnId } } });
     send({ method: "turn/started", params: { turn: { id: turnId } } });
     send({ method: "item/agentMessage/delta", params: { delta: "ack:" + text } });
+    if (process.env.ELICIT_AFTER_FIRST_TURN === "1" && turn === 1) {
+      pendingElicitation = { requestId: 900, turnId };
+      send({
+        id: pendingElicitation.requestId,
+        method: "requestUserInput",
+        params: {
+          prompt: "Pick one",
+          options: [
+            { id: "yes-id", label: "Yes" },
+            { id: "no-id", label: "No" },
+          ],
+        },
+      });
+      return;
+    }
     const delay = turn === 1 ? holdFirstMs : 0;
     setTimeout(() => {
       send({
@@ -128,6 +157,13 @@ function readTurnStarts(logFile) {
     .filter(Boolean)
     .map((line) => JSON.parse(line))
     .filter((msg) => msg.method === "turn/start");
+}
+
+function readLog(logFile) {
+  return readFileSync(logFile, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
 }
 
 await test("Claude SDK driver launches, sends multiple turns, and kills", async () => {
@@ -238,6 +274,76 @@ await test("Codex send enqueues behind an active turn without blocking for outpu
 
     await waitFor(() => readTurnStarts(logFile).length === 2, "queued second turn/start");
     await waitFor(() => stdout().includes("done:second"), "queued second completion");
+    driver.kill();
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("Codex send answers pending requestUserInput option without starting a turn", async () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-elicit-option-"));
+  try {
+    const logFile = join(tempRoot, "app-server.log");
+    const script = writeFakeAppServer(tempRoot, logFile);
+    const child = spawnFakeAppServer(script, {
+      APP_SERVER_LOG: logFile,
+      ELICIT_AFTER_FIRST_TURN: "1",
+    });
+    const driver = new CodexAppServerDriver(child, options("codex"));
+    const stdout = collect(driver.process.stdout);
+    await once(driver.process, "spawn");
+
+    await driver.start("first");
+    await waitFor(() => stdout().includes('"method":"requestUserInput"'), "requestUserInput output");
+    assert.equal(readTurnStarts(logFile).length, 1);
+
+    await driver.send("  nO  ");
+    await waitFor(() => stdout().includes("answered:"), "elicitation completion");
+    const log = readLog(logFile);
+    const reply = log.find((msg) => msg.id === 900 && msg.result);
+    assert.deepEqual(reply, { jsonrpc: "2.0", id: 900, result: { optionId: "no-id" } });
+    assert.equal(readTurnStarts(logFile).length, 1, "answer must not issue turn/start");
+
+    await driver.send("second");
+    await waitFor(() => readTurnStarts(logFile).length === 2, "normal send resumes");
+    await waitFor(() => stdout().includes("done:second"), "second completion");
+    driver.kill();
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("Codex send answers pending requestUserInput free text without starting a turn", async () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-elicit-text-"));
+  try {
+    const logFile = join(tempRoot, "app-server.log");
+    const script = writeFakeAppServer(tempRoot, logFile);
+    const child = spawnFakeAppServer(script, {
+      APP_SERVER_LOG: logFile,
+      ELICIT_AFTER_FIRST_TURN: "1",
+    });
+    const driver = new CodexAppServerDriver(child, options("codex"));
+    const stdout = collect(driver.process.stdout);
+    await once(driver.process, "spawn");
+
+    await driver.start("first");
+    await waitFor(() => stdout().includes('"method":"requestUserInput"'), "requestUserInput output");
+    assert.equal(readTurnStarts(logFile).length, 1);
+
+    await driver.send("use the custom path");
+    await waitFor(() => stdout().includes("answered:"), "elicitation completion");
+    const log = readLog(logFile);
+    const reply = log.find((msg) => msg.id === 900 && msg.result);
+    assert.deepEqual(reply, {
+      jsonrpc: "2.0",
+      id: 900,
+      result: { text: "use the custom path" },
+    });
+    assert.equal(readTurnStarts(logFile).length, 1, "answer must not issue turn/start");
+
+    await driver.send("second");
+    await waitFor(() => readTurnStarts(logFile).length === 2, "normal send resumes");
+    await waitFor(() => stdout().includes("done:second"), "second completion");
     driver.kill();
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });

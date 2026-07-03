@@ -125,10 +125,15 @@ function drainJsonl(path: string): ZombieRecord[] {
     return [];
   }
   try {
-    return readFileSync(claim, "utf8")
-      .split(/\r?\n/)
-      .filter(Boolean)
-      .map((line) => JSON.parse(line) as ZombieRecord);
+    const records: ZombieRecord[] = [];
+    for (const line of readFileSync(claim, "utf8").split(/\r?\n/).filter(Boolean)) {
+      try {
+        records.push(JSON.parse(line) as ZombieRecord);
+      } catch {
+        console.error(`zombies: skipped corrupt jsonl line in ${claim}: ${line.slice(0, 120)}`);
+      }
+    }
+    return records;
   } finally {
     try {
       unlinkSync(claim);
@@ -208,13 +213,16 @@ export function cullStaleSlots(dir: string, deps: CullDeps = {}): ZombieRecord[]
     if (!meta?.last_activity_ms) continue;
     if (now - meta.last_activity_ms <= ZOMBIE_LIVE_IDLE_MS) continue;
     const ownerPid = livePid(meta.server_pid) ? meta.server_pid : null;
+    let ownerAlive = false;
     if (ownerPid !== null) {
       try {
-        if (isProcessAlive(ownerPid)) continue;
+        ownerAlive = isProcessAlive(ownerPid);
       } catch {}
     }
+    if (ownerAlive) continue;
     const pid = meta.child_pid;
-    if (ownerPid !== null && livePid(pid) && pid !== process.pid) {
+    // cull only when the owning server is dead/absent (true orphan); spare children of a live server
+    if ((ownerPid === null || !ownerAlive) && livePid(pid) && pid !== process.pid) {
       const commands = buildProcessTreeKillCommands(pid, p);
       try {
         runCommand(commands.graceful.command, commands.graceful.args);

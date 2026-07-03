@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import {
   ZOMBIE_FORCE_GRACE_MS,
   ZOMBIE_LIVE_IDLE_MS,
+  ZOMBIE_REPORTS_FILENAME,
   buildProcessTreeKillCommands,
   cullStaleSlots,
   drainZombieIntents,
@@ -106,6 +107,51 @@ test("buildProcessTreeKillCommands uses tree-aware graceful and force commands",
   });
 });
 
+test("drainZombieReports skips corrupt jsonl lines and returns valid records", () => {
+  const dir = tmpSlotDir();
+  const validA = {
+    kind: "zombie_killed",
+    agent_id: "agent-jsonl-a",
+    child_pid: 101,
+    server_pid: null,
+    slot_path: "/tmp/slot-agent-jsonl-a.json",
+    reason: "stale_live",
+    detected_at_ms: 1,
+    last_activity_ms: 0,
+    message: "first",
+  };
+  const validB = {
+    kind: "zombie_killed",
+    agent_id: "agent-jsonl-b",
+    child_pid: 202,
+    server_pid: null,
+    slot_path: "/tmp/slot-agent-jsonl-b.json",
+    reason: "stale_live",
+    detected_at_ms: 2,
+    last_activity_ms: 1,
+    message: "second",
+  };
+  const errors = [];
+  const originalError = console.error;
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, ZOMBIE_REPORTS_FILENAME), [
+      JSON.stringify(validA),
+      "{not-json",
+      JSON.stringify(validB),
+      "",
+    ].join("\n"));
+    console.error = (message) => errors.push(String(message));
+    assert.deepEqual(drainZombieReports(dir), [validA, validB]);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].includes(ZOMBIE_REPORTS_FILENAME), true);
+    assert.deepEqual(drainZombieReports(dir), []);
+  } finally {
+    console.error = originalError;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot", () => {
   const dir = tmpSlotDir();
   const now = 1_000_000;
@@ -180,9 +226,11 @@ test("cullStaleSlots keeps stale slots owned by a live server", () => {
   }
 });
 
-test("cullStaleSlots frees unmanaged stale slots without killing child pid", () => {
+test("cullStaleSlots kills orphaned child pid when freeing unmanaged stale slot", () => {
   const dir = tmpSlotDir();
   const now = 1_000_000;
+  const calls = [];
+  const sleeps = [];
   try {
     mkdirSync(dir, { recursive: true });
     const slot = slotPathForAgent(dir, "agent-unmanaged");
@@ -196,12 +244,17 @@ test("cullStaleSlots frees unmanaged stale slots without killing child pid", () 
     const records = cullStaleSlots(dir, {
       now: () => now,
       platform: "win32",
-      runCommand: () => assert.fail("unmanaged stale slot must not kill child pid"),
-      sleepMs: () => assert.fail("unmanaged stale slot must not sleep for force grace"),
+      runCommand: (command, args) => calls.push({ command, args }),
+      sleepMs: (ms) => sleeps.push(ms),
     });
     assert.equal(records.length, 1);
     assert.equal(records[0].child_pid, 888);
     assert.equal(existsSync(slot), false);
+    assert.deepEqual(calls, [
+      { command: "taskkill", args: ["/PID", "888", "/T"] },
+      { command: "taskkill", args: ["/PID", "888", "/T", "/F"] },
+    ]);
+    assert.deepEqual(sleeps, [ZOMBIE_FORCE_GRACE_MS]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
