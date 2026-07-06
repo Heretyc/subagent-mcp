@@ -164,7 +164,7 @@ duplicate the content in the "Must NOT be duplicated in" column.
 | Auto Mode routing table | README § Auto Mode | CONTRIBUTING; other spec docs |
 | Tools parameter/return shapes | docs/tools.md | CONTRIBUTING; spec docs |
 | Agent lifecycle semantics | docs/reference/status-lifecycle.md | CONTRIBUTING; Auto Mode section |
-| Orchestration model (schema=2) | docs/spec/dev-loop/orchestration-directive-architecture.md | Any doc that would copy schema text inline |
+| Orchestration model (schema=3) | docs/spec/dev-loop/orchestration-directive-architecture.md | Any doc that would copy schema text inline |
 | Model-selection-mode semantics | docs/spec/model-selection-mode/_INDEX.md | CONTRIBUTING; other README sections |
 | version string | src/index.ts + package.json (kept in sync via check:versions) | Any markdown doc (do not hard-code version strings in prose) |
 | publishConfig rationale | CONTRIBUTING § Publishing | README; any spec doc not listed |

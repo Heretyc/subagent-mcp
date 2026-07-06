@@ -51,7 +51,7 @@
 |---|---|---|
 | `test/launch-agent-upsert.test.mjs` | `ensureParentMarker` upsert: 7 cases (Appendix A7.2) | D20 / S8 |
 | `test/no-five-call.test.mjs` | `/5[ -]?call/i` matches **zero** files under `src/` and `directives/` | D11 / D24 |
-| `test/init-migration.test.mjs` | v1 block → exactly one schema=2 block in-place (`updated`); double-legacy → collapsed to one; schema=2 present → idempotent (`ok`); one write per call | D22 / S3 |
+| `test/init-migration.test.mjs` | v1/schema=2 block → exactly one schema=3 block in-place (`updated`); double-legacy → collapsed to one; schema=3 present → idempotent (`ok`); one write per call | D22 / S3 |
 
 ### 11.2 NON-GATING (S4) — must exist before ship, does not block merge
 

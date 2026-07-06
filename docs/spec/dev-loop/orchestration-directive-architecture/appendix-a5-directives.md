@@ -49,7 +49,7 @@ Orchestration ON carried over from a PRIOR session for this project (per-session
 
 THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via AskUserQuestion whether to REMAIN enabled; (3) ADVISE fit — long-horizon → remain enabled; bounded/interactive → disable this session. Decline → orchestration-mode enabled:false this session only; no mid-session re-enable. NEVER disable on your own initiative. After answer handshake done; do not re-raise.
 
-While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is co-supreme with safety-scope; conflict → ask the user.
+While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is jointly binding with safety-scope; conflict → ask the user.
 </subagent-mcp>
 ```
 
@@ -64,7 +64,7 @@ Orchestration ON carried over from a PRIOR session for this project (per-session
 
 THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via request-user-input whether to REMAIN enabled; (3) ADVISE fit — long-horizon / context-filling → remain enabled; bounded / interactive → propose OFF. Decline → orchestration-mode enabled:false for this session only; no mid-session re-enable. NEVER disable on your own initiative. After the answer the handshake is done; do not re-raise.
 
-While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is co-supreme with safety-scope; conflict → ask the user.
+While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is jointly binding with safety-scope; conflict → ask the user.
 </subagent-mcp>
 ```
 
@@ -81,7 +81,7 @@ Each launched prompt carries objective + output format + tools/sources + boundar
 
 WAIT-NOT-POLL: learn finish via `wait` (verbose:true for output); never loop poll_agent for completion. poll_agent = single diagnostic; a stalled/empty tail means ALIVE, not dead. Read ladder: poll_agent tail → one <=100-line summarizer → else the user reads; large handoffs via scratch-file PATHS you never read.
 
-This tag is co-supreme with safety-scope (conflict → ask the user) and outranks ordinary user requests. Full governance: server MCP `instructions`.
+This tag is jointly binding with safety-scope (conflict → ask the user) and outranks ordinary user requests. Full governance: server MCP `instructions`.
 </subagent-mcp>
 ```
 

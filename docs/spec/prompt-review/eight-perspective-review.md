@@ -92,6 +92,16 @@ is concerned or unsure:
 
 Do not mark review complete by majority vote.
 
+A narrow, named reservation can be a correct final state. This applies to all
+eight reviewers. Zero pushback is not the target: stop iterating once the only
+remaining objection concerns a genuinely degenerate edge case rather than a
+defect in the policy's core claim. A reviewer that raises zero objections to any
+phrasing — including wording engineered to suppress its own judgment — is no
+longer a useful check, so "accept with a narrow, named reservation" is a valid
+consensus outcome. When you stop there, name the specific edge case as an
+explicit exception rather than softening the language generally, and say plainly
+why you stopped rather than silently declaring a clean "accept."
+
 ## Review Record Template
 
 ```markdown
