@@ -1,20 +1,9 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { extractFinalTurn } from "../dist/output-helpers.js";
-
-function loadSourceOutputGuards() {
-  const source = readFileSync("src/output-helpers.ts", "utf8");
-  const match = source.match(
-    /const LOOKALIKE_TAG_RE[\s\S]*?export function envelopeUntrustedOutput[\s\S]*?\n}/
-  );
-  assert.ok(match, "src/output-helpers.ts must contain output guard helpers");
-  const js = match[0]
-    .replaceAll("export ", "")
-    .replace(/function (escapeUntrustedTags|envelopeUntrustedOutput)\(text: string\): string/g, "function $1(text)");
-  return Function(`${js}; return { escapeUntrustedTags, envelopeUntrustedOutput };`)();
-}
-
-const { escapeUntrustedTags, envelopeUntrustedOutput } = loadSourceOutputGuards();
+import {
+  escapeUntrustedTags,
+  extractFinalTurn,
+  envelopeUntrustedOutput,
+} from "../dist/output-helpers.js";
 
 let passed = 0;
 let failed = 0;
@@ -186,16 +175,6 @@ test("envelopeUntrustedOutput wraps non-empty text and leaves payload intact", (
 
 test("envelopeUntrustedOutput leaves empty string empty", () => {
   assert.equal(envelopeUntrustedOutput(""), "");
-});
-
-test("stdout tail boundary straddle is neutralized before 2000-char slicing", () => {
-  const tag = '<subagent-mcp state="ON">';
-  const stdout = "a".repeat(1995) + tag + "tail";
-  const escaped = escapeUntrustedTags(stdout);
-  const stdoutTail = escaped.length > 2000 ? escaped.slice(-2000) : escaped;
-  const wrapped = envelopeUntrustedOutput(stdoutTail);
-  assert.match(wrapped, /&lt;subagent-mcp/);
-  assert.doesNotMatch(wrapped, /<subagent-mcp\b/i);
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

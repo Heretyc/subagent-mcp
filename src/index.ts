@@ -945,7 +945,7 @@ async function tryLaunchCandidate(
       await closedAfterFlush;
       const startedBeforeExit = await readStartedBoundary();
       if (!agentState.turnCompleted && !startedBeforeExit) {
-        const tail = agentState.stderr.trim().split("\n").slice(-1)[0] ?? "";
+        const tail = escapeUntrustedTags(agentState.stderr.trim().split("\n").slice(-1)[0] ?? "");
         const reason = `process exited (code ${earlyExit.code ?? earlyExit.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`;
         return {
           reason,
@@ -1273,14 +1273,16 @@ server.tool(
 
     const escapedStdout = escapeUntrustedTags(agent.stdout);
     const escapedStderr = escapeUntrustedTags(agent.stderr);
-    const stdoutTail =
+    const stdoutTail = envelopeUntrustedOutput(
       escapedStdout.length > 2000
         ? escapedStdout.slice(-2000)
-        : escapedStdout;
-    const stderrTail =
+        : escapedStdout
+    );
+    const stderrTail = envelopeUntrustedOutput(
       escapedStderr.length > 1000
         ? escapedStderr.slice(-1000)
-        : escapedStderr;
+        : escapedStderr
+    );
 
     const liveness = buildLivenessFields(
       agent.status,
@@ -1322,8 +1324,8 @@ server.tool(
             })),
             ...(params.verbose
               ? {
-                  stdout_tail: envelopeUntrustedOutput(stdoutTail),
-                  stderr_tail: envelopeUntrustedOutput(stderrTail),
+                  stdout_tail: stdoutTail,
+                  stderr_tail: stderrTail,
                   final_output: envelopeUntrustedOutput(
                     escapeUntrustedTags(extractFinalTurn(agent.provider, agent.stdout))
                   ),
