@@ -38,6 +38,27 @@ try {
     "stdout_tail and stderr_tail should be emitted only inside params.verbose"
   );
 
+  assert.match(
+    source,
+    /const\s+stdoutTail\s*=\s*envelopeUntrustedOutput\([\s\S]*?escapedStdout\.slice\(-2000\)[\s\S]*?:\s*escapedStdout\s*\);/,
+    "stdoutTail should be enveloped at assignment after escaping and slicing"
+  );
+  assert.match(
+    source,
+    /const\s+stderrTail\s*=\s*envelopeUntrustedOutput\([\s\S]*?escapedStderr\.slice\(-1000\)[\s\S]*?:\s*escapedStderr\s*\);/,
+    "stderrTail should be enveloped at assignment after escaping and slicing"
+  );
+
+  const stdoutEscapeAt = source.indexOf("const escapedStdout = escapeUntrustedTags(agent.stdout);");
+  const stdoutSliceAt = source.indexOf("escapedStdout.slice(-2000)");
+  assert.ok(stdoutEscapeAt >= 0, "poll_agent should escape stdout before slicing");
+  assert.ok(stdoutSliceAt > stdoutEscapeAt, "stdout escaping must textually precede tail slicing");
+
+  const stderrEscapeAt = source.indexOf("const escapedStderr = escapeUntrustedTags(agent.stderr);");
+  const stderrSliceAt = source.indexOf("escapedStderr.slice(-1000)");
+  assert.ok(stderrEscapeAt >= 0, "poll_agent should escape stderr before slicing");
+  assert.ok(stderrSliceAt > stderrEscapeAt, "stderr escaping must textually precede tail slicing");
+
   console.log("PASS index guard checks");
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

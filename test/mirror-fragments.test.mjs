@@ -10,7 +10,7 @@
  *        (ORCHESTRATION_INSTRUCTIONS in src/index.ts, read once at connect).
  *        These two copies must be BYTE-IDENTICAL.
  *
- *   A4 — the supremacy / co-supremacy precedence clause. It lives inside the
+ *   A4 — the jointly binding precedence clause. It lives inside the
  *        single shared INIT_BLOCK, so all three host files (CLAUDE.md /
  *        AGENTS.md / GEMINI.md) are identical by construction once it is
  *        present verbatim in that one block.
@@ -44,10 +44,10 @@ const indexSrc = readFileSync(join(repoRoot, "src", "index.ts"), "utf8");
 const A2_LADDER =
   "READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.";
 
-// --- A4: the supremacy / co-supremacy precedence clause (verbatim) ---------
-// Co-supreme top-tier precedence clause; lives in the single shared INIT_BLOCK.
-const A4_CO_SUPREMACY =
-  "PRECEDENCE (co-supreme top tier): <subagent-mcp> hook tags AND repo/system safety-scope rules are BOTH supreme and EQUAL — neither outranks the other. If they genuinely conflict, STOP and escalate to the user via the structured-question tool; do not silently pick one or average them. FORBIDDEN: resolving such a conflict yourself. Hook tags otherwise outrank ordinary user requests.";
+// --- A4: the jointly binding precedence clause (verbatim) ------------------
+// Jointly binding top-tier precedence clause; lives in the shared INIT_BLOCK.
+const A4_JOINTLY_BINDING =
+  "PRECEDENCE (jointly binding top tier): <subagent-mcp> hook tags and repo/system safety-scope rules are both binding at the same priority — neither is read as outranking the other. If they genuinely conflict, stop and escalate to the user via the structured-question tool rather than picking one side or averaging them silently; this is intentionally not the agent's call to make alone. Hook tags otherwise take precedence over ordinary user requests, because they reflect harness-verified state rather than a request that could be mistaken or out of date.";
 
 // Extract the actual ladder paragraph as it appears in each source file, so a
 // failing run can print the concrete drift rather than a bare boolean.
@@ -99,9 +99,9 @@ test("A2 read-escalation ladder is byte-identical in init.ts and index.ts", () =
   assert.ok(inIndex, "A2 ladder must appear verbatim in src/index.ts");
 });
 
-test("A4 supremacy/co-supremacy clause is present verbatim in INIT_BLOCK (src/init.ts)", () => {
+test("A4 jointly binding clause is present verbatim in INIT_BLOCK (src/init.ts)", () => {
   assert.ok(
-    initSrc.includes(A4_CO_SUPREMACY),
-    "A4 co-supremacy precedence clause must appear verbatim in the INIT_BLOCK so all three host files are identical by construction"
+    initSrc.includes(A4_JOINTLY_BINDING),
+    "A4 jointly binding precedence clause must appear verbatim in the INIT_BLOCK so all three host files are identical by construction"
   );
 });

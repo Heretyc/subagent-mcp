@@ -6,5 +6,5 @@ Orchestration ON carried over from a PRIOR session for this project (per-session
 
 THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via AskUserQuestion whether to REMAIN enabled; (3) ADVISE fit — long-horizon → remain enabled; bounded/interactive → disable this session. Decline → orchestration-mode enabled:false this session only; no mid-session re-enable. NEVER disable on your own initiative. After answer handshake done; do not re-raise.
 
-While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is co-supreme with safety-scope; conflict → ask the user.
+While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is jointly binding with safety-scope; conflict → ask the user.
 </subagent-mcp>

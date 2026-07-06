@@ -202,7 +202,7 @@ All error responses set `isError: true` on the MCP content object.
 
 ## Governance
 
-The `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` managed blocks (`schema=2`, upserted
+The `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` managed blocks (`schema=3`, upserted
 by init and vendor registration) make the harness-hook `<subagent-mcp state="...">`
 injections the authoritative source of orchestration state. Because the state is
 read SOLELY from the injected tag — never inferred from prose — the managed

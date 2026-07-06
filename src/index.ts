@@ -18,7 +18,11 @@ import {
   computeStatusTransition,
   buildLivenessFields,
 } from "./status-helpers.js";
-import { extractFinalTurn } from "./output-helpers.js";
+import {
+  escapeUntrustedTags,
+  envelopeUntrustedOutput,
+  extractFinalTurn,
+} from "./output-helpers.js";
 import {
   consumeStreamChunk,
   flushStream,
@@ -580,7 +584,7 @@ reconcileInterval.unref();
 // compressed under MCP metadata limits:
 // READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are co-supreme; genuine conflict => STOP and ask. Only the hook flips ON/OFF; absence of any tag = UNKNOWN => fail-safe ON.\n\nSOLE CHANNEL. Every launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator: use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and /workflows. No direct reads/writes; inline-by-right does not exist. Non-delegable step: ask a one-time exception, do only that step, resume delegating.\n\nSUB-AGENT CONTRACT. Every prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 agent for a fact-find, 2-4 for comparisons; never one-shot multi-phase work; split into atomic steps, one agent each. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.\n\nORCHESTRATION OFF. If context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to enable; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime. DISABLE: user-only, never on your own initiative.\n\nMODEL SELECTION. Default smart auto-picks, rejects provider/model/effort selectors. user-approved-overrides honors them 30 min, expires lazily on launch_agent, needs user authorization.";
+  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are jointly binding; genuine conflict => STOP and ask. Only the hook flips ON/OFF; absence of any tag = UNKNOWN => fail-safe ON.\n\nSOLE CHANNEL. Every launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator: use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and /workflows. No direct reads/writes; inline-by-right does not exist. Non-delegable step: ask a one-time exception, do only that step, resume delegating.\n\nSUB-AGENT CONTRACT. Every prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 agent for a fact-find, 2-4 for comparisons; never one-shot multi-phase work; split into atomic steps, one agent each. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.\n\nORCHESTRATION OFF. If context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to enable; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime. DISABLE: user-only, never on your own initiative.\n\nMODEL SELECTION. Default smart auto-picks, rejects provider/model/effort selectors. user-approved-overrides honors them 30 min, expires lazily on launch_agent, needs user authorization.";
 
 const SUBAGENT_INSTRUCTIONS =
   "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
@@ -588,7 +592,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.12.2",
+    version: "2.12.3",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -941,7 +945,7 @@ async function tryLaunchCandidate(
       await closedAfterFlush;
       const startedBeforeExit = await readStartedBoundary();
       if (!agentState.turnCompleted && !startedBeforeExit) {
-        const tail = agentState.stderr.trim().split("\n").slice(-1)[0] ?? "";
+        const tail = escapeUntrustedTags(agentState.stderr.trim().split("\n").slice(-1)[0] ?? "");
         const reason = `process exited (code ${earlyExit.code ?? earlyExit.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`;
         return {
           reason,
@@ -1267,14 +1271,18 @@ server.tool(
     const now = Date.now();
     reconcileAgent(agent, now);
 
-    const stdoutTail =
-      agent.stdout.length > 2000
-        ? agent.stdout.slice(-2000)
-        : agent.stdout;
-    const stderrTail =
-      agent.stderr.length > 1000
-        ? agent.stderr.slice(-1000)
-        : agent.stderr;
+    const escapedStdout = escapeUntrustedTags(agent.stdout);
+    const escapedStderr = escapeUntrustedTags(agent.stderr);
+    const stdoutTail = envelopeUntrustedOutput(
+      escapedStdout.length > 2000
+        ? escapedStdout.slice(-2000)
+        : escapedStdout
+    );
+    const stderrTail = envelopeUntrustedOutput(
+      escapedStderr.length > 1000
+        ? escapedStderr.slice(-1000)
+        : escapedStderr
+    );
 
     const liveness = buildLivenessFields(
       agent.status,
@@ -1311,14 +1319,16 @@ server.tool(
               : {}),
             recent_stream: agent.visibleStream.map((it) => ({
               type: it.type,
-              text: it.text,
+              text: envelopeUntrustedOutput(escapeUntrustedTags(it.text)),
               at: it.at !== undefined ? formatLocalIso(it.at) : null,
             })),
             ...(params.verbose
               ? {
                   stdout_tail: stdoutTail,
                   stderr_tail: stderrTail,
-                  final_output: extractFinalTurn(agent.provider, agent.stdout),
+                  final_output: envelopeUntrustedOutput(
+                    escapeUntrustedTags(extractFinalTurn(agent.provider, agent.stdout))
+                  ),
                 }
               : {}),
           }),
@@ -1557,7 +1567,11 @@ server.tool(
       exited_at: formatLocalIso(a.exitedAt as number),
       elapsed_ms: (a.exitedAt as number) - a.startedAt,
       ...(verbose
-        ? { final_output: extractFinalTurn(a.provider, a.stdout) }
+        ? {
+            final_output: envelopeUntrustedOutput(
+              escapeUntrustedTags(extractFinalTurn(a.provider, a.stdout))
+            ),
+          }
         : {}),
     });
 

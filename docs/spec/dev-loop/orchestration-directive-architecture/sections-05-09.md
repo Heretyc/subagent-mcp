@@ -76,7 +76,7 @@ never converts the orchestrator into an inline worker.
 ### 8.1 Markers (S2)
 
 ```
-<!-- subagent-mcp:managed:begin schema=2 -->
+<!-- subagent-mcp:managed:begin schema=3 -->
 ... managed block body ...
 <!-- subagent-mcp:managed:end -->
 ```
@@ -93,7 +93,7 @@ MIGRATE_RE = /<!-- subagent-mcp:(?:managed:)?begin\b[^>]*-->[\s\S]*?<!-- subagen
 
 Replaces the current `BEGIN_RE` at `src/init.ts` line 31. The `(?:managed:)?`
 group makes it match **both** generations in one pattern (full spec + collapse
-algorithm in Appendix **A6**). The bump (`v1` → `schema=2`) forces a re-upsert on
+algorithm in Appendix **A6**). The bump (`v1`/`schema=2` → `schema=3`) forces a re-upsert on
 every prior install (captured legacy text never `=== block`, so the `updated`
 path always runs first re-init).
 
@@ -102,8 +102,27 @@ path always runs first re-init).
 On `>1` global match (corrupted/duplicate prior install): replace the **FIRST**
 match with the new block, loop-delete the remaining matches (bounded cap 8),
 `collapseBlankRuns` once, single `atomicWrite`, stderr note. Result: **exactly
-one** schema=2 block. `removeManagedBlock` uses the same `MIGRATE_RE` so
-`--remove` strips legacy v1 **and** schema=2.
+one** schema=3 block. `removeManagedBlock` uses the same `MIGRATE_RE` so
+`--remove` strips legacy v1/schema=2 **and** schema=3.
+
+### 8.4 Edit protocol for do-not-edit / schema-marked blocks (Rule 3)
+
+Any block labeled "do not edit between markers", carrying a `schema=N` marker, or
+otherwise looking machine-managed must be flagged-and-proposed before it is
+touched — sequencing, not new information, is the fix. Before making any edit:
+
+1. **Say so out loud, before editing:** the block looks installer-managed and is
+   labeled do-not-edit; editing it in place risks a silent overwrite on the next
+   `init` re-upsert and overrides an explicit label without asking first.
+2. **Propose the safer default unprompted:** write the change to an adjacent
+   unmanaged file (e.g. `<name>-directive.md` next to the managed file) and let
+   the user decide whether to merge it into the managed block themselves.
+3. **Only edit the managed block in place** if the user, having heard #1, still
+   asks for it directly.
+
+Having the do-not-edit label and the `schema=N` marker in hand *before* the first
+edit is exactly the trigger — do not edit first and produce the adjacent-file
+alternative only after a revert demand.
 
 ---
 

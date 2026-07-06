@@ -11,7 +11,7 @@ fragment `.txt` files; convention + the mirror test enforce it).
 | R-ID | Canonical definition (this doc) |
 |---|---|
 | **R-TAG** | §1 single tag `<subagent-mcp state kind>` + mandatory-`state` disambiguation; no dead values |
-| **R-SUPREMACY** | §2 co-supreme hook tag + safety-scope; escalate-to-user; tag > ordinary user request (A4) |
+| **R-SUPREMACY** | §2 jointly binding hook tag + safety-scope; escalate-to-user; tag > ordinary user request (A4) |
 | **R-SOLE-CHANNEL** | §3 every launch via `launch_agent`; native/shell spawn FORBIDDEN |
 | **R-ON-STRICT** | §3 allowed-tools allowlist; no inline-by-right; one-time exception protocol |
 | **R-READ-LADDER** | §3.1 poll_agent tail → ≤100-line summarizer → user reads; scratch-file PATH handoff (A2) |
@@ -19,7 +19,7 @@ fragment `.txt` files; convention + the mirror test enforce it).
 | **R-NOHOOK** | §5 UNKNOWN=tag-absence → warn + explain + one-time opt-out → fail-safe ON |
 | **R-EXEMPT** | §6 first-line `<this is a request from a parent process>` skips the regime; launch_agent upsert |
 | **R-DROPOUT** | §7 HALT-until-restored; only exit = explicit task abandonment |
-| **R-MARKERS** | §8 schema=2 markers + union MIGRATE_RE + duplicate collapse |
+| **R-MARKERS** | §8 schema=3 markers + union MIGRATE_RE + duplicate collapse |
 | **R-NO5CALL** | §4 5-call rule DELETED everywhere; permanent grep gate |
 
 ### 14.2 Artifact × R-ID rendering

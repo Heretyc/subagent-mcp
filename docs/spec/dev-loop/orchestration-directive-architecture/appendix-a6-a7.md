@@ -5,7 +5,7 @@
 ### A6.1 Markers (S2)
 
 ```
-begin: <!-- subagent-mcp:managed:begin schema=2 -->
+begin: <!-- subagent-mcp:managed:begin schema=3 -->
 end:   <!-- subagent-mcp:managed:end -->
 ```
 
@@ -21,7 +21,7 @@ Line-by-line verification vs the real `init.ts` (block at lines 34–50):
 |---|---|
 | `<!-- subagent-mcp:begin v1 -->` (legacy begin) | `(?:managed:)?` absent; `begin\b` matches; `[^>]*` absorbs ` v1`; `-->` matches |
 | `<!-- subagent-mcp:end -->` (legacy end) | `(?:managed:)?` absent; the literal ` -->` in the pattern matches the single space before `-->` in the file |
-| `<!-- subagent-mcp:managed:begin schema=2 -->` (new begin) | `managed:` present; `begin\b` + `[^>]*` absorbs ` schema=2` |
+| `<!-- subagent-mcp:managed:begin schema=3 -->` (new begin) | `managed:` present; `begin\b` + `[^>]*` absorbs ` schema=3` |
 | `<!-- subagent-mcp:managed:end -->` (new end) | `managed:` present; ` -->` matches |
 
 The body is matched non-greedily (`[\s\S]*?`) so on two adjacent legacy blocks
@@ -32,7 +32,7 @@ loop.
 
 - `opts.remove` branch: gate on `MIGRATE_RE.test(body)`; `removeManagedBlock`
   uses `MIGRATE_RE` for both `match` and `replace` → `--remove`/`--uninstall`
-  strips legacy v1 **and** schema=2.
+  strips legacy v1/schema=2 **and** schema=3.
 - main branch: replace `BEGIN_RE.test(body)` with `MIGRATE_RE.test(body)`;
   capture `body.match(MIGRATE_RE)?.[0]`; if `=== block` → `ok` (idempotent),
   else `next = body.replace(MIGRATE_RE, block)` → `updated` (positional in-place
@@ -57,11 +57,11 @@ if matches && matches.length > 1:
 ```
 
 Bounded cap = 8 (matches `OWNER_CAP`). In-memory only; exactly one
-`atomicWrite` per call. Result: exactly ONE schema=2 block.
+`atomicWrite` per call. Result: exactly ONE schema=3 block.
 
 ### A6.5 Version bump (D9)
 
-`v1` → `schema=2` (plus the `:managed:` segment) forces a re-upsert on every
+`v1`/`schema=2` → `schema=3` (plus the `:managed:` segment) forces a re-upsert on every
 prior install because the captured legacy text never `=== block`. **No migration
 note inside the block**; migration guidance lives in release notes + this doc.
 

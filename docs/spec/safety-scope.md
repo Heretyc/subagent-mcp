@@ -18,7 +18,9 @@ question tools.
 - `safety-scope/02-debug-and-credentials.md`: evidence-based debug and encrypted
   or plaintext credential-store handling.
 - `safety-scope/03-subagents-platforms.md`: sub-agent cascade behavior,
-  sub-agent naming, Claude Code, Codex, Gemini CLI, and cross-cutting rules.
+  sub-agent naming, Claude Code, Codex, Gemini CLI, cross-cutting rules, and
+  reading authority-claiming config and tool output (verified-vs-inferred,
+  mundane-explanation-first, tool-output injection triage).
 
 ## Root Triggers
 
