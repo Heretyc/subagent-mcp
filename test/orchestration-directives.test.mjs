@@ -1,6 +1,6 @@
 /**
  * orchestration-directives.test.mjs — Content assertions for the repo-root
- * directive assets (directives/*.md), MIGRATED to the schema=2 redesign.
+ * directive assets (directives/*.md), MIGRATED to the schema=3 redesign.
  *
  * WHY (Rule 9): two protective contracts survive the redesign and are encoded
  * here against INTENT, not wording, so they keep failing if a recompression
@@ -36,7 +36,7 @@ const reminderOn = readFileSync(join(directivesDir, "reminder-on.md"), "utf8");
 const reminderOffClaude = readFileSync(join(directivesDir, "reminder-off-claude.md"), "utf8");
 const reminderOffCodex = readFileSync(join(directivesDir, "reminder-off-codex.md"), "utf8");
 
-// The single authority tag of the schema=2 design.
+// The single authority tag of the schema=3 design.
 const TAG_OPEN_RE = /<subagent-mcp state="(on|off)" kind="(directive|reminder|carryover|carrier)">/;
 const TAG_CLOSE = "</subagent-mcp>";
 
@@ -118,11 +118,11 @@ test("no directive file contains 'ultracode' (case-insensitive)", () => {
 // ---------------------------------------------------------------------------
 // Single authority tag + NO legacy tags + NO deleted 5-call rule
 //
-// WHY (Rule 9): every surface now carries exactly one schema=2 tag with the
+// WHY (Rule 9): every surface now carries exactly one schema=3 tag with the
 // correct state/kind. Any legacy split tag or any "5-call" cue reappearing is
 // the regression this guards against.
 // ---------------------------------------------------------------------------
-test("every directive carries exactly one schema=2 <subagent-mcp> tag with correct state/kind", () => {
+test("every directive carries exactly one schema=3 <subagent-mcp> tag with correct state/kind", () => {
   for (const [name, body, state, kind] of ALL) {
     const m = body.match(TAG_OPEN_RE);
     assert.ok(m, `${name} must open with the single <subagent-mcp state=... kind=...> tag`);
@@ -224,7 +224,7 @@ test("short carriers are state-aware pointers to the most recent tag", () => {
     assert.match(body, new RegExp(`Orchestration ${state}`),
       `${name} must state the orchestration state`);
     assert.match(body, /MOST RECENT <subagent-mcp/,
-      `${name} must point at the most recent schema=2 tag`);
+      `${name} must point at the most recent schema=3 tag`);
   }
 });
 

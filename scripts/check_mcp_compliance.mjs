@@ -10,11 +10,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 // margin):
 //   C1 server instructions  : HARD 2048 B / TARGET 2048 B. Claude Code silently
 //                             truncates server `instructions` at ~2 KB, so the
-//                             schema=2 TRIM (spec A3) caps this string at <= 2048
+//                             schema=3 TRIM (spec A3) caps this string at <= 2048
 //                             bytes carrying only the BINDING core; dropped detail
 //                             /examples live in the doc body. The A2 read-ladder
 //                             stays byte-identical here and in the INIT_BLOCK.
-//   C2 tool descriptions     : HARD 2200 B each (schema=2 launch_agent desc adds
+//   C2 tool descriptions     : HARD 2200 B each (schema=3 launch_agent desc adds
 //                             the parent-process marker-upsert contract).
 //   C3 tool names            : ^[a-zA-Z0-9_-]{1,128}$ (Anthropic/OpenAI fn-name
 //                             charset everyone downstream enforces).
@@ -27,7 +27,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 //                             short-* <= 600 B; any other directive .md
 //                             defaults to 1600 B) — keep the compressed
 //                             per-turn injection lean. Budgets sized to the
-//                             schema=2 single-tag directive assets.
+//                             schema=3 single-tag directive assets.
 
 const indexPath = new URL("../src/index.ts", import.meta.url);
 const directivesDir = new URL("../directives/", import.meta.url);
