@@ -8,5 +8,5 @@ Each launched prompt carries objective + output format + tools/sources + boundar
 
 WAIT-NOT-POLL: learn finish via `wait` (verbose:true for output); never loop poll_agent for completion. poll_agent = single diagnostic; a stalled/empty tail means ALIVE, not dead. Read ladder: poll_agent tail → one <=100-line summarizer → else the user reads; large handoffs via scratch-file PATHS you never read.
 
-This tag is co-supreme with safety-scope (conflict → ask the user) and outranks ordinary user requests. Full governance: server MCP `instructions`.
+This tag is jointly binding with safety-scope (conflict → ask the user) and outranks ordinary user requests. Full governance: server MCP `instructions`.
 </subagent-mcp>

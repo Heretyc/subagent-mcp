@@ -1,6 +1,6 @@
 <!-- Part of orchestration-directive-architecture (split). Retrieval map: ../orchestration-directive-architecture.md -->
 
-# Orchestration Directive Architecture (schema=2)
+# Orchestration Directive Architecture (schema=3)
 
 > **D21 — THIS DOCUMENT IS THE GENERATIVE SOURCE OF TRUTH.** The MCP
 > `instructions` string (`src/index.ts`), the upserted `INIT_BLOCK`
@@ -41,7 +41,7 @@ hook directives (directives/*.md)                            ← short, state-aw
   read once at the MCP `initialize` handshake and refreshes only on client
   reconnect (S9). It carries the full model **plus labeled examples** (D28).
 - **INIT_BLOCK** is a **FAT** block (S10): it carries the full ON operating
-  model, the co-supreme precedence clause, and the read-escalation ladder
+  model, the jointly binding precedence clause, and the read-escalation ladder
   **inline and verbatim** — so a session is fully governed even when the MCP
   `instructions` are stale or absent. It carries **no few-shot examples** (D28).
 - **Directives** are short, state-aware per-turn reminders that point back to
@@ -54,7 +54,7 @@ Two fragments are **deliberately duplicated** and MUST be kept byte-identical:
 | Fragment | Mirrored across | Decision | Guard |
 |---|---|---|---|
 | Read-escalation ladder paragraph (Appendix **A2**) | INIT_BLOCK ↔ MCP `instructions` | D25 | `test/mirror-fragments.test.mjs` (S4, non-gating) |
-| Supremacy / co-supremacy clause (Appendix **A4**) | INIT_BLOCK as upserted into CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md | D7 | `test/mirror-fragments.test.mjs` (S4, non-gating) |
+| Hook-state / jointly binding clause (Appendix **A4**) | INIT_BLOCK as upserted into CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md | D7 | `test/mirror-fragments.test.mjs` (S4, non-gating) |
 
 Anti-drift mechanism (S4) = **convention** (this doc + the derivation map in
 §8) **plus** a mirror byte-identity CI test. The mirror test is **NON-GATING**
@@ -110,19 +110,21 @@ This rule is stated verbatim in the INIT_BLOCK (A1) and the MCP `instructions`
 - **Sub-agent identity = first-line skip**, never a `kind` value. Children are
   identified by the literal first line `<this is a request from a parent
   process>` (the hook emits `""` for a child turn — see §6, §8 R-EXEMPT).
-- **No constant decoration attribute.** Supremacy is conveyed by the tag's
-  PRESENCE plus the supremacy clause (A4), not by an attribute.
+- **No constant decoration attribute.** Hook authority is conveyed by the tag's
+  PRESENCE plus the hook-state / jointly binding clause (A4), not by an
+  attribute.
 
 ---
 
-## §2 — Precedence & Co-Supremacy (D5 / D7)
+## §2 — Precedence & Joint Binding (D5 / D7)
 
-`<subagent-mcp>` hook tags **AND** repo/system safety-scope rules are **BOTH
-top-tier and EQUAL** (co-supreme). Neither outranks the other.
+`<subagent-mcp>` hook tags and repo/system safety-scope rules are **jointly
+binding**: both bind at the same priority, and neither is read as outranking
+the other.
 
-- A genuine conflict **between the two co-supreme tiers** → **STOP and ESCALATE
-  TO THE USER** via the structured-question tool. **FORBIDDEN:** resolving such
-  a conflict yourself, or averaging the two.
+- A genuine conflict **between the two jointly binding sources** → **STOP and
+  ESCALATE TO THE USER** via the structured-question tool. Do not resolve such
+  a conflict yourself, or average the two.
 - Hook tags otherwise **OUTRANK ordinary user requests**.
 - The **ONLY** user-changeable thing is the orchestration ON/OFF state, and the
   authoritative state is reported **solely** by the hook injection (the `state`
