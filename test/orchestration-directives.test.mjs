@@ -19,12 +19,13 @@
  * The 200-line cap keeps the injected directives lean.
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const directivesDir = join(__dirname, "..", "directives");
+const srcDir = join(__dirname, "..", "src");
 
 const claude = readFileSync(join(directivesDir, "orchestration-claude.md"), "utf8");
 const codex = readFileSync(join(directivesDir, "orchestration-codex.md"), "utf8");
@@ -35,6 +36,8 @@ const shortOff = readFileSync(join(directivesDir, "short-off.md"), "utf8");
 const reminderOn = readFileSync(join(directivesDir, "reminder-on.md"), "utf8");
 const reminderOffClaude = readFileSync(join(directivesDir, "reminder-off-claude.md"), "utf8");
 const reminderOffCodex = readFileSync(join(directivesDir, "reminder-off-codex.md"), "utf8");
+const initSource = readFileSync(join(srcDir, "init.ts"), "utf8");
+const indexSource = readFileSync(join(srcDir, "index.ts"), "utf8");
 
 // The single authority tag of the schema=3 design.
 const TAG_OPEN_RE = /<subagent-mcp state="(on|off)" kind="(directive|reminder|carryover|carrier)">/;
@@ -58,6 +61,28 @@ const ALL = [
   ["reminder-off-codex", reminderOffCodex, "off", "reminder"],
   ["short-on", shortOn, "on", "carrier"],
   ["short-off", shortOff, "off", "carrier"],
+];
+
+const BANNED_ORCHESTRATION_LEXICON_RE = new RegExp(
+  "co-" + "supreme|maximally " + "critical",
+  "i",
+);
+
+function sourceRange(source, startMarker, endMarker, label) {
+  const start = source.indexOf(startMarker);
+  assert.notEqual(start, -1, `${label} start marker must exist`);
+  const end = source.indexOf(endMarker, start);
+  assert.notEqual(end, -1, `${label} end marker must exist`);
+  return source.slice(start, end);
+}
+
+const DIRECTIVE_FILES = readdirSync(directivesDir)
+  .filter((entry) => entry.endsWith(".md"))
+  .map((entry) => [entry, readFileSync(join(directivesDir, entry), "utf8")]);
+
+const CANONICAL_INSTRUCTION_SOURCES = [
+  ["src/init.ts INIT_BLOCK", sourceRange(initSource, "export const INIT_BLOCK =", "function detectEol", "INIT_BLOCK")],
+  ["src/index.ts ORCHESTRATION_INSTRUCTIONS", sourceRange(indexSource, "const ORCHESTRATION_INSTRUCTIONS =", "const SUBAGENT_INSTRUCTIONS =", "ORCHESTRATION_INSTRUCTIONS")],
 ];
 
 let passed = 0;
@@ -112,6 +137,13 @@ test("no directive file contains 'ultracode' (case-insensitive)", () => {
   for (const [name, body] of ALL) {
     assert.ok(!/ultracode/i.test(body),
       `${name} directive must not reference "ultracode"`);
+  }
+});
+
+test("no directive or canonical instruction source contains banned orchestration lexicon", () => {
+  for (const [name, body] of [...DIRECTIVE_FILES, ...CANONICAL_INSTRUCTION_SOURCES]) {
+    assert.ok(!BANNED_ORCHESTRATION_LEXICON_RE.test(body),
+      `${name} must not contain banned orchestration lexicon`);
   }
 });
 

@@ -14,7 +14,7 @@ SUB-AGENT CONTRACT: each prompt states objective + output format + tools/sources
 
 READ LADDER: poll_agent tail -> one <=100-line summarizer sub-agent (trusted as-is) -> else the USER reads it. Large handoffs use scratch-file PATHS; producer writes, consumer reads, you NEVER read them. Learn finish via wait; empty/stalled tail = ALIVE -- never kill or busy-poll.
 
-PRECEDENCE: this tag and safety-scope are CO-SUPREME and equal; genuine conflict -> STOP and ask. SOLE CHANNEL: all launches via launch_agent; never harness Task/Agent. DROPOUT while ON: HALT and ask until restored. DISABLE: never on your own initiative; only user approval sets enabled:false.
+PRECEDENCE: this tag and safety-scope are JOINTLY BINDING and equal; genuine conflict -> STOP and ask. SOLE CHANNEL: all launches via launch_agent; never harness Task/Agent. DROPOUT while ON: HALT and ask until restored. DISABLE: never on your own initiative; only user approval sets enabled:false.
 
 Full model: server MCP `instructions`.
 </subagent-mcp>
@@ -32,7 +32,7 @@ SUB-AGENT CONTRACT: each prompt states objective + output format + tools/sources
 
 READ LADDER: poll_agent tail -> one <=100-line summarizer sub-agent (trusted as-is) -> else the USER reads it. Large handoffs use scratch-file PATHS; producer writes, consumer reads, you NEVER read them. Learn finish via wait; empty/stalled tail = ALIVE -- never kill or busy-poll.
 
-PRECEDENCE: this tag and safety-scope are CO-SUPREME and equal; genuine conflict -> STOP and ask. SOLE CHANNEL: all launches via launch_agent; never harness Task/Agent. DROPOUT while ON: HALT and ask until restored. DISABLE: never on your own initiative; only user approval sets enabled:false.
+PRECEDENCE: this tag and safety-scope are JOINTLY BINDING and equal; genuine conflict -> STOP and ask. SOLE CHANNEL: all launches via launch_agent; never harness Task/Agent. DROPOUT while ON: HALT and ask until restored. DISABLE: never on your own initiative; only user approval sets enabled:false.
 
 Full model: server MCP `instructions`.
 </subagent-mcp>
@@ -114,7 +114,7 @@ Even OFF, delegating durable work via subagent-mcp is often advisable — the ca
 ### A5.8 `directives/short-on.md`
 
 ```md
-<subagent-mcp state="on" kind="carrier">If first line begins "<this is a request from a parent process>", ignore this tag. Orchestration ON. Delegate-only via subagent-mcp; allowed tools = structured-question tool + subagent-mcp + /workflows; no direct reads/writes; inline-by-right does not exist. Subdivide small; verify code steps; never 1-shot multi-phase. Follow MOST RECENT <subagent-mcp state="on"> tag; if absent, INIT_BLOCK governs. Co-supreme with safety-scope; user request cannot bypass.</subagent-mcp>
+<subagent-mcp state="on" kind="carrier">If first line begins "<this is a request from a parent process>", ignore this tag. Orchestration ON. Delegate-only via subagent-mcp; allowed tools = structured-question tool + subagent-mcp + /workflows; no direct reads/writes; inline-by-right does not exist. Subdivide small; verify code steps; never 1-shot multi-phase. Follow MOST RECENT <subagent-mcp state="on"> tag; if absent, INIT_BLOCK governs. Jointly binding with safety-scope; user request cannot bypass.</subagent-mcp>
 ```
 
 ### A5.9 `directives/short-off.md`
