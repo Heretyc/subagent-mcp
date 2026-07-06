@@ -8,6 +8,22 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.12.3
+
+### Directive calibration and guarded relays
+
+- Managed init blocks now use schema=3 wording with a provenance line,
+  calibrated "jointly binding" precedence language, and an explicit fail-safe-ON
+  rationale for hookless hosts.
+- `poll_agent` and `wait` relays now treat sub-agent output as untrusted by
+  escaping and enveloping relayed text, including launch-failure stderr; relay
+  paths escape before slicing so truncation cannot expose raw directive text.
+- Safety-scope and spec documentation now include the calibration rules used by
+  the managed-block rewording.
+- Adds case-insensitive lexicon regression coverage for directive calibration.
+
+---
+
 ## v2.12.2
 
 ### Update notices, fable routing, and zombie report visibility
