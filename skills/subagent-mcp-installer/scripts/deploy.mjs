@@ -20,6 +20,8 @@ function opt(name, def) { const i = args.indexOf(name); return i >= 0 && args[i 
 const SOURCE = resolve(opt("--source", process.cwd()));
 const WIRE_CLAUDE = flag("--wire-claude");
 const WIRE_CODEX = flag("--wire-codex");
+const CONFIG_FILE = "global-subagent-mcp-config.jsonc";
+const LEGACY_CONFIG_FILE = "global-concurrency.jsonc";
 
 function die(msg) { console.error(`deploy: ${msg}`); process.exit(1); }
 function realOrSelf(p) { try { return realpathSync(p); } catch { return resolve(p); } }
@@ -101,12 +103,15 @@ function deploy(root, pkg) {
     const snap = join(tmpdir(), `advanced-ruleset.py.bak-deploy-${Date.now()}`);
     try { writeFileSync(snap, userRuleset); console.error(`  backed up user advanced-ruleset.py -> ${snap}`); } catch { /* in-memory copy still restores */ }
   }
-  const configLive = join(install, "dist", "global-concurrency.jsonc");
+  const configLive = join(install, "dist", CONFIG_FILE);
+  const legacyConfigLive = join(install, "dist", LEGACY_CONFIG_FILE);
+  const configSnapshotPath = existsSync(configLive) ? configLive : legacyConfigLive;
   let userConfig = null;
-  if (existsSync(configLive)) {
-    userConfig = readFileSync(configLive, "utf8");
-    const snap = join(tmpdir(), `global-concurrency.jsonc.bak-deploy-${Date.now()}`);
-    try { writeFileSync(snap, userConfig); console.error(`  backed up user global-concurrency.jsonc -> ${snap}`); } catch { /* in-memory copy still restores */ }
+  if (existsSync(configSnapshotPath)) {
+    userConfig = readFileSync(configSnapshotPath, "utf8");
+    const configSnapshotName = configSnapshotPath === configLive ? CONFIG_FILE : LEGACY_CONFIG_FILE;
+    const snap = join(tmpdir(), `${configSnapshotName}.bak-deploy-${Date.now()}`);
+    try { writeFileSync(snap, userConfig); console.error(`  backed up user ${configSnapshotName} -> ${snap}`); } catch { /* in-memory copy still restores */ }
   }
 
   console.error("==> global install");
@@ -126,12 +131,14 @@ function deploy(root, pkg) {
     }
   }
   if (userConfig !== null) {
-    const shipped = existsSync(configLive) ? readFileSync(configLive, "utf8") : null;
+    const restoreConfigPath = existsSync(configLive) ? configLive : legacyConfigLive;
+    const restoreConfigName = restoreConfigPath === configLive ? CONFIG_FILE : LEGACY_CONFIG_FILE;
+    const shipped = existsSync(restoreConfigPath) ? readFileSync(restoreConfigPath, "utf8") : null;
     if (shipped === userConfig) {
-      console.error("  global-concurrency.jsonc unchanged — left as-is");
+      console.error(`  ${restoreConfigName} unchanged — left as-is`);
     } else {
-      writeFileSync(configLive, userConfig);
-      console.error("  restored user global-concurrency.jsonc (package update never overwrites user edits)");
+      writeFileSync(restoreConfigPath, userConfig);
+      console.error(`  restored user ${restoreConfigName} (package update never overwrites user edits)`);
     }
   }
   return install;
@@ -145,7 +152,7 @@ function verify(install) {
     "dist/hooks/orchestration-claude-pretool.js",
     "dist/hooks/orchestration-codex.js",
     "dist/advanced-ruleset.py",
-    "dist/global-concurrency.jsonc",
+    "dist/global-subagent-mcp-config.jsonc",
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
     "directives/short-on.md",
@@ -157,6 +164,12 @@ function verify(install) {
     "node_modules/zod/package.json",
   ];
   const missing = need.filter((f) => !existsSync(join(install, ...f.split("/"))));
+  if (
+    missing.includes("dist/global-subagent-mcp-config.jsonc") &&
+    existsSync(join(install, "dist", "global-concurrency.jsonc"))
+  ) {
+    missing.splice(missing.indexOf("dist/global-subagent-mcp-config.jsonc"), 1);
+  }
   if (missing.length) die(`install incomplete, missing:\n  - ${missing.join("\n  - ")}`);
   console.error("==> verified: all parts present");
 }

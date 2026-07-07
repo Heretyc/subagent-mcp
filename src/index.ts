@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { spawn, spawnSync, execSync } from "child_process";
-import { unlinkSync, existsSync, realpathSync, readFileSync, writeFileSync } from "node:fs";
+import { unlinkSync, existsSync, realpathSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { randomUUID } from "crypto";
 import { isAbsolute, basename, join, dirname } from "node:path";
 import { tmpdir } from "node:os";
@@ -105,6 +105,7 @@ interface AgentState {
   cwd: string;
   permissionSnapshot: PermissionSnapshot;
   ucSettingsPath?: string;
+  ucSettingsDir?: string;
   slotPath?: string | null;
   waitReported: boolean;
   routingTier?: "cost_efficiency" | "performance" | "manual";
@@ -604,6 +605,14 @@ function cleanupUcSettings(agentState: AgentState): void {
     } catch {}
     agentState.ucSettingsPath = undefined;
   }
+  if (agentState.ucSettingsDir) {
+    try {
+      if (existsSync(agentState.ucSettingsDir)) {
+        rmSync(agentState.ucSettingsDir, { recursive: true, force: true });
+      }
+    } catch {}
+    agentState.ucSettingsDir = undefined;
+  }
 }
 
 // Synchronously reconcile a single agent's status against the pure transition
@@ -676,10 +685,14 @@ const server = new McpServer(
 // Best-effort removal of a candidate's temp ultracode settings file after a
 // LAUNCH-TIME failure (the agentState is never registered, so the close handler
 // will not run cleanupUcSettings for it).
-function cleanupUcSettingsPath(ucSettingsPath?: string): void {
+function cleanupUcSettingsPath(ucSettingsPath?: string, ucSettingsDir?: string): void {
   if (!ucSettingsPath) return;
   try {
     if (existsSync(ucSettingsPath)) unlinkSync(ucSettingsPath);
+  } catch {}
+  if (!ucSettingsDir) return;
+  try {
+    if (existsSync(ucSettingsDir)) rmSync(ucSettingsDir, { recursive: true, force: true });
   } catch {}
 }
 
@@ -709,14 +722,16 @@ async function tryLaunchCandidate(
   // "none" sentinel (buildCommand drops it for haiku anyway).
   const effortForBuild = candidate.effort === "none" ? "high" : candidate.effort;
 
-  let buildResult: { args: string[]; ucSettingsPath?: string };
+  const agentId = randomUUID();
+  let buildResult: { args: string[]; ucSettingsPath?: string; ucSettingsDir?: string };
   let cmd: string;
   try {
     buildResult = buildCommand(
       candidate.provider,
       candidate.model,
       effortForBuild,
-      agentCwd
+      agentCwd,
+      agentId
     );
     cmd = resolveExe(candidate.provider);
   } catch (e) {
@@ -727,7 +742,7 @@ async function tryLaunchCandidate(
   // Fast-fail absolute paths only. Bare names intentionally rely on PATH; spawn
   // below resolves them and reports ENOENT/EACCES through the same failure path.
   if (isAbsolute(cmd) && !existsSync(cmd)) {
-    cleanupUcSettingsPath(buildResult.ucSettingsPath);
+    cleanupUcSettingsPath(buildResult.ucSettingsPath, buildResult.ucSettingsDir);
     return { reason: `CLI executable not found: ${cmd}`, failure_type: "permanent" };
   }
 
@@ -742,10 +757,11 @@ async function tryLaunchCandidate(
       model: candidate.model,
       effort: candidate.effort,
       ucSettingsPath: buildResult.ucSettingsPath,
+      ucSettingsDir: buildResult.ucSettingsDir,
     });
   } catch (error) {
     // Synchronous spawn throw (rare) — clean up and report as a launch failure.
-    cleanupUcSettingsPath(buildResult.ucSettingsPath);
+    cleanupUcSettingsPath(buildResult.ucSettingsPath, buildResult.ucSettingsDir);
     const reason = error instanceof Error ? error.message : String(error);
     return { reason, failure_type: classifyFailureReason(reason, "") };
   }
@@ -787,7 +803,7 @@ async function tryLaunchCandidate(
     try {
       driver.kill();
     } catch {}
-    cleanupUcSettingsPath(buildResult.ucSettingsPath);
+    cleanupUcSettingsPath(buildResult.ucSettingsPath, buildResult.ucSettingsDir);
     const reason = err instanceof Error ? err.message : String(err);
     return { reason, failure_type: classifyFailureReason(reason, "") };
   }
@@ -795,7 +811,6 @@ async function tryLaunchCandidate(
   // Spawn succeeded. Register the agent exactly as before. Keep a persistent
   // 'error' handler so a LATE spawn error never crashes the process; fold it
   // into stderr rather than throwing.
-  const agentId = randomUUID();
   const now = Date.now();
 
   const agentState: AgentState = {
@@ -824,6 +839,7 @@ async function tryLaunchCandidate(
     cwd: agentCwd,
     permissionSnapshot,
     ucSettingsPath: buildResult.ucSettingsPath,
+    ucSettingsDir: buildResult.ucSettingsDir,
     waitReported: false,
     visibleStream: [],
     streamBuf: "",
