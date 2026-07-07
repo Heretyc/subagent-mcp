@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
 
 export const ZOMBIE_LIVE_IDLE_MS = 6 * 60 * 1000;
-export const ZOMBIE_TERMINAL_IDLE_MS = 30 * 1000;
+export const ZOMBIE_TERMINAL_IDLE_MS = 6 * 60 * 1000;
 export const ZOMBIE_FORCE_GRACE_MS = 20 * 1000;
 
 export const ZOMBIE_INTENTS_FILENAME = "zombie-intents.jsonl";
@@ -116,7 +116,7 @@ export function writeSlotMetadata(slotPath: string, metadata: Partial<SlotMetada
   writeFileSync(slotPath, JSON.stringify(full), { mode: 0o600 });
 }
 
-function drainJsonl(path: string): ZombieRecord[] {
+export function drainJsonl(path: string): ZombieRecord[] {
   if (!existsSync(path)) return [];
   const claim = join(dirname(path), `${basename(path)}.${process.pid}.drain`);
   try {
@@ -126,7 +126,13 @@ function drainJsonl(path: string): ZombieRecord[] {
   }
   try {
     const records: ZombieRecord[] = [];
-    for (const line of readFileSync(claim, "utf8").split(/\r?\n/).filter(Boolean)) {
+    let raw: string;
+    try {
+      raw = readFileSync(claim, "utf8");
+    } catch {
+      return [];
+    }
+    for (const line of raw.split(/\r?\n/).filter(Boolean)) {
       try {
         records.push(JSON.parse(line) as ZombieRecord);
       } catch {
@@ -139,6 +145,24 @@ function drainJsonl(path: string): ZombieRecord[] {
       unlinkSync(claim);
     } catch {}
   }
+}
+
+export function shouldReapTerminalButAlive(
+  agent: {
+    status: string;
+    exitedAt: number | null;
+    lastActivity: number;
+    driver: { closed: boolean };
+  },
+  now: number,
+  terminalIdleMs: number
+): boolean {
+  return (
+    (agent.status === "finished" || agent.status === "errored" || agent.status === "stopped") &&
+    !agent.driver.closed &&
+    agent.exitedAt !== null &&
+    now - Math.max(agent.exitedAt, agent.lastActivity) > terminalIdleMs
+  );
 }
 
 export function buildProcessTreeKillCommands(pid: number, p: NodeJS.Platform = platform()): {
