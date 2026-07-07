@@ -190,8 +190,8 @@ await test("Claude SDK driver launches, sends multiple turns, and kills", async 
   await waitFor(() => seen.length === 2, "second Claude SDK input");
   await waitFor(() => stdout().includes("done:second"), "second Claude SDK result");
 
-  assert.equal(sdkOptions.permissionMode, "bypassPermissions");
-  assert.equal(sdkOptions.allowDangerouslySkipPermissions, true);
+  assert.equal(sdkOptions.permissionMode, "default");
+  assert.equal(sdkOptions.allowDangerouslySkipPermissions, false);
   assert.match(stdout(), /done:first/);
   assert.match(stdout(), /done:second/);
   driver.kill();
@@ -281,7 +281,7 @@ await test("Codex send enqueues behind an active turn without blocking for outpu
   }
 });
 
-await test("Codex send answers pending requestUserInput option without starting a turn", async () => {
+await test("Codex requestUserInput is answered fail-closed without starting an extra turn", async () => {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-elicit-option-"));
   try {
     const logFile = join(tempRoot, "app-server.log");
@@ -298,12 +298,11 @@ await test("Codex send answers pending requestUserInput option without starting 
     await waitFor(() => stdout().includes('"method":"requestUserInput"'), "requestUserInput output");
     assert.equal(readTurnStarts(logFile).length, 1);
 
-    await driver.send("  nO  ");
     await waitFor(() => stdout().includes("answered:"), "elicitation completion");
     const log = readLog(logFile);
     const reply = log.find((msg) => msg.id === 900 && msg.result);
-    assert.deepEqual(reply, { jsonrpc: "2.0", id: 900, result: { optionId: "no-id" } });
-    assert.equal(readTurnStarts(logFile).length, 1, "answer must not issue turn/start");
+    assert.deepEqual(reply, { jsonrpc: "2.0", id: 900, result: { text: "" } });
+    assert.equal(readTurnStarts(logFile).length, 1, "auto-answer must not issue turn/start");
 
     await driver.send("second");
     await waitFor(() => readTurnStarts(logFile).length === 2, "normal send resumes");
@@ -314,7 +313,7 @@ await test("Codex send answers pending requestUserInput option without starting 
   }
 });
 
-await test("Codex send answers pending requestUserInput free text without starting a turn", async () => {
+await test("Codex requestUserInput free text path is answered fail-closed", async () => {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-elicit-text-"));
   try {
     const logFile = join(tempRoot, "app-server.log");
@@ -331,16 +330,15 @@ await test("Codex send answers pending requestUserInput free text without starti
     await waitFor(() => stdout().includes('"method":"requestUserInput"'), "requestUserInput output");
     assert.equal(readTurnStarts(logFile).length, 1);
 
-    await driver.send("use the custom path");
     await waitFor(() => stdout().includes("answered:"), "elicitation completion");
     const log = readLog(logFile);
     const reply = log.find((msg) => msg.id === 900 && msg.result);
     assert.deepEqual(reply, {
       jsonrpc: "2.0",
       id: 900,
-      result: { text: "use the custom path" },
+      result: { text: "" },
     });
-    assert.equal(readTurnStarts(logFile).length, 1, "answer must not issue turn/start");
+    assert.equal(readTurnStarts(logFile).length, 1, "auto-answer must not issue turn/start");
 
     await driver.send("second");
     await waitFor(() => readTurnStarts(logFile).length === 2, "normal send resumes");
