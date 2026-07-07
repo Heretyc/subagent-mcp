@@ -22,6 +22,22 @@ this page records what each release changes for operators.
   the managed-block rewording.
 - Adds case-insensitive lexicon regression coverage for directive calibration.
 
+### Wait reliability, reap policy, and governance-spec alignment
+
+- `wait` no longer surfaces a raw tool error when a just-renamed
+  zombie-intents claim file is momentarily unreadable (Windows
+  rename-visibility gap, AV scan, or Dropbox sync lock); the drain now
+  returns empty and the poll continues cleanly.
+- A turn-`finished` but still-interactive agent now releases its
+  concurrency slot at turn-finish instead of holding it for the idle
+  window. The agent stays alive and `send_message`-able and is
+  force-killed only after 6 minutes of no `send_message`/`poll_agent`
+  activity (was a 30-second terminal reap); `poll_agent` now refreshes
+  the idle clock alongside `send_message`.
+- Governance specs realigned to code truth: orchestration is default ON,
+  with OFF represented by a time-bounded disable-record — the stale
+  marker-presence "default OFF" spec has been tombstoned.
+
 ---
 
 ## v2.12.2
