@@ -156,10 +156,13 @@ fields, the `computeStatusTransition` ordering, the `HEARTBEAT_TIMEOUT_MS = 6000
 (10-minute) boundary, and synchronous exit reconciliation are documented in
 [reference/status-lifecycle.md](reference/status-lifecycle.md). `stalled` is a
 live, non-failure state; `processing` is the active live state. Tool and hook
-maintenance cull stale live agents after 6 minutes idle and terminal-but-alive
-agents after 30 seconds. All tool and hook paths still run culling, but only
-`poll_agent` and `list_agents` surface `zombie_report`; culled agents remain
-`zombie_killed` via `poll_agent`, `list_agents`, and `wait`.
+maintenance cull stale live and terminal-but-alive agents after the same
+6-minute idle window (`ZOMBIE_TERMINAL_IDLE_MS`), anchored on the later of
+`exitedAt` and `lastActivity`; `poll_agent` and `send_message` refresh that
+clock, and the concurrency slot is already freed at turn-finish. All tool and
+hook paths still run culling, but only `poll_agent` and `list_agents` surface
+`zombie_report`; culled agents remain `zombie_killed` via `poll_agent`,
+`list_agents`, and `wait`.
 
 ---
 
