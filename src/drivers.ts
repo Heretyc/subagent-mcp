@@ -1,5 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { realpathSync } from "node:fs";
+import { resolve as resolvePath } from "node:path";
 import { PassThrough } from "node:stream";
 import { readMergedPermissionConfig } from "./concurrency.js";
 import { mapModel, type Provider } from "./effort.js";
@@ -311,6 +313,23 @@ function stringArrayField(input: JsonObject, keys: string[]): string[] {
   return out;
 }
 
+/**
+ * Adapter-layer symlink parity: the shared engine denies against the RESOLVED
+ * target (see PermissionOp.resolvedPaths), so every adapter must populate it.
+ * Resolve each path via realpath where it exists; pass the literal through
+ * otherwise. Fail-closed: a resolution error keeps the literal in the match set
+ * (never drops the path), it never turns a deny into a grant.
+ */
+function resolveOpPaths(paths: string[], cwd: string): string[] {
+  return paths.map((p) => {
+    try {
+      return realpathSync(resolvePath(cwd, p));
+    } catch {
+      return p;
+    }
+  });
+}
+
 function permissionOpFromClaudeRequest(request: JsonObject, cwd: string): PermissionOp {
   const input = claudeToolInput(request);
   const command = stringField(input, ["command", "cmd"]);
@@ -327,7 +346,7 @@ function permissionOpFromClaudeRequest(request: JsonObject, cwd: string): Permis
   return {
     tool: claudeToolName(request),
     ...(command ? { command } : {}),
-    ...(paths.length > 0 ? { paths } : {}),
+    ...(paths.length > 0 ? { paths, resolvedPaths: resolveOpPaths(paths, cwd) } : {}),
     ...(url || host ? { network: [{ ...(url ? { url } : {}), ...(host ? { host } : {}) }] } : {}),
     cwd,
     irreversible: Boolean(input.irreversible),
@@ -426,6 +445,20 @@ function codexFileChangePaths(fileChanges: unknown): string[] {
   return Object.keys(fileChanges as Record<string, unknown>).filter((p) => p.length > 0);
 }
 
+// Codex apply-patch op taxonomy: add/create -> Write, modify -> Edit. Mirrors
+// how the Claude adapter and golden vectors distinguish creation from mutation
+// so Write(...) rules round-trip identically through both adapters. Any create
+// in the batch makes it a Write; a pure-modify batch is an Edit.
+function codexFileChangeTool(fileChanges: unknown): "Write" | "Edit" {
+  if (!fileChanges || typeof fileChanges !== "object" || Array.isArray(fileChanges)) return "Edit";
+  const creates = /^(add|create)/i;
+  for (const change of Object.values(fileChanges as Record<string, unknown>)) {
+    const type = change && typeof change === "object" ? (change as JsonObject).type : change;
+    if (typeof type === "string" && creates.test(type)) return "Write";
+  }
+  return "Edit";
+}
+
 function codexCommandFromParams(params: JsonObject): { command?: string; argv?: string[] } {
   const command = params.command;
   if (typeof command === "string" && command.length > 0) return { command };
@@ -434,7 +467,7 @@ function codexCommandFromParams(params: JsonObject): { command?: string; argv?: 
   return {};
 }
 
-function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject, cwd: string): { op: PermissionOp; confidence: boolean } {
+export function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject, cwd: string): { op: PermissionOp; confidence: boolean } {
   if (method === "item/commandExecution/requestApproval" || method === "execCommandApproval") {
     const command = codexCommandFromParams(params);
     const opCwd = typeof params.cwd === "string" && params.cwd.length > 0 ? params.cwd : cwd;
@@ -456,8 +489,8 @@ function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject, cwd: s
     ];
     return {
       op: {
-        tool: "Edit",
-        ...(paths.length > 0 ? { paths } : {}),
+        tool: codexFileChangeTool(params.fileChanges),
+        ...(paths.length > 0 ? { paths, resolvedPaths: resolveOpPaths(paths, cwd) } : {}),
         cwd,
         irreversible: false,
       },
@@ -475,7 +508,7 @@ function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject, cwd: s
   };
 }
 
-function codexApprovalResult(method: CodexApprovalMethod, decision: PermissionVerdict): JsonObject {
+export function codexApprovalResult(method: CodexApprovalMethod, decision: PermissionVerdict): JsonObject {
   const allowed = decision === "allow";
   if (method === "mcpServer/elicitation/request") return { action: allowed ? "accept" : "decline" };
   if (method === "execCommandApproval" || method === "applyPatchApproval") {
@@ -805,7 +838,12 @@ export class CodexAppServerDriver implements ProviderDriver {
     }
     const engineResult = confidence
       ? verdict(op, this.permissionSnapshot.rules)
-      : { verdict: "ask" as const, reason: "Codex approval payload could not be matched with full confidence" };
+      : {
+          verdict: "ask" as const,
+          classification: "neutral" as const,
+          irreversible: Boolean(op.irreversible),
+          reason: "Codex approval payload could not be matched with full confidence",
+        };
     const decision = applyPermissionCeiling(engineResult.verdict, this.permissionSnapshot.ceiling);
     if (decision !== "ask") {
       await this.replyCodexApproval(record, decision, engineResult.reason);
@@ -816,6 +854,9 @@ export class CodexAppServerDriver implements ProviderDriver {
       harnessChannel: "codex-app-server",
       toolNameOrMethod: method,
       action: params,
+      permissionCeiling: this.permissionSnapshot.ceiling,
+      escalation: this.permissionSnapshot.escalation,
+      irreversible: engineResult.irreversible,
       reason: engineResult.reason,
       suggestions: [],
       correlationId: jsonRpcId,
@@ -911,6 +952,9 @@ export class ClaudeSdkDriver implements ProviderDriver {
           harnessChannel: "claude-canUseTool",
           toolNameOrMethod: op.tool,
           action: claudeToolInput(request),
+          permissionCeiling: permissionSnapshot.ceiling,
+          escalation: permissionSnapshot.escalation,
+          irreversible: engineResult.irreversible,
           reason: engineResult.reason,
           suggestions: [],
           correlationId: claudeCorrelationId(request),

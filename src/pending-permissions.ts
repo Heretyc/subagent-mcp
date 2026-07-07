@@ -17,6 +17,9 @@ export interface PendingPermissionRequestInput {
   harness_channel: string;
   tool_name_or_method: string;
   action: unknown;
+  permission_ceiling?: "yolo" | "auto" | "manual";
+  escalation?: "irreversible-only" | "off";
+  irreversible?: boolean;
   reason?: string;
   suggestions?: unknown;
   correlation_id: string | number;
@@ -28,6 +31,9 @@ export interface RequestPendingPermissionInput {
   harnessChannel: string;
   toolNameOrMethod: string;
   action: unknown;
+  permissionCeiling?: "yolo" | "auto" | "manual";
+  escalation?: "irreversible-only" | "off";
+  irreversible?: boolean;
   reason?: string;
   suggestions?: unknown;
   correlationId: string | number | null;
@@ -44,6 +50,10 @@ export interface PendingPermissionRecord {
   harness_channel: string;
   tool_name_or_method: string;
   action: unknown;
+  permission_ceiling?: "yolo" | "auto" | "manual";
+  escalation?: "irreversible-only" | "off";
+  irreversible?: boolean;
+  escalate_to_human?: boolean;
   reason?: string;
   suggestions?: unknown;
   requested_at: number;
@@ -66,6 +76,18 @@ const PER_AGENT_FIFO_CAP = 16;
 
 function publicRecord(record: PendingPermissionRecord): PendingPermissionRecord {
   return { ...record };
+}
+
+function shouldEscalateToHuman(input: {
+  permission_ceiling?: "yolo" | "auto" | "manual";
+  escalation?: "irreversible-only" | "off";
+  irreversible?: boolean;
+}): boolean {
+  return (
+    input.permission_ceiling === "auto" &&
+    input.escalation !== "off" &&
+    input.irreversible === true
+  );
 }
 
 export class PendingPermissionManager {
@@ -96,6 +118,10 @@ export class PendingPermissionManager {
         harness_channel: input.harness_channel,
         tool_name_or_method: input.tool_name_or_method,
         action: input.action,
+        permission_ceiling: input.permission_ceiling,
+        escalation: input.escalation,
+        irreversible: input.irreversible,
+        escalate_to_human: shouldEscalateToHuman(input),
         reason: input.reason,
         suggestions: input.suggestions,
         requested_at: Date.now(),
@@ -128,6 +154,10 @@ export class PendingPermissionManager {
       harness_channel: input.harness_channel,
       tool_name_or_method: input.tool_name_or_method,
       action: input.action,
+      permission_ceiling: input.permission_ceiling,
+      escalation: input.escalation,
+      irreversible: input.irreversible,
+      escalate_to_human: shouldEscalateToHuman(input),
       reason: input.reason,
       suggestions: input.suggestions,
       requested_at: Date.now(),
@@ -174,6 +204,9 @@ export class PendingPermissionManager {
     const record = this.pendingById.get(targetId);
     if (!record || record.agent_id !== agentId) {
       throw new Error(`pending permission ${targetId} not found for agent ${agentId}`);
+    }
+    if (record.escalate_to_human === true && decision === "allow" && (!reason || reason.trim() === "")) {
+      throw new Error("allowing an escalated human permission request requires a non-empty reason");
     }
     return this.finish(record, decision, reason);
   }
@@ -253,6 +286,9 @@ export function requestPendingPermission(
       harness_channel: input.harnessChannel,
       tool_name_or_method: input.toolNameOrMethod,
       action: input.action,
+      permission_ceiling: input.permissionCeiling,
+      escalation: input.escalation,
+      irreversible: input.irreversible,
       reason: input.reason,
       suggestions: input.suggestions,
       correlation_id: input.correlationId ?? "unknown",

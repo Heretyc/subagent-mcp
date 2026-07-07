@@ -176,6 +176,10 @@ function pendingPermissionSummary(record: PendingPermissionRecord, now = Date.no
     request_id: record.request_id,
     tool_name_or_method: record.tool_name_or_method,
     harness_channel: record.harness_channel,
+    permission_ceiling: record.permission_ceiling,
+    escalation: record.escalation,
+    irreversible: record.irreversible,
+    escalate_to_human: record.escalate_to_human,
     requested_at: formatLocalIso(record.requested_at),
     age_seconds: Math.floor((now - record.requested_at) / 1000),
   };
