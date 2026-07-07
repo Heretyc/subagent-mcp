@@ -1,7 +1,16 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
+import { readMergedPermissionConfig } from "./concurrency.js";
 import { mapModel, type Provider } from "./effort.js";
+import {
+  applyPermissionCeiling,
+  verdict,
+  type PermissionOp,
+  type PermissionSnapshot,
+  type PermissionVerdict,
+} from "./permission-engine.js";
+import { requestPendingPermission } from "./pending-permissions.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -23,6 +32,8 @@ export interface DriverLaunchOptions {
   model: string;
   effort: string;
   ucSettingsPath?: string;
+  agentId?: string;
+  permissionSnapshot?: PermissionSnapshot;
 }
 
 export interface ProviderDriver {
@@ -232,6 +243,111 @@ function optionId(opt: JsonObject): string | number | null {
 
 function isJsonRpcId(id: unknown): id is string | number {
   return typeof id === "string" || typeof id === "number";
+}
+
+type ClaudePermissionResult =
+  | { behavior: "allow" }
+  | { behavior: "deny"; message: string; interrupt?: boolean };
+
+function denyClaudePermission(message: string): ClaudePermissionResult {
+  return { behavior: "deny", message };
+}
+
+function allowClaudePermission(): ClaudePermissionResult {
+  return { behavior: "allow" };
+}
+
+function permissionSnapshotForLaunch(options: DriverLaunchOptions): PermissionSnapshot {
+  if (options.permissionSnapshot) return options.permissionSnapshot;
+  const merged = readMergedPermissionConfig(options.cwd);
+  return {
+    ceiling: merged.permissionsCeiling,
+    escalation: merged.escalation,
+    rules: { allow: merged.allow, deny: merged.deny, ask: merged.ask },
+    additionalDirectories: merged.additionalDirectories,
+    repoConfigChangedSinceFirstSeen: merged.repoConfigChangedSinceFirstSeen,
+  };
+}
+
+function claudeToolName(request: JsonObject): string {
+  for (const key of ["toolName", "tool_name", "name"]) {
+    const value = request[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return "unknown";
+}
+
+function claudeToolInput(request: JsonObject): JsonObject {
+  for (const key of ["input", "toolInput", "tool_input"]) {
+    const value = request[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) return value as JsonObject;
+  }
+  return {};
+}
+
+function stringField(input: JsonObject, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = input[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return undefined;
+}
+
+function stringArrayField(input: JsonObject, keys: string[]): string[] {
+  const out: string[] = [];
+  for (const key of keys) {
+    const value = input[key];
+    if (typeof value === "string" && value.length > 0) out.push(value);
+    else if (Array.isArray(value)) {
+      out.push(...value.filter((v): v is string => typeof v === "string" && v.length > 0));
+    }
+  }
+  return out;
+}
+
+function permissionOpFromClaudeRequest(request: JsonObject, cwd: string): PermissionOp {
+  const input = claudeToolInput(request);
+  const command = stringField(input, ["command", "cmd"]);
+  const url = stringField(input, ["url"]);
+  const host = stringField(input, ["host", "domain"]);
+  const paths = stringArrayField(input, [
+    "path",
+    "file_path",
+    "filePath",
+    "notebook_path",
+    "notebookPath",
+    "paths",
+  ]);
+  return {
+    tool: claudeToolName(request),
+    ...(command ? { command } : {}),
+    ...(paths.length > 0 ? { paths } : {}),
+    ...(url || host ? { network: [{ ...(url ? { url } : {}), ...(host ? { host } : {}) }] } : {}),
+    cwd,
+    irreversible: Boolean(input.irreversible),
+  };
+}
+
+function claudeCorrelationId(request: JsonObject): string | number | null {
+  for (const key of ["tool_use_id", "toolUseId", "id"]) {
+    const value = request[key];
+    if (typeof value === "string" || typeof value === "number") return value;
+  }
+  return null;
+}
+
+function isBypassImmuneClaudeAsk(request: JsonObject, op: PermissionOp): boolean {
+  const input = claudeToolInput(request);
+  if (input.requiresUserInteraction === true || input.requires_user_interaction === true) return true;
+  const command = op.command?.toLowerCase() ?? "";
+  if (/\b(shell|bash|zsh|fish|powershell|profile|rc)\b/.test(command) && /\b(edit|write|append|set)\b/.test(command)) {
+    return true;
+  }
+  return (op.paths ?? []).some((path) => /(^|[\\/])\.(git|claude|vscode)([\\/]|$)/i.test(path));
+}
+
+function permissionDecisionToClaude(decision: PermissionVerdict, reason: string): ClaudePermissionResult {
+  return decision === "allow" ? allowClaudePermission() : denyClaudePermission(reason);
 }
 
 export class MockJsonlDriver implements ProviderDriver {
@@ -578,6 +694,8 @@ export class ClaudeSdkDriver implements ProviderDriver {
   }
 
   open(options: DriverLaunchOptions): void {
+    const permissionSnapshot = permissionSnapshotForLaunch(options);
+    const isYolo = permissionSnapshot.ceiling === "yolo";
     const sdkOptions: JsonObject = {
       abortController: this.abortController,
       cwd: options.cwd,
@@ -586,9 +704,31 @@ export class ClaudeSdkDriver implements ProviderDriver {
       // model_not_found (404); normalize to the full id the SDK accepts.
       model: mapModel(options.provider, options.model),
       pathToClaudeCodeExecutable: options.command,
-      permissionMode: "bypassPermissions",
-      allowDangerouslySkipPermissions: true,
+      permissionMode: isYolo ? "bypassPermissions" : "default",
+      allowDangerouslySkipPermissions: isYolo,
+      settingSources: [],
       tools: { type: "preset", preset: "claude_code" },
+      canUseTool: async (request: JsonObject): Promise<ClaudePermissionResult> => {
+        const op = permissionOpFromClaudeRequest(request, options.cwd);
+        const engineResult = verdict(op, permissionSnapshot.rules);
+        if (isYolo && isBypassImmuneClaudeAsk(request, op)) {
+          return denyClaudePermission("bypass-immune Claude safety prompt auto-denied under yolo");
+        }
+        const decision = applyPermissionCeiling(engineResult.verdict, permissionSnapshot.ceiling);
+        if (decision !== "ask") {
+          return permissionDecisionToClaude(decision, engineResult.reason);
+        }
+        const pendingDecision = await requestPendingPermission({
+          agentId: options.agentId,
+          harnessChannel: "claude-canUseTool",
+          toolNameOrMethod: op.tool,
+          action: claudeToolInput(request),
+          reason: engineResult.reason,
+          suggestions: [],
+          correlationId: claudeCorrelationId(request),
+        });
+        return permissionDecisionToClaude(pendingDecision.verdict, pendingDecision.reason);
+      },
       maxTurns: 50,
       includePartialMessages: true,
     };
