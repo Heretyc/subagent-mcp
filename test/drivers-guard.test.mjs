@@ -27,4 +27,25 @@ assert.match(
 assert.match(src, /notifyTaskComplete\s*\(/, "LB-3: notifyTaskComplete method missing");
 assert.match(src, /resumePending/, "LB-3: resume debounce guard missing");
 
-console.log("drivers-guard: OK (LB-2 + LB-3 structural guards present)");
+// Bash-bypass regression: the Claude SDK auto-approves Bash without consulting
+// canUseTool, so the driver must register a PreToolUse hook routing EVERY tool
+// through the same engine gate. The hook must be non-yolo only (yolo stays
+// hook-free), and both canUseTool and the hook must share one gate method.
+assert.match(src, /private\s+async\s+gateRequest\s*\(/, "shared gateRequest method missing");
+assert.match(
+  src,
+  /if\s*\(!isYolo\)\s*\{[\s\S]*?sdkOptions\.hooks\s*=\s*\{[\s\S]*?PreToolUse/,
+  "PreToolUse hook must be registered (non-yolo only) to gate Bash"
+);
+assert.match(
+  src,
+  /this\.gateRequest\([\s\S]*?"claude-canUseTool"\)/,
+  "canUseTool must delegate to the shared gate"
+);
+assert.match(
+  src,
+  /this\.gateRequest\([\s\S]*?"claude-pretooluse-hook"\s*\)/,
+  "PreToolUse hook must delegate to the shared gate"
+);
+
+console.log("drivers-guard: OK (LB-2 + LB-3 + permission-gate structural guards present)");

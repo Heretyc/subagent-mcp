@@ -937,33 +937,58 @@ export class ClaudeSdkDriver implements ProviderDriver {
       allowDangerouslySkipPermissions: isYolo,
       settingSources: [],
       tools: { type: "preset", preset: "claude_code" },
+      // Shared gate: the SINGLE source of truth for every permission decision.
+      // `harnessChannel` names the SDK surface that invoked it so parked prompts
+      // are attributable. canUseTool and the PreToolUse hook both route here.
       canUseTool: async (request: JsonObject): Promise<ClaudePermissionResult> => {
-        const op = permissionOpFromClaudeRequest(request, options.cwd);
-        const engineResult = verdict(op, permissionSnapshot.rules);
-        if (isYolo && isBypassImmuneClaudeAsk(request, op)) {
-          return denyClaudePermission("bypass-immune Claude safety prompt auto-denied under yolo");
-        }
-        const decision = applyPermissionCeiling(engineResult.verdict, permissionSnapshot.ceiling);
-        if (decision !== "ask") {
-          return permissionDecisionToClaude(decision, engineResult.reason);
-        }
-        const pendingDecision = await requestPendingPermission({
-          agentId: options.agentId,
-          harnessChannel: "claude-canUseTool",
-          toolNameOrMethod: op.tool,
-          action: claudeToolInput(request),
-          permissionCeiling: permissionSnapshot.ceiling,
-          escalation: permissionSnapshot.escalation,
-          irreversible: engineResult.irreversible,
-          reason: engineResult.reason,
-          suggestions: [],
-          correlationId: claudeCorrelationId(request),
-        });
-        return permissionDecisionToClaude(pendingDecision.verdict, pendingDecision.reason);
+        return this.gateRequest(request, options, permissionSnapshot, isYolo, "claude-canUseTool");
       },
       maxTurns: 50,
       includePartialMessages: true,
     };
+    // PreToolUse hook: with permissionMode:"default" + settingSources:[] the SDK
+    // auto-approves Bash (and any tool it treats as pre-approved) WITHOUT calling
+    // canUseTool, so those calls would bypass the engine gate entirely. Register a
+    // PreToolUse hook (no matcher => every tool) that routes EVERY tool call
+    // through the same gate: allow -> continue, deny -> block with reason, ask ->
+    // park via requestPendingPermission and resolve on respond/timeout. The hook
+    // returns a concrete allow/deny, so canUseTool never double-fires for a tool
+    // the hook already decided (it remains as fallback for anything the hook does
+    // not cover). The yolo path stays hook-free — no gating there by design.
+    if (!isYolo) {
+      sdkOptions.hooks = {
+        PreToolUse: [
+          {
+            hooks: [
+              async (input: JsonObject): Promise<JsonObject> => {
+                const request: JsonObject = {
+                  tool_name: input.tool_name,
+                  tool_input: input.tool_input,
+                  tool_use_id: input.tool_use_id,
+                };
+                const result = await this.gateRequest(
+                  request,
+                  options,
+                  permissionSnapshot,
+                  isYolo,
+                  "claude-pretooluse-hook"
+                );
+                const allow = result.behavior === "allow";
+                return {
+                  hookSpecificOutput: {
+                    hookEventName: "PreToolUse",
+                    permissionDecision: allow ? "allow" : "deny",
+                    permissionDecisionReason: allow
+                      ? ""
+                      : (result as { message: string }).message,
+                  },
+                };
+              },
+            ],
+          },
+        ],
+      };
+    }
     if (options.effort !== "none" && options.effort !== "ultracode") {
       sdkOptions.effort = options.effort;
     }
@@ -972,6 +997,40 @@ export class ClaudeSdkDriver implements ProviderDriver {
     const query = this.queryFn({ prompt: this.input, options: sdkOptions });
     this.queryHandle = query as { close?: () => void };
     void this.pump(query);
+  }
+
+  // Single permission gate shared by canUseTool and the PreToolUse hook. Returns
+  // allow/deny; parks (early-returns to the parent, resolves on respond/timeout)
+  // when the engine verdict is "ask".
+  private async gateRequest(
+    request: JsonObject,
+    options: DriverLaunchOptions,
+    permissionSnapshot: PermissionSnapshot,
+    isYolo: boolean,
+    harnessChannel: string
+  ): Promise<ClaudePermissionResult> {
+    const op = permissionOpFromClaudeRequest(request, options.cwd);
+    const engineResult = verdict(op, permissionSnapshot.rules);
+    if (isYolo && isBypassImmuneClaudeAsk(request, op)) {
+      return denyClaudePermission("bypass-immune Claude safety prompt auto-denied under yolo");
+    }
+    const decision = applyPermissionCeiling(engineResult.verdict, permissionSnapshot.ceiling);
+    if (decision !== "ask") {
+      return permissionDecisionToClaude(decision, engineResult.reason);
+    }
+    const pendingDecision = await requestPendingPermission({
+      agentId: options.agentId,
+      harnessChannel,
+      toolNameOrMethod: op.tool,
+      action: claudeToolInput(request),
+      permissionCeiling: permissionSnapshot.ceiling,
+      escalation: permissionSnapshot.escalation,
+      irreversible: engineResult.irreversible,
+      reason: engineResult.reason,
+      suggestions: [],
+      correlationId: claudeCorrelationId(request),
+    });
+    return permissionDecisionToClaude(pendingDecision.verdict, pendingDecision.reason);
   }
 
   start(message: string): Promise<void> {

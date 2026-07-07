@@ -762,6 +762,7 @@ async function tryLaunchCandidate(
       effort: candidate.effort,
       ucSettingsPath: buildResult.ucSettingsPath,
       ucSettingsDir: buildResult.ucSettingsDir,
+      agentId,
     });
   } catch (error) {
     // Synchronous spawn throw (rare) — clean up and report as a launch failure.
