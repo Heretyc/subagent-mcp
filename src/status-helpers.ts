@@ -3,6 +3,8 @@
 // Public status enum (visible-stream activity model):
 //   processing - ALIVE and seen visible provider activity within the heartbeat
 //                window. Counts against provider concurrency caps.
+//   permission_requested - ALIVE and parked on one or more server-authoritative
+//                permission requests. Counts against provider concurrency caps.
 //   stalled    - ALIVE but NO parsed visible provider stream item for the
 //                heartbeat window. NOT a failure and NOT terminal; does NOT
 //                count against provider concurrency caps.
@@ -23,6 +25,7 @@ export const HEARTBEAT_TIMEOUT_MS = 600000;
 
 export type AgentStatus =
   | "processing"
+  | "permission_requested"
   | "stalled"
   | "finished"
   | "errored"
@@ -50,7 +53,8 @@ export function computeStatusTransition(
   input: StatusTransitionInput
 ): StatusTransitionResult {
   const { status, exitCode, lastActivity, now } = input;
-  const isLive = status === "processing" || status === "stalled";
+  const isLive =
+    status === "processing" || status === "permission_requested" || status === "stalled";
 
   if (isLive && exitCode !== null) {
     return {
@@ -61,6 +65,10 @@ export function computeStatusTransition(
 
   if (status === "stalled" && now - lastActivity <= HEARTBEAT_TIMEOUT_MS) {
     return { status: "processing", exitedAt: input.exitedAt };
+  }
+
+  if (status === "permission_requested") {
+    return { status, exitedAt: input.exitedAt };
   }
 
   if (status === "processing" && now - lastActivity > HEARTBEAT_TIMEOUT_MS) {
@@ -88,7 +96,10 @@ export function buildLivenessFields(
 ): LivenessFields {
   const idle_seconds = Math.floor((now - lastActivity) / 1000);
   const alive =
-    exitCode === null && (status === "processing" || status === "stalled");
+    exitCode === null &&
+    (status === "processing" ||
+      status === "permission_requested" ||
+      status === "stalled");
   const fields: LivenessFields = { alive, idle_seconds };
   if (status === "stalled" && includeHint) {
     fields.hint =
