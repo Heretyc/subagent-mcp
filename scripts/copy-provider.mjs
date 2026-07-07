@@ -6,6 +6,7 @@ const scaffoldSource = new URL("../src/advanced-ruleset.py", import.meta.url);
 const scaffoldTarget = new URL("../dist/advanced-ruleset.py", import.meta.url);
 const concurrencySource = new URL("../src/global-subagent-mcp-config.jsonc", import.meta.url);
 const concurrencyTarget = new URL("../dist/global-subagent-mcp-config.jsonc", import.meta.url);
+const legacyConcurrencyTarget = new URL("../dist/global-concurrency.jsonc", import.meta.url);
 
 mkdirSync(new URL("../dist/", import.meta.url), { recursive: true });
 
@@ -33,3 +34,5 @@ if (!existsSync(concurrencySource)) {
 }
 copyFileSync(concurrencySource, concurrencyTarget);
 console.log("Copied src/global-subagent-mcp-config.jsonc to dist/global-subagent-mcp-config.jsonc");
+copyFileSync(concurrencySource, legacyConcurrencyTarget);
+console.log("Copied src/global-subagent-mcp-config.jsonc to dist/global-concurrency.jsonc");
