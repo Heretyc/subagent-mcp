@@ -8,7 +8,8 @@ this page records what each release changes for operators.
 
 ---
 
-## v2.12.3
+## v2.12.4
+*v2.12.3 on npm is a stale pre-fix build published in error — deprecated; this release (2.12.4) is the real fix set.*
 
 ### Directive calibration and guarded relays
 
