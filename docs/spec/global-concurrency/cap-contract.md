@@ -62,9 +62,10 @@ runs. The cap value itself has no environment-variable override.
 A slot is reserved once per `launch_agent` call before candidate attempts. The
 winning `AgentState.slotPath` carries the marker path to release sites.
 
-Slots are held until true driver process death, manual termination, failed
-launch cleanup, or zombie culling. A stalled agent and a turn-finished
-interactive agent still hold the slot while their driver remains open.
+Slots are held until turn-finish, true driver process death, manual termination,
+failed launch cleanup, or zombie culling. A stalled agent still holds the slot,
+but a turn-finished interactive agent releases its slot while the driver remains
+open and `send_message`-able.
 
 Release sites:
 
@@ -85,7 +86,8 @@ Thresholds:
 - `stale_live`: slot metadata older than `ZOMBIE_LIVE_IDLE_MS = 6 * 60 * 1000`
   and owner `server_pid` missing or no longer alive; live owners refresh slots.
 - `terminal_but_alive`: `finished`, `errored`, or `stopped` whose driver is
-  still open more than `ZOMBIE_TERMINAL_IDLE_MS = 30 * 1000` after `exitedAt`.
+  still open after 6 minutes with no `send_message` or `poll_agent` activity;
+  both tools refresh the idle clock.
 - Grace before force: `ZOMBIE_FORCE_GRACE_MS = 20 * 1000` (20 seconds).
 
 Tool-path maintenance uses `SUBAGENT_ZOMBIE_LIVE_IDLE_MS` for heartbeat pacing
