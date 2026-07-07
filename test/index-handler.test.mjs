@@ -628,8 +628,12 @@ await test("wait loop refreshes live stale slot metadata while blocked", async (
     const waitResp = await waitPromise;
     const waitPayload = JSON.parse(waitResp.result.content[0].text);
     assert.ok(waitPayload.finished.some((a) => a.id === agentId && a.status === "finished"));
-    const { metadata } = findSlotForAgent(slotDir, agentId);
-    assert.ok(metadata.last_activity_ms > staleActivity);
+    // Release-on-finish policy: the concurrency slot is unlinked at turn-finish,
+    // so no slot file survives to read. The refresh-while-blocked guarantee is
+    // proven above by the agent finishing as "finished" rather than
+    // "zombie_killed" — without the wait loop refreshing its stale live slot it
+    // would have been culled (staleActivity is older than ZOMBIE_LIVE_IDLE_MS).
+    assert.throws(() => findSlotForAgent(slotDir, agentId), /slot for .* not found/);
   } finally {
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });

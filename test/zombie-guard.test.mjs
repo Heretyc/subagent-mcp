@@ -10,7 +10,11 @@ function run() {
   const source = readFileSync(join(repo, "src", "zombie.ts"), "utf8");
 
   assert.doesNotMatch(source, /\.map\(\(line\) => JSON\.parse\(line\) as ZombieRecord\)/);
-  assert.match(source, /for \(const line of readFileSync\(claim, "utf8"\)\.split\(\/\\r\?\\n\/\)\.filter\(Boolean\)\) \{/);
+  // Fix 1: readFileSync of the renamed claim is guarded (rename-visibility
+  // races on Windows/AV/Dropbox can make a just-renamed file transiently
+  // unopenable), then lines are split off the captured `raw` string.
+  assert.match(source, /raw = readFileSync\(claim, "utf8"\);/);
+  assert.match(source, /for \(const line of raw\.split\(\/\\r\?\\n\/\)\.filter\(Boolean\)\) \{/);
   assert.match(source, /try \{\s*records\.push\(JSON\.parse\(line\) as ZombieRecord\);\s*\} catch \{/);
   assert.match(source, /console\.error\(`zombies: skipped corrupt jsonl line in \$\{claim\}: \$\{line\.slice\(0, 120\)\}`\);/);
   // SRC-12: cull a live child only when its owning server is dead/absent (spare children of a live server).
