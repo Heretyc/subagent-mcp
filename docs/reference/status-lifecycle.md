@@ -29,11 +29,15 @@ Launch time is the **initial heartbeat**: a freshly spawned agent starts with
 | `stopped` | Terminated by `kill_agent` | yes |
 | `errored` | Non-zero exit | yes |
 | `zombie_killed` | Stale live or terminal-but-alive process tree culled by tool/hook maintenance | yes |
+| `permission_requested` | Gated sub-agent parked on a permission request; awaiting `respond_permission` (or a 5-minute auto-deny). Recovers to `processing` once answered. Holds its slot and is exempt from the stalled flip | no (live) |
 
-`alive === true` for `processing`/`stalled`, and also for `finished` when the
-driver remains open (`exitCode === null`). A turn-finished but alive agent can
-accept `send_message`, which moves it back to `processing` for the next turn.
-`stopped`/`errored`/`zombie_killed` are closed terminal states.
+`alive === true` for `processing`/`stalled`/`permission_requested`, and also for
+`finished` when the driver remains open (`exitCode === null`). A turn-finished but
+alive agent can accept `send_message`, which moves it back to `processing` for the
+next turn (`send_message` is rejected while any permission request is pending).
+`stopped`/`errored`/`zombie_killed` are closed terminal states. See
+[permissions.md](../spec/permissions.md) for the gating that drives
+`permission_requested`.
 
 Concurrency admission is one machine-global, provider-agnostic cap (see
 [SPEC.md](../SPEC.md#concurrency-model) and

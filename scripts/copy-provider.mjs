@@ -4,8 +4,9 @@ const source = new URL("../src/routing-table.json", import.meta.url);
 const target = new URL("../dist/routing-table.json", import.meta.url);
 const scaffoldSource = new URL("../src/advanced-ruleset.py", import.meta.url);
 const scaffoldTarget = new URL("../dist/advanced-ruleset.py", import.meta.url);
-const concurrencySource = new URL("../src/global-concurrency.jsonc", import.meta.url);
-const concurrencyTarget = new URL("../dist/global-concurrency.jsonc", import.meta.url);
+const concurrencySource = new URL("../src/global-subagent-mcp-config.jsonc", import.meta.url);
+const concurrencyTarget = new URL("../dist/global-subagent-mcp-config.jsonc", import.meta.url);
+const legacyConcurrencyTarget = new URL("../dist/global-concurrency.jsonc", import.meta.url);
 
 mkdirSync(new URL("../dist/", import.meta.url), { recursive: true });
 
@@ -28,8 +29,10 @@ copyFileSync(scaffoldSource, scaffoldTarget);
 console.log("Copied src/advanced-ruleset.py to dist/advanced-ruleset.py");
 
 if (!existsSync(concurrencySource)) {
-  console.error("ERROR src/global-concurrency.jsonc is absent; refusing to build without the concurrency config");
+  console.error("ERROR src/global-subagent-mcp-config.jsonc is absent; refusing to build without the concurrency config");
   process.exit(1);
 }
 copyFileSync(concurrencySource, concurrencyTarget);
-console.log("Copied src/global-concurrency.jsonc to dist/global-concurrency.jsonc");
+console.log("Copied src/global-subagent-mcp-config.jsonc to dist/global-subagent-mcp-config.jsonc");
+copyFileSync(concurrencySource, legacyConcurrencyTarget);
+console.log("Copied src/global-subagent-mcp-config.jsonc to dist/global-concurrency.jsonc");

@@ -25,3 +25,9 @@ export function selectUnreported<T extends { status: string; waitReported: boole
     (a) => TERMINAL_STATUSES.has(a.status) && a.exitedAt !== null && !a.waitReported
   );
 }
+
+export function selectUnreportedPermissionRequested<
+  T extends { status: string; waitReported: boolean }
+>(list: T[]): T[] {
+  return list.filter((a) => a.status === "permission_requested" && !a.waitReported);
+}

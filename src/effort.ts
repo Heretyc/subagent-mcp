@@ -1,4 +1,4 @@
-import { writeFileSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
@@ -65,8 +65,9 @@ export function buildCommand(
   provider: Provider,
   model: string,
   effort: string,
-  cwd: string
-): { args: string[]; ucSettingsPath?: string } {
+  cwd: string,
+  agentId?: string
+): { args: string[]; ucSettingsPath?: string; ucSettingsDir?: string } {
   const mapped = mapModel(provider, model);
   const er = resolveEffort(provider, model, effort);
 
@@ -76,8 +77,13 @@ export function buildCommand(
     if (er.kind === "flag") {
       args.push("--effort", er.value);
     } else if (er.kind === "settings") {
-      const ucSettingsPath = join(tmpdir(), `subagent-uc-${randomUUID()}.json`);
-      writeFileSync(ucSettingsPath, '{"ultracode":true}');
+      const safeAgentId = (agentId ?? randomUUID()).replace(/[^a-zA-Z0-9._-]/g, "_");
+      // J1-5: keep per-agent settings under the user's temp profile; POSIX modes
+      // restrict the scratch dir/file, while Windows applies fs defaults.
+      const ucSettingsDir = join(tmpdir(), "subagent-mcp", `perm-${safeAgentId}`);
+      mkdirSync(ucSettingsDir, { recursive: true, mode: 0o700 });
+      const ucSettingsPath = join(ucSettingsDir, "settings.json");
+      writeFileSync(ucSettingsPath, '{"ultracode":true}', { mode: 0o600 });
       args.push("--settings", ucSettingsPath);
       args.push(
         "--permission-mode",
@@ -87,7 +93,7 @@ export function buildCommand(
         "--max-turns",
         "50"
       );
-      return { args, ucSettingsPath };
+      return { args, ucSettingsPath, ucSettingsDir };
     }
 
     args.push(

@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { spawn, spawnSync, execSync } from "child_process";
-import { unlinkSync, existsSync, realpathSync, readFileSync, writeFileSync } from "node:fs";
+import { unlinkSync, existsSync, realpathSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { randomUUID } from "crypto";
 import { isAbsolute, basename, join, dirname } from "node:path";
 import { tmpdir } from "node:os";
@@ -12,7 +12,11 @@ import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
 import { createProviderDriver, type DriverProcess, type ProviderDriver } from "./drivers.js";
 import { resolveExeFor } from "./platform.js";
-import { formatLocalIso, selectUnreported } from "./wait-helpers.js";
+import {
+  formatLocalIso,
+  selectUnreported,
+  selectUnreportedPermissionRequested,
+} from "./wait-helpers.js";
 import type { AgentStatus } from "./status-helpers.js";
 import {
   computeStatusTransition,
@@ -59,6 +63,8 @@ import {
   defaultConfigPath,
   globalCapMessage,
   readSlotMetadata,
+  readMergedPermissionConfig,
+  readPermissionsCeiling,
   readGlobalCap,
   releaseSlot,
   reserveSlot,
@@ -72,6 +78,11 @@ import * as modelMode from "./orchestration/model-mode.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
 import { checkForNpmUpdate } from "./orchestration/update-check.js";
 import { ensureParentMarker } from "./launch-prompt.js";
+import {
+  pendingPermissionManager,
+  type PendingPermissionRecord,
+} from "./pending-permissions.js";
+import type { PermissionSnapshot } from "./permission-engine.js";
 
 type FailureType = "transient_provider" | "permanent";
 
@@ -92,7 +103,9 @@ interface AgentState {
   lastActivity: number;
   slotLastActivity: number;
   cwd: string;
+  permissionSnapshot: PermissionSnapshot;
   ucSettingsPath?: string;
+  ucSettingsDir?: string;
   slotPath?: string | null;
   waitReported: boolean;
   routingTier?: "cost_efficiency" | "performance" | "manual";
@@ -132,6 +145,62 @@ const STDOUT_RING_BYTES = 2 * 1024 * 1024;
 // scoping. The env-check runs lazily at the FIRST launch_agent call; success
 // latches enabled/disabled for the process lifetime, failure never latches.
 const rulesetGate = createRulesetGate();
+
+function ceilingRank(ceiling: "manual" | "auto" | "yolo"): number {
+  return ceiling === "manual" ? 0 : ceiling === "auto" ? 1 : 2;
+}
+
+function buildPermissionSnapshot(cwd: string): PermissionSnapshot {
+  const merged = readMergedPermissionConfig(cwd);
+  return {
+    ceiling: merged.permissionsCeiling,
+    escalation: merged.escalation,
+    rules: {
+      allow: merged.allow,
+      ask: merged.ask,
+      deny: merged.deny,
+    },
+    additionalDirectories: merged.additionalDirectories,
+    repoConfigChangedSinceFirstSeen: merged.repoConfigChangedSinceFirstSeen,
+  };
+}
+
+function isStalePermissive(agent: AgentState): boolean {
+  if (!isLiveAgent(agent)) return false;
+  const current = readPermissionsCeiling();
+  return ceilingRank(agent.permissionSnapshot.ceiling) > ceilingRank(current);
+}
+
+function pendingPermissionSummary(record: PendingPermissionRecord, now = Date.now()) {
+  return {
+    request_id: record.request_id,
+    tool_name_or_method: record.tool_name_or_method,
+    harness_channel: record.harness_channel,
+    permission_ceiling: record.permission_ceiling,
+    escalation: record.escalation,
+    irreversible: record.irreversible,
+    escalate_to_human: record.escalate_to_human,
+    requested_at: formatLocalIso(record.requested_at),
+    age_seconds: Math.floor((now - record.requested_at) / 1000),
+  };
+}
+
+pendingPermissionManager.onAgentQueueChange((agentId, pendingCount) => {
+  const agent = agents.get(agentId);
+  if (!agent || agent.exitCode !== null) return;
+  if (pendingCount > 0) {
+    if (agent.status === "processing" || agent.status === "stalled") {
+      agent.status = "permission_requested";
+      agent.waitReported = false;
+      updateSlotMetadata(agent);
+    }
+  } else if (agent.status === "permission_requested") {
+    agent.status = "processing";
+    agent.waitReported = false;
+    agent.lastActivity = Date.now();
+    updateSlotMetadata(agent);
+  }
+});
 
 // Post-spawn grace window (ms). A provider driver that exits within this window
 // after a successful driver start never launched (not logged in, expired auth, instant
@@ -208,7 +277,11 @@ function slotHeartbeatIntervalMs(): number {
 }
 
 function isLiveAgent(agent: AgentState): boolean {
-  return agent.status === "processing" || agent.status === "stalled";
+  return (
+    agent.status === "processing" ||
+    agent.status === "permission_requested" ||
+    agent.status === "stalled"
+  );
 }
 
 function isSameOwnerSlot(
@@ -289,6 +362,7 @@ function markZombieKilled(
   reason: "stale_live" | "terminal_but_alive",
   now: number
 ): ZombieRecord {
+  void pendingPermissionManager.closeAgent(agent.id, "agent stopped by operator");
   agent.status = "zombie_killed";
   agent.exitCode = agent.exitCode ?? -1;
   agent.exitedAt = agent.exitedAt ?? now;
@@ -325,6 +399,7 @@ function markZombieKilled(
 function applyZombieRecord(record: ZombieRecord, now: number): ZombieRecord | null {
   const agent = agents.get(record.agent_id);
   if (!agent || agent.status === "zombie_killed") return null;
+  void pendingPermissionManager.closeAgent(agent.id, "agent stopped by operator");
   agent.status = "zombie_killed";
   agent.exitCode = agent.exitCode ?? -1;
   agent.exitedAt = agent.exitedAt ?? now;
@@ -534,6 +609,14 @@ function cleanupUcSettings(agentState: AgentState): void {
     } catch {}
     agentState.ucSettingsPath = undefined;
   }
+  if (agentState.ucSettingsDir) {
+    try {
+      if (existsSync(agentState.ucSettingsDir)) {
+        rmSync(agentState.ucSettingsDir, { recursive: true, force: true });
+      }
+    } catch {}
+    agentState.ucSettingsDir = undefined;
+  }
 }
 
 // Synchronously reconcile a single agent's status against the pure transition
@@ -591,7 +674,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.12.4",
+    version: "2.12.5",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -606,10 +689,14 @@ const server = new McpServer(
 // Best-effort removal of a candidate's temp ultracode settings file after a
 // LAUNCH-TIME failure (the agentState is never registered, so the close handler
 // will not run cleanupUcSettings for it).
-function cleanupUcSettingsPath(ucSettingsPath?: string): void {
+function cleanupUcSettingsPath(ucSettingsPath?: string, ucSettingsDir?: string): void {
   if (!ucSettingsPath) return;
   try {
     if (existsSync(ucSettingsPath)) unlinkSync(ucSettingsPath);
+  } catch {}
+  if (!ucSettingsDir) return;
+  try {
+    if (existsSync(ucSettingsDir)) rmSync(ucSettingsDir, { recursive: true, force: true });
   } catch {}
 }
 
@@ -628,6 +715,7 @@ async function tryLaunchCandidate(
   candidate: Candidate,
   prompt: string,
   agentCwd: string,
+  permissionSnapshot: PermissionSnapshot,
   routingTier?: "cost_efficiency" | "performance" | "manual",
   rulesetInfo?: {
     applied: true;
@@ -638,14 +726,16 @@ async function tryLaunchCandidate(
   // "none" sentinel (buildCommand drops it for haiku anyway).
   const effortForBuild = candidate.effort === "none" ? "high" : candidate.effort;
 
-  let buildResult: { args: string[]; ucSettingsPath?: string };
+  const agentId = randomUUID();
+  let buildResult: { args: string[]; ucSettingsPath?: string; ucSettingsDir?: string };
   let cmd: string;
   try {
     buildResult = buildCommand(
       candidate.provider,
       candidate.model,
       effortForBuild,
-      agentCwd
+      agentCwd,
+      agentId
     );
     cmd = resolveExe(candidate.provider);
   } catch (e) {
@@ -656,7 +746,7 @@ async function tryLaunchCandidate(
   // Fast-fail absolute paths only. Bare names intentionally rely on PATH; spawn
   // below resolves them and reports ENOENT/EACCES through the same failure path.
   if (isAbsolute(cmd) && !existsSync(cmd)) {
-    cleanupUcSettingsPath(buildResult.ucSettingsPath);
+    cleanupUcSettingsPath(buildResult.ucSettingsPath, buildResult.ucSettingsDir);
     return { reason: `CLI executable not found: ${cmd}`, failure_type: "permanent" };
   }
 
@@ -671,10 +761,11 @@ async function tryLaunchCandidate(
       model: candidate.model,
       effort: candidate.effort,
       ucSettingsPath: buildResult.ucSettingsPath,
+      ucSettingsDir: buildResult.ucSettingsDir,
     });
   } catch (error) {
     // Synchronous spawn throw (rare) — clean up and report as a launch failure.
-    cleanupUcSettingsPath(buildResult.ucSettingsPath);
+    cleanupUcSettingsPath(buildResult.ucSettingsPath, buildResult.ucSettingsDir);
     const reason = error instanceof Error ? error.message : String(error);
     return { reason, failure_type: classifyFailureReason(reason, "") };
   }
@@ -716,7 +807,7 @@ async function tryLaunchCandidate(
     try {
       driver.kill();
     } catch {}
-    cleanupUcSettingsPath(buildResult.ucSettingsPath);
+    cleanupUcSettingsPath(buildResult.ucSettingsPath, buildResult.ucSettingsDir);
     const reason = err instanceof Error ? err.message : String(err);
     return { reason, failure_type: classifyFailureReason(reason, "") };
   }
@@ -724,7 +815,6 @@ async function tryLaunchCandidate(
   // Spawn succeeded. Register the agent exactly as before. Keep a persistent
   // 'error' handler so a LATE spawn error never crashes the process; fold it
   // into stderr rather than throwing.
-  const agentId = randomUUID();
   const now = Date.now();
 
   const agentState: AgentState = {
@@ -751,7 +841,9 @@ async function tryLaunchCandidate(
     startedAt: now,
     lastActivity: now,
     cwd: agentCwd,
+    permissionSnapshot,
     ucSettingsPath: buildResult.ucSettingsPath,
+    ucSettingsDir: buildResult.ucSettingsDir,
     waitReported: false,
     visibleStream: [],
     streamBuf: "",
@@ -817,6 +909,7 @@ async function tryLaunchCandidate(
   }
 
   childProcess.on("close", (code) => {
+    void pendingPermissionManager.closeAgent(agentState.id, "agent process exited while permission request was pending");
     // Flush any buffered trailing stdout line (final event may arrive without a
     // terminating newline) so its visible item is not lost.
     if (agentState.streamBuf) {
@@ -1007,6 +1100,7 @@ server.tool(
     // mutates the body). This is what makes the child first-line exemption fire.
     const prompt = ensureParentMarker(params.prompt);
     const agentCwd = params.cwd || process.cwd();
+    const permissionSnapshot = buildPermissionSnapshot(agentCwd);
 
     // 1-5. Param-presence validation (zod already constrains task_category, but
     //       hard-validate so the spec error text — valid list + hints, and the
@@ -1139,6 +1233,7 @@ server.tool(
           candidate,
           prompt,
           agentCwd,
+          permissionSnapshot,
           routingTier,
           rulesetApplied && rulesetOriginalSelection !== undefined
             ? { applied: true, originalSelection: rulesetOriginalSelection }
@@ -1182,6 +1277,17 @@ server.tool(
                   model: candidate.model,
                   effort: candidate.effort,
                   task_category,
+                  permissions_applied: {
+                    ceiling: permissionSnapshot.ceiling,
+                    escalation: permissionSnapshot.escalation,
+                    allow_count: permissionSnapshot.rules.allow?.length ?? 0,
+                    ask_count: permissionSnapshot.rules.ask?.length ?? 0,
+                    deny_count: permissionSnapshot.rules.deny?.length ?? 0,
+                    additional_directories_count:
+                      permissionSnapshot.additionalDirectories?.length ?? 0,
+                    repo_config_changed_since_first_seen:
+                      permissionSnapshot.repoConfigChangedSinceFirstSeen ?? false,
+                  },
                   ...(rulesetApplied
                     ? {
                         ruleset_applied: true,
@@ -1305,6 +1411,18 @@ server.tool(
             last_activity: agent.lastActivity,
             cwd: agent.cwd,
             ...liveness,
+            ...(pendingPermissionManager.pendingCount(agent.id) > 0
+              ? {
+                  pending_permissions: pendingPermissionManager.pendingForAgent(agent.id),
+                }
+              : {}),
+            ...(isStalePermissive(agent)
+              ? {
+                  stale_permissive: true,
+                  stale_permissive_hint:
+                    "agent launched under a more permissive ceiling than current config; consider kill_agent",
+                }
+              : {}),
             ...(agent.rulesetApplied
               ? {
                   ruleset_applied: true,
@@ -1363,7 +1481,10 @@ server.tool(
     // current turn with an open interactive session). Closed terminal agents are
     // a no-op.
     const isLive =
-      (agent.status === "processing" || agent.status === "stalled" || agent.status === "finished") &&
+      (agent.status === "processing" ||
+        agent.status === "permission_requested" ||
+        agent.status === "stalled" ||
+        agent.status === "finished") &&
       !agent.driver.closed;
     if (!isLive) {
       return {
@@ -1384,6 +1505,7 @@ server.tool(
       // Immediately force-kill the managed process tree — no graceful SIGTERM
       // grace period. On Windows, taskkill /t /f tears down the whole tree; on
       // POSIX, SIGKILL the process (close handler records the real exit code).
+      await pendingPermissionManager.closeAgent(agent.id, "agent stopped by operator");
       agent.status = "stopped";
       agent.driver.kill();
       releaseSlot(agent.slotPath ?? null);
@@ -1426,7 +1548,64 @@ server.tool(
   })
 );
 
-// Tool 4: send_message
+// Tool 4: respond_permission (parents only; children cannot approve other children)
+if (process.env.SUBAGENT_MCP_SUBAGENT !== "1") {
+  server.tool(
+    "respond_permission",
+    "Answer a parked permission request for an agent. One-time only; does not create session-wide approvals. If request_id is omitted, answers the agent's oldest pending request.",
+    {
+      agent_id: z.string(),
+      request_id: z.string().optional(),
+      decision: z.enum(["allow", "deny"]),
+      reason: z.string().optional(),
+    },
+    withMaintenance(async (params: any) => {
+      const agent = agents.get(params.agent_id);
+      if (!agent) {
+        return {
+          content: [{ type: "text", text: `Error: Agent ${params.agent_id} not found` }],
+          isError: true,
+        };
+      }
+      try {
+        const answered = await pendingPermissionManager.respond(
+          agent.id,
+          params.request_id,
+          params.decision,
+          params.reason
+        );
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                agent_id: agent.id,
+                request_id: answered.request_id,
+                decision: answered.answer,
+                status: agent.status,
+                pending_permission_count: pendingPermissionManager.pendingCount(agent.id),
+              }),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error responding to permission request: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    })
+  );
+}
+
+// Tool 5: send_message
 server.tool(
   "send_message",
   "Enqueue a user message for an open interactive agent session. Observe output with poll_agent or wait.",
@@ -1449,7 +1628,10 @@ server.tool(
     }
 
     const isLive =
-      (agent.status === "processing" || agent.status === "stalled" || agent.status === "finished") &&
+      (agent.status === "processing" ||
+        agent.status === "permission_requested" ||
+        agent.status === "stalled" ||
+        agent.status === "finished") &&
       !agent.driver.closed;
     if (!isLive) {
       return {
@@ -1457,6 +1639,20 @@ server.tool(
           {
             type: "text",
             text: `Error: Agent is not live (status: ${agent.status})`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    const pendingCount = pendingPermissionManager.pendingCount(agent.id);
+    if (pendingCount > 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `Error: agent has ${pendingCount} pending permission request(s); ` +
+              `call respond_permission before sending further messages`,
           },
         ],
         isError: true,
@@ -1503,7 +1699,7 @@ server.tool(
   })
 );
 
-// Tool 5: list_agents
+// Tool 6: list_agents
 server.tool(
   "list_agents",
   "List all agents with token-efficient core metrics (status, `alive`, `idle_seconds`). `stalled` is ALIVE-but-quiet, NOT dead (full status semantics on poll_agent). Use `poll_agent` for per-agent stream items, hints, and final output.",
@@ -1524,6 +1720,8 @@ server.tool(
         started_at: agent.startedAt,
         last_activity: agent.lastActivity,
         cwd_basename: basename(agent.cwd),
+        pending_permission_count: pendingPermissionManager.pendingCount(agent.id),
+        ...(isStalePermissive(agent) ? { stale_permissive: true } : {}),
         ...buildLivenessFields(
           agent.status,
           agent.exitCode,
@@ -1545,7 +1743,7 @@ server.tool(
   }, { includeZombieReport: true })
 );
 
-// Tool 6: wait
+// Tool 7: wait
 server.tool(
   "wait",
   "Blocks until one or more sub-agents reach a reportable state (turn-finished, errored, stopped, or zombie_killed), returning exit code when known + local-time timestamp; or returns the live-job list after a 15-minute timeout. This is how you learn an agent finished — do NOT poll-loop. A `finished` agent with null exit_code is still alive and accepts `send_message`; `send_message`/`poll_agent` activity keeps it alive, and 6 minutes idle auto-kills it. A `stalled` agent is still ALIVE and does NOT end the wait. `verbose: true` adds each finished agent's `final_output`.",
@@ -1583,15 +1781,45 @@ server.tool(
       started_at_local: formatLocalIso(a.startedAt),
       last_activity_local: formatLocalIso(a.lastActivity),
       elapsed_ms: now - a.startedAt,
+      ...(isStalePermissive(a) ? { stale_permissive: true } : {}),
+      ...(a.status === "permission_requested"
+        ? {
+            pending_permissions: pendingPermissionManager
+              .pendingForAgent(a.id)
+              .map((p) => pendingPermissionSummary(p, now)),
+          }
+        : {}),
+    });
+
+    const buildPermissionRequestedEntry = (a: AgentState, now: number) => ({
+      id: a.id,
+      provider: a.provider,
+      model: a.model,
+      status: a.status,
+      ...(isStalePermissive(a) ? { stale_permissive: true } : {}),
+      pending_permissions: pendingPermissionManager
+        .pendingForAgent(a.id)
+        .map((p) => pendingPermissionSummary(p, now)),
     });
 
     // Step 1: collect already-terminal unreported agents
     const allAgents = Array.from(agents.values());
     let unreported = selectUnreported(allAgents);
-    if (unreported.length > 0) {
+    let unreportedPermissionRequested = selectUnreportedPermissionRequested(allAgents);
+    if (unreported.length > 0 || unreportedPermissionRequested.length > 0) {
       // Mark reported synchronously before building return (single-threaded JS → atomic)
       for (const a of unreported) a.waitReported = true;
-      const payload = { finished: unreported.map(buildFinishedEntry) };
+      for (const a of unreportedPermissionRequested) a.waitReported = true;
+      const payload = {
+        ...(unreported.length > 0 ? { finished: unreported.map(buildFinishedEntry) } : {}),
+        ...(unreportedPermissionRequested.length > 0
+          ? {
+              permission_requested: unreportedPermissionRequested.map((a) =>
+                buildPermissionRequestedEntry(a, Date.now())
+              ),
+            }
+          : {}),
+      };
       return {
         content: [{ type: "text", text: JSON.stringify(payload) }],
       };
@@ -1603,6 +1831,7 @@ server.tool(
     const hasPending = Array.from(agents.values()).some(
       (a) =>
         a.status === "processing" ||
+        a.status === "permission_requested" ||
         a.status === "stalled" ||
         (TERMINAL_SET.has(a.status) && a.exitedAt === null)
     );
@@ -1619,11 +1848,23 @@ server.tool(
     // Step 3: block-poll until a terminal agent appears or deadline passes
     while (Date.now() < deadline) {
       await sleep(250);
-      unreported = selectUnreported(Array.from(agents.values()));
       zombieRecords.push(...runToolMaintenance());
-      if (unreported.length > 0) {
+      const loopAgents = Array.from(agents.values());
+      unreported = selectUnreported(loopAgents);
+      unreportedPermissionRequested = selectUnreportedPermissionRequested(loopAgents);
+      if (unreported.length > 0 || unreportedPermissionRequested.length > 0) {
         for (const a of unreported) a.waitReported = true;
-        const payload = { finished: unreported.map(buildFinishedEntry) };
+        for (const a of unreportedPermissionRequested) a.waitReported = true;
+        const payload = {
+          ...(unreported.length > 0 ? { finished: unreported.map(buildFinishedEntry) } : {}),
+          ...(unreportedPermissionRequested.length > 0
+            ? {
+                permission_requested: unreportedPermissionRequested.map((a) =>
+                  buildPermissionRequestedEntry(a, Date.now())
+                ),
+              }
+            : {}),
+        };
         return {
           content: [{ type: "text", text: JSON.stringify(payload) }],
         };
@@ -1633,7 +1874,10 @@ server.tool(
     // Step 4: timeout — return still-running jobs
     const now = Date.now();
     const stillRunning = Array.from(agents.values()).filter(
-      (a) => a.status === "processing" || a.status === "stalled"
+      (a) =>
+        a.status === "processing" ||
+        a.status === "permission_requested" ||
+        a.status === "stalled"
     );
     const payload = {
       timed_out: true,
@@ -1647,7 +1891,7 @@ server.tool(
   })
 );
 
-// Tool 7: orchestration-mode
+// Tool 8: orchestration-mode
 server.tool(
   "orchestration-mode",
   "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF for THIS session only, omit = query. SOLE CHANNEL holds in BOTH states: subagent-mcp is the only sanctioned way to launch sub-agents; toggling OFF does not lift that. WHAT: default-ON mode for LONG-HORIZON work that would fill the context window if run inline; when ON act as a delegate-ONLY orchestrator — delegate every step, inline-by-right does not exist, a non-delegable atomic step needs a one-time user-approved exception via the structured-question tool (state which + why). OFF upgrade check: a long-horizon task = any whose TOTAL context footprint (input read + output produced) exceeds 200 lines, measured CUMULATIVELY since your last upgrade ask; after EVERY user turn, if it qualifies, STOP and ask whether to remain enabled (every qualifying turn; a decline does not latch; reset the count only when you ask). PERSISTENCE: a permitted disable applies to THIS session only, resumes ON next new session (or after the 2h backstop), no mid-session re-enable. CARRYOVER: if ON was inherited from a prior session (carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker) — notify the user it auto-activated and confirm keeping it ON. DISABLE: never on your own initiative; you may PROPOSE OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation). Full operating model is in this server's MCP `instructions` (read once at initialize) — this is the operational summary only.",

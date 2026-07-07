@@ -173,6 +173,7 @@ test("drainJsonl returns empty without throwing for unavailable files", () => {
 test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot", () => {
   const dir = tmpSlotDir();
   const now = 1_000_000;
+  const childPid = process.pid + 100_000;
   const calls = [];
   const sleeps = [];
   try {
@@ -181,7 +182,7 @@ test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot
     writeSlotMetadata(slot, {
       agent_id: "agent-c",
       server_pid: 777,
-      child_pid: 888,
+      child_pid: childPid,
       cwd: "/tmp/work",
       started_at_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
       last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
@@ -198,8 +199,8 @@ test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot
     assert.equal(records[0].message.includes("zombies"), true);
     assert.equal(existsSync(slot), false);
     assert.deepEqual(calls, [
-      { command: "taskkill", args: ["/PID", "888", "/T"] },
-      { command: "taskkill", args: ["/PID", "888", "/T", "/F"] },
+      { command: "taskkill", args: ["/PID", String(childPid), "/T"] },
+      { command: "taskkill", args: ["/PID", String(childPid), "/T", "/F"] },
     ]);
     assert.deepEqual(sleeps, [ZOMBIE_FORCE_GRACE_MS]);
 
@@ -247,6 +248,7 @@ test("cullStaleSlots keeps stale slots owned by a live server", () => {
 test("cullStaleSlots kills orphaned child pid when freeing unmanaged stale slot", () => {
   const dir = tmpSlotDir();
   const now = 1_000_000;
+  const childPid = process.pid + 100_000;
   const calls = [];
   const sleeps = [];
   try {
@@ -256,7 +258,7 @@ test("cullStaleSlots kills orphaned child pid when freeing unmanaged stale slot"
       schema_version: 1,
       agent_id: "agent-unmanaged",
       server_pid: null,
-      child_pid: 888,
+      child_pid: childPid,
       last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
     }));
     const records = cullStaleSlots(dir, {
@@ -266,11 +268,11 @@ test("cullStaleSlots kills orphaned child pid when freeing unmanaged stale slot"
       sleepMs: (ms) => sleeps.push(ms),
     });
     assert.equal(records.length, 1);
-    assert.equal(records[0].child_pid, 888);
+    assert.equal(records[0].child_pid, childPid);
     assert.equal(existsSync(slot), false);
     assert.deepEqual(calls, [
-      { command: "taskkill", args: ["/PID", "888", "/T"] },
-      { command: "taskkill", args: ["/PID", "888", "/T", "/F"] },
+      { command: "taskkill", args: ["/PID", String(childPid), "/T"] },
+      { command: "taskkill", args: ["/PID", String(childPid), "/T", "/F"] },
     ]);
     assert.deepEqual(sleeps, [ZOMBIE_FORCE_GRACE_MS]);
   } finally {

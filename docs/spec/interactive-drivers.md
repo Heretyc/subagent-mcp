@@ -35,14 +35,15 @@ sends `initialize`, `initialized`, `thread/start`, and the first `turn/start`.
 turns submit after the active turn completes.
 
 Supported options are preserved where the protocol exposes them: `cwd`, model,
-and effort. Approval policy and sandbox policy are NOT configurable today —
-`drivers.ts` hardcodes them (`approvalPolicy: 'never'`,
-`sandboxPolicy: dangerFullAccess`) and neither appears in `DriverLaunchOptions`.
-Unsupported startup or protocol failures fail the MCP call loudly.
-
-> **PLANNED / FUTURE (not yet implemented):** configurable approval policy and
-> sandbox policy via `DriverLaunchOptions`. Until then the hardcoded values above
-> are authoritative.
+and effort. Approval policy and sandbox policy are driven by the launch
+`permissionsCeiling` snapshot via `resolveCodexLaunchValues` (`drivers.ts`): a
+non-yolo launch uses `approvalPolicy: 'untrusted'` + `sandbox: 'workspace-write'`
+at both `thread/start` and `turn/start`, so every mutation generates an approval
+that the shared permission engine evaluates; `yolo` uses `approvalPolicy: 'never'`
++ `sandbox: 'danger-full-access'` (the pre-2.12.5 behavior). Codex approvals land
+in the driver's `pendingApprovals` map and are answered only via
+`respond_permission`. Unsupported startup or protocol failures fail the MCP call
+loudly. See [permissions.md](permissions.md).
 
 ## Lifecycle
 

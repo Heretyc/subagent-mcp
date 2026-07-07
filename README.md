@@ -98,7 +98,7 @@ wiring (Gemini CLI, Claude Desktop, manual setup) is in
 Flip it with the `orchestration-mode` tool. (Desktop apps can toggle the mode
 but don't receive the per-turn hook reminders.)
 
-### The 8 tools at a glance
+### The 9 tools at a glance
 
 | Tool | What it does |
 |---|---|
@@ -108,6 +108,7 @@ but don't receive the per-turn hook reminders.)
 | `send_message` | Send a follow-up message to a live agent |
 | `list_agents` | See every agent and its current status |
 | `wait` | Pause until a specific agent finishes |
+| `respond_permission` | Approve or deny a sub-agent's parked permission request |
 | `orchestration-mode` | Turn manager-mode ON or OFF |
 | `model-selection-mode` | Let the server auto-pick the model, or allow manual overrides |
 
@@ -120,14 +121,42 @@ server picks the best provider, model, and effort for that kind of work.
 There is a single machine-wide limit on how many sub-agents run at the same time
 across everything on your computer. The **default is 20**. When the limit is
 reached, a new `launch_agent` is turned down right away — it does not wait in a
-queue. You change the number in the `global-concurrency.jsonc` file in the
-install folder (minimum 10); the file is re-read on every launch, so no restart
-is needed.
+queue. You change the number in the `global-subagent-mcp-config.jsonc` file in
+the install folder (minimum 10); the file is re-read on every launch, so no
+restart is needed.
+
+> **Renamed in 2.12.5:** this file was `global-concurrency.jsonc`. The old name
+> is still read (with a one-time deprecation notice) when the new file is absent,
+> for one major version. Rename it yourself when convenient — nothing auto-renames
+> it.
 
 The same settings file includes `checkForUpdates` (default `true`). When a newer
 npm version exists, the per-turn hook can show a throttled notice to run
 `subagent-mcp update` and then `subagent-mcp setup`. Set `checkForUpdates` to
 `false`, or run with `SUBAGENT_UPDATE_CHECK=0` / `false`, to disable that check.
+
+## Permissions
+
+Launched sub-agents run **gated** by default (new in 2.12.5). Set
+`permissionsCeiling` in `global-subagent-mcp-config.jsonc`:
+
+| Mode | What a sub-agent can do |
+|---|---|
+| `auto` | **Default.** Safe reads auto-allow, dangerous actions auto-deny, everything else parks for your decision. |
+| `manual` | Same, but *every* non-denied action parks for a decision — nothing auto-allows. |
+| `yolo` | No gating at all — the pre-2.12.5 behavior. |
+
+When a sub-agent's action parks, its status becomes `permission_requested` and it
+shows up in `poll_agent`/`list_agents` and returns early from `wait`. Answer it
+with the **`respond_permission`** tool:
+
+```
+respond_permission(agent_id="…", decision="allow" | "deny", reason="…")
+```
+
+One-time only (no session-wide grants). Omit `request_id` to answer the oldest
+pending request. Unanswered requests auto-deny after 5 minutes; the sub-agent
+keeps running either way. Full spec: [docs/spec/permissions.md](docs/spec/permissions.md).
 
 ## Basic debugging
 
@@ -153,7 +182,8 @@ npm version exists, the per-turn hook can show a throttled notice to run
 | [docs/tools.md](docs/tools.md) | Full tool reference — all eight tools, parameters, return shapes |
 | [docs/usage.md](docs/usage.md) | Model & effort matrix, ultracode mode, usage examples |
 | [docs/SPEC.md](docs/SPEC.md) | Full technical specification |
-| [docs/reference/status-lifecycle.md](docs/reference/status-lifecycle.md) | Agent status meanings (processing / stalled / finished / errored / stopped) |
+| [docs/spec/permissions.md](docs/spec/permissions.md) | Permission system — ceiling modes, shared engine, threat model |
+| [docs/reference/status-lifecycle.md](docs/reference/status-lifecycle.md) | Agent status meanings (processing / stalled / finished / errored / stopped / permission_requested) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Developer guide — build, test, publish, contribution workflow |
 
 ## License
