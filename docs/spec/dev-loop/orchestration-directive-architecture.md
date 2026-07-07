@@ -38,7 +38,7 @@ UNKNOWN → fail-safe ON. Sub-agent first-line marker skips the whole regime.
 - fail-safe ON / UNKNOWN / one-time opt-out → `sections-05-09.md` (§5)
 - first-line `<this is a request from a parent process>` skip + upsert → `sections-05-09.md` (§6), `appendix-a6-a7.md` (A7)
 - schema=3 markers, MIGRATE_RE, duplicate collapse → `sections-05-09.md` (§8), `appendix-a6-a7.md` (A6)
-- persistence marker `orch-<cwdHash>.flag`, carryover, disable → `sections-10-13.md` (§10) + `docs/spec/orchestration-mode/_INDEX.md`
+- default-ON, disable-record, carryover, disable → `sections-10-13.md` (§10) + `src/orchestration/marker.ts` (truth source)
 - tests (gating/non-gating), 5-call gate → `sections-10-13.md` (§11), `derivation-map.md` (§14.3)
 - INIT_BLOCK / MCP instructions verbatim → `appendix-a1-a4.md`
 - the 9 directive files verbatim → `appendix-a5-directives.md`

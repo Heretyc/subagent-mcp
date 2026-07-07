@@ -2,26 +2,31 @@
 
 ## §10 — Persistence, Carryover & Disable
 
-> **Persistence mechanics MIRROR `docs/spec/orchestration-mode/_INDEX.md`**
-> ("Architecture", "Persistence and session-start carryover", locked decision
-> #5). That index is authoritative for the marker; this section restates it.
-> The stale `orch-session-*.json` / `orch-disable-*.json` / "defaults ON per
-> session" model is DELETED — do not reintroduce it.
+> **Truth source: `src/orchestration/marker.ts`** (module doc comment +
+> `isActive()`). This section MIRRORS the code. The old
+> `docs/spec/orchestration-mode/_INDEX.md` "marker-presence = state" /
+> "default OFF = no marker" model is DELETED (that file is tombstoned) — do not
+> reintroduce it.
 
-- **Single marker, presence = state.** State is ONE per-project marker at
-  `os.tmpdir()/subagent-mcp/orch-<cwdHash>.flag` (`cwdHash` = first 16 hex of
-  `sha256(normalizeCwd(cwd))`). **PRESENCE = ENABLED (ON); ABSENCE = DISABLED
-  (OFF).** There is NO `enabled` field and NO `cwd` field — cwd lives in the
-  FILENAME. Fields: `owner_session`, `baseline_turn`, `provenance`
-  (`user-enabled`/`carried-over`/`null`), `carryover_ack`. `src/orchestration/marker.ts`
-  is fail-safe (never throws; failed reads → safe defaults).
-- **Tool flips, hook reports.** The `orchestration-mode` MCP tool ONLY writes
-  the marker (`enabled:true`) or deletes it (`enabled:false`) — it injects
-  nothing. The **separate per-turn hook** reads the marker and reports the
-  AUTHORITATIVE ON/OFF `<subagent-mcp state="...">`. Disk marker is the only channel.
-- **Persists across sessions/restarts.** An enabled marker stays ON until
-  disabled; it is NOT cleared on startup (SUPERSEDES the old startup-clear).
-  **Default OFF = no marker.**
+- **Default ON; OFF is an explicit disable-record.** Orchestration is default
+  ON. `isActive(cwd, sessionKey)` returns ON (`true`) UNLESS an unexpired
+  disable-record file exists — a session-keyed `orch-disable-<hash>.json`
+  (cwd-keyed `orch-disable-<cwdHash>.json` fallback when no session key is
+  available), each holding `{ disabled_at }`. **Absence of the legacy marker is
+  NOT OFF.** The `orch-<cwdHash>.flag` marker (fields `owner_session`,
+  `baseline_turn`, `provenance`, `carryover_ack`) is retained ONLY as legacy
+  state for callers that still write/read it; its presence/absence no longer
+  gates ON/OFF. `src/orchestration/marker.ts` is fail-safe (never throws;
+  failed reads → default ON).
+- **Time-bounded disable.** A disable-record is honored for
+  `ORCH_DISABLE_TTL_MS` (~2h) from `disabled_at`; past that, `isDisableActive`
+  lazily GCs the file and state re-arms to ON — even with no new session. So a
+  user-approved disable is per-session and self-expiring, not permanent.
+- **Tool flips, hook reports.** The `orchestration-mode` MCP tool writes state
+  (`enabled:false` → disable-record; `enabled:true` → clears it / writes the
+  legacy marker) — it injects nothing. The **separate per-turn hook** reads
+  state via `isActive()` and reports the AUTHORITATIVE ON/OFF
+  `<subagent-mcp state="...">`. Disk state is the only channel.
 - **Carryover (`kind="carryover"`).** A NEW session may inherit a marker an
   earlier session left ON. The hook classifies FRESH / CARRYOVER / SAME-SESSION
   from `owner_session`, `provenance`, `carryover_ack`, current `session_id`; on
@@ -31,15 +36,14 @@
 - **Disable:** **never on your own initiative.** You MAY *propose* OFF on
   task-fit mismatch (bounded/interactive/MCP-bound) — explain WHAT + WHY and ask
   via the structured-question tool; only explicit user approval may call
-  `orchestration-mode enabled:false`, which DELETES the marker.
-  A user-approved disable is per-session and time-bounded: the disable record
-  expires after the ~2-hour backstop in `src/orchestration/marker.ts`, re-arming
-  ON even if no new session started. The carryover directives reference this
-  backstop when explaining when ON resumes.
-- **Fail-safe ON is NOT persistence.** It applies ONLY to hookless / no-tag
-  hosts (Gemini, desktop) where no marker/hook channel exists and state is
-  UNKNOWN → default ON — see §5 (D18/D6) and the §9 host matrix. On hook-bearing
-  hosts, marker presence/absence is the SOLE source of ON/OFF.
+  `orchestration-mode enabled:false`, which writes the time-bounded
+  disable-record above. The carryover directives reference this backstop when
+  explaining when ON resumes.
+- **Fail-safe ON is NOT the same as default ON.** Default ON is the normal
+  hook-bearing state (no active disable-record). Fail-safe ON is the separate
+  hookless / no-tag case (Gemini, desktop) where no state channel exists and
+  state is UNKNOWN → default ON — see §5 (D18/D6) and the §9 host matrix. Both
+  land on ON; only the disable-record can produce OFF.
 
 ---
 
