@@ -64,12 +64,13 @@ exported as `HEARTBEAT_TIMEOUT_MS = 600000` (10 minutes). Its order is:
 
 `setInterval` every 10,000 ms folds each live agent's `process.exitCode` into
 `AgentState` and applies the helper. Tool handlers also run zombie maintenance:
-live agents idle for more than 6 minutes and terminal-but-alive agents idle for
-more than 30 seconds are marked `zombie_killed`; stale live process trees are
-gracefully terminated, then force-killed after 20 seconds. `poll_agent` and
-`list_agents` reconcile synchronously before returning, eliminating the
-up-to-10s lag for already-closed drivers. Stalled does not by itself end a
-`wait`; `wait` returns on unreported `finished`, `errored`, `stopped`, or
-`zombie_killed` states. All tool and hook paths still run zombie maintenance,
-but only `poll_agent` and `list_agents` surface the `zombie_report` message.
+live and terminal-but-alive agents are marked `zombie_killed` only after 6
+minutes idle, anchored on the later of `exitedAt` and `lastActivity`;
+`poll_agent` and `send_message` refresh that clock, and the concurrency slot is
+already freed at turn-finish. `poll_agent` and `list_agents` reconcile
+synchronously before returning, eliminating the up-to-10s lag for already-closed
+drivers. Stalled does not by itself end a `wait`; `wait` returns on unreported
+`finished`, `errored`, `stopped`, or `zombie_killed` states. All tool and hook
+paths still run zombie maintenance, but only `poll_agent` and `list_agents`
+surface the `zombie_report` message.
 Culled status remains visible through `poll_agent`, `list_agents`, and `wait`.
