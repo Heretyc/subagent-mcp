@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "safe": {
+    "tools": ["Read", "Glob", "Grep", "LS"],
+    "bashPrefixes": ["ls", "cat", "pwd", "echo", "git status", "git diff", "git log"],
+    "webFetchHosts": [
+      "docs.anthropic.com",
+      "docs.github.com",
+      "docs.npmjs.com",
+      "github.com",
+      "npmjs.com",
+      "registry.npmjs.org"
+    ]
+  },
+  "danger": {
+    "toolWritePathPrefixes": ["Edit", "MultiEdit", "Write", "NotebookEdit"],
+    "dangerousPathSegments": [".git", ".ssh", ".aws", ".claude", ".codex", ".vscode"],
+    "protectedFilenames": ["global-subagent-mcp-config.jsonc", "global-concurrency.jsonc"],
+    "bashRegexes": [
+      "\\brm\\b[\\s\\S]*(?:\\s-rf\\b|\\s-fr\\b|\\s-r\\s+-f\\b|\\s-f\\s+-r\\b|--force\\b)",
+      "\\bgit\\s+push\\b[\\s\\S]*\\s--force(?:-with-lease)?\\b",
+      "\\b(?:curl|wget)\\b[\\s\\S]*(?:\\|\\s*(?:sh|bash)\\b)",
+      "\\bsudo\\b",
+      "\\bchmod\\s+777\\b",
+      "\\b(?:npm|pnpm|yarn)\\s+publish\\b",
+      "\\b(?:mkfs|diskutil\\s+eraseDisk|format\\.com|format\\s+[A-Za-z]:)"
+    ],
+    "irreversibleBashRegexes": [
+      "\\bgit\\s+push\\b[\\s\\S]*\\s--force(?:-with-lease)?\\b",
+      "\\bgit\\s+(?:reset\\s+--hard|rebase|filter-branch)\\b",
+      "\\b(?:DROP|TRUNCATE)\\b[\\s\\S]*\\b(?:TABLE|DATABASE|SCHEMA)\\b",
+      "\\b(?:npm|pnpm|yarn)\\s+publish\\b",
+      "\\b(?:aws|gcloud|az)\\b[\\s\\S]*\\bdelete\\b"
+    ]
+  }
+}
