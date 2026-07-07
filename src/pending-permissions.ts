@@ -187,12 +187,6 @@ export class PendingPermissionManager {
     return this.pendingByAgent.get(agentId)?.length ?? 0;
   }
 
-  oldestPending(agentId: string): PendingPermissionRecord | null {
-    const id = this.pendingByAgent.get(agentId)?.[0];
-    const record = id ? this.pendingById.get(id) : null;
-    return record ? publicRecord(record) : null;
-  }
-
   async respond(
     agentId: string,
     requestId: string | undefined,

@@ -33,9 +33,7 @@ export interface PermissionSnapshot {
   escalation: PermissionEscalation;
   rules: PermissionRuleSet;
   additionalDirectories?: string[];
-  configDigest?: string | null;
   repoConfigDigest?: string | null;
-  ceilingIntegrity?: "unchanged" | "changed_since_startup";
   repoConfigChangedSinceFirstSeen?: boolean;
 }
 

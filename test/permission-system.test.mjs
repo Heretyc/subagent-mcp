@@ -110,7 +110,7 @@ async function claudeAdapterVerdict(op, rules) {
   while (!sdkOptions) await new Promise((r) => setTimeout(r, 0));
   const pending = sdkOptions.canUseTool(claudeRequestFromOp(op));
   await new Promise((r) => setTimeout(r, 0));
-  const parked = pendingPermissionManager.oldestPending(agentId);
+  const parked = pendingPermissionManager.pendingForAgent(agentId)[0] ?? null;
   if (parked) {
     await pendingPermissionManager.respond(agentId, parked.request_id, "deny", "test cleanup");
     await pending;
