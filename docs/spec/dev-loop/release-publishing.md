@@ -12,9 +12,11 @@ v2.8.0 release (2026-06-11).
 | GitHub Packages (`npm.pkg.github.com`) | OPTIONAL secondary channel, same version | explicit `--registry` flag (below) |
 
 `publishConfig` now points at npmjs, so a bare `npm publish` goes to npmjs by
-default — that is the primary, required channel. A release is **NOT complete**
-until npmjs `dist-tags.latest` equals the new tag. GitHub Packages is an
-OPTIONAL mirror: publish there only when you want the `@heretyc` scope to
+default — that is the primary, required channel. A stable release is **NOT
+complete** until npmjs `dist-tags.latest` equals the new tag. A prerelease is
+**NOT complete** until its intended prerelease dist-tag (currently `beta`) equals
+the new tag and `latest` remains on the prior stable version. GitHub Packages is
+an OPTIONAL mirror: publish there only when you want the `@heretyc` scope to
 resolve through GitHub Packages too, and do it with an explicit
 `--registry=https://npm.pkg.github.com`. When you publish both, verify each
 registry directly; never infer one from the other.
@@ -35,12 +37,14 @@ registry directly; never infer one from the other.
 
 1. **npmjs (default, required):** from the merged release tree, run `npm publish`
    (`prepublishOnly` runs the full suite). `publishConfig` routes it to npmjs.
+   Stable publishes use `--tag latest`; prerelease publishes use `--tag beta`.
    `--auth-type=web` is REQUIRED for the per-publish 2FA flow (below) and the
    command must run in the operator's **interactive shell** — not a
    captured/CI shell:
 
    ```sh
-   npm publish --access public --auth-type=web
+   npm publish --tag latest --access public --auth-type=web
+   npm publish --tag beta --access public --auth-type=web  # prereleases only
    ```
 
    Record the tarball `shasum` from the publish log.
@@ -59,7 +63,9 @@ registry directly; never infer one from the other.
 
 3. **Verify REGISTRY-DIRECT**, never through npm config:
    - npmjs: `GET https://registry.npmjs.org/@heretyc%2Fsubagent-mcp` →
-     `dist-tags.latest == <ver>` AND `versions.<ver>.dist.shasum` equals the
+     for stable versions, `dist-tags.latest == <ver>`; for prereleases,
+     `dist-tags.beta == <ver>` AND `dist-tags.latest` still points at the prior
+     stable version. In all cases, `versions.<ver>.dist.shasum` equals the
      step-1 publish-log shasum.
    - GitHub Packages (only if you published there): authed
      `npm view @heretyc/subagent-mcp dist-tags --@heretyc:registry=https://npm.pkg.github.com`
