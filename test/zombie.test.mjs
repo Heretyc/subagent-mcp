@@ -10,6 +10,7 @@ import {
   ZOMBIE_REPORTS_FILENAME,
   buildProcessTreeKillCommands,
   cullStaleSlots,
+  drainJsonl,
   drainZombieIntents,
   drainZombieReports,
   parseSlotMetadata,
@@ -148,6 +149,23 @@ test("drainZombieReports skips corrupt jsonl lines and returns valid records", (
     assert.deepEqual(drainZombieReports(dir), []);
   } finally {
     console.error = originalError;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("drainJsonl returns empty without throwing for unavailable files", () => {
+  const dir = tmpSlotDir();
+  try {
+    mkdirSync(dir, { recursive: true });
+    assert.deepEqual(drainJsonl(join(dir, "missing.jsonl")), []);
+
+    const source = join(dir, "blocked.jsonl");
+    const claim = join(dir, `blocked.jsonl.${process.pid}.drain`);
+    writeFileSync(source, "{\"kind\":\"zombie_killed\"}\n");
+    mkdirSync(claim);
+    assert.deepEqual(drainJsonl(source), []);
+    assert.equal(existsSync(source), true);
+  } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });

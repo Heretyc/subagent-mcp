@@ -66,6 +66,7 @@ import {
   writeSlotMetadata,
   type ZombieRecord,
 } from "./concurrency.js";
+import { shouldReapTerminalButAlive } from "./zombie.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
@@ -360,11 +361,7 @@ function runToolMaintenance(): ZombieRecord[] {
     }
     const slotMeta = agent.slotPath ? readSlotMetadata(agent.slotPath) : null;
     adoptNewerSlotActivity(agent, slotMeta);
-    const terminalButAlive =
-      (agent.status === "finished" || agent.status === "errored" || agent.status === "stopped") &&
-      !agent.driver.closed &&
-      agent.exitedAt !== null &&
-      now - agent.exitedAt > zombieTerminalIdleMs();
+    const terminalButAlive = shouldReapTerminalButAlive(agent, now, zombieTerminalIdleMs());
     if (terminalButAlive) {
       const record = markZombieKilled(agent, "terminal_but_alive", now);
       records.push(record);
@@ -518,6 +515,8 @@ function handleCompletedStdoutLines(agent: AgentState, lines: string[], at: numb
       agent.turnCompleted = true;
       agent.status = "finished";
       if (agent.exitedAt === null) agent.exitedAt = at;
+      releaseSlot(agent.slotPath ?? null);
+      agent.slotPath = null;
     }
   }
 }
@@ -1247,7 +1246,7 @@ server.tool(
 // Tool 2: poll_agent
 server.tool(
   "poll_agent",
-  "Get an agent's current status and output. `processing` = ALIVE with visible provider activity in the last 10 min; `stalled` = ALIVE but no visible provider stream item for 10 min (thinking, or awaiting a temp-file handoff) — NOT dead, so prefer `wait`/re-poll over killing. Always returns `alive` + `idle_seconds`, plus `recent_stream` (last 3 timestamped visible stream items) and a `hint` while stalled. `verbose: true` also returns `final_output`, the agent's final assistant turn from its captured stdout.",
+  "Get an agent's current status and output. `processing` = ALIVE with visible provider activity in the last 10 min; `stalled` = ALIVE but no visible provider stream item for 10 min (thinking, or awaiting a temp-file handoff) — NOT dead, so prefer `wait`/re-poll over killing. Polling refreshes the agent's idle clock. Always returns `alive` + `idle_seconds`, plus `recent_stream` (last 3 timestamped visible stream items) and a `hint` while stalled. `verbose: true` also returns `final_output`, the agent's final assistant turn from its captured stdout.",
   {
     agent_id: z.string(),
     verbose: z.boolean().optional().default(false),
@@ -1270,6 +1269,7 @@ server.tool(
     // completed/failed immediately (no up-to-10s health-monitor lag).
     const now = Date.now();
     reconcileAgent(agent, now);
+    agent.lastActivity = now;
 
     const escapedStdout = escapeUntrustedTags(agent.stdout);
     const escapedStderr = escapeUntrustedTags(agent.stderr);
@@ -1341,7 +1341,7 @@ server.tool(
 // Tool 3: kill_agent
 server.tool(
   "kill_agent",
-  "Terminate a live agent/session (status `processing`, `stalled`, or turn-finished but still interactive) by immediately force-killing its managed driver. No-op for already-terminal closed agents.",
+  "Terminate a live agent/session (status `processing`, `stalled`, or turn-finished but still interactive) by immediately force-killing its managed driver. A finished agent is force-killed automatically after 6 minutes of no `send_message`/`poll_agent` activity; call `kill_agent` sooner to free resources immediately. No-op for already-terminal closed agents.",
   {
     agent_id: z.string(),
   },
@@ -1548,7 +1548,7 @@ server.tool(
 // Tool 6: wait
 server.tool(
   "wait",
-  "Blocks until one or more sub-agents reach a reportable state (turn-finished, errored, stopped, or zombie_killed), returning exit code when known + local-time timestamp; or returns the live-job list after a 15-minute timeout. This is how you learn an agent finished — do NOT poll-loop. A `finished` agent with null exit_code is still alive and accepts `send_message`; a `stalled` agent is still ALIVE and does NOT end the wait. `verbose: true` adds each finished agent's `final_output`.",
+  "Blocks until one or more sub-agents reach a reportable state (turn-finished, errored, stopped, or zombie_killed), returning exit code when known + local-time timestamp; or returns the live-job list after a 15-minute timeout. This is how you learn an agent finished — do NOT poll-loop. A `finished` agent with null exit_code is still alive and accepts `send_message`; `send_message`/`poll_agent` activity keeps it alive, and 6 minutes idle auto-kills it. A `stalled` agent is still ALIVE and does NOT end the wait. `verbose: true` adds each finished agent's `final_output`.",
   {
     verbose: z.boolean().optional().default(false),
   },
