@@ -38,24 +38,31 @@ async function fetchMetadata() {
 }
 
 function verify(metadata) {
-  const latest = metadata?.["dist-tags"]?.latest;
+  const distTags = metadata?.["dist-tags"] ?? {};
+  const targetTag = targetVersion.includes("-") ? "beta" : "latest";
+  const taggedVersion = distTags[targetTag];
+  const latest = distTags.latest;
   const version = metadata?.versions?.[targetVersion];
   if (!version) {
     throw new Error(`${targetName}@${targetVersion} is absent from npmjs metadata`);
   }
-  if (latest !== targetVersion) {
+  if (taggedVersion !== targetVersion) {
     throw new Error(
-      `npmjs dist-tags.latest is ${JSON.stringify(latest)}, expected ${JSON.stringify(targetVersion)}`
+      `npmjs dist-tags.${targetTag} is ${JSON.stringify(taggedVersion)}, expected ${JSON.stringify(targetVersion)}`
     );
   }
+  if (targetTag !== "latest" && latest === targetVersion) {
+    throw new Error(`npmjs dist-tags.latest moved to prerelease ${JSON.stringify(targetVersion)}`);
+  }
+  return targetTag;
 }
 
 let lastError;
 let verified = false;
 for (let attempt = 1; attempt <= attempts; attempt++) {
   try {
-    verify(await fetchMetadata());
-    console.log(`npmjs verified: ${targetName}@${targetVersion} is latest`);
+    const targetTag = verify(await fetchMetadata());
+    console.log(`npmjs verified: ${targetName}@${targetVersion} is dist-tags.${targetTag}`);
     verified = true;
     break;
   } catch (error) {

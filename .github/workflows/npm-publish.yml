@@ -28,10 +28,12 @@ jobs:
       - run: npm run check:versions
       - run: npm run build
       - run: npm test
+      - run: |
+          node -e 'const p=require("./package.json"); console.log("NPM_DIST_TAG="+(p.version.includes("-") ? "beta" : "latest"))' >> "$GITHUB_ENV"
       # publishConfig.registry now targets npmjs (the default), so a bare publish
       # already routes here; --registry is kept explicit for clarity. Trusted
       # Publishing (OIDC) needs id-token: write and no token.
-      - run: npm publish --provenance --access public --registry=https://registry.npmjs.org --@heretyc:registry=https://registry.npmjs.org
+      - run: npm publish --tag "$NPM_DIST_TAG" --provenance --access public --registry=https://registry.npmjs.org --@heretyc:registry=https://registry.npmjs.org
       - run: npm run verify:npmjs-release
 
   github-packages:
@@ -49,8 +51,10 @@ jobs:
       - run: npm run check:versions
       - run: npm run build
       - run: npm test
+      - run: |
+          node -e 'const p=require("./package.json"); console.log("NPM_DIST_TAG="+(p.version.includes("-") ? "beta" : "latest"))' >> "$GITHUB_ENV"
       # publishConfig now defaults to npmjs, so route this job to GitHub Packages
       # explicitly with --registry; a bare publish would otherwise hit npmjs.
-      - run: npm publish --registry=https://npm.pkg.github.com
+      - run: npm publish --tag "$NPM_DIST_TAG" --registry=https://npm.pkg.github.com
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
