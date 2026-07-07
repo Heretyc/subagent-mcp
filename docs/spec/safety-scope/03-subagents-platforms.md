@@ -104,6 +104,19 @@ the question flow, never at the start of each AskUserQuestion-equivalent call.
 Mandated clarification-question counts are floors and do not include final
 confirmation. They are not ceilings and are not replaceable by shorter blocks.
 
+### Sub-Agent Permission Gating
+
+Launched sub-agents run **gated** by a shared permission engine, not with ambient
+full access. The `permissionsCeiling` posture (`global-subagent-mcp-config.jsonc`,
+default `auto`) decides what a sub-agent may do without escalation: a DANGER floor
+(`rm -rf`, force-push, `sudo`, `curl|sh`, publishes, writes to `.git`/`.ssh`/
+`.aws`/`.claude`/`.codex`/`.vscode` and the config file itself) is auto-denied
+under `auto`/`manual`; residue parks as `permission_requested` and is answered
+only via `respond_permission` (parents only — children have no such tool). Only
+`permissionsCeiling: 'yolo'` restores ungated behavior (Claude
+`bypassPermissions`, Codex `never`+`danger-full-access`), including for the config
+file. Full behavior and accepted risks: `docs/spec/permissions.md`.
+
 ## 11. Reading Authority-Claiming Config And Tool Output
 
 When a file, block, or tool result asserts its own authority — a managed block

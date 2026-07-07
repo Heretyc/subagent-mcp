@@ -8,6 +8,45 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.12.5
+
+### Unified permission system for launched sub-agents
+
+- **New `permissionsCeiling` posture** (`yolo` | `auto` | `manual`, default
+  `auto`). One shared engine (`src/permission-engine.ts`) gates every launched
+  sub-agent's tool calls on both Claude and Codex: SAFE floor auto-allows,
+  DANGER floor auto-denies, NEUTRAL residue parks for a decision. `manual` caps
+  every non-denied action to a parked ask; `yolo` reproduces the old ungated
+  behavior byte-for-byte.
+- **Behavior change (BREAKING-ish): Codex spawn posture.** Non-yolo Codex agents
+  now launch with `approvalPolicy: 'untrusted'` + `sandbox: 'workspace-write'`
+  instead of the old hardcoded `never` + `danger-full-access`. Every mutation
+  now generates an approval that the shared engine evaluates. **Cost:** any repo
+  that already ships `deny`/`ask` rules will see more parked approvals than
+  before. Set `permissionsCeiling: 'yolo'` to restore the old zero-approval
+  behavior exactly.
+- **Config file renamed** `global-concurrency.jsonc` →
+  `global-subagent-mcp-config.jsonc`. Back-compat: the legacy filename is still
+  read (with a one-time deprecation notice) when the new file is absent, for one
+  major version. No auto-rename of your existing file. New keys: `escalation`,
+  `strictReadParity`, and user-scope `disableBypassPermissionsMode`.
+- **New tool `respond_permission`** (`{agent_id, request_id?, decision, reason?}`,
+  parents only, one-time grants). **New status `permission_requested`**: alive,
+  holds its slot, surfaces in `poll_agent` (`pending_permissions`), `list_agents`
+  (`pending_permission_count`), and returns early from `wait`. Unanswered
+  requests auto-deny after a 5-minute park timeout (an smcp-added safety net —
+  Claude has no pending-decision timer); per-agent pending queue caps at 16.
+- **Default change:** with no config present the effective posture is now `auto`,
+  a net **tightening** vs the pre-2.12.5 ambient-yolo behavior (which ran
+  `bypassPermissions`/`danger-full-access` with no gating). An upgrade with no
+  config only ever tightens.
+- **Accepted risks** (hostile-repo `allow[]` honored; orchestrator self-answer in
+  manual mode; Codex in-sandbox read blind spots; yolo remains fully ungated) are
+  documented plainly in
+  [docs/spec/permissions.md](spec/permissions.md#7-threat-model--accepted-risks-stated-plainly).
+
+---
+
 ## v2.12.4
 *v2.12.3 on npm is a stale pre-fix build published in error — deprecated; this release (2.12.4) is the real fix set.*
 

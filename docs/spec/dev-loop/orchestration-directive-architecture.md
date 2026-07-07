@@ -17,6 +17,16 @@ inline reads/writes). OFF = solo + per-turn >200-line upgrade check. State is
 reported SOLELY by the hook `<subagent-mcp state="...">` tag; hookless hosts →
 UNKNOWN → fail-safe ON. Sub-agent first-line marker skips the whole regime.
 
+Orchestration mode is **orthogonal** to the permission system: orchestration
+mode governs *who* decides to delegate work to sub-agents; `permissionsCeiling`
+(`docs/spec/permissions.md`) governs *what* a launched sub-agent may do without
+escalation. The `permission_requested` status and the `respond_permission` tool
+belong to the permission system, not this regime. (Note: the Claude PreToolUse
+gate `src/orchestration/pretool.ts` denies only the orchestrator's own
+harness-native `Task`/`Agent`/`Explore` calls; it does **not** make a launched
+child's permission decisions — those run through the shared engine in
+`src/drivers.ts`.)
+
 ## Leaf directory (load when / do not load when)
 
 | Leaf | Covers | Load when | Do NOT load when |
@@ -42,6 +52,8 @@ UNKNOWN → fail-safe ON. Sub-agent first-line marker skips the whole regime.
 - tests (gating/non-gating), 5-call gate → `sections-10-13.md` (§11), `derivation-map.md` (§14.3)
 - INIT_BLOCK / MCP instructions verbatim → `appendix-a1-a4.md`
 - the 9 directive files verbatim → `appendix-a5-directives.md`
+- permission gating / `permissionsCeiling` / `respond_permission` /
+  `permission_requested` (orthogonal to this regime) → `docs/spec/permissions.md`
 
 ## Trigger phrases
 

@@ -1,6 +1,6 @@
 # Tool Reference
 
-The eight tools exposed by `subagent-mcp`. See [README.md](../README.md) for the
+The nine tools exposed by `subagent-mcp`. See [README.md](../README.md) for the
 overview and [docs/SPEC.md](SPEC.md) for full parameter schemas and return
 shapes.
 
@@ -120,6 +120,23 @@ With `verbose: true`, every entry in `finished` gains a `final_output` field car
 ```
 
 Each finished job is reported exactly once per `wait` call (deduplicated by an internal `waitReported` flag). Calling `wait` again after a timeout will block for another 15 minutes.
+
+`wait` also returns unreported `permission_requested` agents (alongside `finished`) so a parked sub-agent surfaces promptly — see [`respond_permission`](#respond_permission).
+
+---
+
+## `respond_permission`
+
+Answer a parked permission request for a gated sub-agent (parents only — children have no such tool). One-time only; creates no session-wide approvals. Available when `permissionsCeiling` is `auto`/`manual` (see [docs/spec/permissions.md](spec/permissions.md)).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `agent_id` | string | Yes | The agent whose request to answer |
+| `request_id` | string | No | Which pending request; omitted answers the oldest |
+| `decision` | `"allow"` \| `"deny"` | Yes | Approve or deny the parked action |
+| `reason` | string | No | Note delivered to the sub-agent; required when allowing a request flagged `escalate_to_human` |
+
+The sub-agent continues regardless of the decision — a deny never kills it. Unanswered requests auto-deny after 5 minutes; the per-agent pending queue caps at 16. When a request is parked the agent's status is `permission_requested` and it appears in `poll_agent` (`pending_permissions`) and `list_agents` (`pending_permission_count`). `send_message` is rejected while any request is pending. In `auto` mode, irreversible residue with `escalation: "irreversible-only"` is surfaced as `escalate_to_human: true`; the orchestrator must route it to the human.
 
 ---
 
