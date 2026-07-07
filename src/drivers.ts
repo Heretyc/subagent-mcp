@@ -32,6 +32,7 @@ export interface DriverLaunchOptions {
   model: string;
   effort: string;
   ucSettingsPath?: string;
+  ucSettingsDir?: string;
   agentId?: string;
   permissionSnapshot?: PermissionSnapshot;
 }
@@ -249,6 +250,9 @@ type ClaudePermissionResult =
   | { behavior: "allow" }
   | { behavior: "deny"; message: string; interrupt?: boolean };
 
+type StrictReadParity = "warn" | "off";
+type DriverPermissionSnapshot = PermissionSnapshot & { strictReadParity?: StrictReadParity };
+
 function denyClaudePermission(message: string): ClaudePermissionResult {
   return { behavior: "deny", message };
 }
@@ -260,13 +264,15 @@ function allowClaudePermission(): ClaudePermissionResult {
 function permissionSnapshotForLaunch(options: DriverLaunchOptions): PermissionSnapshot {
   if (options.permissionSnapshot) return options.permissionSnapshot;
   const merged = readMergedPermissionConfig(options.cwd);
-  return {
+  const snapshot: DriverPermissionSnapshot = {
     ceiling: merged.permissionsCeiling,
     escalation: merged.escalation,
     rules: { allow: merged.allow, deny: merged.deny, ask: merged.ask },
     additionalDirectories: merged.additionalDirectories,
     repoConfigChangedSinceFirstSeen: merged.repoConfigChangedSinceFirstSeen,
+    strictReadParity: merged.strictReadParity,
   };
+  return snapshot;
 }
 
 function claudeToolName(request: JsonObject): string {
@@ -348,6 +354,134 @@ function isBypassImmuneClaudeAsk(request: JsonObject, op: PermissionOp): boolean
 
 function permissionDecisionToClaude(decision: PermissionVerdict, reason: string): ClaudePermissionResult {
   return decision === "allow" ? allowClaudePermission() : denyClaudePermission(reason);
+}
+
+type CodexApprovalPolicy = "never" | "untrusted";
+type CodexThreadSandbox = "danger-full-access" | "workspace-write";
+type CodexTurnSandboxPolicy = { type: "dangerFullAccess" } | { type: "workspaceWrite"; writableRoots: string[] };
+
+interface CodexLaunchValues {
+  approvalPolicy: CodexApprovalPolicy;
+  threadSandbox: CodexThreadSandbox;
+  turnSandboxPolicy: CodexTurnSandboxPolicy;
+}
+
+function resolveCodexLaunchValues(snapshot: PermissionSnapshot): CodexLaunchValues {
+  if (snapshot.ceiling === "yolo") {
+    return {
+      approvalPolicy: "never",
+      threadSandbox: "danger-full-access",
+      turnSandboxPolicy: { type: "dangerFullAccess" },
+    };
+  }
+  return {
+    approvalPolicy: "untrusted",
+    threadSandbox: "workspace-write",
+    turnSandboxPolicy: {
+      type: "workspaceWrite",
+      writableRoots: snapshot.additionalDirectories ?? [],
+    },
+  };
+}
+
+type CodexApprovalMethod =
+  | "item/commandExecution/requestApproval"
+  | "item/fileChange/requestApproval"
+  | "execCommandApproval"
+  | "applyPatchApproval"
+  | "mcpServer/elicitation/request";
+
+interface CodexApprovalRecord {
+  jsonRpcId: string | number;
+  method: CodexApprovalMethod;
+  params: JsonObject;
+}
+
+function isCodexApprovalMethod(method: string): method is CodexApprovalMethod {
+  return (
+    method === "item/commandExecution/requestApproval" ||
+    method === "item/fileChange/requestApproval" ||
+    method === "execCommandApproval" ||
+    method === "applyPatchApproval" ||
+    method === "mcpServer/elicitation/request"
+  );
+}
+
+function codexApprovalKey(id: string | number): string {
+  return `${typeof id}:${id}`;
+}
+
+function codexParams(message: JsonObject): JsonObject {
+  return message.params && typeof message.params === "object" && !Array.isArray(message.params)
+    ? (message.params as JsonObject)
+    : {};
+}
+
+function codexStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v.length > 0) : [];
+}
+
+function codexFileChangePaths(fileChanges: unknown): string[] {
+  if (!fileChanges || typeof fileChanges !== "object" || Array.isArray(fileChanges)) return [];
+  return Object.keys(fileChanges as Record<string, unknown>).filter((p) => p.length > 0);
+}
+
+function codexCommandFromParams(params: JsonObject): { command?: string; argv?: string[] } {
+  const command = params.command;
+  if (typeof command === "string" && command.length > 0) return { command };
+  const argv = codexStringArray(command);
+  if (argv.length > 0) return { command: argv.join(" "), argv };
+  return {};
+}
+
+function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject, cwd: string): { op: PermissionOp; confidence: boolean } {
+  if (method === "item/commandExecution/requestApproval" || method === "execCommandApproval") {
+    const command = codexCommandFromParams(params);
+    const opCwd = typeof params.cwd === "string" && params.cwd.length > 0 ? params.cwd : cwd;
+    return {
+      op: {
+        tool: "Bash",
+        ...command,
+        cwd: opCwd,
+        irreversible: Boolean(params.irreversible),
+      },
+      confidence: Boolean(command.command),
+    };
+  }
+
+  if (method === "item/fileChange/requestApproval" || method === "applyPatchApproval") {
+    const paths = [
+      ...(typeof params.grantRoot === "string" && params.grantRoot.length > 0 ? [params.grantRoot] : []),
+      ...codexFileChangePaths(params.fileChanges),
+    ];
+    return {
+      op: {
+        tool: "Edit",
+        ...(paths.length > 0 ? { paths } : {}),
+        cwd,
+        irreversible: false,
+      },
+      confidence: paths.length > 0 || method === "item/fileChange/requestApproval",
+    };
+  }
+
+  return {
+    op: {
+      tool: "mcpServer/elicitation",
+      cwd,
+      irreversible: false,
+    },
+    confidence: false,
+  };
+}
+
+function codexApprovalResult(method: CodexApprovalMethod, decision: PermissionVerdict): JsonObject {
+  const allowed = decision === "allow";
+  if (method === "mcpServer/elicitation/request") return { action: allowed ? "accept" : "decline" };
+  if (method === "execCommandApproval" || method === "applyPatchApproval") {
+    return { decision: allowed ? "approved" : "denied" };
+  }
+  return { decision: allowed ? "accept" : "decline" };
 }
 
 export class MockJsonlDriver implements ProviderDriver {
@@ -450,7 +584,9 @@ export class CodexAppServerDriver implements ProviderDriver {
     number,
     { resolve: (value: JsonObject) => void; reject: (err: Error) => void; timer: NodeJS.Timeout }
   >();
+  private readonly pendingApprovals = new Map<string, CodexApprovalRecord>();
   private readonly queuedTurns: string[] = [];
+  private readonly pendingDenyReasons: string[] = [];
   private nextId = 1;
   private stdoutBuf = "";
   private threadId: string | null = null;
@@ -459,12 +595,12 @@ export class CodexAppServerDriver implements ProviderDriver {
   private initialized = false;
   private turnInFlight = false;
   private readonly maxQueueDepth = 32;
-  // An inbound server->client RPC (elicitation, e.g. requestUserInput / approval)
-  // awaiting a reply. While set, the next send() answers this request instead of
-  // enqueuing a new turn — otherwise the in-flight question turn wedges the queue.
-  private pendingServerRequest: { id: string | number; method: string; options?: JsonObject[] } | null = null;
-
+  private readonly maxPendingApprovals = 16;
+  private readonly permissionSnapshot: PermissionSnapshot;
+  private readonly codexLaunchValues: CodexLaunchValues;
   constructor(private readonly child: ChildProcess, private readonly options: DriverLaunchOptions) {
+    this.permissionSnapshot = permissionSnapshotForLaunch(options);
+    this.codexLaunchValues = resolveCodexLaunchValues(this.permissionSnapshot);
     this.process = new LogicalProcess(child.pid);
     child.once("spawn", () => this.process.emit("spawn"));
     child.once("error", (err) => this.fail(err));
@@ -493,8 +629,8 @@ export class CodexAppServerDriver implements ProviderDriver {
     const thread = await this.request("thread/start", {
       model: this.options.model,
       cwd: this.options.cwd,
-      approvalPolicy: "never",
-      sandbox: "danger-full-access",
+      approvalPolicy: this.codexLaunchValues.approvalPolicy,
+      sandbox: this.codexLaunchValues.threadSandbox,
       ephemeral: true,
       threadSource: "subagent",
     });
@@ -511,18 +647,6 @@ export class CodexAppServerDriver implements ProviderDriver {
     if (!this.initialized || !this.threadId) {
       return Promise.reject(new Error("codex app-server thread is not initialized"));
     }
-    if (this.pendingServerRequest) {
-      // The message is the user's answer to a parked server-side elicitation.
-      // Reply on the same JSON-RPC id (mirroring the { id, result } envelope our
-      // own request() responses arrive in) instead of enqueuing a fresh turn.
-      const req = this.pendingServerRequest;
-      this.pendingServerRequest = null;
-      return writeLine(this.child.stdin, {
-        jsonrpc: "2.0",
-        id: req.id,
-        result: buildElicitationResult(req.options, message),
-      });
-    }
     if (this.queuedTurns.length >= this.maxQueueDepth) {
       return Promise.reject(new Error(`provider input queue is full (${this.maxQueueDepth})`));
     }
@@ -538,7 +662,7 @@ export class CodexAppServerDriver implements ProviderDriver {
     (this.process as LogicalProcess).kill("SIGKILL");
     this.rejectPending(new Error("codex app-server driver was killed"));
     this.queuedTurns.length = 0;
-    this.pendingServerRequest = null;
+    this.pendingApprovals.clear();
   }
 
   private async drainQueuedTurns(): Promise<void> {
@@ -562,15 +686,16 @@ export class CodexAppServerDriver implements ProviderDriver {
     if (this.closed) throw new Error("provider driver is closed");
     if (!this.threadId) throw new Error("codex app-server thread is not initialized");
     this.turnInFlight = true;
+    const inputText = this.consumeDenyNotice(message);
     try {
       const response = await this.request("turn/start", {
         threadId: this.threadId,
-        input: [textInput(message)],
+        input: [textInput(inputText)],
         cwd: this.options.cwd,
         model: this.options.model,
         effort: this.options.effort,
-        approvalPolicy: "never",
-        sandboxPolicy: { type: "dangerFullAccess" },
+        approvalPolicy: this.codexLaunchValues.approvalPolicy,
+        sandboxPolicy: this.codexLaunchValues.turnSandboxPolicy,
       });
       const turn = (response.result as JsonObject | undefined)?.turn as JsonObject | undefined;
       this.activeTurnId = typeof turn?.id === "string" ? turn.id : this.activeTurnId;
@@ -595,6 +720,13 @@ export class CodexAppServerDriver implements ProviderDriver {
 
   private notify(method: string, params?: unknown): Promise<void> {
     return writeLine(this.child.stdin, params === undefined ? { method } : { method, params });
+  }
+
+  private consumeDenyNotice(message: string): string {
+    if (this.pendingDenyReasons.length === 0) return message;
+    const reasons = this.pendingDenyReasons.splice(0);
+    const shown = [...new Set(reasons)].slice(0, 8).join("; ");
+    return `Permission DENIED for ${reasons.length} action(s) since your last message: ${shown}. Do not retry; adjust approach.\n\n${message}`;
   }
 
   private onStdout(chunk: string): void {
@@ -629,14 +761,15 @@ export class CodexAppServerDriver implements ProviderDriver {
     } else if (
       isJsonRpcId(message.id) &&
       typeof message.method === "string" &&
+      isCodexApprovalMethod(message.method)
+    ) {
+      void this.handleCodexApproval(message.id, message.method, codexParams(message));
+    } else if (
+      isJsonRpcId(message.id) &&
+      typeof message.method === "string" &&
       isElicitationMethod(message.method)
     ) {
-      // Inbound server->client RPC (elicitation) that is NOT a reply to one of
-      // our requests. Park it so the next send() answers it instead of queuing a
-      // new turn; leaving it unanswered wedges the in-flight question turn.
-      const params = (message.params ?? {}) as JsonObject;
-      const options = Array.isArray(params.options) ? (params.options as JsonObject[]) : undefined;
-      this.pendingServerRequest = { id: message.id, method: message.method, options };
+      void this.replyJsonRpc(message.id, buildElicitationResult(undefined, ""));
     }
 
     if (message.method === "turn/started" && message.params && typeof message.params === "object") {
@@ -649,6 +782,61 @@ export class CodexAppServerDriver implements ProviderDriver {
       this.turnInFlight = false;
       void this.drainQueuedTurns();
     }
+  }
+
+  private async handleCodexApproval(
+    jsonRpcId: string | number,
+    method: CodexApprovalMethod,
+    params: JsonObject
+  ): Promise<void> {
+    const key = codexApprovalKey(jsonRpcId);
+    const record: CodexApprovalRecord = { jsonRpcId, method, params };
+    if (this.pendingApprovals.size >= this.maxPendingApprovals) {
+      await this.replyCodexApproval(record, "deny", "pending approval cap reached; auto-denied fail-closed");
+      return;
+    }
+    this.pendingApprovals.set(key, record);
+    const { op, confidence } = codexApprovalOp(method, params, this.options.cwd);
+    const strictReadParity = (this.permissionSnapshot as DriverPermissionSnapshot).strictReadParity ?? "warn";
+    if (!confidence && this.permissionSnapshot.ceiling !== "yolo" && strictReadParity === "warn") {
+      console.error(
+        `[permissions] strictReadParity warn: Codex approval payload for ${method} could not be matched with full confidence; routing to ask`
+      );
+    }
+    const engineResult = confidence
+      ? verdict(op, this.permissionSnapshot.rules)
+      : { verdict: "ask" as const, reason: "Codex approval payload could not be matched with full confidence" };
+    const decision = applyPermissionCeiling(engineResult.verdict, this.permissionSnapshot.ceiling);
+    if (decision !== "ask") {
+      await this.replyCodexApproval(record, decision, engineResult.reason);
+      return;
+    }
+    const pendingDecision = await requestPendingPermission({
+      agentId: this.options.agentId,
+      harnessChannel: "codex-app-server",
+      toolNameOrMethod: method,
+      action: params,
+      reason: engineResult.reason,
+      suggestions: [],
+      correlationId: jsonRpcId,
+    });
+    await this.replyCodexApproval(record, pendingDecision.verdict, pendingDecision.reason);
+  }
+
+  private async replyCodexApproval(
+    record: CodexApprovalRecord,
+    decision: PermissionVerdict,
+    reason: string
+  ): Promise<void> {
+    const key = codexApprovalKey(record.jsonRpcId);
+    if (!this.pendingApprovals.has(key)) return;
+    this.pendingApprovals.delete(key);
+    if (decision !== "allow") this.pendingDenyReasons.push(`${record.method}: ${reason}`);
+    await this.replyJsonRpc(record.jsonRpcId, codexApprovalResult(record.method, decision));
+  }
+
+  private replyJsonRpc(id: string | number, result: JsonObject): Promise<void> {
+    return writeLine(this.child.stdin, { jsonrpc: "2.0", id, result });
   }
 
   private fail(error: Error): void {
