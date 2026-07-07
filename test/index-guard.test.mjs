@@ -59,6 +59,15 @@ try {
   assert.ok(stderrEscapeAt >= 0, "poll_agent should escape stderr before slicing");
   assert.ok(stderrSliceAt > stderrEscapeAt, "stderr escaping must textually precede tail slicing");
 
+  // Permission-park regression: tryLaunchCandidate must forward agentId into
+  // createProviderDriver, else drivers see options.agentId undefined and every
+  // parked permission fail-closes ("permission request missing agent id").
+  assert.match(
+    source,
+    /createProviderDriver\(\{[\s\S]*?\bagentId\b[\s\S]*?\}\)/,
+    "createProviderDriver call must forward agentId so parked permissions survive"
+  );
+
   console.log("PASS index guard checks");
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
