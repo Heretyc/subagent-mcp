@@ -1,0 +1,39 @@
+// subagent-mcp - Global Subagent MCP Config
+// ------------------------------------------------------------------
+// SOLE source of truth for machine-wide subagent-mcp defaults that must be
+// available beside the compiled server.
+//
+// globalConcurrentSubagents controls how many subagents may be ALIVE AT ONCE
+// across EVERY session, process, and user on this machine. There is NO
+// environment-variable override for the cap.
+//
+// RE-READ on every launch_agent call - edits take effect immediately, no
+// server restart required.
+//
+// Cap value rules:
+//   - missing / unset / non-integer / 0 / negative -> reset to default 20
+//   - 1 through 9                                  -> forced UP to minimum 10
+//   - 10 or greater                                -> used as-is
+//
+// checkForUpdates controls the silent npmjs update check started when the MCP
+// server connects. Default true. Set to false to skip the registry fetch and
+// suppress hook notices. SUBAGENT_UPDATE_CHECK=0 or false also disables it.
+//
+// permissionsCeiling controls launch-time permissions posture:
+//   - auto   (default): shared engine gates unsafe/residue actions
+//   - manual: human approval for residue while still auto-denying DANGER
+//   - yolo:  preserve the historical bypass/danger-full-access path, except
+//            for non-bypassable config-file self-protection
+//
+// escalation applies only in auto mode. irreversible-only routes irreversible
+// NEUTRAL residue to a human; off leaves residue to orchestrator judgment.
+//
+// strictReadParity controls logging only. Unparseable Codex approval payloads
+// always fail closed to ask; warn logs the construct, off silences that log.
+{
+  "globalConcurrentSubagents": 20,
+  "checkForUpdates": true,
+  "permissionsCeiling": "auto",
+  "escalation": "irreversible-only",
+  "strictReadParity": "warn"
+}
