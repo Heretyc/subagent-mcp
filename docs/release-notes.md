@@ -40,6 +40,10 @@ this page records what each release changes for operators.
   a net **tightening** vs the pre-2.12.5 ambient-yolo behavior (which ran
   `bypassPermissions`/`danger-full-access` with no gating). An upgrade with no
   config only ever tightens.
+- **Beta-cycle hardening:** forwarded `agentId` consistently through permission
+  decisions, gated Codex `PreToolUse` Bash approvals through the shared engine,
+  made parked Codex waits return as soon as approval is needed, serialized poll
+  reads during permission parking, and demoted manual-mode SAFE actions to asks.
 - **Accepted risks** (hostile-repo `allow[]` honored; orchestrator self-answer in
   manual mode; Codex in-sandbox read blind spots; yolo remains fully ungated) are
   documented plainly in
