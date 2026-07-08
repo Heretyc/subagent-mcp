@@ -21,6 +21,7 @@ import type { AgentStatus } from "./status-helpers.js";
 import {
   computeStatusTransition,
   buildLivenessFields,
+  reconcilePermissionStatus,
 } from "./status-helpers.js";
 import {
   escapeUntrustedTags,
@@ -185,21 +186,29 @@ function pendingPermissionSummary(record: PendingPermissionRecord, now = Date.no
   };
 }
 
-pendingPermissionManager.onAgentQueueChange((agentId, pendingCount) => {
+// Reconcile one agent's live status against its current pending-permission
+// depth. Used by the live queue listener AND at registration time (agents.set)
+// to recover a park whose queue event fired before the agent was registered —
+// the Codex approval race, where approvals arrive during driver.start() inside
+// the spawn-grace window, ahead of agents.set. Idempotent and no-op unless the
+// pure rule says the status must change.
+function reconcileAgentPermissionStatus(agent: AgentState): void {
+  if (agent.exitCode !== null) return;
+  const { status, changed } = reconcilePermissionStatus(
+    agent.status,
+    pendingPermissionManager.pendingCount(agent.id)
+  );
+  if (!changed) return;
+  agent.status = status;
+  agent.waitReported = false;
+  if (status === "processing") agent.lastActivity = Date.now();
+  updateSlotMetadata(agent);
+}
+
+pendingPermissionManager.onAgentQueueChange((agentId) => {
   const agent = agents.get(agentId);
-  if (!agent || agent.exitCode !== null) return;
-  if (pendingCount > 0) {
-    if (agent.status === "processing" || agent.status === "stalled") {
-      agent.status = "permission_requested";
-      agent.waitReported = false;
-      updateSlotMetadata(agent);
-    }
-  } else if (agent.status === "permission_requested") {
-    agent.status = "processing";
-    agent.waitReported = false;
-    agent.lastActivity = Date.now();
-    updateSlotMetadata(agent);
-  }
+  if (!agent) return;
+  reconcileAgentPermissionStatus(agent);
 });
 
 // Post-spawn grace window (ms). A provider driver that exits within this window
@@ -1051,6 +1060,7 @@ async function tryLaunchCandidate(
       const startedBeforeStartError = await readStartedBoundary();
       if (startedBeforeStartError) {
         agents.set(agentId, agentState);
+        reconcileAgentPermissionStatus(agentState);
         return { agentId };
       }
       // Lived past the grace window but the startup write failed: the child is
@@ -1068,6 +1078,7 @@ async function tryLaunchCandidate(
   }
 
   agents.set(agentId, agentState);
+  reconcileAgentPermissionStatus(agentState);
   return { agentId };
 }
 
@@ -1414,7 +1425,9 @@ server.tool(
             ...liveness,
             ...(pendingPermissionManager.pendingCount(agent.id) > 0
               ? {
-                  pending_permissions: pendingPermissionManager.pendingForAgent(agent.id),
+                  pending_permissions: pendingPermissionManager
+                    .pendingForAgent(agent.id)
+                    .map((p) => pendingPermissionSummary(p, now)),
                 }
               : {}),
             ...(isStalePermissive(agent)

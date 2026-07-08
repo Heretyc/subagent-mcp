@@ -75,7 +75,14 @@ const PARK_TIMEOUT_MS = 5 * 60 * 1000;
 const PER_AGENT_FIFO_CAP = 16;
 
 function publicRecord(record: PendingPermissionRecord): PendingPermissionRecord {
-  return { ...record };
+  // record may be a StoredPendingPermission at runtime, which carries a live
+  // NodeJS.Timeout and a resolve closure. Both are non-serializable (the timer
+  // is circular via TimersList), so strip them — a leaked timer crashes any
+  // JSON.stringify of a public record (e.g. poll_agent's pending_permissions).
+  const { timer, resolve, ...clean } = record as StoredPendingPermission;
+  void timer;
+  void resolve;
+  return clean;
 }
 
 function shouldEscalateToHuman(input: {

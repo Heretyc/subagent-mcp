@@ -16,6 +16,7 @@ import {
 } from "../dist/concurrency.js";
 import { buildCommand } from "../dist/effort.js";
 import { selectUnreportedPermissionRequested } from "../dist/wait-helpers.js";
+import { reconcilePermissionStatus } from "../dist/status-helpers.js";
 import { shouldReapTerminalButAlive } from "../dist/zombie.js";
 
 let passed = 0;
@@ -256,6 +257,59 @@ await test("permission lifecycle replies are never dropped for deny, timeout, ki
   assert.equal(manager.pendingCount("agent-cap"), 16);
   assert.equal(overflowReplies.at(-1).decision, "deny");
   assert.equal(manager.telemetry.cap_overflow_auto_denies, 1);
+});
+
+await test("pendingForAgent records are JSON-serializable (no live timer leak)", () => {
+  // Regression: poll_agent serializes pending_permissions; a leaked NodeJS.Timeout
+  // is circular (Timeout -> TimersList -> Timeout) and crashes JSON.stringify.
+  const manager = new PendingPermissionManager();
+  manager.create({
+    agent_id: "serialize-agent",
+    harness_channel: "codex-app-server",
+    tool_name_or_method: "item/commandExecution/requestApproval",
+    action: { command: "whoami" },
+    correlation_id: 1,
+    resolve: () => {},
+  });
+  const records = manager.pendingForAgent("serialize-agent");
+  assert.equal(records.length, 1);
+  assert.equal("timer" in records[0], false, "public record must not carry the live timer");
+  assert.equal("resolve" in records[0], false, "public record must not carry the resolve closure");
+  assert.doesNotThrow(() => JSON.stringify(records), "pending record must round-trip through JSON");
+});
+
+await test("reconcilePermissionStatus recovers a park whose queue event fired before registration", () => {
+  // pure rule: pending>0 flips a live agent to permission_requested
+  assert.deepEqual(reconcilePermissionStatus("processing", 1), { status: "permission_requested", changed: true });
+  assert.deepEqual(reconcilePermissionStatus("stalled", 2), { status: "permission_requested", changed: true });
+  // already parked or draining: no churn
+  assert.deepEqual(reconcilePermissionStatus("permission_requested", 1), { status: "permission_requested", changed: false });
+  // queue drained: recover to processing
+  assert.deepEqual(reconcilePermissionStatus("permission_requested", 0), { status: "processing", changed: true });
+  // terminal-ish / nothing pending: untouched
+  assert.deepEqual(reconcilePermissionStatus("processing", 0), { status: "processing", changed: false });
+  assert.deepEqual(reconcilePermissionStatus("finished", 3), { status: "finished", changed: false });
+
+  // Race simulation: a Codex approval parks (pending created) BEFORE the agent
+  // row is registered, so the onAgentQueueChange listener no-ops. At
+  // registration the agent is still "processing"; reconcile must flip it so an
+  // in-flight `wait` (selectUnreportedPermissionRequested) surfaces it.
+  const manager = new PendingPermissionManager();
+  const agentId = "race-agent";
+  manager.create({
+    agent_id: agentId,
+    harness_channel: "codex-app-server",
+    tool_name_or_method: "item/commandExecution/requestApproval",
+    action: { command: "whoami" },
+    correlation_id: 7,
+    resolve: () => {},
+  });
+  const agent = { id: agentId, status: "processing", waitReported: false, exitCode: null };
+  assert.deepEqual(selectUnreportedPermissionRequested([agent]), [], "pre-reconcile: wait sees nothing");
+  const r = reconcilePermissionStatus(agent.status, manager.pendingCount(agentId));
+  if (r.changed) { agent.status = r.status; agent.waitReported = false; }
+  assert.equal(agent.status, "permission_requested");
+  assert.deepEqual(selectUnreportedPermissionRequested([agent]).map((a) => a.id), [agentId], "post-reconcile: wait early-returns it");
 });
 
 await test("permission lifecycle selectors and one-time grants behave as specified", async () => {

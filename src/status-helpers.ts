@@ -78,6 +78,25 @@ export function computeStatusTransition(
   return { status, exitedAt: input.exitedAt };
 }
 
+// Pure reconciliation of an agent's live status against its pending-permission
+// queue depth. Mirrors the onAgentQueueChange listener so registration-time
+// reconciliation and the live listener share one rule. A park that fires BEFORE
+// the agent is registered (the Codex approval race: approvals arrive during
+// driver.start(), inside the spawn-grace window, before agents.set) loses its
+// queue event; re-running this after registration recovers the flip.
+export function reconcilePermissionStatus(
+  status: AgentStatus,
+  pendingCount: number
+): { status: AgentStatus; changed: boolean } {
+  if (pendingCount > 0 && (status === "processing" || status === "stalled")) {
+    return { status: "permission_requested", changed: true };
+  }
+  if (pendingCount === 0 && status === "permission_requested") {
+    return { status: "processing", changed: true };
+  }
+  return { status, changed: false };
+}
+
 export interface LivenessFields {
   alive: boolean;
   idle_seconds: number;
