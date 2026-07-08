@@ -124,10 +124,10 @@ resolve path, keyed to a server-generated `request_id`.
   (`wait-helpers.ts:TERMINAL_STATUSES` requires `exitedAt !== null`). A separate
   selection returns unreported pendings alongside `finished`; the "fleet idle"
   short-circuit will not fire while an unreported pending exists.
-- **`poll_agent`** adds `pending_permissions` (full records, oldest-first).
-  **`list_agents`** adds `pending_permission_count`. Both surface
-  `stale_permissive` when a live agent's snapshot is looser than the current
-  ceiling (hint to `kill_agent`; no auto-revoke — no live-config-push channel).
+- **`poll_agent`** adds summarized `pending_permissions` (oldest-first):
+  `request_id`, `tool_name_or_method`, `harness_channel`, `permission_ceiling`,
+  `escalation`, `irreversible`, `escalate_to_human`, `requested_at`, `age_seconds`.
+  **`list_agents`** adds `pending_permission_count`; both surface `stale_permissive`.
 - **Park timeout (5 min)** `PARK_TIMEOUT_MS` — unanswered → auto-deny, agent
   continues. An **smcp-added safety net**: Claude itself has no pending-decision
   timer; interactive/print/stdio and the Codex approval channels all block
