@@ -115,7 +115,7 @@ export function clampCap(raw: unknown): number {
 }
 
 export function stripJsoncComments(text: string): string {
-  return text.replace(/^\s*\/\/.*$/gm, "");
+  return text.replace(/^\uFEFF/, "").replace(/^\s*\/\/.*$/gm, "");
 }
 
 function parseJsonObject(text: string): Record<string, unknown> {
