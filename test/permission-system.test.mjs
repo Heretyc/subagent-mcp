@@ -5,7 +5,7 @@ import { tmpdir, platform } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { verdict } from "../dist/permission-engine.js";
+import { verdict, applyPermissionCeiling } from "../dist/permission-engine.js";
 import { codexApprovalOp, codexApprovalResult, ClaudeSdkDriver } from "../dist/drivers.js";
 import {
   PendingPermissionManager,
@@ -83,7 +83,7 @@ function claudeRequestFromOp(op) {
   return { toolName: op.tool, input, id: `claude-${op.tool}` };
 }
 
-async function claudeAdapterVerdict(op, rules) {
+async function claudeAdapterVerdict(op, rules, ceiling = "auto") {
   const agentId = `golden-claude-${Math.random().toString(16).slice(2)}`;
   let sdkOptions;
   async function* query(params) {
@@ -103,7 +103,7 @@ async function claudeAdapterVerdict(op, rules) {
     effort: "high",
     agentId,
     permissionSnapshot: {
-      ceiling: "auto",
+      ceiling,
       escalation: "irreversible-only",
       rules: rules ?? {},
     },
@@ -147,6 +147,35 @@ await test("golden vectors run through shared engine and both adapter mappings",
     const mapped = codexApprovalOp(method, codexParamsFromOp(vector.op), vector.op.cwd);
     const codex = mapped.confidence ? verdict(mapped.op, vector.rules ?? {}).verdict : "ask";
     assert.equal(codex, engine, `${vector.name}: Codex adapter`);
+  }
+});
+
+// Regression for J2-9 "total-order-over-modes": manual must auto-allow SAFE,
+// auto-deny DANGER, and only park NEUTRAL residue for a human — it must NOT
+// demote a SAFE op's allow into an "ask" park. Exercised through the shared
+// engine ceiling and BOTH adapters.
+await test("manual ceiling: SAFE->allow, DANGER->deny, NEUTRAL->ask through engine and both adapters", async () => {
+  const cases = [
+    { name: "SAFE", op: { tool: "Bash", command: "git status", cwd: process.cwd() }, expected: "allow" },
+    { name: "DANGER", op: { tool: "Bash", command: "sudo whoami", cwd: process.cwd() }, expected: "deny" },
+    { name: "NEUTRAL", op: { tool: "Bash", command: "whoami", cwd: process.cwd() }, expected: "ask" },
+  ];
+  for (const c of cases) {
+    // Shared engine + manual ceiling.
+    const engine = applyPermissionCeiling(verdict(c.op, {}).verdict, "manual");
+    assert.equal(engine, c.expected, `${c.name}: engine under manual ceiling`);
+
+    // Claude adapter (canUseTool/PreToolUse gate) under manual: allow/deny do
+    // not park; only NEUTRAL parks (surfaced as "ask" by the harness helper).
+    const claude = await claudeAdapterVerdict(c.op, {}, "manual");
+    assert.equal(claude, c.expected, `${c.name}: Claude adapter under manual ceiling`);
+
+    // Codex adapter: same command-execution approval path, manual ceiling.
+    const mapped = codexApprovalOp("item/commandExecution/requestApproval", codexParamsFromOp(c.op), c.op.cwd);
+    const codex = mapped.confidence
+      ? applyPermissionCeiling(verdict(mapped.op, {}).verdict, "manual")
+      : "ask";
+    assert.equal(codex, c.expected, `${c.name}: Codex adapter under manual ceiling`);
   }
 });
 

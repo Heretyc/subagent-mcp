@@ -126,8 +126,15 @@ export function applyPermissionCeiling(
   ceiling: PermissionsCeiling
 ): PermissionVerdict {
   if (ceiling === "yolo") return "allow";
-  if (ceiling === "manual") return minVerdict(engineVote, "ask");
-  return minVerdict(engineVote, "allow");
+  // The ceilings are NOT points on a permissiveness total order (the J2-9
+  // "total-order-over-modes" mistake). Neither `auto` nor `manual` may demote
+  // the engine's allow (SAFE) or deny (DANGER) decisions: SAFE always
+  // auto-allows, DANGER always auto-denies, and only NEUTRAL residue ("ask")
+  // parks. The auto/manual difference is solely *who* answers an "ask" —
+  // `auto` escalates only irreversible residue to a human while `manual` routes
+  // all residue to a human — which is decided downstream (see pending-permissions
+  // `escalate_to_human`), never by mapping SAFE ops to "ask" here.
+  return engineVote;
 }
 
 export function classifyPermissionOp(
@@ -333,9 +340,4 @@ function normalizePathForMatch(path: string): string {
 function wildcardMatch(pattern: string, value: string): boolean {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[\\s\\S]*");
   return new RegExp(`^${escaped}$`, "i").test(value);
-}
-
-function minVerdict(a: PermissionVerdict, b: PermissionVerdict): PermissionVerdict {
-  const rank: Record<PermissionVerdict, number> = { deny: 0, ask: 1, allow: 2 };
-  return rank[a] <= rank[b] ? a : b;
 }
