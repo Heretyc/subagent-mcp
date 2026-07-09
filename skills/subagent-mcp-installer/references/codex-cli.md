@@ -2,10 +2,10 @@
 
 Full support: MCP server in `~/.codex/config.toml` **plus** a per-turn hook
 (`SessionStart` + `UserPromptSubmit`) in `~/.codex/hooks.json`. All paths
-absolute and pointing at the permanent install root (`<npm root -g>/subagent-mcp`).
+absolute and pointing at the permanent install root (`<npm root -g>/@heretyc/subagent-mcp`).
 Compliance basis: `compliance.md` → "Codex CLI".
 
-Prereq: the decoupled global install exists. `INSTALL = <npm root -g>/subagent-mcp`.
+Prereq: the decoupled global install exists. `INSTALL = <npm root -g>/@heretyc/subagent-mcp`.
 The CLI and the Codex IDE/Desktop extension share `config.toml`, so the server
 registration serves both; the hook is CLI-only.
 

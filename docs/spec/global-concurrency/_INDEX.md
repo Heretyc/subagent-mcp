@@ -28,7 +28,11 @@ return `zombie_report`; culled `zombie_killed` status remains observable through
 
 | File | Contains | Read when |
 |---|---|---|
-| `cap-contract.md` | The authoritative contract: shared-state marker-dir mechanism + never-over-admit proof; machine-global path per OS; slot lifecycle and the 3 release sites; crash / no-reaper semantics; the `global-subagent-mcp-config.jsonc` config (verbatim template, parse/validate/clamp table); retention; enforcement point and the verbatim reject error string; fail-open policy; tests. | Touching the cap mechanism, its config, path, enforcement, or tests. |
+| `cap-contract.md` | Retrieval map for the authoritative cap contract leaves below. | Start here for cap mechanism, config, path, enforcement, or tests. |
+| `cap-contract/state-and-lifecycle.md` | Scope, shared-state marker-dir mechanism, never-over-admit proof, machine-global path per OS, slot lifecycle, and release sites. | Touching reservation, counting, paths, release sites, or lifecycle semantics. |
+| `cap-contract/zombie-culling.md` | Zombie culling thresholds, process-tree cleanup, JSONL reports, and crash/no-reaper semantics. | Touching stale slot cleanup, hook/tool culling, or `zombie_killed` reporting. |
+| `cap-contract/config-and-build.md` | `global-subagent-mcp-config.jsonc` config, verbatim template, parse/validate/clamp table, retention, scaffold, and copy-provider behavior. | Touching config parsing, update checks, retention, scaffold, or packaging copy behavior. |
+| `cap-contract/enforcement-fail-open-tests.md` | Enforcement point, reject response requirements, fail-open policy, and tests. | Touching cap enforcement, reject messaging, filesystem-error behavior, or cap-related tests. |
 
 ## Related specs
 

@@ -12,7 +12,7 @@ per-turn **orchestration-mode hook** installed together on each supported host.
 
 For the lighter, MCP-only registration reference (no orchestration hook) see
 [docs/registration.md](../registration.md). For what orchestration mode *is*,
-see [docs/spec/orchestration-mode/_INDEX.md](../spec/orchestration-mode/_INDEX.md).
+see [docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md §10](../spec/dev-loop/orchestration-directive-architecture/sections-10-13.md).
 
 ## Build prerequisite (do this first, every host)
 

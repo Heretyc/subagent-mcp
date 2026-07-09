@@ -118,8 +118,8 @@ never-overwrite-user-edits guarantee. The gen step is the SAME
 `scripts/gen-ruleset-scaffold.mjs` extended to also emit
 `src/config-scaffold.ts`; the copy step is the SAME `scripts/copy-provider.mjs`
 extended to also copy `src/global-concurrency.jsonc → dist/`. Full details and
-the cap's own contract live in `../global-concurrency/cap-contract.md` (§6
-Retention). Nothing in the ruleset bracket above changes — the cap adds a
+the cap's own contract live in `../global-concurrency/cap-contract/config-and-build.md`
+(Retention And Build). Nothing in the ruleset bracket above changes — the cap adds a
 parallel copy of it.
 
 ## When to stop and ask the owner

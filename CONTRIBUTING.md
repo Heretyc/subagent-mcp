@@ -9,8 +9,8 @@ workflow, CI/CD gates, and publishing.
 
 ## Prerequisites
 
-Developer / build-from-source toolchain (end-user runtime prerequisites live in
-[README § Prerequisites](README.md#prerequisites-runtime)):
+Developer / build-from-source toolchain (end-user runtime requirements live in
+[README § What you need first](README.md#what-you-need-first)):
 
 - **Node.js >= 18**  (`node --version`)
 - **npm >= 8**  (`npm --version`)
@@ -161,7 +161,7 @@ duplicate the content in the "Must NOT be duplicated in" column.
 | GitHub CI/CD gates | CONTRIBUTING § GitHub Gates (CI/CD) | README; any other doc |
 | Release / publish SOP | docs/spec/dev-loop/release-publishing.md | README; CONTRIBUTING § Local Setup |
 | Install commands (npmjs + GitHub Packages) | README § Install | CONTRIBUTING § Publishing (brief context only; no install commands) |
-| Auto Mode routing table | README § Auto Mode | CONTRIBUTING; other spec docs |
+| Auto Mode routing table | docs/spec/auto-mode/_INDEX.md | CONTRIBUTING; other spec docs |
 | Tools parameter/return shapes | docs/tools.md | CONTRIBUTING; spec docs |
 | Agent lifecycle semantics | docs/reference/status-lifecycle.md | CONTRIBUTING; Auto Mode section |
 | Orchestration model (schema=3) | docs/spec/dev-loop/orchestration-directive-architecture.md | Any doc that would copy schema text inline |

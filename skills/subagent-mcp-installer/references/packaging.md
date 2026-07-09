@@ -55,7 +55,7 @@ the `hooks.json` content changed.
 
 ## Uninstall / repoint
 
-- Uninstall the package: `npm uninstall -g subagent-mcp`, then remove the vendor
+- Uninstall the package: `npm uninstall -g @heretyc/subagent-mcp`, then remove the vendor
   entries (`claude mcp remove subagent-mcp -s user`; delete the settings.json
   hook; delete the Codex `[mcp_servers.subagent-mcp]` table + `hooks.json`
   entries).

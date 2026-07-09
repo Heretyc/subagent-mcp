@@ -84,7 +84,7 @@ of a stale tree cannot ship a drifted copy:
   `src/config-scaffold.ts` and `copy-provider.mjs` also copies
   `src/global-concurrency.jsonc → dist/`, both HARD-FAILING the build if the
   source is missing. Preserved on update by the parallel three-site bracket
-  (`../global-concurrency/cap-contract.md` §6). `npm run build` must regenerate
+  (`../global-concurrency/cap-contract/config-and-build.md`). `npm run build` must regenerate
   and copy it before publish.
 
 Pre-publish test expectations — `npm test` (run by `prepublishOnly`) must
@@ -92,7 +92,7 @@ include:
 
 - `test/global-concurrency-cap.test.mjs` — clamp table, template parses,
   reject-at-cap, reserve-under-cap, release-idempotent
-  (`../global-concurrency/cap-contract.md` §9). A red bar here blocks the
+  (`../global-concurrency/cap-contract/enforcement-fail-open-tests.md`). A red bar here blocks the
   publish exactly as the version-sync gate does.
 
 The four version surfaces in the step-0 gate are unchanged by this feature.
