@@ -23,13 +23,13 @@ everything else.
 | Agent status lifecycle | `docs/reference/status-lifecycle.md` |
 | Effort resolution | `docs/reference/effort-resolution.md` |
 | Interactive driver model | `docs/spec/interactive-drivers.md` |
-| Global concurrency cap | `docs/spec/global-concurrency/_INDEX.md`, `docs/spec/global-concurrency/cap-contract.md` |
+| Global concurrency cap | `docs/spec/global-concurrency/_INDEX.md`, `docs/spec/global-concurrency/cap-contract.md` (retrieval map over `cap-contract/` leaves) |
 | Auto-mode / routing | `docs/spec/auto-mode/_INDEX.md`, `docs/spec/auto-mode/param-contract.md`, `docs/spec/auto-mode/resolution-matrix.md`, `docs/spec/auto-mode/routing-table-contract.md`, `docs/spec/auto-mode/routing-table-model-effort.md`, `docs/spec/auto-mode/tool-description.md`, `docs/spec/auto-mode/build-and-test.md` |
 | Routing table artifact | `src/routing-table.json` (canonical profiler-emitted artifact; copied to `dist/`) + `.spec/references/assets/routing-table.json` (non-authoritative structural mirror) |
 | Task taxonomy (14 categories) | `docs/spec/task-taxonomy/_INDEX.md` (+ `category-rationale.md`, `composite-inferred-tiles.md`, `derivation-methodology.md`, `determination-rationale.md`) |
 | Work categories (fixed taxonomy) | `.spec/references/work-categories.md` |
 | Advanced ruleset override | `docs/spec/advanced-ruleset/_INDEX.md` (+ `execution-contract.md`, `io-contract.md`, `visibility-and-failover.md`, `build-and-test.md`, `scaffold-and-deployment.md`) |
-| Orchestration mode semantics | `docs/spec/orchestration-mode/_INDEX.md` |
+| Orchestration mode semantics | `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` (§10) |
 | Orchestration directive architecture | `docs/spec/dev-loop/orchestration-directive-architecture.md` (retrieval map over its subdir leaves) |
 | â€” arch subdir leaves | `docs/spec/dev-loop/orchestration-directive-architecture/{sections-00-04,sections-05-09,sections-10-13,derivation-map,appendix-a1-a4,appendix-a5-directives,appendix-a6-a7}.md` |
 | Model-selection mode | `docs/spec/model-selection-mode/_INDEX.md` |
@@ -55,7 +55,7 @@ everything else.
 |---|---|---|
 | "the why", "rationale", "design bets", "why built this way" | arch rationale | `docs/spec/arch-rationale.md` |
 | "sub-agent", "subagent", "worker", "delegate", "child session" | managed agent | `docs/tools.md`, `docs/reference/status-lifecycle.md` |
-| "orchestrator", "manager mode", "delegate-only" | orchestration mode | `docs/spec/orchestration-mode/_INDEX.md` |
+| "orchestrator", "manager mode", "delegate-only" | orchestration mode | `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` (§10) |
 | "cap", "limit", "max agents", "concurrency", "slots" | global concurrency cap | `docs/spec/global-concurrency/cap-contract.md` |
 | "routing", "auto-pick", "model selection", "which model" | auto-mode / routing | `docs/spec/auto-mode/_INDEX.md` |
 | "category", "task type", "work category", "taxonomy" | task taxonomy | `docs/spec/task-taxonomy/_INDEX.md`, `.spec/references/work-categories.md` |
@@ -162,7 +162,7 @@ everything else.
 - `docs/spec/auto-mode/*` â€” routing, param contract, resolution.
 - `docs/spec/task-taxonomy/*` + `.spec/references/work-categories.md` â€” classifying work.
 - `docs/spec/advanced-ruleset/*` â€” the python override hook / failover window.
-- `docs/spec/orchestration-mode/*` + `directives/*` â€” orchestration semantics/source.
+- `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` (§10) + `directives/*` â€” orchestration semantics/source.
 - `docs/spec/dev-loop/orchestration-directive-architecture(.md|/*)` â€” directive architecture; the `.md` is a map over the subdir leaves.
 - `docs/spec/model-selection-mode/*` â€” smart vs user-approved-overrides.
 - `docs/spec/safety-scope*` â€” clarify/consent/refuse/credentials/irreversible.
