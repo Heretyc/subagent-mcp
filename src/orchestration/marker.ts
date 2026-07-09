@@ -94,6 +94,10 @@ export function sessionPointerPath(cwd: string): string {
   return join(stateDir, `orch-session-${cwdHash(cwd)}.json`);
 }
 
+export function serverSessionPointerPath(cwd: string, serverKey: string | number = process.ppid): string {
+  return join(stateDir, `orch-session-${cwdHash(cwd)}-${hashKey(String(serverKey))}.json`);
+}
+
 /**
  * Enable orchestration for cwd. ALWAYS overwrites — re-enabling re-baselines by
  * clearing owner_session/baseline_turn back to null so the next hook turn
@@ -166,9 +170,19 @@ export function writeDisableCwd(cwd: string): void {
   }
 }
 
-export function writeCurrentSession(cwd: string, sessionKey: string): void {
+export function writeCurrentSession(
+  cwd: string,
+  sessionKey: string,
+  serverKey: string | number = process.ppid
+): void {
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    writeFileSync(serverSessionPointerPath(cwd, serverKey), JSON.stringify({ session_key: sessionKey }), {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+    // Back-compat only: older consumers may still read the cwd-keyed pointer.
+    // New disable/query paths must read the server-scoped pointer instead.
     writeFileSync(sessionPointerPath(cwd), JSON.stringify({ session_key: sessionKey }), {
       encoding: "utf8",
       mode: 0o600,
@@ -178,9 +192,9 @@ export function writeCurrentSession(cwd: string, sessionKey: string): void {
   }
 }
 
-export function readCurrentSession(cwd: string): string | undefined {
+export function readCurrentSession(cwd: string, serverKey: string | number = process.ppid): string | undefined {
   try {
-    const raw = readFileSync(sessionPointerPath(cwd), "utf8");
+    const raw = readFileSync(serverSessionPointerPath(cwd, serverKey), "utf8");
     const parsed = JSON.parse(raw) as { session_key?: unknown };
     return typeof parsed.session_key === "string" ? parsed.session_key : undefined;
   } catch {

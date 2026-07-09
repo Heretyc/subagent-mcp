@@ -12,8 +12,12 @@
   ON. `isActive(cwd, sessionKey)` returns ON (`true`) UNLESS an unexpired
   disable-record file exists — a session-keyed `orch-disable-<hash>.json`
   (cwd-keyed `orch-disable-<cwdHash>.json` fallback when no session key is
-  available), each holding `{ disabled_at }`. **Absence of the legacy marker is
-  NOT OFF.** The `orch-<cwdHash>.flag` marker (fields `owner_session`,
+  available), each holding `{ disabled_at }`. The current session is resolved
+  through a **server-scoped** session pointer
+  (`orch-session-<cwdHash>-<serverKey>.json`, keyed by cwd + server `ppid`), so a
+  disable targets the requesting session; the legacy cwd-only
+  `orch-session-<cwdHash>.json` pointer is still written for back-compat.
+  **Absence of the legacy marker is NOT OFF.** The `orch-<cwdHash>.flag` marker (fields `owner_session`,
   `baseline_turn`, `provenance`, `carryover_ack`) is retained ONLY as legacy
   state for callers that still write/read it; its presence/absence no longer
   gates ON/OFF. `src/orchestration/marker.ts` is fail-safe (never throws;

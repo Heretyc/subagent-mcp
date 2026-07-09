@@ -109,8 +109,9 @@ Admission is governed by ONE machine-global, provider-agnostic cap on subagents
 alive at once across every session, process, user, and recursive descendant on
 the host. There are NO per-provider caps (`MAX_CLAUDE`/`MAX_CODEX`/`countProcessing`
 no longer exist). The cap value is `globalConcurrentSubagents` in
-`global-concurrency.jsonc` (sole source of truth; default 20, minimum 10,
-re-read every launch). The live count is a shared directory of `slot-<uuid>.json`
+`global-subagent-mcp-config.jsonc` (sole source of truth; default 20, minimum 10,
+re-read every launch). See `docs/spec/permissions.md` §4 for the 2.12.5 rename;
+`global-concurrency.jsonc` is a deprecated fallback. The live count is a shared directory of `slot-<uuid>.json`
 marker files; `launch_agent` reserves a slot before spawning and is REJECTED
 immediately at cap (never queued). On a slot-state I/O error the launch is
 REJECTED (fail-closed). A slot is reserved at launch admission and released ONLY

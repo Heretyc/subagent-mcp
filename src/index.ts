@@ -599,8 +599,7 @@ function handleCompletedStdoutLines(agent: AgentState, lines: string[], at: numb
       agent.turnCompleted = true;
       agent.status = "finished";
       if (agent.exitedAt === null) agent.exitedAt = at;
-      releaseSlot(agent.slotPath ?? null);
-      agent.slotPath = null;
+      updateSlotMetadata(agent, at);
     }
   }
 }

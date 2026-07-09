@@ -15,9 +15,10 @@ recursive descendant tree counts toward ONE number: every descendant runs its
 own MCP server and its own `launch_agent`, so the tree-wide total is emergent
 from shared state, not computed by any PID-tree walk or liveness probe. When
 the limit is reached, `launch_agent` is REJECTED — the cap never queues or
-blocks. The limit value lives in a user-editable `global-concurrency.jsonc`
+blocks. The limit value lives in a user-editable `global-subagent-mcp-config.jsonc`
 config that is re-read live on every call and preserved across package updates
 by the same bracket that protects `advanced-ruleset.py`.
+See `docs/spec/permissions.md` §4 for the 2.12.5 rename; `global-concurrency.jsonc` is a deprecated fallback.
 
 `launch_agent` silently runs zombie reaping before cap rejection but does not
 return `zombie_report`; culled `zombie_killed` status remains observable through
@@ -27,7 +28,7 @@ return `zombie_report`; culled `zombie_killed` status remains observable through
 
 | File | Contains | Read when |
 |---|---|---|
-| `cap-contract.md` | The authoritative contract: shared-state marker-dir mechanism + never-over-admit proof; machine-global path per OS; slot lifecycle and the 3 release sites; crash / no-reaper semantics; the `global-concurrency.jsonc` config (verbatim template, parse/validate/clamp table); retention; enforcement point and the verbatim reject error string; fail-open policy; tests. | Touching the cap mechanism, its config, path, enforcement, or tests. |
+| `cap-contract.md` | The authoritative contract: shared-state marker-dir mechanism + never-over-admit proof; machine-global path per OS; slot lifecycle and the 3 release sites; crash / no-reaper semantics; the `global-subagent-mcp-config.jsonc` config (verbatim template, parse/validate/clamp table); retention; enforcement point and the verbatim reject error string; fail-open policy; tests. | Touching the cap mechanism, its config, path, enforcement, or tests. |
 
 ## Related specs
 
