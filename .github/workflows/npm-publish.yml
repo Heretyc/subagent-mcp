@@ -23,7 +23,12 @@ jobs:
           # Trusted Publishing (OIDC) requires Node >= 22.14 and npm >= 11.5.1.
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install -g npm@latest
+      # Trusted Publishing (OIDC) needs npm >= 11.5.1, but npm@latest currently
+      # ships a broken sigstore dependency that makes `npm publish --provenance`
+      # fail with MODULE_NOT_FOUND: Cannot find module 'sigstore'. Pin to a known-
+      # good version that satisfies the OIDC requirement.
+      - run: npm install -g npm@11.5.1
+      - run: npm --version
       - run: npm ci
       - run: npm run check:versions
       - run: npm run build
