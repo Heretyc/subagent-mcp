@@ -1,10 +1,8 @@
 # Permission System
 
 Normative spec for how `subagent-mcp` gates what a **launched sub-agent** may do.
-Reflects the code on branch `feat/permission-system` (`src/permission-engine.ts`,
-`src/pending-permissions.ts`, `src/permission-classes.json`, `src/concurrency.ts`,
-`src/drivers.ts`, `src/index.ts`). Where an earlier design draft and the code
-disagree, this documents the **code**; divergences are called out inline.
+Reflects the **code** (`permission-engine.ts`, `pending-permissions.ts`,
+`permission-classes.json`, `concurrency.ts`, `drivers.ts`, `index.ts`); where a design draft disagrees, this documents the code and divergences are called out inline.
 
 ## 1. Ceiling modes
 
@@ -45,6 +43,10 @@ implementation, no second copy.
   disk-format; writes touching `.git .ssh .aws .claude .codex .vscode`; writes to
   `global-subagent-mcp-config.jsonc` or legacy `global-concurrency.jsonc`.
 - **NEUTRAL**: everything else — rule match, else `ask`.
+
+**Read scoping** (`Read/Glob/Grep/LS`, `isReadPathOutsideAllowedRoots`): auto-SAFE
+only for non-protected paths inside `cwd` + approved `additionalDirectories`
+(`op.additionalDirectories` feeds containment); a `dangerousPathSegments`/`protectedFilenames` hit is DANGER (deny), else an outside-root read is NEUTRAL (`ask`).
 
 **`irreversible` flag**: a DANGER subset (force-push, `git reset --hard`/`rebase`/
 `filter-branch`, `DROP`/`TRUNCATE ... TABLE`, publish, `aws/gcloud/az ... delete`).
@@ -94,9 +96,8 @@ additionalDirectories are honored as-is (accepted risk, §7).
 | Abort/cancel | `deny{interrupt:true}` | Never emitted by smcp. |
 | session grants | — | Not used; one-time grants only. |
 
-Constructs not listed are not consumed; untranslatable tightening degrades to the
-nearest broader tightening, untranslatable loosening is dropped; unclassifiable →
-`ask`, never `allow`.
+Constructs not listed are not consumed; untranslatable tightening degrades to the nearest
+broader tightening, untranslatable loosening is dropped; unclassifiable → `ask`, never `allow`.
 
 ## 4. Config file rename & back-compat
 
@@ -121,8 +122,7 @@ resolve path, keyed to a server-generated `request_id`.
   answers the oldest. Parents only (children have no such tool — §8).
   If the pending record has `escalate_to_human: true`, `allow` requires a
   non-empty `reason` audit note; `deny` has no extra friction.
-  **Divergence:** an earlier draft proposed a required `responder:
-  'human'|'orchestrator'` audit field; the shipped schema has none.
+  **Divergence:** an earlier draft's proposed required `responder` audit field is not in the shipped schema.
 - **`wait` early return**: `permission_requested` is **not** terminal
   (`wait-helpers.ts:TERMINAL_STATUSES` requires `exitedAt !== null`). A separate
   selection returns unreported pendings alongside `finished`; the "fleet idle"

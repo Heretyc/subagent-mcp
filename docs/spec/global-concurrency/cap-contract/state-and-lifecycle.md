@@ -42,15 +42,22 @@ No lock is used. A stuck lock can wedge every launch; a stale marker only
 rejects slightly early, and culling now removes stale markers opportunistically.
 
 ## Slot Directory
-`slotDir()` resolves to:
+The slot directory is **per-user**: `slotDir()` = `slotBaseDir()` joined with a
+`currentUserSlotNamespace()` subdirectory.
 
 ```text
-Windows:      %ProgramData%\subagent-mcp\slots
-macOS/Linux:  /tmp/subagent-mcp/slots
+base   Windows:      %ProgramData%\subagent-mcp\slots
+base   macOS/Linux:  /tmp/subagent-mcp/slots
+slotDir = <base>/<namespace>   e.g. /tmp/subagent-mcp/slots/uid-1000
 ```
 
-POSIX uses `/tmp` because the cap tracks live processes and should recover on
-reboot. Directory mode is `0o1777`; file mode is `0o600`. Slot filenames carry
+The namespace is `uid-<uid>` on POSIX (falls back to a sanitized username, then a
+hashed token) so each OS user owns a distinct slot subtree. POSIX uses `/tmp`
+because the cap tracks live processes and should recover on reboot. The shared
+base dir is created mode `0o1777`; the per-user `slotDir()` is created **owner-only
+`0o700`** (POSIX); file mode is `0o600`. `countSlots` reads only the current user's
+`slotDir()`, so **only that user's slots count toward the cap** and legacy flat
+slot files written directly under the base dir are ignored. Slot filenames carry
 only the UUID. Slot contents are metadata for culling and diagnostics:
 `agent_id`, `server_pid`, `child_pid`, `cwd`, `started_at`, `started_at_ms`,
 `last_activity_ms`, and `status`.

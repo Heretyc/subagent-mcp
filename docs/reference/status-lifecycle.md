@@ -79,3 +79,19 @@ drivers. Stalled does not by itself end a `wait`; `wait` returns on unreported
 paths still run zombie maintenance, but only `poll_agent` and `list_agents`
 surface the `zombie_report` message.
 Culled status remains visible through `poll_agent`, `list_agents`, and `wait`.
+
+---
+
+## In-Memory Retention and Eviction
+
+Terminal agents are eventually dropped from the in-memory `agents` Map to bound
+memory, gated on `AGENT_RETENTION_MS = 30 * 60 * 1000` (30 minutes). An entry is
+evicted (`shouldEvictAgent`) only when ALL hold: its status is terminal
+(`finished`, `errored`, `stopped`, or `zombie_killed`), its driver is closed, its
+terminal state has already been `wait`-reported, `exitedAt !== null`, and
+`now - exitedAt` exceeds the retention window. Live agents, and terminal agents
+whose result has not yet been reported through `wait`, are NEVER evicted -- a
+result stays retrievable at least once. `evictExpiredAgents` runs from both
+maintenance paths: the tool-handler `runToolMaintenance` and the 10s reconcile
+`setInterval`. Eviction only reclaims memory (the slot was already released at
+driver close); a `poll_agent`/`list_agents` for an evicted id returns not-found.

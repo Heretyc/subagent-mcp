@@ -51,6 +51,24 @@ the first-line comparison only, CRLF-safe, idempotent, and **never mutates the
 prompt body**. It is wired into **all** launch paths (Claude Agent SDK + Codex
 app-server). The D20 unit test (A7.2 / §11) is **GATING**.
 
+### 6.3 Fork-bomb hardening — native-tool denial + depth cap (D19 extension)
+
+Two code-enforced guards backstop the prose exemption so a compromised or
+confused child cannot recurse:
+
+1. **Native sub-agent tools denied for children too.** The Claude PreToolUse gate
+   (`src/orchestration/pretool.ts`) denies harness-native `Task`/`Agent`/`Explore`
+   **even when the caller is a sub-agent** (`SUBAGENT_MCP_SUBAGENT=1`). The gate
+   no longer early-returns `null` for children, so the SOLE-CHANNEL rule
+   (launch_agent only) is enforced on sub-agents, not just the root orchestrator.
+2. **`SUBAGENT_MCP_DEPTH` spawn-level cap.** Each launch stamps the child's env
+   with `SUBAGENT_MCP_DEPTH = parent depth + 1`. `currentLaunchDepth` reads it:
+   main orchestrator = depth **0** → sub-orchestrators depth **1** → workers depth
+   **2**. `launch_agent` is **code-rejected at depth >= 2** (workers cannot spawn),
+   giving exactly two spawn levels below the main orchestrator. A legacy sub-agent
+   carrying `SUBAGENT_MCP_SUBAGENT=1` but no `SUBAGENT_MCP_DEPTH` is treated as
+   depth **1** (so it may still launch one level, but its children hit the cap).
+
 ---
 
 ## §7 — Dropout / HALT Semantics + Task-Abandonment Exit (D12 / D23 / S5)
