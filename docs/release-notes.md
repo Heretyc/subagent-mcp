@@ -8,6 +8,31 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.12.6
+
+### Lifecycle correctness, session-scoped disable, and docs
+
+- **Interactive agents hold their concurrency slot until driver close.** A slot is
+  no longer released the instant an interactive agent goes idle; it stays reserved
+  through the full driver lifecycle and is freed only when the driver actually
+  closes. Prevents over-subscription where a still-open interactive session's slot
+  was handed to another launch.
+- **Server-scoped session pointer.** `disable` now targets the requesting session
+  rather than a process-global pointer, so a disable issued from one session no
+  longer disrupts another session sharing the server.
+- **Tests wired into `npm test`.** The lifecycle-matrix and
+  output-hook-registration suites are now part of the default `npm test` run
+  instead of living outside the gate.
+- **`mcp-compliance` check no longer masked.** A stray permission-system re-import
+  was shadowing the compliance check; removed so the check runs and reports
+  honestly.
+- **Codex hook POSIX command fixed** for macOS/Linux — the hook now emits a
+  portable POSIX command that runs correctly on non-Windows hosts.
+- **Docs.** README now opens with the ratified core premise; concurrency docs use
+  the canonical config filename throughout.
+
+---
+
 ## v2.12.5
 
 ### Unified permission system for launched sub-agents
