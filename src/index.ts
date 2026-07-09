@@ -142,6 +142,7 @@ interface AgentState {
 const agents = new Map<string, AgentState>();
 const deadlockWindow = createDeadlockWindow();
 const STDOUT_RING_BYTES = 2 * 1024 * 1024;
+export const AGENT_RETENTION_MS = 30 * 60 * 1000;
 // Advanced-ruleset gate: per-process latch with exactly the deadlock-window
 // scoping. The env-check runs lazily at the FIRST launch_agent call; success
 // latches enabled/disabled for the process lifetime, failure never latches.
@@ -238,6 +239,15 @@ function errorResult(text: string) {
   return { content: [{ type: "text" as const, text }], isError: true };
 }
 
+function currentLaunchDepth(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.SUBAGENT_MCP_DEPTH;
+  if (raw !== undefined && raw !== "") {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isInteger(parsed) && parsed >= 0 && String(parsed) === raw.trim()) return parsed;
+  }
+  return env.SUBAGENT_MCP_SUBAGENT === "1" ? 1 : 0;
+}
+
 function envDuration(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw === undefined || raw === "") return fallback;
@@ -291,6 +301,46 @@ function isLiveAgent(agent: AgentState): boolean {
     agent.status === "permission_requested" ||
     agent.status === "stalled"
   );
+}
+
+type EvictableAgentState = Pick<
+  AgentState,
+  "status" | "driver" | "exitedAt" | "waitReported"
+>;
+
+function isTerminalAgentStatus(status: AgentStatus): boolean {
+  return (
+    status === "finished" ||
+    status === "errored" ||
+    status === "stopped" ||
+    status === "zombie_killed"
+  );
+}
+
+export function shouldEvictAgent(
+  agent: EvictableAgentState,
+  now = Date.now(),
+  retentionMs = AGENT_RETENTION_MS
+): boolean {
+  if (!isTerminalAgentStatus(agent.status)) return false;
+  if (!agent.driver.closed) return false;
+  if (!agent.waitReported) return false;
+  if (agent.exitedAt === null) return false;
+  return now - agent.exitedAt > retentionMs;
+}
+
+export function evictExpiredAgents<T extends EvictableAgentState>(
+  agentMap: Map<string, T>,
+  now = Date.now(),
+  retentionMs = AGENT_RETENTION_MS
+): number {
+  let evicted = 0;
+  for (const [id, agent] of agentMap) {
+    if (!shouldEvictAgent(agent, now, retentionMs)) continue;
+    agentMap.delete(id);
+    evicted++;
+  }
+  return evicted;
 }
 
 function isSameOwnerSlot(
@@ -455,6 +505,7 @@ function runToolMaintenance(): ZombieRecord[] {
     updateSlotMetadata(agent);
   }
 
+  evictExpiredAgents(agents, now);
   return records;
 }
 
@@ -661,6 +712,7 @@ const reconcileInterval = setInterval(() => {
       });
     }
   }
+  evictExpiredAgents(agents, now);
 }, 10000);
 reconcileInterval.unref();
 
@@ -677,7 +729,7 @@ const ORCHESTRATION_INSTRUCTIONS =
   "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are jointly binding; genuine conflict => STOP and ask. Only the hook flips ON/OFF; absence of any tag = UNKNOWN => fail-safe ON.\n\nSOLE CHANNEL. Every launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator: use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and /workflows. No direct reads/writes; inline-by-right does not exist. Non-delegable step: ask a one-time exception, do only that step, resume delegating.\n\nSUB-AGENT CONTRACT. Every prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 agent for a fact-find, 2-4 for comparisons; never one-shot multi-phase work; split into atomic steps, one agent each. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.\n\nORCHESTRATION OFF. If context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to enable; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime. DISABLE: user-only, never on your own initiative.\n\nMODEL SELECTION. Default smart auto-picks, rejects provider/model/effort selectors. user-approved-overrides honors them 30 min, expires lazily on launch_agent, needs user authorization.";
 
 const SUBAGENT_INSTRUCTIONS =
-  "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
+  "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that. launch_agent is code-capped at 2 spawn levels below the main orchestrator: depth 1 may launch depth 2 workers; depth 2 workers cannot spawn further.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
 
 const server = new McpServer(
   {
@@ -765,7 +817,11 @@ async function tryLaunchCandidate(
       command: cmd,
       args: buildResult.args,
       cwd: agentCwd,
-      env: { ...process.env, SUBAGENT_MCP_SUBAGENT: "1" },
+      env: {
+        ...process.env,
+        SUBAGENT_MCP_SUBAGENT: "1",
+        SUBAGENT_MCP_DEPTH: String(currentLaunchDepth() + 1),
+      },
       model: candidate.model,
       effort: candidate.effort,
       ucSettingsPath: buildResult.ucSettingsPath,
@@ -1106,6 +1162,13 @@ server.tool(
   },
   withMaintenance(async (params: any) => {
     const { task_category, provider, model, effort, deadlock } = params;
+    const launchDepth = currentLaunchDepth();
+    if (launchDepth >= 2) {
+      return errorResult(
+        `Error: launch_agent depth cap reached: current SUBAGENT_MCP_DEPTH=${launchDepth}. subagent-mcp permits exactly 2 spawn levels below the main orchestrator (depth 0 -> 1 -> 2); depth 2 workers cannot spawn further sub-agents.`
+      );
+    }
+
     // D19/D20/S8: server silently upserts the parent-process marker as the TRUE
     // first line of every sub-agent prompt (idempotent; never duplicates; never
     // mutates the body). This is what makes the child first-line exemption fire.

@@ -1266,8 +1266,6 @@ def main() -> None:
         ok = _rebuild_code(watch_path)
         if ok:
             print("Code graph updated. For doc/paper/image changes run /graphify --update in your AI assistant.")
-            if not os.environ.get("MOONSHOT_API_KEY") and not os.environ.get("GRAPHIFY_NO_TIPS"):
-                print("Tip: set MOONSHOT_API_KEY to use Kimi K2.6 for semantic extraction — 3x cheaper, richer graphs. pip install 'graphifyy[kimi]'")
         else:
             print("Nothing to update or rebuild failed — check output above.", file=sys.stderr)
             sys.exit(1)
@@ -1345,17 +1343,17 @@ def main() -> None:
         import argparse as _ap
         p = _ap.ArgumentParser(
             prog="graphify extract",
-            description="Semantic extraction via a direct LLM backend (API or local harness).",
+            description="Semantic extraction via the keyless local harness backend.",
         )
         p.add_argument("files", nargs="+", metavar="FILE")
-        p.add_argument("--backend", default="kimi",
-                       help="Backend to use: kimi | claude | local (default: kimi)")
+        p.add_argument("--backend", default="local",
+                       help="Backend to use: local (default: local)")
         p.add_argument("--provider", default=None,
                        help="For --backend local: claude or codex "
                             "(overrides GRAPHIFY_LOCAL_PROVIDER env var)")
         p.add_argument("--root", default=".", help="Root path for relative file IDs (default: .)")
         p.add_argument("--api-key", default=None, dest="api_key",
-                       help="API key (for cloud backends; not needed for --backend local)")
+                       help="Ignored; direct HTTP API/keyed backends are disabled")
         p.add_argument("--model", default=None, help="Model override")
         p.add_argument("--out", default=None, metavar="JSON",
                        help="Write JSON result to this path instead of stdout")

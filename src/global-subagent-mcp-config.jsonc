@@ -30,10 +30,14 @@
 //
 // strictReadParity controls logging only. Unparseable Codex approval payloads
 // always fail closed to ask; warn logs the construct, off silences that log.
+//
+// sandboxNetwork controls Codex workspace-write network access. Default false.
+// Set true only when sub-agents need network after permission approval.
 {
   "globalConcurrentSubagents": 20,
   "checkForUpdates": true,
   "permissionsCeiling": "auto",
   "escalation": "irreversible-only",
-  "strictReadParity": "warn"
+  "strictReadParity": "warn",
+  "sandboxNetwork": false
 }

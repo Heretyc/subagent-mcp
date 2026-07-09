@@ -71,7 +71,8 @@ Fixed order (deny/ask unioned across all sources incl. repo; allow honored):
 5. `<cwd>/.claude/settings.local.json`
 6. `<cwd>/.codex/config.toml` chain (root→cwd, closest wins), translated below
 
-Only `permissions.{allow, deny, ask, additionalDirectories}` are read.
+Only `permissions.{allow, deny, ask, additionalDirectories}` are read from Claude
+settings; top-level `sandboxNetwork` is read from the global config.
 `permissions.defaultMode` is parsed-and-discarded everywhere (never votes, never
 selects a mode). deny/ask are **unioned** (tightening is safe); allow /
 additionalDirectories are honored as-is (accepted risk, §7).
@@ -85,7 +86,9 @@ additionalDirectories are honored as-is (accepted risk, §7).
 | `sandbox = workspace-write`/`danger-full-access` | — | Ignored; `workspace-write` is the non-yolo default. |
 | `writable_roots` | `additionalDirectories` | Unioned (minus the config-file path). |
 | filesystem path deny | `deny['Edit(path)','Write(path)']` | Tightening half; write-grants dropped. |
-| network domain deny | `WebFetch(domain:host)` deny | Tightening; allows dropped. |
+| network domain deny | `WebFetch(domain:host)` deny | Tightening. |
+| network domain allow | `WebFetch(domain:host)` allow + Codex network opt-in | Still passes through `verdict()`; Codex workspace-write gets network so the approved action can run. |
+| `sandbox_workspace_write.network_access = true` | Codex network opt-in | Parsed from `.codex/config.toml`. |
 | Approve/accept | `allow` — **no `updated_input`** | Replays the original payload verbatim. |
 | Deny/decline | `deny{message}`, no `interrupt` | Agent continues; never kills. |
 | Abort/cancel | `deny{interrupt:true}` | Never emitted by smcp. |
@@ -152,31 +155,28 @@ answered | auto_answered | errored` — code adds `errored`.
 | `permissionsCeiling` | `yolo`\|`auto`\|`manual` | `auto` | §1 |
 | `escalation` | `irreversible-only`\|`off` | `irreversible-only` | Auto mode only. `irreversible-only` sets `escalate_to_human: true` on irreversible NEUTRAL residue so the orchestrator must route it to the human. `off` leaves NEUTRAL residue to orchestrator judgment. In `manual`, all residue already routes to the human, so the key is informational; in `yolo`, no gating occurs. |
 | `strictReadParity` | `warn`\|`off` | `warn` | Logging only; unparseable Codex approvals always fail-closed to `ask`. |
+| `sandboxNetwork` | boolean | `false` | Codex only: when true, launches workspace-write with `sandbox_workspace_write.network_access=true`. Also enabled when effective allow rules are network-ish (`WebFetch`, broad `Bash`, or Bash rules for git/gh/npm/pnpm/yarn/curl/wget). Tradeoff: approvals still gate actions, but approved Codex processes can reach the network inside workspace-write. |
 | `disableBypassPermissionsMode` | `disable` | — | User-scope only (`~/.subagent-mcp/`), tighten-only: caps the effective ceiling at `auto`. Repo scope has no effect. |
 
 ## 7. Threat model — accepted risks (stated plainly)
 
 - **Hostile repo `allow[]` is fully honored.** A repo's `.claude`/`.codex`
-  settings can pre-approve mutating actions; attacker-controlled repo settings can
-  widen `allow`/`additionalDirectories`. Honored, full stop — the documented
-  accepted risk ("REPO allow[] FULLY HONORED per owner"). Bounded, not eliminated:
-  the DANGER floor and config self-protection can never be widened by repo
-  `allow`; Codex's `untrusted` floor forces every mutation through `verdict()` so
-  an honored allow is still engine-evaluated. **Residual:** a well-formed repo
-  `settings.json` with `allow:['Bash']` under `manual`, in a cwd with no other
-  Bash deny/ask, auto-allows Bash on Claude (no Claude-side sandbox interstitial
-  like Codex's `untrusted`). Closing it means refusing repo `allow[]`, which the
-  mandate forbids.
-- **Orchestrator self-answer in manual mode (J1-1 residual).** `respond_permission`
-  takes no attestation; a compromised/prompt-injected orchestrator can answer
-  `manual`-routed requests itself with no human consulted (AskUserQuestion is
-  client-side, unobservable to the server). Accepted — the orchestrator already
-  holds `kill_agent`/`send_message`/`launch_agent` unattested, so it already
-  controls the fleet. **Note:** the proposed `responder` provenance field is not
-  in the shipped schema, so there is no in-band marker of who answered.
+  settings can pre-approve mutating actions and widen
+  `allow`/`additionalDirectories`; this is the documented accepted risk. Bounded,
+  not eliminated: DANGER/config self-protection cannot be widened and Codex
+  `untrusted` still routes mutations through `verdict()`. **Residual:** repo
+  `allow:['Bash']` under `manual` can auto-allow Claude Bash if no other deny/ask
+  matches. Closing it means refusing repo `allow[]`, which the mandate forbids.
+- **Orchestrator self-answer in manual mode (J1-1 residual).**
+  `respond_permission` takes no attestation; a compromised orchestrator can answer
+  `manual` requests itself. Accepted — it already holds `kill_agent`/
+  `send_message`/`launch_agent`; no `responder` provenance field shipped.
+- **Codex sandbox network.** `auto`/`manual` default to workspace-write with no
+  network. `sandboxNetwork` or network-ish allow rules reopen network while
+  keeping `approvalPolicy:'untrusted'`; `yolo` remains the blunt fallback that
+  removes both approval gating and the sandbox.
 - **Codex in-sandbox blind spots.** Under `untrusted`, Codex's own known-safe
-  read allowlist may auto-run a few reads without reaching `verdict()`. Bounded,
-  read-only — no mutation escapes the approval channel.
+  reads may auto-run without reaching `verdict()`; no mutation escapes approval.
 - **Codex approval TOCTOU (J2-16).** smcp evaluates a `fileChange` path at decision
   time; execution follows in the child. A symlink swapped between is a narrow,
   accepted gap — bounded by `untrusted` requiring an approval to exist at all.

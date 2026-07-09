@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
@@ -15,6 +15,7 @@ function fail(message) {
 
 const pkg = readJson("package.json");
 const lock = readJson("package-lock.json");
+const plugin = readJson(".claude-plugin/plugin.json");
 const indexTs = readFileSync(join(root, "src", "index.ts"), "utf8");
 
 const expected = pkg.version;
@@ -22,10 +23,21 @@ const checks = [
   ["package.json version", pkg.version],
   ["package-lock.json root version", lock.version],
   ["package-lock.json packages[\"\"] version", lock.packages?.[""]?.version],
+  [".claude-plugin/plugin.json version", plugin.version],
 ];
 
 const serverVersion = indexTs.match(/\bversion:\s*"([^"]+)"/)?.[1];
 checks.push(["src/index.ts MCP server version", serverVersion]);
+
+for (const path of [".claude-plugin/marketplace.json", "marketplace.json"]) {
+  if (!existsSync(join(root, path))) continue;
+  const marketplace = readJson(path);
+  for (const [index, plugin] of (marketplace.plugins ?? []).entries()) {
+    if (Object.hasOwn(plugin, "version")) {
+      checks.push([`${path} plugins[${index}].version`, plugin.version]);
+    }
+  }
+}
 
 for (const [label, actual] of checks) {
   if (typeof actual !== "string" || actual.length === 0) {

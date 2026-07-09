@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
 import {
+  slotDir,
+} from "../dist/concurrency.js";
+
+import {
   ZOMBIE_FORCE_GRACE_MS,
   ZOMBIE_LIVE_IDLE_MS,
   ZOMBIE_REPORTS_FILENAME,
@@ -36,6 +40,19 @@ function test(name, fn) {
 
 function tmpSlotDir() {
   return join(tmpdir(), `subagent-zombie-${randomUUID()}`);
+}
+
+function withTemporarySlotBase(fn) {
+  const base = tmpSlotDir();
+  const previous = process.env.SUBAGENT_SLOT_DIR;
+  process.env.SUBAGENT_SLOT_DIR = base;
+  try {
+    return fn({ base, userDir: slotDir() });
+  } finally {
+    if (previous === undefined) delete process.env.SUBAGENT_SLOT_DIR;
+    else process.env.SUBAGENT_SLOT_DIR = previous;
+    rmSync(base, { recursive: true, force: true });
+  }
 }
 
 test("parseSlotMetadata reads enriched slot metadata", () => {
@@ -171,12 +188,11 @@ test("drainJsonl returns empty without throwing for unavailable files", () => {
 });
 
 test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot", () => {
-  const dir = tmpSlotDir();
   const now = 1_000_000;
   const childPid = process.pid + 100_000;
   const calls = [];
   const sleeps = [];
-  try {
+  withTemporarySlotBase(({ userDir: dir }) => {
     mkdirSync(dir, { recursive: true });
     const slot = slotPathForAgent(dir, "agent-c");
     writeSlotMetadata(slot, {
@@ -193,6 +209,7 @@ test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot
       runCommand: (command, args) => calls.push({ command, args }),
       sleepMs: (ms) => sleeps.push(ms),
       isProcessAlive: (pid) => pid !== 777,
+      isSubagentChildProcess: () => true,
     });
     assert.equal(records.length, 1);
     assert.equal(records[0].kind, "zombie_killed");
@@ -212,9 +229,7 @@ test("cullStaleSlots kills stale slots, records zombies once, and frees cap slot
     assert.equal(firstIntentDrain.length, 1);
     assert.equal(firstIntentDrain[0].agent_id, "agent-c");
     assert.deepEqual(drainZombieIntents(dir), []);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  });
 });
 
 test("cullStaleSlots keeps stale slots owned by a live server", () => {
@@ -245,7 +260,7 @@ test("cullStaleSlots keeps stale slots owned by a live server", () => {
   }
 });
 
-test("cullStaleSlots kills orphaned child pid when freeing unmanaged stale slot", () => {
+test("cullStaleSlots skips kill when child pid validation fails and still frees stale slot", () => {
   const dir = tmpSlotDir();
   const now = 1_000_000;
   const childPid = process.pid + 100_000;
@@ -266,15 +281,14 @@ test("cullStaleSlots kills orphaned child pid when freeing unmanaged stale slot"
       platform: "win32",
       runCommand: (command, args) => calls.push({ command, args }),
       sleepMs: (ms) => sleeps.push(ms),
+      isProcessAlive: () => true,
+      isSubagentChildProcess: () => false,
     });
     assert.equal(records.length, 1);
     assert.equal(records[0].child_pid, childPid);
     assert.equal(existsSync(slot), false);
-    assert.deepEqual(calls, [
-      { command: "taskkill", args: ["/PID", String(childPid), "/T"] },
-      { command: "taskkill", args: ["/PID", String(childPid), "/T", "/F"] },
-    ]);
-    assert.deepEqual(sleeps, [ZOMBIE_FORCE_GRACE_MS]);
+    assert.deepEqual(calls, []);
+    assert.deepEqual(sleeps, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

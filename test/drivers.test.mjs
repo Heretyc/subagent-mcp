@@ -4,7 +4,12 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { once } from "node:events";
-import { ClaudeSdkDriver, CodexAppServerDriver } from "../dist/drivers.js";
+import {
+  ClaudeSdkDriver,
+  CodexAppServerDriver,
+  killProviderChildProcess,
+  providerChildSpawnOptions,
+} from "../dist/drivers.js";
 
 let passed = 0;
 let failed = 0;
@@ -165,6 +170,91 @@ function readLog(logFile) {
     .filter(Boolean)
     .map((line) => JSON.parse(line));
 }
+
+await test("provider child spawn options create POSIX process groups only", async () => {
+  const base = {
+    cwd: process.cwd(),
+    env: { TEST_PROVIDER_SPAWN_OPTIONS: "1" },
+  };
+
+  assert.deepEqual(providerChildSpawnOptions(base, "linux"), {
+    cwd: base.cwd,
+    env: base.env,
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
+    detached: true,
+  });
+  assert.deepEqual(providerChildSpawnOptions(base, "darwin"), {
+    cwd: base.cwd,
+    env: base.env,
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
+    detached: true,
+  });
+  assert.deepEqual(providerChildSpawnOptions(base, "win32"), {
+    cwd: base.cwd,
+    env: base.env,
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
+    detached: false,
+  });
+});
+
+await test("provider child kill signals POSIX process group before direct child fallback", async () => {
+  const calls = [];
+  const child = {
+    pid: 123,
+    kill(signal) {
+      calls.push(["child", signal]);
+      return true;
+    },
+  };
+  const ok = killProviderChildProcess(child, "SIGKILL", "linux", (pid, signal) => {
+    calls.push(["group", pid, signal]);
+    return true;
+  });
+
+  assert.equal(ok, true);
+  assert.deepEqual(calls, [["group", -123, "SIGKILL"]]);
+});
+
+await test("provider child kill falls back to direct child on Windows or missing POSIX group", async () => {
+  const windowsCalls = [];
+  const windowsChild = {
+    pid: 123,
+    kill(signal) {
+      windowsCalls.push(["child", signal]);
+      return true;
+    },
+  };
+  assert.equal(
+    killProviderChildProcess(windowsChild, "SIGKILL", "win32", () => {
+      throw new Error("must not signal group on Windows");
+    }),
+    true
+  );
+  assert.deepEqual(windowsCalls, [["child", "SIGKILL"]]);
+
+  const fallbackCalls = [];
+  const fallbackChild = {
+    pid: 123,
+    kill(signal) {
+      fallbackCalls.push(["child", signal]);
+      return true;
+    },
+  };
+  assert.equal(
+    killProviderChildProcess(fallbackChild, "SIGTERM", "linux", (pid, signal) => {
+      fallbackCalls.push(["group", pid, signal]);
+      throw new Error("ESRCH");
+    }),
+    true
+  );
+  assert.deepEqual(fallbackCalls, [
+    ["group", -123, "SIGTERM"],
+    ["child", "SIGTERM"],
+  ]);
+});
 
 await test("Claude SDK driver launches, sends multiple turns, and kills", async () => {
   const seen = [];

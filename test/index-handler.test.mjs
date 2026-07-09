@@ -11,6 +11,7 @@ import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -31,6 +32,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const distIndex = join(repoRoot, "dist", "index.js");
 const preloadPath = join(repoRoot, "test", "fixtures", "fake-ruleset-preload.cjs");
+const { currentUserSlotNamespace } = await import("../dist/concurrency.js");
 
 let passed = 0;
 let failed = 0;
@@ -191,9 +193,17 @@ function writeMockDriverScript(tempRoot) {
   writeFileSync(
     script,
     `
+import { appendFileSync } from "node:fs";
 import readline from "node:readline";
 
 const provider = process.argv[2] || "claude";
+if (process.env.MOCK_ENV_CAPTURE_FILE) {
+  appendFileSync(process.env.MOCK_ENV_CAPTURE_FILE, JSON.stringify({
+    provider,
+    SUBAGENT_MCP_SUBAGENT: process.env.SUBAGENT_MCP_SUBAGENT || null,
+    SUBAGENT_MCP_DEPTH: process.env.SUBAGENT_MCP_DEPTH || null,
+  }) + "\\n");
+}
 let turn = 0;
 const rl = readline.createInterface({ input: process.stdin });
 
@@ -302,6 +312,109 @@ await test("subagent child server exposes neutral instructions", async () => {
     assert.doesNotMatch(instructions, /CANONICAL OPERATING MODEL/);
   } finally {
     await session.close();
+  }
+});
+
+await test("launch_agent from depth 0 sets child SUBAGENT_MCP_DEPTH=1", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const capturePath = join(tempRoot, "env-capture.jsonl");
+  const topLevelEnv = { ...env, MOCK_ENV_CAPTURE_FILE: capturePath };
+  delete topLevelEnv.SUBAGENT_MCP_SUBAGENT;
+  delete topLevelEnv.SUBAGENT_MCP_DEPTH;
+  const session = createMcpSession(distIndex, { cwd: workDir, env: topLevelEnv });
+  try {
+    await session.initialize();
+    const { agentId } = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "depth zero propagation",
+    });
+    const [record] = await readEnvCapture(capturePath);
+    assert.equal(record.SUBAGENT_MCP_SUBAGENT, "1");
+    assert.equal(record.SUBAGENT_MCP_DEPTH, "1");
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("launch_agent from depth 1 is allowed and sets child SUBAGENT_MCP_DEPTH=2", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const capturePath = join(tempRoot, "env-capture.jsonl");
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: {
+      ...env,
+      SUBAGENT_MCP_SUBAGENT: "1",
+      SUBAGENT_MCP_DEPTH: "1",
+      MOCK_ENV_CAPTURE_FILE: capturePath,
+    },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "depth one propagation",
+    });
+    const [record] = await readEnvCapture(capturePath);
+    assert.equal(record.SUBAGENT_MCP_SUBAGENT, "1");
+    assert.equal(record.SUBAGENT_MCP_DEPTH, "2");
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("launch_agent treats invalid subagent depth as legacy depth 1", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const capturePath = join(tempRoot, "env-capture.jsonl");
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: {
+      ...env,
+      SUBAGENT_MCP_SUBAGENT: "1",
+      SUBAGENT_MCP_DEPTH: "invalid",
+      MOCK_ENV_CAPTURE_FILE: capturePath,
+    },
+  });
+  try {
+    await session.initialize();
+    const { agentId } = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "legacy invalid depth propagation",
+    });
+    const [record] = await readEnvCapture(capturePath);
+    assert.equal(record.SUBAGENT_MCP_DEPTH, "2");
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("launch_agent rejects callers at depth 2", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, {
+    cwd: workDir,
+    env: { ...env, SUBAGENT_MCP_SUBAGENT: "1", SUBAGENT_MCP_DEPTH: "2" },
+  });
+  try {
+    await session.initialize();
+    const response = await session.request("tools/call", {
+      name: "launch_agent",
+      arguments: {
+        task_category: "coding",
+        prompt: "blocked depth two launch",
+      },
+    });
+    assert.equal(response.result.isError, true);
+    const text = response.result.content[0].text;
+    assert.match(text, /launch_agent depth cap reached/);
+    assert.match(text, /depth 2 workers cannot spawn further/);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
   }
 });
 
@@ -474,11 +587,12 @@ function makeTempEnv() {
   const fakeBin = join(tempRoot, "bin");
   const workDir = join(tempRoot, "work");
   const fakePrefix = join(tempRoot, "empty-prefix");
-  const slotDir = join(tempRoot, "slots");
+  const slotBaseDir = join(tempRoot, "slots");
+  const slotDir = join(slotBaseDir, currentUserSlotNamespace());
   mkdirSync(fakeBin);
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
-  mkdirSync(slotDir);
+  mkdirSync(slotDir, { recursive: true });
   writeFakePathTools(fakeBin);
   const mockDriverScript = writeMockDriverScript(tempRoot);
   // Advanced-ruleset + grace-window neutralization, so every legacy assertion
@@ -504,7 +618,7 @@ function makeTempEnv() {
         .filter(Boolean)
         .join(" "),
       FAKE_RULESET_MODE_FILE: modeFile,
-      SUBAGENT_SLOT_DIR: slotDir,
+      SUBAGENT_SLOT_DIR: slotBaseDir,
     },
     fakeBin
   );
@@ -523,6 +637,22 @@ function findSlotForAgent(slotDir, agentId) {
     if (metadata.agent_id === agentId) return { path, metadata };
   }
   throw new Error(`slot for ${agentId} not found in ${slotDir}`);
+}
+
+async function readEnvCapture(path, minRecords = 1) {
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline) {
+    if (existsSync(path)) {
+      const records = readFileSync(path, "utf8")
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      if (records.length >= minRecords) return records;
+    }
+    await sleep(25);
+  }
+  throw new Error(`env capture ${path} did not receive ${minRecords} record(s)`);
 }
 
 function rewriteSlot(slotDir, agentId, patch) {

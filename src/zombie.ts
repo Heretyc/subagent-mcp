@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { platform } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { createHash } from "node:crypto";
+import { platform, userInfo } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
 export const ZOMBIE_LIVE_IDLE_MS = 6 * 60 * 1000;
@@ -45,6 +46,7 @@ export interface CullDeps {
   runCommand?: (command: string, args: string[]) => void;
   sleepMs?: (ms: number) => void;
   isProcessAlive?: (pid: number) => boolean;
+  isSubagentChildProcess?: (pid: number, metadata: SlotMetadata) => boolean;
   forceGraceMs?: () => number;
   scheduleForceKill?: (ms: number, kill: () => void) => void;
 }
@@ -213,6 +215,64 @@ function livePid(pid: number | null): pid is number {
   return typeof pid === "number" && Number.isInteger(pid) && pid > 0;
 }
 
+function safeSlotNamespace(raw: string): string {
+  const cleaned = raw.replace(/[^A-Za-z0-9_.-]/g, "_");
+  return cleaned || createHash("sha256").update(raw || "unknown").digest("hex").slice(0, 16);
+}
+
+function currentUserSlotNamespace(): string {
+  try {
+    const info = userInfo();
+    if (platform() !== "win32" && Number.isInteger(info.uid)) return `uid-${info.uid}`;
+    return safeSlotNamespace(info.username);
+  } catch {}
+  const uid = typeof process.getuid === "function" ? process.getuid() : null;
+  if (typeof uid === "number") return `uid-${uid}`;
+  return safeSlotNamespace(process.env.USERNAME || process.env.USER || "unknown");
+}
+
+function slotBaseDir(): string {
+  if (process.env.SUBAGENT_SLOT_DIR) return process.env.SUBAGENT_SLOT_DIR;
+  if (platform() === "win32") {
+    return join(
+      process.env.ProgramData || process.env.ALLUSERSPROFILE || "C:\\ProgramData",
+      "subagent-mcp",
+      "slots"
+    );
+  }
+  return "/tmp/subagent-mcp/slots";
+}
+
+function currentUserSlotDir(): string {
+  return join(slotBaseDir(), currentUserSlotNamespace());
+}
+
+function isCurrentUserSlotDir(dir: string): boolean {
+  return resolve(dir).toLowerCase() === resolve(currentUserSlotDir()).toLowerCase();
+}
+
+function commandLooksLikeSubagentChild(text: string): boolean {
+  const normalized = text.replace(/\0/g, " ").toLowerCase();
+  return /(^|[\\/.\s_-])(claude|codex|gemini)(\.cmd|\.exe)?([\\/.\s_-]|$)/.test(normalized);
+}
+
+function defaultIsSubagentChildProcess(pid: number, _metadata: SlotMetadata): boolean {
+  try {
+    if (platform() === "win32") {
+      const output = execFileSync("powershell.exe", [
+        "-NoProfile",
+        "-Command",
+        `$p = Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}"; if ($p) { "$($p.ExecutablePath) $($p.CommandLine)" }`,
+      ], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      return commandLooksLikeSubagentChild(output);
+    }
+    const cmdline = readFileSync(`/proc/${pid}/cmdline`, "utf8");
+    return commandLooksLikeSubagentChild(cmdline);
+  } catch {
+    return false;
+  }
+}
+
 function defaultSleepMs(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
@@ -223,7 +283,9 @@ export function cullStaleSlots(dir: string, deps: CullDeps = {}): ZombieRecord[]
   const sleepMs = deps.sleepMs ?? defaultSleepMs;
   const forceGraceMs = deps.forceGraceMs?.() ?? ZOMBIE_FORCE_GRACE_MS;
   const isProcessAlive = deps.isProcessAlive ?? defaultIsProcessAlive;
+  const isSubagentChildProcess = deps.isSubagentChildProcess ?? defaultIsSubagentChildProcess;
   const p = deps.platform ?? platform();
+  const canKillFromDir = isCurrentUserSlotDir(dir);
   const records: ZombieRecord[] = [];
   let files: string[];
   try {
@@ -245,8 +307,10 @@ export function cullStaleSlots(dir: string, deps: CullDeps = {}): ZombieRecord[]
     }
     if (ownerAlive) continue;
     const pid = meta.child_pid;
-    // cull only when the owning server is dead/absent (true orphan); spare children of a live server
-    if ((ownerPid === null || !ownerAlive) && livePid(pid) && pid !== process.pid) {
+    const childAlive = livePid(pid) && pid !== process.pid && isProcessAlive(pid);
+    const verifiedChild = childAlive && canKillFromDir && isSubagentChildProcess(pid, meta);
+    // cull only verified children from the current user's namespace; never trust stale JSON alone
+    if (verifiedChild && (ownerPid === null || !ownerAlive)) {
       const commands = buildProcessTreeKillCommands(pid, p);
       try {
         runCommand(commands.graceful.command, commands.graceful.args);

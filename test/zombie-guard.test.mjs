@@ -20,7 +20,8 @@ function run() {
   // SRC-12: cull a live child only when its owning server is dead/absent (spare children of a live server).
   assert.doesNotMatch(source, /if \(ownerPid !== null && livePid\(pid\) && pid !== process\.pid\) \{/);
   assert.match(source, /ownerPid === null \|\| !ownerAlive/);
-  assert.match(source, /livePid\(pid\) && pid !== process\.pid\) \{/);
+  assert.match(source, /const childAlive = livePid\(pid\) && pid !== process\.pid && isProcessAlive\(pid\);/);
+  assert.match(source, /verifiedChild && \(ownerPid === null \|\| !ownerAlive\)/);
 }
 
 try {

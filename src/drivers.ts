@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { realpathSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
@@ -253,7 +253,10 @@ type ClaudePermissionResult =
   | { behavior: "deny"; message: string; interrupt?: boolean };
 
 type StrictReadParity = "warn" | "off";
-type DriverPermissionSnapshot = PermissionSnapshot & { strictReadParity?: StrictReadParity };
+type DriverPermissionSnapshot = PermissionSnapshot & {
+  strictReadParity?: StrictReadParity;
+  sandboxNetwork?: boolean;
+};
 
 function denyClaudePermission(message: string): ClaudePermissionResult {
   return { behavior: "deny", message };
@@ -273,8 +276,37 @@ function permissionSnapshotForLaunch(options: DriverLaunchOptions): PermissionSn
     additionalDirectories: merged.additionalDirectories,
     repoConfigChangedSinceFirstSeen: merged.repoConfigChangedSinceFirstSeen,
     strictReadParity: merged.strictReadParity,
+    sandboxNetwork: merged.sandboxNetwork,
   };
   return snapshot;
+}
+
+export function providerChildSpawnOptions(
+  options: Pick<DriverLaunchOptions, "cwd" | "env">,
+  p: NodeJS.Platform = process.platform
+): SpawnOptions {
+  return {
+    cwd: options.cwd,
+    env: options.env,
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
+    detached: p !== "win32",
+  };
+}
+
+export function killProviderChildProcess(
+  child: Pick<ChildProcess, "pid" | "kill">,
+  signal: NodeJS.Signals,
+  p: NodeJS.Platform = process.platform,
+  killGroup: typeof process.kill = process.kill
+): boolean {
+  if (p !== "win32" && typeof child.pid === "number") {
+    try {
+      killGroup(-child.pid, signal);
+      return true;
+    } catch {}
+  }
+  return child.kill(signal);
 }
 
 function claudeToolName(request: JsonObject): string {
@@ -330,7 +362,11 @@ function resolveOpPaths(paths: string[], cwd: string): string[] {
   });
 }
 
-function permissionOpFromClaudeRequest(request: JsonObject, cwd: string): PermissionOp {
+function permissionOpFromClaudeRequest(
+  request: JsonObject,
+  cwd: string,
+  additionalDirectories?: string[]
+): PermissionOp {
   const input = claudeToolInput(request);
   const command = stringField(input, ["command", "cmd"]);
   const url = stringField(input, ["url"]);
@@ -349,6 +385,7 @@ function permissionOpFromClaudeRequest(request: JsonObject, cwd: string): Permis
     ...(paths.length > 0 ? { paths, resolvedPaths: resolveOpPaths(paths, cwd) } : {}),
     ...(url || host ? { network: [{ ...(url ? { url } : {}), ...(host ? { host } : {}) }] } : {}),
     cwd,
+    ...(additionalDirectories ? { additionalDirectories } : {}),
     irreversible: Boolean(input.irreversible),
   };
 }
@@ -377,21 +414,38 @@ function permissionDecisionToClaude(decision: PermissionVerdict, reason: string)
 
 type CodexApprovalPolicy = "never" | "untrusted";
 type CodexThreadSandbox = "danger-full-access" | "workspace-write";
-type CodexTurnSandboxPolicy = { type: "dangerFullAccess" } | { type: "workspaceWrite"; writableRoots: string[] };
+type CodexTurnSandboxPolicy =
+  | { type: "dangerFullAccess" }
+  | { type: "workspaceWrite"; writableRoots: string[]; networkAccess?: boolean };
 
 interface CodexLaunchValues {
   approvalPolicy: CodexApprovalPolicy;
   threadSandbox: CodexThreadSandbox;
   turnSandboxPolicy: CodexTurnSandboxPolicy;
+  cliConfigArgs: string[];
 }
 
-function resolveCodexLaunchValues(snapshot: PermissionSnapshot): CodexLaunchValues {
+function networkAllowRuleTriggersSandbox(rule: string): boolean {
+  const trimmed = rule.trim();
+  if (/^WebFetch(?:\b|\()/i.test(trimmed)) return true;
+  if (/^Bash(?:\(\s*(?:\*|[\w./\\-]*\s*)?\)|$)/i.test(trimmed)) return true;
+  return /^Bash\([^)]*\b(?:git\s+(?:push|fetch|pull|clone|ls-remote)|gh|npm|pnpm|yarn|curl|wget)\b/i.test(trimmed);
+}
+
+export function resolveCodexLaunchValues(snapshot: PermissionSnapshot, logTranslation = true): CodexLaunchValues {
   if (snapshot.ceiling === "yolo") {
     return {
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",
       turnSandboxPolicy: { type: "dangerFullAccess" },
+      cliConfigArgs: [],
     };
+  }
+  const driverSnapshot = snapshot as DriverPermissionSnapshot;
+  const translatedNetworkAllow = (snapshot.rules.allow ?? []).some(networkAllowRuleTriggersSandbox);
+  const networkAccess = Boolean(driverSnapshot.sandboxNetwork || translatedNetworkAllow);
+  if (logTranslation && translatedNetworkAllow && !driverSnapshot.sandboxNetwork) {
+    console.error("[permissions] translated network allow rule(s) to Codex workspace-write network access");
   }
   return {
     approvalPolicy: "untrusted",
@@ -399,7 +453,9 @@ function resolveCodexLaunchValues(snapshot: PermissionSnapshot): CodexLaunchValu
     turnSandboxPolicy: {
       type: "workspaceWrite",
       writableRoots: snapshot.additionalDirectories ?? [],
+      ...(networkAccess ? { networkAccess: true } : {}),
     },
+    cliConfigArgs: networkAccess ? ["-c", "sandbox_workspace_write.network_access=true"] : [],
   };
 }
 
@@ -467,7 +523,12 @@ function codexCommandFromParams(params: JsonObject): { command?: string; argv?: 
   return {};
 }
 
-export function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject, cwd: string): { op: PermissionOp; confidence: boolean } {
+export function codexApprovalOp(
+  method: CodexApprovalMethod,
+  params: JsonObject,
+  cwd: string,
+  additionalDirectories?: string[]
+): { op: PermissionOp; confidence: boolean } {
   if (method === "item/commandExecution/requestApproval" || method === "execCommandApproval") {
     const command = codexCommandFromParams(params);
     const opCwd = typeof params.cwd === "string" && params.cwd.length > 0 ? params.cwd : cwd;
@@ -476,6 +537,7 @@ export function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject,
         tool: "Bash",
         ...command,
         cwd: opCwd,
+        ...(additionalDirectories ? { additionalDirectories } : {}),
         irreversible: Boolean(params.irreversible),
       },
       confidence: Boolean(command.command),
@@ -492,6 +554,7 @@ export function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject,
         tool: codexFileChangeTool(params.fileChanges),
         ...(paths.length > 0 ? { paths, resolvedPaths: resolveOpPaths(paths, cwd) } : {}),
         cwd,
+        ...(additionalDirectories ? { additionalDirectories } : {}),
         irreversible: false,
       },
       confidence: paths.length > 0 || method === "item/fileChange/requestApproval",
@@ -502,6 +565,7 @@ export function codexApprovalOp(method: CodexApprovalMethod, params: JsonObject,
     op: {
       tool: "mcpServer/elicitation",
       cwd,
+      ...(additionalDirectories ? { additionalDirectories } : {}),
       irreversible: false,
     },
     confidence: false,
@@ -691,7 +755,7 @@ export class CodexAppServerDriver implements ProviderDriver {
   kill(): void {
     this.process.killed = true;
     this.child.stdin?.destroy();
-    this.child.kill("SIGKILL");
+    killProviderChildProcess(this.child, "SIGKILL");
     (this.process as LogicalProcess).kill("SIGKILL");
     this.rejectPending(new Error("codex app-server driver was killed"));
     this.queuedTurns.length = 0;
@@ -829,7 +893,12 @@ export class CodexAppServerDriver implements ProviderDriver {
       return;
     }
     this.pendingApprovals.set(key, record);
-    const { op, confidence } = codexApprovalOp(method, params, this.options.cwd);
+    const { op, confidence } = codexApprovalOp(
+      method,
+      params,
+      this.options.cwd,
+      this.permissionSnapshot.additionalDirectories
+    );
     const strictReadParity = (this.permissionSnapshot as DriverPermissionSnapshot).strictReadParity ?? "warn";
     if (!confidence && this.permissionSnapshot.ceiling !== "yolo" && strictReadParity === "warn") {
       console.error(
@@ -1009,7 +1078,7 @@ export class ClaudeSdkDriver implements ProviderDriver {
     isYolo: boolean,
     harnessChannel: string
   ): Promise<ClaudePermissionResult> {
-    const op = permissionOpFromClaudeRequest(request, options.cwd);
+    const op = permissionOpFromClaudeRequest(request, options.cwd, permissionSnapshot.additionalDirectories);
     const engineResult = verdict(op, permissionSnapshot.rules);
     if (isYolo && isBypassImmuneClaudeAsk(request, op)) {
       return denyClaudePermission("bypass-immune Claude safety prompt auto-denied under yolo");
@@ -1158,11 +1227,9 @@ export async function createProviderDriver(options: DriverLaunchOptions): Promis
     return driver;
   }
 
-  const child = spawn(options.command, options.args, {
-    cwd: options.cwd,
-    env: options.env,
-    stdio: ["pipe", "pipe", "pipe"],
-    windowsHide: true,
-  });
-  return new CodexAppServerDriver(child, options);
+  const permissionSnapshot = permissionSnapshotForLaunch(options);
+  const launchValues = resolveCodexLaunchValues(permissionSnapshot, false);
+  const driverOptions = options.permissionSnapshot ? options : { ...options, permissionSnapshot };
+  const child = spawn(options.command, [...launchValues.cliConfigArgs, ...options.args], providerChildSpawnOptions(options));
+  return new CodexAppServerDriver(child, driverOptions);
 }

@@ -50,8 +50,6 @@ export function runClaudePreTool(
 ): PreToolDecision | null {
   try {
     const zombieRecords = cullHookZombies();
-    if (env.SUBAGENT_MCP_SUBAGENT === "1") return null;
-
     const maintenanceAllowedDecision = zombieRecords.length > 0
       ? decision("allow", "maintenance completed; allowing requested tool.")
       : null;
@@ -67,6 +65,8 @@ export function runClaudePreTool(
         "subagent-mcp is alive; harness-native Task/Agent/Explore is not the sanctioned sub-agent channel. Use the subagent-mcp launch_agent MCP tool with the parent-process sentinel as prompt line 1."
       );
     }
+
+    if (env.SUBAGENT_MCP_SUBAGENT === "1") return maintenanceAllowedDecision;
 
     return maintenanceAllowedDecision;
   } catch {

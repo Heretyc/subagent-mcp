@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { homedir, platform } from "node:os";
+import { homedir, platform, userInfo } from "node:os";
 import { dirname, join, parse as parsePath, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +27,7 @@ export const DEFAULT_CHECK_FOR_UPDATES: boolean = true;
 export const DEFAULT_PERMISSIONS_CEILING = "auto" as const;
 export const DEFAULT_ESCALATION = "irreversible-only" as const;
 export const DEFAULT_STRICT_READ_PARITY = "warn" as const;
+export const DEFAULT_SANDBOX_NETWORK: boolean = false;
 export const CONFIG_FILENAME: string = "global-subagent-mcp-config.jsonc";
 export const LEGACY_CONFIG_FILENAME: string = "global-concurrency.jsonc";
 
@@ -52,6 +53,7 @@ export interface PermissionRulesConfig {
   deny: string[];
   ask: string[];
   additionalDirectories: string[];
+  sandboxNetwork: boolean;
 }
 
 export interface MergedPermissionConfig extends PermissionRulesConfig {
@@ -69,6 +71,7 @@ export interface GlobalConfig {
   permissionsCeiling: PermissionsCeiling;
   escalation: EscalationMode;
   strictReadParity: StrictReadParity;
+  sandboxNetwork: boolean;
   path: string;
   usedLegacyPath: boolean;
   parseFailure: string | null;
@@ -174,6 +177,15 @@ export function parseStrictReadParityConfig(text: string): StrictReadParity {
   }
 }
 
+export function parseSandboxNetworkConfig(text: string): boolean {
+  try {
+    const raw = parseJsonObject(text).sandboxNetwork;
+    return typeof raw === "boolean" ? raw : DEFAULT_SANDBOX_NETWORK;
+  } catch {
+    return DEFAULT_SANDBOX_NETWORK;
+  }
+}
+
 export function defaultConfigPath(): string {
   return fileURLToPath(new URL("./" + CONFIG_FILENAME, import.meta.url));
 }
@@ -212,6 +224,7 @@ export function readGlobalConfig(path: string = defaultConfigPath()): GlobalConf
       permissionsCeiling: parsePermissionsCeilingConfig(text),
       escalation: parseEscalationConfig(text),
       strictReadParity: parseStrictReadParityConfig(text),
+      sandboxNetwork: parseSandboxNetworkConfig(text),
       path: resolved.path,
       usedLegacyPath: resolved.usedLegacyPath,
       parseFailure: null,
@@ -223,6 +236,7 @@ export function readGlobalConfig(path: string = defaultConfigPath()): GlobalConf
       permissionsCeiling: "manual",
       escalation: DEFAULT_ESCALATION,
       strictReadParity: DEFAULT_STRICT_READ_PARITY,
+      sandboxNetwork: DEFAULT_SANDBOX_NETWORK,
       path,
       usedLegacyPath: false,
       parseFailure: e instanceof Error ? e.message : String(e),
@@ -248,6 +262,10 @@ export function readEscalation(path: string = defaultConfigPath()): EscalationMo
 
 export function readStrictReadParity(path: string = defaultConfigPath()): StrictReadParity {
   return readGlobalConfig(path).strictReadParity;
+}
+
+export function readSandboxNetwork(path: string = defaultConfigPath()): boolean {
+  return readGlobalConfig(path).sandboxNetwork;
 }
 
 let legacyConfigDeprecationPending = false;
@@ -312,7 +330,7 @@ function readClaudePermissions(
     }
     const disableBypass = userScoped && parsed.disableBypassPermissionsMode === "disable";
     return {
-      rules: { allow, deny, ask, additionalDirectories },
+      rules: { allow, deny, ask, additionalDirectories, sandboxNetwork: false },
       disableBypass,
       failure: null,
     };
@@ -331,6 +349,7 @@ function blanketMutatingAskRules(): PermissionRulesConfig {
     deny: [],
     ask: ["Bash", "Edit", "Write", "NotebookEdit", "MultiEdit"],
     additionalDirectories: [],
+    sandboxNetwork: false,
   };
 }
 
@@ -339,6 +358,7 @@ function mergeRules(target: PermissionRulesConfig, next: PermissionRulesConfig):
   target.deny.push(...next.deny);
   target.ask.push(...next.ask);
   target.additionalDirectories.push(...next.additionalDirectories);
+  target.sandboxNetwork ||= next.sandboxNetwork;
 }
 
 function unique(items: string[]): string[] {
@@ -377,9 +397,15 @@ function readCodexConfig(path: string): { rules: PermissionRulesConfig; failure:
   try {
     const text = readFileSync(path, "utf8");
     assertBasicTomlParsable(text);
-    const rules: PermissionRulesConfig = { allow: [], deny: [], ask: [], additionalDirectories: [] };
+    const rules: PermissionRulesConfig = { allow: [], deny: [], ask: [], additionalDirectories: [], sandboxNetwork: false };
     if (codexTomlValue(text, "sandbox_mode") === "read-only") {
       rules.deny.push("Edit", "Write", "NotebookEdit");
+    }
+    if (
+      /\bsandbox_workspace_write\.network_access\s*=\s*true\b/i.test(text) ||
+      /^\s*\[sandbox_workspace_write\][\s\S]*?^\s*network_access\s*=\s*true\b/im.test(text)
+    ) {
+      rules.sandboxNetwork = true;
     }
     rules.additionalDirectories.push(...codexTomlArray(text, "writable_roots"));
     for (const m of text.matchAll(/^\s*path\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']deny["']/gm)) {
@@ -387,6 +413,10 @@ function readCodexConfig(path: string): { rules: PermissionRulesConfig; failure:
     }
     for (const m of text.matchAll(/^\s*domain\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']deny["']/gm)) {
       rules.deny.push(`WebFetch(domain:${m[1]})`);
+    }
+    for (const m of text.matchAll(/^\s*domain\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']allow["']/gm)) {
+      rules.allow.push(`WebFetch(domain:${m[1]})`);
+      rules.sandboxNetwork = true;
     }
     return { rules, failure: null };
   } catch (e) {
@@ -433,7 +463,13 @@ export function readMergedPermissionConfig(
 ): MergedPermissionConfig {
   const global = readGlobalConfig(path);
   noteLegacyConfigIfUsed(path);
-  const merged: PermissionRulesConfig = { allow: [], deny: [], ask: [], additionalDirectories: [] };
+  const merged: PermissionRulesConfig = {
+    allow: [],
+    deny: [],
+    ask: [],
+    additionalDirectories: [],
+    sandboxNetwork: global.sandboxNetwork,
+  };
   const failures: ConfigParseFailure[] = [];
   let ceiling = global.permissionsCeiling;
   if (global.parseFailure) {
@@ -479,6 +515,7 @@ export function readMergedPermissionConfig(
     deny: unique(merged.deny),
     ask: unique(merged.ask),
     additionalDirectories: unique(merged.additionalDirectories).filter((p) => !protectedDirs.has(resolve(p))),
+    sandboxNetwork: merged.sandboxNetwork,
     permissionsCeiling: ceiling,
     escalation: global.escalation,
     strictReadParity: global.strictReadParity,
@@ -488,7 +525,23 @@ export function readMergedPermissionConfig(
   };
 }
 
-export function slotDir(): string {
+function safeSlotNamespace(raw: string): string {
+  const cleaned = raw.replace(/[^A-Za-z0-9_.-]/g, "_");
+  return cleaned || createHash("sha256").update(raw || "unknown").digest("hex").slice(0, 16);
+}
+
+export function currentUserSlotNamespace(): string {
+  try {
+    const info = userInfo();
+    if (platform() !== "win32" && Number.isInteger(info.uid)) return `uid-${info.uid}`;
+    return safeSlotNamespace(info.username);
+  } catch {}
+  const uid = typeof process.getuid === "function" ? process.getuid() : null;
+  if (typeof uid === "number") return `uid-${uid}`;
+  return safeSlotNamespace(process.env.USERNAME || process.env.USER || "unknown");
+}
+
+export function slotBaseDir(): string {
   if (process.env.SUBAGENT_SLOT_DIR) return process.env.SUBAGENT_SLOT_DIR;
   if (platform() === "win32") {
     return join(
@@ -498,6 +551,10 @@ export function slotDir(): string {
     );
   }
   return "/tmp/subagent-mcp/slots";
+}
+
+export function slotDir(): string {
+  return join(slotBaseDir(), currentUserSlotNamespace());
 }
 
 export function countSlots(dir: string = slotDir()): number {
@@ -524,7 +581,12 @@ export function reserveSlot(
   cullDeps?: CullDeps
 ): SlotReservation {
   try {
-    mkdirSync(dir, { recursive: true, mode: 0o1777 });
+    if (dir === slotDir()) {
+      mkdirSync(slotBaseDir(), { recursive: true, mode: 0o1777 });
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+    } else {
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+    }
     cullStaleSlots(dir, cullDeps);
     const slotPath = slotPathForAgent(dir, agentId);
     const before = countSlots(dir);

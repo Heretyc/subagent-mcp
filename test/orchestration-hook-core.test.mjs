@@ -51,6 +51,7 @@ import {
   writeSlotMetadata,
   ZOMBIE_LIVE_IDLE_MS,
 } from "../dist/zombie.js";
+import { slotDir as currentSlotDir } from "../dist/concurrency.js";
 
 const ORIGINAL_SUBAGENT_SLOT_DIR = process.env.SUBAGENT_SLOT_DIR;
 const TEST_SUBAGENT_SLOT_DIR = mkdtempSync(join(tmpdir(), "orch-hook-default-slots-"));
@@ -135,7 +136,9 @@ function withSlotDir(fn) {
   const dir = mkdtempSync(join(tmpdir(), "orch-hook-slots-"));
   process.env.SUBAGENT_SLOT_DIR = dir;
   try {
-    return fn(dir);
+    const userDir = currentSlotDir();
+    mkdirSync(userDir, { recursive: true });
+    return fn(userDir);
   } finally {
     if (previous === undefined) delete process.env.SUBAGENT_SLOT_DIR;
     else process.env.SUBAGENT_SLOT_DIR = previous;
@@ -492,6 +495,8 @@ test("hook culler blocks through force-after-grace instead of unref scheduling",
       forceGraceMs: () => 7,
       runCommand: (command, args) => calls.push({ command, args }),
       sleepMs: (ms) => sleeps.push(ms),
+      isProcessAlive: (pid) => pid !== 123,
+      isSubagentChildProcess: () => true,
     });
     assert.equal(records.length, 1);
     assert.equal(records[0].agent_id, agentId);
