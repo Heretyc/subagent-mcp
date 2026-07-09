@@ -53,8 +53,9 @@ The checker reports a contradiction in ANY of these classes:
      orchestrator can confirm ownership, and never stage them.
 4. **Version-sync mismatch.** The release/package version surfaces must match:
    `package.json` top-level `version`, `package-lock.json` top-level `version`,
-   `package-lock.json` `packages[""].version`, and `src/index.ts` MCP server
-   `version`. Any mismatch is blocking, even when the commit is not explicitly
+   `package-lock.json` `packages[""].version`, `src/index.ts` MCP server
+   `version`, and `.claude-plugin/plugin.json` `version` (plus marketplace
+   `plugins[].version` when present). Any mismatch is blocking, even when the commit is not explicitly
    a release commit, because the build and published MCP metadata depend on it.
 
 ## Return Shape
