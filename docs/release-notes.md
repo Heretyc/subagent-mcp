@@ -8,6 +8,16 @@ this page records what each release changes for operators.
 
 ---
 
+## v2.12.7
+
+### Republish of v2.12.6 with a CI publish fix
+
+- **Republishes v2.12.6** (its npm publish failed in CI).
+- **Pin npm to 11.5.1 in the publish workflow** — npm@latest ships broken
+  sigstore, breaking `--provenance` publishes.
+
+---
+
 ## v2.12.6
 
 ### Lifecycle correctness, session-scoped disable, and docs
