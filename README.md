@@ -184,7 +184,7 @@ keeps running either way. Full spec: [docs/spec/permissions.md](docs/spec/permis
 - **"It won't start a new agent (cap reached)."** You've hit the concurrent
   limit. Use `list_agents` to see what's running and `kill_agent` on anything
   you no longer need — that frees a slot immediately. Raising the number in
-  `global-concurrency.jsonc` also works.
+  `global-subagent-mcp-config.jsonc` also works.
 - **"Where are the logs?"** Each agent's recent output is available any time via
   `poll_agent`. The server's own diagnostics go to your host's normal MCP
   server log (your Claude Code or Codex session logs) — all server logging goes
@@ -196,7 +196,7 @@ keeps running either way. Full spec: [docs/spec/permissions.md](docs/spec/permis
 |---|---|
 | [docs/spec/arch-rationale.md](docs/spec/arch-rationale.md) | Why it's built this way — the full design rationale |
 | [docs/registration.md](docs/registration.md) | Per-platform setup: Claude Code, Codex, Gemini CLI, Claude Desktop |
-| [docs/tools.md](docs/tools.md) | Full tool reference — all eight tools, parameters, return shapes |
+| [docs/tools.md](docs/tools.md) | Full tool reference — all nine tools, parameters, return shapes |
 | [docs/usage.md](docs/usage.md) | Model & effort matrix, ultracode mode, usage examples |
 | [docs/SPEC.md](docs/SPEC.md) | Full technical specification |
 | [docs/spec/permissions.md](docs/spec/permissions.md) | Permission system — ceiling modes, shared engine, threat model |
