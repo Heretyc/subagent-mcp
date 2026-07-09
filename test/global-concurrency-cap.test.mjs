@@ -12,6 +12,7 @@ import {
   readSlotMetadata,
   releaseSlot,
   reserveSlot,
+  slotDir,
   slotPathForAgent,
   writeSlotMetadata,
   ZOMBIE_FORCE_GRACE_MS,
@@ -41,6 +42,19 @@ function seedSlots(dir, count) {
   mkdirSync(dir, { recursive: true });
   for (let i = 0; i < count; i++) {
     writeFileSync(join(dir, `slot-fake-${i}.json`), "{}");
+  }
+}
+
+function withTemporarySlotBase(fn) {
+  const base = tmpSlotDir();
+  const previous = process.env.SUBAGENT_SLOT_DIR;
+  process.env.SUBAGENT_SLOT_DIR = base;
+  try {
+    return fn({ base, userDir: slotDir() });
+  } finally {
+    if (previous === undefined) delete process.env.SUBAGENT_SLOT_DIR;
+    else process.env.SUBAGENT_SLOT_DIR = previous;
+    rmSync(base, { recursive: true, force: true });
   }
 }
 
@@ -129,6 +143,20 @@ test("reserveSlot succeeds under cap and creates a new slot file", () => {
   releaseFixture = { dir, slotPath: result.slotPath, max };
 });
 
+test("slotDir namespaces default slots per user and ignores legacy flat files", () => {
+  withTemporarySlotBase(({ base, userDir }) => {
+    mkdirSync(base, { recursive: true });
+    writeFileSync(join(base, "slot-foreign.json"), "{}");
+    assert.notEqual(userDir, base);
+
+    const result = reserveSlot("namespaced", 3);
+    assert.equal(result.ok, true);
+    assert.equal(result.slotPath.startsWith(userDir), true);
+    assert.equal(countSlots(), 1);
+    assert.equal(countSlots(base), 1);
+  });
+});
+
 test("reserveSlot rejects when slot directory cannot be created", () => {
   const dir = tmpSlotDir();
   const max = 3;
@@ -145,12 +173,11 @@ test("reserveSlot rejects when slot directory cannot be created", () => {
 });
 
 test("reserveSlot can cull stale slots without blocking for force grace", () => {
-  const dir = tmpSlotDir();
   const max = 1;
   const now = 1_000_000;
   const calls = [];
   const scheduled = [];
-  try {
+  withTemporarySlotBase(({ userDir: dir }) => {
     mkdirSync(dir, { recursive: true });
     const stale = slotPathForAgent(dir, "stale");
     writeSlotMetadata(stale, {
@@ -166,6 +193,7 @@ test("reserveSlot can cull stale slots without blocking for force grace", () => 
       runCommand: (command, args) => calls.push({ command, args }),
       sleepMs: () => assert.fail("reserveSlot server path must not block for force grace"),
       isProcessAlive: (pid) => pid !== 777,
+      isSubagentChildProcess: () => true,
       scheduleForceKill: (ms, kill) => scheduled.push({ ms, kill }),
     });
     assert.equal(result.ok, true);
@@ -178,9 +206,7 @@ test("reserveSlot can cull stale slots without blocking for force grace", () => 
       { command: "taskkill", args: ["/PID", "1234", "/T"] },
       { command: "taskkill", args: ["/PID", "1234", "/T", "/F"] },
     ]);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  });
 });
 
 test("releaseSlot drops the reserved slot count and is idempotent", () => {

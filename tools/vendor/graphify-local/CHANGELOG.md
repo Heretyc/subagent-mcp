@@ -12,7 +12,7 @@ Full release notes with details on each version: [GitHub Releases](https://githu
 
 ## 0.5.5 (2026-04-29)
 
-- Feat: Kimi K2.6 backend — `pip install 'graphifyy[kimi]'` + `MOONSHOT_API_KEY` routes semantic extraction through Kimi K2.6. 3-6x richer relation extraction at ~3x lower cost. Claude remains default; Kimi is opt-in.
+- Feat: Kimi K2.6 backend added upstream. This vendored copy disables direct HTTP API/keyed semantic extraction and uses the keyless local backend only.
 - Fix: phantom god nodes (#598) — member-call callees (`this.logger.log()` → `log`) no longer cross-file resolved. Go package-qualified calls (`pkg.Func()`) correctly preserved. Affects JS/TS, Go, Rust, Swift, Kotlin, Scala, PHP, C++, C#, Zig, Elixir.
 - Fix: `concept` file_type no longer triggers validation warnings (#601)
 - Fix: `graphify update` remembers scan root via `graphify-out/.graphify_root` — no path argument needed on subsequent runs

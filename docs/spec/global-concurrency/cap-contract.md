@@ -9,8 +9,10 @@ the contract remains under repository markdown line limits.
 The machine-global live-subagent cap is the sole admission control for
 subagents alive at once across all sessions, processes, users, and recursive
 descendants on one host. `launch_agent` rejects immediately at cap and never
-queues. Shared slot marker files provide the live count, zombie culling removes
-stale markers opportunistically, and the cap config is re-read on every launch.
+queues. Per-user slot marker files (one namespace subdir per OS user) provide the
+live count for that user, zombie culling removes stale markers opportunistically
+(killing only verified provider children), and the cap config is re-read on every
+launch.
 
 ## Leaf directory
 

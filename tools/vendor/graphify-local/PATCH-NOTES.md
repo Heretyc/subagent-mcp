@@ -8,6 +8,18 @@ Reason: Keyless local-harness extraction for Unity-Claude-Scaffold — no API ke
 
 ## Changes from upstream
 
+### 0. Audit hardening - direct HTTP API/keyed backends disabled
+
+**What changed:**
+
+Removed the vendored `claude` and `kimi` entries from `graphify/llm.py`
+`BACKENDS`, disabled direct-call helper bodies with a premise error, and removed
+API-key environment auto-selection from `detect_backend()` and semantic doc-link
+resolution. CLI extraction now defaults to `--backend local`.
+
+**Why:** subagent-mcp's graphify integration must use only the keyless local
+harness backend: no direct HTTP API calls and no API keys, ever.
+
 ### 1. `graphify/llm.py` — `BACKENDS["local"]` + `_call_local_cli`
 
 **What changed:**
@@ -17,7 +29,6 @@ Added a new `"local"` entry to the `BACKENDS` dict:
 BACKENDS["local"] = {
     "base_url": None,
     "default_model": None,
-    "env_key": "_GRAPHIFY_LOCAL_UNUSED",  # never read
     "pricing": {"input": 0.0, "output": 0.0},
 }
 ```
@@ -60,7 +71,6 @@ command line (and from the choreography Python pipeline):
 
 ```
 graphify extract --backend local --provider claude file1.py file2.py
-graphify extract --backend kimi --api-key $KEY src/
 graphify extract --backend local --provider codex --out out.json src/
 ```
 
@@ -75,9 +85,9 @@ import and via CLI.
 
 ## What was NOT changed
 
-All upstream behaviour for the `claude`, `kimi`, and future API-keyed backends is
-preserved exactly. No existing public symbols were removed or renamed. The patch
-is purely additive.
+The keyless local backend and installable entrypoint remain available. Upstream
+direct HTTP API/keyed backend behavior is intentionally not preserved in this
+vendored copy.
 
 ---
 

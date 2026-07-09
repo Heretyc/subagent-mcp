@@ -8,10 +8,11 @@
  * calls or asks on a sixth call.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { currentUserSlotNamespace, slotDir as currentSlotDir } from "../dist/concurrency.js";
 import { touchAlive, LIVENESS_TTL_MS } from "../dist/orchestration/liveness.js";
 import { runClaudePreTool } from "../dist/orchestration/pretool.js";
 import {
@@ -22,6 +23,7 @@ import {
 
 const ORIGINAL_SUBAGENT_SLOT_DIR = process.env.SUBAGENT_SLOT_DIR;
 const TEST_SUBAGENT_SLOT_DIR = mkdtempSync(join(tmpdir(), "orch-pretool-default-slots-"));
+mkdirSync(join(TEST_SUBAGENT_SLOT_DIR, currentUserSlotNamespace()), { recursive: true });
 process.env.SUBAGENT_SLOT_DIR = TEST_SUBAGENT_SLOT_DIR;
 process.on("exit", () => {
   if (ORIGINAL_SUBAGENT_SLOT_DIR === undefined) delete process.env.SUBAGENT_SLOT_DIR;
@@ -61,11 +63,13 @@ function cleanup(p) {
 function withSlotDir(fn) {
   const previous = process.env.SUBAGENT_SLOT_DIR;
   const dir = mkdtempSync(join(tmpdir(), "orch-pretool-slots-"));
+  mkdirSync(join(dir, currentUserSlotNamespace()), { recursive: true });
   process.env.SUBAGENT_SLOT_DIR = dir;
   try {
-    return fn(dir);
+    return fn(currentSlotDir());
   } finally {
-    process.env.SUBAGENT_SLOT_DIR = previous;
+    if (previous === undefined) delete process.env.SUBAGENT_SLOT_DIR;
+    else process.env.SUBAGENT_SLOT_DIR = previous;
     rmSync(dir, { recursive: true, force: true });
   }
 }
@@ -203,9 +207,23 @@ test("subagent-mcp and question tools stay allowed", () => {
   }
 });
 
-test("subagent env skips all PreToolUse enforcement", () => {
+test("subagent env still denies native Task/Agent/Explore tools", () => {
   touchAlive();
-  const p = payload("Task");
+  for (const tool of ["Task", "Agent", "Explore"]) {
+    const p = payload(tool);
+    try {
+      const result = runClaudePreTool(p, { SUBAGENT_MCP_SUBAGENT: "1" });
+      assert.equal(result?.hookSpecificOutput.permissionDecision, "deny");
+      assert.match(result?.hookSpecificOutput.permissionDecisionReason ?? "", /launch_agent/);
+    } finally {
+      cleanup(p);
+    }
+  }
+});
+
+test("subagent env still allows ordinary inline tools", () => {
+  touchAlive();
+  const p = payload("Bash");
   try {
     assert.equal(runClaudePreTool(p, { SUBAGENT_MCP_SUBAGENT: "1" }), null);
   } finally {

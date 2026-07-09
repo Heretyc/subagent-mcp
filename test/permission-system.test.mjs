@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { verdict, applyPermissionCeiling } from "../dist/permission-engine.js";
-import { codexApprovalOp, codexApprovalResult, ClaudeSdkDriver } from "../dist/drivers.js";
+import { codexApprovalOp, codexApprovalResult, ClaudeSdkDriver, resolveCodexLaunchValues } from "../dist/drivers.js";
 import {
   PendingPermissionManager,
   pendingPermissionManager,
@@ -150,6 +150,34 @@ await test("golden vectors run through shared engine and both adapter mappings",
   }
 });
 
+await test("read tools do not auto-allow protected paths or outside roots", () => {
+  const cwd = process.cwd();
+
+  const sshRead = verdict({ tool: "Read", paths: ["~/.ssh/id_rsa"], cwd }, {});
+  assert.notEqual(sshRead.classification, "safe", "Read of ~/.ssh/id_rsa-like path must not classify safe");
+  assert.equal(sshRead.verdict, "deny", "dangerous read paths are denied by the danger floor");
+
+  const repoRead = verdict({ tool: "Read", paths: ["src/index.ts"], cwd }, {});
+  assert.equal(repoRead.classification, "safe", "ordinary repo reads remain safe");
+  assert.equal(repoRead.verdict, "allow");
+
+  const outsideRead = verdict({ tool: "Read", paths: ["../outside.txt"], cwd }, {});
+  assert.equal(outsideRead.classification, "neutral", "outside-root reads require review");
+  assert.equal(outsideRead.verdict, "ask");
+
+  const extraRootRead = verdict({ tool: "Read", paths: ["../outside.txt"], cwd, additionalDirectories: [".."] }, {});
+  assert.equal(extraRootRead.classification, "safe", "additionalDirectories preserve approved read roots");
+  assert.equal(extraRootRead.verdict, "allow");
+
+  const grepSsh = verdict({ tool: "Grep", paths: ["../.ssh"], cwd }, {});
+  assert.notEqual(grepSsh.classification, "safe", "Grep over a dangerous path segment must not classify safe");
+  assert.equal(grepSsh.verdict, "deny");
+
+  const globAws = verdict({ tool: "Glob", paths: ["../.aws/*"], cwd }, {});
+  assert.notEqual(globAws.classification, "safe", "Glob over a dangerous path segment must not classify safe");
+  assert.equal(globAws.verdict, "deny");
+});
+
 // Regression for J2-9 "total-order-over-modes": manual must auto-allow SAFE,
 // auto-deny DANGER, and only park NEUTRAL residue for a human — it must NOT
 // demote a SAFE op's allow into an "ask" park. Exercised through the shared
@@ -235,6 +263,53 @@ await test("Codex approval reply shapes are exact for every approval method", ()
   }
   assert.deepEqual(codexApprovalResult("mcpServer/elicitation/request", "allow"), { action: "accept" });
   assert.deepEqual(codexApprovalResult("mcpServer/elicitation/request", "deny"), { action: "decline" });
+});
+
+await test("Codex auto ceiling keeps workspace-write network off by default", () => {
+  const launch = resolveCodexLaunchValues({ ceiling: "auto", escalation: "irreversible-only", rules: {} }, false);
+  assert.equal(launch.approvalPolicy, "untrusted");
+  assert.equal(launch.threadSandbox, "workspace-write");
+  assert.deepEqual(launch.turnSandboxPolicy, { type: "workspaceWrite", writableRoots: [] });
+  assert.deepEqual(launch.cliConfigArgs, []);
+});
+
+await test("Codex sandboxNetwork opt-in enables workspace-write network", () => {
+  const launch = resolveCodexLaunchValues({
+    ceiling: "auto",
+    escalation: "irreversible-only",
+    rules: {},
+    sandboxNetwork: true,
+  }, false);
+  assert.equal(launch.turnSandboxPolicy.networkAccess, true);
+  assert.deepEqual(launch.cliConfigArgs, ["-c", "sandbox_workspace_write.network_access=true"]);
+});
+
+await test("Codex network-ish allow rules translate to workspace-write network", () => {
+  const seen = [];
+  const oldError = console.error;
+  console.error = (msg) => seen.push(String(msg));
+  try {
+    const launch = resolveCodexLaunchValues({
+      ceiling: "auto",
+      escalation: "irreversible-only",
+      rules: { allow: ["Bash(git push:*)"] },
+    });
+    assert.equal(launch.turnSandboxPolicy.networkAccess, true);
+    assert.deepEqual(launch.cliConfigArgs, ["-c", "sandbox_workspace_write.network_access=true"]);
+    assert.ok(seen.some((m) => /translated network allow/.test(m)));
+  } finally {
+    console.error = oldError;
+  }
+});
+
+await test("Codex approval ops carry additionalDirectories from the snapshot", () => {
+  const mapped = codexApprovalOp(
+    "item/fileChange/requestApproval",
+    { fileChanges: { "../outside.txt": { type: "modify" } } },
+    process.cwd(),
+    [".."]
+  );
+  assert.deepEqual(mapped.op.additionalDirectories, [".."]);
 });
 
 await test("permission lifecycle replies are never dropped for deny, timeout, kill, and cap overflow", async () => {
@@ -463,7 +538,7 @@ await test("config precedence, unions, repo allow, legacy read, and parse fail-c
     mkdirSync(join(cwd, ".claude"), { recursive: true });
     mkdirSync(join(cwd, ".codex"), { recursive: true });
     mkdirSync(join(home, ".subagent-mcp"), { recursive: true });
-    writeFileSync(globalPath, '{"permissionsCeiling":"yolo","escalation":"off","strictReadParity":"off"}');
+    writeFileSync(globalPath, '{"permissionsCeiling":"yolo","escalation":"off","strictReadParity":"off","sandboxNetwork":true}');
     writeFileSync(join(home, ".subagent-mcp", "settings.json"), JSON.stringify({
       disableBypassPermissionsMode: "disable",
       permissions: { allow: ["Read(home.txt)"], ask: ["Bash(node *)"], deny: ["Write(secret)"] },
@@ -471,7 +546,7 @@ await test("config precedence, unions, repo allow, legacy read, and parse fail-c
     writeFileSync(join(cwd, ".claude", "settings.json"), JSON.stringify({
       permissions: { allow: ["Bash(node build.js)"], ask: ["Edit(src/*)"], deny: ["WebFetch(domain:bad.test)"] },
     }));
-    writeFileSync(join(cwd, ".codex", "config.toml"), 'sandbox_mode = "read-only"\nwritable_roots = ["extra"]\n');
+    writeFileSync(join(cwd, ".codex", "config.toml"), 'sandbox_mode = "read-only"\nwritable_roots = ["extra"]\ndomain = "registry.npmjs.org"\naccess = "allow"\n');
 
     const code = `
       import { readMergedPermissionConfig, consumeLegacyConfigDeprecationNotice, legacyConfigPath } from "./dist/concurrency.js";
@@ -497,6 +572,8 @@ await test("config precedence, unions, repo allow, legacy read, and parse fail-c
     assert.ok(first.allow.includes("Bash(node build.js)"), "repo allow is honored");
     assert.ok(first.ask.includes("Bash(node *)") && first.ask.includes("Edit(src/*)"));
     assert.ok(first.deny.includes("Write(secret)") && first.deny.includes("WebFetch(domain:bad.test)"));
+    assert.ok(first.allow.includes("WebFetch(domain:registry.npmjs.org)"));
+    assert.equal(first.sandboxNetwork, true);
     assert.ok(first.deny.includes("Edit") && first.deny.includes("Write"));
     assert.equal(legacy.permissionsCeiling, "manual");
     assert.match(notice, /deprecated/);

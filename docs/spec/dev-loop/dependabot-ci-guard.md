@@ -3,6 +3,13 @@
 Status: normative procedure for required CI guards on Dependabot dependency
 update PRs.
 
+## Monitored Ecosystems
+
+`.github/dependabot.yml` runs two weekly update jobs: `github-actions` (rooted at
+`/`) and `npm` (rooted at `/`, monitoring the package manifest). Both open PRs on
+`dependabot/*` branches, so both are subject to the guards below. Adding a further
+ecosystem does not change the guard procedure — any Dependabot-actor PR inherits it.
+
 ## When This Applies
 
 A Dependabot PR, where actor is `dependabot[bot]` and the head branch matches

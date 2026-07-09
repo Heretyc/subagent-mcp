@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import {
+  AGENT_RETENTION_MS,
+  evictExpiredAgents,
   isClaudeBackgroundWakeLine,
   maybeResumeAfterBackgroundTask,
+  shouldEvictAgent,
 } from "../dist/index.js";
 
 let passed = 0;
@@ -92,6 +95,51 @@ await test("non-Claude agents are ignored", async () => {
   const { agent, sends } = makeAgent({ provider: "codex" });
   assert.equal(await maybeResumeAfterBackgroundTask(agent, 2100), false);
   assert.equal(sends.length, 0);
+});
+
+function evictableAgent(overrides = {}) {
+  return {
+    status: "finished",
+    driver: { closed: true },
+    exitedAt: 1_000_000,
+    waitReported: true,
+    ...overrides,
+  };
+}
+
+await test("agent eviction removes terminal reported closed agents after retention", async () => {
+  const now = 1_000_000 + AGENT_RETENTION_MS + 1;
+  const agents = new Map([
+    ["old", evictableAgent()],
+    ["recent", evictableAgent({ exitedAt: now - AGENT_RETENTION_MS })],
+  ]);
+
+  assert.equal(shouldEvictAgent(agents.get("old"), now), true);
+  assert.equal(evictExpiredAgents(agents, now), 1);
+  assert.equal(agents.has("old"), false);
+  assert.equal(agents.has("recent"), true);
+});
+
+await test("agent eviction never removes unreported finished agents", async () => {
+  const now = 1_000_000 + AGENT_RETENTION_MS + 1;
+  const agents = new Map([
+    ["unreported", evictableAgent({ waitReported: false })],
+  ]);
+
+  assert.equal(shouldEvictAgent(agents.get("unreported"), now), false);
+  assert.equal(evictExpiredAgents(agents, now), 0);
+  assert.equal(agents.has("unreported"), true);
+});
+
+await test("agent eviction never removes live agents", async () => {
+  const now = 1_000_000 + AGENT_RETENTION_MS + 1;
+  const agents = new Map([
+    ["live", evictableAgent({ status: "processing", exitedAt: null })],
+  ]);
+
+  assert.equal(shouldEvictAgent(agents.get("live"), now), false);
+  assert.equal(evictExpiredAgents(agents, now), 0);
+  assert.equal(agents.has("live"), true);
 });
 
 if (failed) {

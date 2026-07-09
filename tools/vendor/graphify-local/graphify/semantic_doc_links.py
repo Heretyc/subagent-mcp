@@ -5,13 +5,12 @@ import json
 import os
 import re
 import shutil
-import sys
 import time
 from pathlib import Path
 
 from .cache import file_hash
 from .detect import MD_EXTENSIONS, _is_ignored, _load_graphifyignore, is_markdown_included
-from .llm import BACKENDS, _call_claude, _call_local_cli, _call_openai_compat, _parse_llm_json
+from .llm import _call_local_cli, _parse_llm_json
 
 MANIFEST_PATH = Path("graphify-out/semantic-doc-link-manifest.json")
 CACHE_PATH = Path("graphify-out/cache/semantic/doc-links.json")
@@ -147,6 +146,11 @@ def _resolve_backend() -> tuple[str, str | None]:
         or os.environ.get("GRAPHIFY_BACKEND")
         or "local"
     ).strip().lower()
+    if configured != "local":
+        raise ValueError(
+            "Direct HTTP API/keyed graphify backends are disabled in this vendored copy. "
+            "Use GRAPHIFY_SEMANTIC_DOC_BACKEND=local."
+        )
     if configured == "local":
         provider = os.environ.get("GRAPHIFY_LOCAL_PROVIDER", "").strip().lower()
         if not provider:
@@ -156,28 +160,6 @@ def _resolve_backend() -> tuple[str, str | None]:
                 provider = "claude"
         if provider:
             return "local", provider
-    if configured in BACKENDS:
-        print(
-            f"[graphify semantic-doc-links] WARNING: using cloud backend {configured} (API cost) "
-            f"because GRAPHIFY_SEMANTIC_DOC_BACKEND/GRAPHIFY_BACKEND selected it; "
-            "set GRAPHIFY_SEMANTIC_DOC_BACKEND=local for offline mode.",
-            file=sys.stderr,
-        )
-        return configured, None
-    if os.environ.get("MOONSHOT_API_KEY"):
-        print(
-            "[graphify semantic-doc-links] WARNING: using cloud backend kimi (API cost) "
-            "because MOONSHOT_API_KEY is set; set GRAPHIFY_SEMANTIC_DOC_BACKEND=local for offline mode.",
-            file=sys.stderr,
-        )
-        return "kimi", None
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        print(
-            "[graphify semantic-doc-links] WARNING: using cloud backend claude (API cost) "
-            "because ANTHROPIC_API_KEY is set; set GRAPHIFY_SEMANTIC_DOC_BACKEND=local for offline mode.",
-            file=sys.stderr,
-        )
-        return "claude", None
     return "local", None
 
 
@@ -185,18 +167,9 @@ def _call_model(prompt: str, backend: str, provider: str | None, root: Path) -> 
     if backend == "local":
         raw = _call_local_cli(prompt, provider=provider, cwd=str(root))
         return _parse_llm_json(raw)
-    cfg = BACKENDS[backend]
-    key = os.environ.get(cfg["env_key"], "")
-    if not key:
-        raise ValueError(f"No API key for backend '{backend}'. Set {cfg['env_key']}.")
-    if backend == "claude":
-        return _call_claude(key, cfg["default_model"], prompt)
-    return _call_openai_compat(
-        cfg["base_url"],
-        key,
-        cfg["default_model"],
-        prompt,
-        temperature=cfg.get("temperature", 0),
+    raise ValueError(
+        "Direct HTTP API/keyed graphify backends are disabled in this vendored copy. "
+        "Use the keyless 'local' backend."
     )
 
 

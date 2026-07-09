@@ -1,3 +1,4 @@
+import path from "node:path";
 import permissionClasses from "./permission-classes.json" with { type: "json" };
 
 export type PermissionVerdict = "allow" | "deny" | "ask";
@@ -19,6 +20,7 @@ export interface PermissionOp {
   resolvedPaths?: string[];
   network?: PermissionNetworkTarget[];
   cwd: string;
+  additionalDirectories?: string[];
   irreversible?: boolean;
 }
 
@@ -143,11 +145,19 @@ export function classifyPermissionOp(
   const command = commandText(op);
   const irreversible = Boolean(op.irreversible) || (command !== "" && irreversibleRegexes.some((r) => r.test(command)));
 
-  if (isDangerousPathOp(op)) {
+  if (hasDangerousOrProtectedPath(op)) {
     return {
       classification: "danger",
       irreversible,
       reason: "dangerous or protected path",
+    };
+  }
+
+  if (isReadPathOutsideAllowedRoots(op)) {
+    return {
+      classification: "neutral",
+      irreversible,
+      reason: "read path outside allowed roots",
     };
   }
 
@@ -255,14 +265,37 @@ function matchesAnyPath(op: PermissionOp, pattern: string): boolean {
   });
 }
 
-function isDangerousPathOp(op: PermissionOp): boolean {
-  if (!writeTools.has(normalizeToolName(op.tool))) return false;
+function hasDangerousOrProtectedPath(op: PermissionOp): boolean {
+  if (!isPathProtectedTool(op)) return false;
   return allPaths(op).some((p) => {
     const normalized = normalizePathForMatch(p);
     const parts = normalized.split("/").filter(Boolean);
     const last = parts[parts.length - 1]?.toLowerCase() ?? "";
     return parts.some((part) => dangerousPathSegments.has(part.toLowerCase())) || protectedFilenames.has(last);
   });
+}
+
+function isReadPathOutsideAllowedRoots(op: PermissionOp): boolean {
+  if (!safeTools.has(normalizeToolName(op.tool))) return false;
+  return allPaths(op).some((p) => !isPathInsideAllowedRoots(p, op));
+}
+
+function isPathProtectedTool(op: PermissionOp): boolean {
+  const opTool = normalizeToolName(op.tool);
+  return writeTools.has(opTool) || safeTools.has(opTool);
+}
+
+function isPathInsideAllowedRoots(candidate: string, op: PermissionOp): boolean {
+  const roots = [op.cwd, ...(op.additionalDirectories ?? [])].map((root) => resolvePathForContainment(root, op.cwd));
+  const resolved = resolvePathForContainment(candidate, op.cwd);
+  return roots.some((root) => resolved === root || resolved.startsWith(`${root}/`));
+}
+
+function resolvePathForContainment(candidate: string, cwd: string): string {
+  const normalized = normalizePathForMatch(candidate);
+  const isAbsolute = path.win32.isAbsolute(candidate) || path.posix.isAbsolute(candidate);
+  const joined = isAbsolute ? normalized : normalizePathForMatch(path.resolve(cwd, candidate));
+  return joined.replace(/\/$/, "");
 }
 
 function isSafeBashCommand(command: string): boolean {

@@ -18,12 +18,24 @@ and `SUBAGENT_ZOMBIE_TERMINAL_IDLE_MS` / `SUBAGENT_ZOMBIE_FORCE_GRACE_MS` as
 test seams. Hook-side force grace uses `SUBAGENT_ZOMBIE_FORCE_GRACE_MS`.
 
 For stale slots, culling first checks owner `server_pid`; live owners are skipped.
-If owner is gone and `child_pid` exists, culling terminates the full tree:
+A `child_pid` is killed only when it is a **verified subagent-mcp provider child in
+the current user's namespace**: the slot dir must be the caller's own
+(`isCurrentUserSlotDir`), the pid must be alive, and
+`isSubagentChildProcess(pid, meta)` must confirm the process command line looks
+like a `claude`/`codex`/`gemini` provider child (via `/proc/<pid>/cmdline` on POSIX
+or a `Win32_Process` query on Windows). If any check fails, culling **deletes the
+stale marker without killing** — no attacker-directed or cross-user kills. When
+verified and the owner is gone, culling terminates the full tree:
 
 ```text
 Windows: graceful taskkill /PID <pid> /T; force taskkill /PID <pid> /T /F
 POSIX:   graceful kill -TERM -<pid>;     force kill -KILL -<pid>
 ```
+
+Provider children are spawned **detached** on POSIX (`detached: true`, making each
+child a process-group leader) so the negative-pid group kill (`-<pid>`) reaps the
+child **and its grandchildren**; Windows keeps the unchanged `taskkill /T`
+tree kill (`detached` is not set there).
 
 Unmanaged stale slots (no `server_pid`) are unlinked without killing child PIDs.
 Terminal-but-alive entries are force-killed immediately; the owning server marks

@@ -1,7 +1,5 @@
-# Direct LLM backend for semantic extraction — supports Claude and Kimi K2.6.
-# Used by `graphify . --backend kimi` and the benchmark scripts.
-# The default graphify pipeline uses Claude Code subagents via skill.md;
-# this module provides a direct API path for non-Claude-Code environments.
+# Keyless local-harness backend for semantic extraction.
+# This vendored copy intentionally disables all direct HTTP API/keyed paths.
 from __future__ import annotations
 
 import json
@@ -12,20 +10,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 BACKENDS: dict[str, dict] = {
-    "claude": {
-        "base_url": "https://api.anthropic.com",
-        "default_model": "claude-sonnet-4-6",
-        "env_key": "ANTHROPIC_API_KEY",
-        "pricing": {"input": 3.0, "output": 15.0},  # USD per 1M tokens
-        "temperature": 0,
-    },
-    "kimi": {
-        "base_url": "https://api.moonshot.ai/v1",
-        "default_model": "kimi-k2.6",
-        "env_key": "MOONSHOT_API_KEY",
-        "pricing": {"input": 0.74, "output": 4.66},  # USD per 1M tokens
-        "temperature": None,  # kimi-k2.6 enforces its own fixed temperature; sending any value raises 400
-    },
     # Local harness backend — keyless. Routes through the already-authenticated
     # Claude Code CLI or Codex CLI on the user's machine. No API key is needed.
     # Provider (claude|codex) is chosen PER-SCAN via GRAPHIFY_LOCAL_PROVIDER env
@@ -34,10 +18,15 @@ BACKENDS: dict[str, dict] = {
     "local": {
         "base_url": None,
         "default_model": None,
-        "env_key": "_GRAPHIFY_LOCAL_UNUSED",  # dummy — never read
         "pricing": {"input": 0.0, "output": 0.0},
     },
 }
+
+_DIRECT_API_DISABLED = (
+    "Direct HTTP API/keyed graphify backends are disabled in this vendored copy. "
+    "subagent-mcp relies on the keyless 'local' backend only: no direct HTTP API "
+    "calls and no API keys, ever."
+)
 
 _EXTRACTION_SYSTEM = """\
 You are a graphify semantic extraction agent. Extract a knowledge graph fragment from the files provided.
@@ -93,56 +82,13 @@ def _call_openai_compat(
     user_message: str,
     temperature: float | None = 0,
 ) -> dict:
-    """Call any OpenAI-compatible API (Kimi, OpenAI, etc.) and return parsed JSON."""
-    try:
-        from openai import OpenAI
-    except ImportError as exc:
-        raise ImportError(
-            "Kimi/OpenAI-compatible extraction requires the openai package. "
-            "Run: pip install openai"
-        ) from exc
-
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    kwargs: dict = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": _EXTRACTION_SYSTEM},
-            {"role": "user", "content": user_message},
-        ],
-        "max_completion_tokens": 8192,
-    }
-    if temperature is not None:
-        kwargs["temperature"] = temperature
-    resp = client.chat.completions.create(**kwargs)
-    result = _parse_llm_json(resp.choices[0].message.content or "{}")
-    result["input_tokens"] = resp.usage.prompt_tokens if resp.usage else 0
-    result["output_tokens"] = resp.usage.completion_tokens if resp.usage else 0
-    result["model"] = model
-    return result
+    """Disabled: direct HTTP API/keyed extraction is not allowed here."""
+    raise RuntimeError(_DIRECT_API_DISABLED)
 
 
 def _call_claude(api_key: str, model: str, user_message: str) -> dict:
-    """Call Anthropic Claude directly (not via OpenAI compat layer)."""
-    try:
-        import anthropic
-    except ImportError as exc:
-        raise ImportError(
-            "Claude direct extraction requires the anthropic package. "
-            "Run: pip install anthropic"
-        ) from exc
-
-    client = anthropic.Anthropic(api_key=api_key)
-    resp = client.messages.create(
-        model=model,
-        max_tokens=8192,
-        system=_EXTRACTION_SYSTEM,
-        messages=[{"role": "user", "content": user_message}],
-    )
-    result = _parse_llm_json(resp.content[0].text if resp.content else "{}")
-    result["input_tokens"] = resp.usage.input_tokens if resp.usage else 0
-    result["output_tokens"] = resp.usage.output_tokens if resp.usage else 0
-    result["model"] = model
-    return result
+    """Disabled: direct HTTP API/keyed extraction is not allowed here."""
+    raise RuntimeError(_DIRECT_API_DISABLED)
 
 
 def _call_local_cli(
@@ -338,7 +284,7 @@ def _call_local_cli(
 
 def extract_files_direct(
     files: list[Path],
-    backend: str = "kimi",
+    backend: str = "local",
     api_key: str | None = None,
     model: str | None = None,
     root: Path = Path("."),
@@ -347,7 +293,7 @@ def extract_files_direct(
     """Extract semantic nodes/edges from a list of files using the given backend.
 
     Returns dict with nodes, edges, hyperedges, input_tokens, output_tokens.
-    Raises ValueError for unknown backends. Raises ImportError if SDK missing.
+    Raises ValueError for unknown backends.
 
     When backend=="local" the call is routed through the already-authenticated
     Claude Code CLI or Codex CLI (keyless).  The active provider (claude|codex)
@@ -371,26 +317,12 @@ def extract_files_direct(
         result["model"] = "local"
         return result
 
-    # ── API-keyed paths ────────────────────────────────────────────────────────
-    cfg = BACKENDS[backend]
-    key = api_key or os.environ.get(cfg["env_key"], "")
-    if not key:
-        raise ValueError(
-            f"No API key for backend '{backend}'. "
-            f"Set {cfg['env_key']} or pass api_key=."
-        )
-    mdl = model or cfg["default_model"]
-    user_msg = _read_files(files, root)
-
-    if backend == "claude":
-        return _call_claude(key, mdl, user_msg)
-    else:
-        return _call_openai_compat(cfg["base_url"], key, mdl, user_msg, temperature=cfg.get("temperature", 0))
+    raise RuntimeError(_DIRECT_API_DISABLED)
 
 
 def extract_corpus_parallel(
     files: list[Path],
-    backend: str = "kimi",
+    backend: str = "local",
     api_key: str | None = None,
     model: str | None = None,
     root: Path = Path("."),
@@ -429,13 +361,5 @@ def estimate_cost(backend: str, input_tokens: int, output_tokens: int) -> float:
 
 
 def detect_backend() -> str | None:
-    """Return the name of whichever backend has an API key set, or None.
-
-    Kimi is checked first (opt-in). Falls back to Claude if ANTHROPIC_API_KEY is set.
-    Claude is the default for the skill.md subagent pipeline and is never forced here.
-    """
-    if os.environ.get("MOONSHOT_API_KEY"):
-        return "kimi"
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return "claude"
-    return None
+    """Return the default backend without consulting API-key environment state."""
+    return "local"

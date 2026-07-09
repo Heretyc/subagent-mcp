@@ -33,9 +33,11 @@ node dist/index.js   # verify: the MCP server starts
 runs `npm run build`), so the project is built automatically on a clean clone.
 The server entry point after build is `dist/index.js`.
 
-**Version-sync gate.** The version string must match across four surfaces:
+**Version-sync gate.** The version string must match across these surfaces:
 `package.json`, `package-lock.json` (top-level), `package-lock.json`
-(`packages[""]`), and the MCP server `version` in `src/index.ts`. Run
+(`packages[""]`), the MCP server `version` in `src/index.ts`, and
+`.claude-plugin/plugin.json` (plus each `plugins[].version` in
+`.claude-plugin/marketplace.json` / `marketplace.json` when present). Run
 `npm run check:versions` to validate. To bump, use
 `npm version <patch|minor|major> --no-git-tag-version` for the first three
 surfaces, then edit `src/index.ts` manually, then re-run `npm run check:versions`.
@@ -50,7 +52,7 @@ Claude Desktop) once the from-source binary is built.
 | Command | What it does |
 |---|---|
 | `npm run build` | Version sync (`check:versions`) → scaffold gen → TypeScript compile (`tsc`) → copy provider assets |
-| `npm run check:versions` | Assert all four version surfaces match; blocks the build on mismatch |
+| `npm run check:versions` | Assert all version surfaces match (incl. `.claude-plugin/plugin.json` + marketplace `plugins[].version`); blocks the build on mismatch |
 | `npm start` | `node dist/index.js` — run the compiled server |
 | `npm test` | Full test suite (~40 test files) plus three validator scripts |
 

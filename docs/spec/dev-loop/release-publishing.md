@@ -29,6 +29,8 @@ registry directly; never infer one from the other.
    - `package-lock.json` top-level `version`
    - `package-lock.json` `packages[""].version`
    - `src/index.ts` MCP server `version`
+   - `.claude-plugin/plugin.json` `version` (plus each `plugins[].version` in
+     `.claude-plugin/marketplace.json` / `marketplace.json` when present)
 
    Run `npm run check:versions`. This is wired into `npm run build`, `npm test`,
    and the publish workflow; any mismatch blocks the build/publish. Use
