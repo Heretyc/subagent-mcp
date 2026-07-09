@@ -24,7 +24,7 @@ decoupled copy). When they disagree, **this skill wins**.
 ## Non-negotiable rules
 
 1. **Permanent location only.** Install to the global npm package dir
-   (`npm root -g` → `<root>/subagent-mcp`) or another stable, user-owned dir.
+   (`npm root -g` → `<root>/@heretyc/subagent-mcp`) or another stable, user-owned dir.
    **NEVER** install from or point config at: a git **worktree**, `%TEMP%`,
    `/tmp`, `/TMP`, `$TMPDIR`, `os.tmpdir()`, a `Downloads` folder, or the live
    dev checkout. See `references/locations.md` for the full forbidden list and

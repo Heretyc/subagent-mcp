@@ -24,11 +24,11 @@ Reject if a normalized, resolved path matches any of these:
 ## Permanent locations (use these)
 
 - **Global npm package dir (default, recommended):** `npm root -g` returns the
-  global `node_modules`. The install lives at `<npm-root-g>/subagent-mcp`. This
+  global `node_modules`. The install lives at `<npm root -g>/@heretyc/subagent-mcp`. This
   is stable across sessions and reboots and is the idiomatic home for a Node MCP
   server installed via `npm install -g`.
-  - Windows: typically `C:\Users\<you>\AppData\Roaming\npm\node_modules\subagent-mcp`.
-  - macOS/Linux: typically `<prefix>/lib/node_modules/subagent-mcp`.
+  - Windows: typically `C:\Users\<you>\AppData\Roaming\npm\node_modules\@heretyc\subagent-mcp`.
+  - macOS/Linux: typically `<prefix>/lib/node_modules/@heretyc/subagent-mcp`.
   - Note: Windows global modules are under `<prefix>\node_modules`, POSIX under
     `<prefix>/lib/node_modules`. Always resolve with `npm root -g` rather than
     hardcoding — it returns the correct dir on every platform.
@@ -42,7 +42,7 @@ Reject if a normalized, resolved path matches any of these:
 
 ```
 npm root -g            # -> <global node_modules>
-# install root = <global node_modules>/subagent-mcp
+# install root = <global node_modules>/@heretyc/subagent-mcp
 # server       = <install root>/dist/index.js
 # claude hook  = <install root>/dist/hooks/orchestration-claude.js
 # claude gate  = <install root>/dist/hooks/orchestration-claude-pretool.js

@@ -2,10 +2,10 @@
 
 Full support: user-scope MCP server **plus** machine-wide `UserPromptSubmit`
 and `PreToolUse` hooks. All paths absolute and pointing at the permanent root
-(`<npm root -g>/subagent-mcp`). Compliance basis: `compliance.md` → "Claude Code".
+(`<npm root -g>/@heretyc/subagent-mcp`). Compliance basis: `compliance.md` → "Claude Code".
 
 Prereq: the decoupled global install exists (`packaging.md` / `deploy.mjs`).
-Resolve the install root once: `INSTALL = <npm root -g>/subagent-mcp`.
+Resolve the install root once: `INSTALL = <npm root -g>/@heretyc/subagent-mcp`.
 
 ## 1) MCP server — user scope (official CLI)
 
