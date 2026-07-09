@@ -16,7 +16,7 @@ is the SOLE admission control; no per-provider caps exist.
 - Slots normally free when agents finish, are killed, or all launch candidates
   fail. Zombie culling may also free stale slots before cap rejection.
 
-Config and live state are distinct: `global-concurrency.jsonc` travels with the
+Config and live state are distinct: `global-subagent-mcp-config.jsonc` travels with the
 package install; slot files travel with the machine.
 
 ## Shared State
@@ -62,10 +62,10 @@ runs. The cap value itself has no environment-variable override.
 A slot is reserved once per `launch_agent` call before candidate attempts. The
 winning `AgentState.slotPath` carries the marker path to release sites.
 
-Slots are held until turn-finish, true driver process death, manual termination,
-failed launch cleanup, or zombie culling. A stalled agent still holds the slot,
-but a turn-finished interactive agent releases its slot while the driver remains
-open and `send_message`-able.
+Slots are held for the driver's whole lifetime -- released only on true driver
+process death, manual termination, failed launch cleanup, or zombie culling.
+Turn-completion does NOT release: a turn-finished but still-open interactive
+agent keeps its slot (as does a stalled agent) until the driver closes.
 
 Release sites:
 
@@ -119,9 +119,10 @@ If a process crashes and no hook/tool later culls its marker, the marker can
 still over-count until reboot on POSIX or manual deletion on Windows.
 
 ## Config
-- Canonical source: `src/global-concurrency.jsonc`.
-- Installed path: `dist/global-concurrency.jsonc` beside compiled modules.
+- Canonical source: `src/global-subagent-mcp-config.jsonc`.
+- Installed path: `dist/global-subagent-mcp-config.jsonc` beside compiled modules.
 - Keys: `globalConcurrentSubagents`, `checkForUpdates`.
+- See `docs/spec/permissions.md` §4 for the 2.12.5 rename; `global-concurrency.jsonc` is a deprecated fallback.
 - Default: `20`; minimum valid: `10`.
 - Re-read on every `launch_agent`; no restart and no cache.
 - JSONC supports whole-line `//` comments only.
@@ -142,7 +143,7 @@ Validation:
 | 10 or greater | used as-is |
 
 ## Template
-`src/global-concurrency.jsonc` is shipped and scaffolded byte-for-byte:
+`src/global-subagent-mcp-config.jsonc` is shipped and scaffolded byte-for-byte:
 
 ```jsonc
 // subagent-mcp - Global Concurrent Subagent Cap
@@ -187,7 +188,7 @@ for `advanced-ruleset.py`: CLI self-update, installer deployment, and runtime
 recreate-if-absent. Existing user config is never overwritten.
 
 `scripts/gen-ruleset-scaffold.mjs` emits `src/config-scaffold.ts` from
-`src/global-concurrency.jsonc` before `tsc`. `scripts/copy-provider.mjs` copies
+`src/global-subagent-mcp-config.jsonc` before `tsc`. `scripts/copy-provider.mjs` copies
 the JSONC file into `dist/` and hard-fails if it is missing.
 
 ## Enforcement

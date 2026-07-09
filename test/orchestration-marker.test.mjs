@@ -22,10 +22,14 @@ import {
   cwdHash,
   markerPath,
   disablePath,
+  sessionPointerPath,
+  serverSessionPointerPath,
   enable,
   disable,
   writeDisable,
   writeDisableCwd,
+  writeCurrentSession,
+  readCurrentSession,
   isActive,
   readMarker,
   writeMarker,
@@ -145,6 +149,33 @@ test("default ON; disable records make isActive false; per-session isolation", (
     rmSync(disablePath(sessA), { force: true });
     rmSync(disablePath(sessB), { force: true });
     rmSync(disablePath(expiredSess), { force: true });
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("current-session pointer is scoped by server key, not just cwd", () => {
+  const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
+  try {
+    writeCurrentSession(dir, "session-A", "server-A");
+    writeCurrentSession(dir, "session-B", "server-B");
+    assert.equal(readCurrentSession(dir, "server-A"), "session-A");
+    assert.equal(readCurrentSession(dir, "server-B"), "session-B");
+    assert.equal(readCurrentSession(dir, "server-C"), undefined);
+    assert.notEqual(
+      serverSessionPointerPath(dir, "server-A"),
+      serverSessionPointerPath(dir, "server-B"),
+      "different server keys must not share a pointer file"
+    );
+    assert.notEqual(
+      serverSessionPointerPath(dir, "server-A"),
+      sessionPointerPath(dir),
+      "server-scoped pointer must be distinct from the legacy cwd pointer"
+    );
+  } finally {
+    rmSync(serverSessionPointerPath(dir, "server-A"), { force: true });
+    rmSync(serverSessionPointerPath(dir, "server-B"), { force: true });
+    rmSync(serverSessionPointerPath(dir, "server-C"), { force: true });
+    rmSync(sessionPointerPath(dir), { force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });

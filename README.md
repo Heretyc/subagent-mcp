@@ -5,39 +5,56 @@
 [![node](https://img.shields.io/node/v/@heretyc/subagent-mcp)](https://www.npmjs.com/package/@heretyc/subagent-mcp)
 [![CI](https://github.com/Heretyc/subagent-mcp/actions/workflows/claude-routine.yml/badge.svg)](https://github.com/Heretyc/subagent-mcp/actions/workflows/claude-routine.yml)
 
-Turn any AI coding assistant into a **manager of other AI agents**. subagent-mcp
-lets your Claude Code or Codex session start, watch, message, and stop a whole
-team of AI sub-agents — on macOS, Linux, and Windows. **No direct API calls. No
-API keys.** It drives the `claude` and `codex` command-line tools you already
-signed into.
+## Core premise
 
-## What it does
+subagent-mcp is an MCP (stdio) server that turns any AI coding assistant
+(Claude Code, Codex, Gemini CLI) into a **manager/orchestrator of a team of
+AI sub-agents** running on macOS, Linux, and Windows. It drives the locally
+authenticated `claude` and `codex` CLIs you already signed into — **no direct
+HTTP API calls and no API keys, ever** (an explicit, permanent non-goal). It
+serves developers running big, long-horizon coding jobs who want to escape a
+single conversation's context limits and vendor lock-in.
 
-Normally one AI assistant does all the work in one conversation. That
-conversation fills up, slows down, and eventually forgets its early context. As
-of a certain size it "compacts" — summarizing and dropping detail.
+Its central promise: the orchestrator **monitors but never reads or writes
+files itself** — every step is delegated to a fresh sub-agent, so the
+orchestrator's context fills only with ≤100-line summaries. This extends
+effective context "geometrically" instead of linearly, enabling marathon tasks
+with little or no compaction. Guarantees/invariants it promises: a single
+machine-global, provider-agnostic concurrency cap (default 20, min 10; rejects
+at cap, never queues); fail-safe **ON** on hosts lacking hooks (unknown
+orchestration state defaults to ON); orchestration state is authoritative only
+via harness-verified `<subagent-mcp state="...">` hook tags, never inferred from
+prose (guards against directive drift/hallucination); sub-agents run **gated by
+default** (permission ceiling `auto`); and automatic model/provider/effort
+routing per task category so the user never picks a model.
 
-subagent-mcp changes the shape of the work. Your assistant becomes an
-**orchestrator**: it hands each task to a fresh sub-agent, watches the results,
-and moves on — without ever doing the reading or writing itself.
+## Key problems it solves
 
-## Why it works this way
-
-Four bets drive the whole design. The full reasoning lives in
-[docs/spec/arch-rationale.md](docs/spec/arch-rationale.md); the short version:
-
-- **The effective memory grows geometrically.** Because the orchestrator only
-  ever holds *summaries* of what its sub-agents did — never the raw files — its
-  own memory fills up far more slowly. That means **very long tasks with little
-  or no compaction**.
-- **Mixed providers avoid blind spots.** Using Claude *and* Codex together means
-  one vendor's weak spot or outage doesn't blind or block the whole job — and
-  you're never locked in to a single vendor.
-- **Ruthless token efficiency.** Every hand-off is compressed and every read is
-  kept small, so the system stays fast and cheap even on marathon tasks.
-- **Durable, authoritative reminders.** The operating rules are re-injected every
-  turn through official host hooks, so the assistant doesn't drift off-task or
-  start making things up over a long run.
+- **Context exhaustion / compaction on long tasks** — delegate-only
+  orchestration keeps the manager's context holding summaries, not raw files,
+  so long jobs run with minimal compaction.
+- **Single-vendor blind spots and lock-in** — mixed Claude + Codex (provider-
+  agnostic) operation means one vendor's weakness or outage doesn't blind or
+  block the whole job.
+- **No API keys / no direct API calls** — drives locally signed-in vendor CLIs
+  instead of the Anthropic/OpenAI HTTP APIs, avoiding key management and cost of
+  a gateway.
+- **Directive drift & hallucination over long runs** — operating rules are
+  re-injected redundantly (MCP `instructions`, INIT_BLOCK, per-turn hooks,
+  managed AGENTS.md/CLAUDE.md/GEMINI.md blocks) and made authoritative via
+  harness-verified state tags.
+- **Model-selection burden** — a benchmark-derived routing table auto-picks
+  provider/model/effort from a plain-English prompt + task category.
+- **Uncontrolled/unsafe sub-agent actions** — a shared permission engine gates
+  sub-agent operations (SAFE→allow, DANGER→deny, NEUTRAL→park for a decision)
+  with `auto`/`manual`/`yolo` ceilings and one-time `respond_permission`.
+- **Runaway fan-out / resource contention** — one machine-wide concurrency cap
+  and worktree isolation (branch-per-task) with a first-line sub-agent
+  carve-out to prevent fork-bomb recursion.
+- **Orchestrator observability** — a fixed set of tools (launch/poll/kill/
+  send_message/list/wait/respond_permission + orchestration & model modes) plus
+  a status lifecycle (processing/stalled/finished/errored/stopped/
+  zombie_killed/permission_requested) so a quiet agent isn't mistaken for dead.
 
 ## Install
 

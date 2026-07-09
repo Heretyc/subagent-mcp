@@ -70,8 +70,9 @@ exported as `HEARTBEAT_TIMEOUT_MS = 600000` (10 minutes). Its order is:
 `AgentState` and applies the helper. Tool handlers also run zombie maintenance:
 live and terminal-but-alive agents are marked `zombie_killed` only after 6
 minutes idle, anchored on the later of `exitedAt` and `lastActivity`;
-`poll_agent` and `send_message` refresh that clock, and the concurrency slot is
-already freed at turn-finish. `poll_agent` and `list_agents` reconcile
+`poll_agent` and `send_message` refresh that clock. An interactive agent holds
+its concurrency slot for the driver's whole lifetime -- turn-finish does not
+free it; the slot is released only on driver close, kill, or zombie culling. `poll_agent` and `list_agents` reconcile
 synchronously before returning, eliminating the up-to-10s lag for already-closed
 drivers. Stalled does not by itself end a `wait`; `wait` returns on unreported
 `finished`, `errored`, `stopped`, or `zombie_killed` states. All tool and hook
