@@ -1,6 +1,7 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { atomicWriteJson } from "./atomic-write.js";
 import { cwdHash, stateDir } from "./marker.js";
 
 /**
@@ -49,7 +50,7 @@ function writeModelMode(cwd: string, state: ModelModeState): void {
   try {
     // Owner-only perms (mirror marker.ts): the file persists an enable-time.
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(modelModePath(cwd), JSON.stringify(state), {
+    atomicWriteJson(modelModePath(cwd), state, {
       encoding: "utf8",
       mode: 0o600,
     });

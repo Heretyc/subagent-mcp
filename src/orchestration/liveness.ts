@@ -1,5 +1,6 @@
-import { mkdirSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { atomicWriteFile } from "./atomic-write.js";
 import { stateDir } from "./marker.js";
 
 export const LIVENESS_TTL_MS = 120_000;
@@ -12,7 +13,7 @@ export function alivePath(): string {
 export function touchAlive(now: number = Date.now()): void {
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(alivePath(), `${now}\n`, { encoding: "utf8", mode: 0o600 });
+    atomicWriteFile(alivePath(), `${now}\n`, { encoding: "utf8", mode: 0o600 });
   } catch {
     // Hooks fail open when liveness cannot be observed.
   }

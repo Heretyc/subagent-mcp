@@ -4,10 +4,10 @@ import {
   mkdirSync,
   readFileSync,
   unlinkSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { atomicWriteJson } from "./atomic-write.js";
 
 /**
  * Shared per-project marker module — the SINGLE source of truth for whether
@@ -135,7 +135,7 @@ export function enable(cwd: string): void {
       provenance: "user-enabled",
       carryover_ack: false,
     };
-    writeFileSync(markerPath(cwd), JSON.stringify(state), { encoding: "utf8", mode: 0o600 });
+    atomicWriteJson(markerPath(cwd), state, { encoding: "utf8", mode: 0o600 });
     try {
       unlinkSync(cwdDisablePath(cwd));
     } catch (e) {
@@ -152,7 +152,7 @@ export function writeDisable(sessionKey: string): void {
   if (!isSessionScopedKey(sessionKey)) return;
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(disablePath(sessionKey), JSON.stringify({ disabled_at: Date.now() }), {
+    atomicWriteJson(disablePath(sessionKey), { disabled_at: Date.now() }, {
       encoding: "utf8",
       mode: 0o600,
     });
@@ -176,13 +176,13 @@ export function writeCurrentSession(
 ): void {
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(serverSessionPointerPath(cwd, serverKey), JSON.stringify({ session_key: sessionKey }), {
+    atomicWriteJson(serverSessionPointerPath(cwd, serverKey), { session_key: sessionKey }, {
       encoding: "utf8",
       mode: 0o600,
     });
     // Back-compat only: older consumers may still read the cwd-keyed pointer.
     // New disable/query paths must read the server-scoped pointer instead.
-    writeFileSync(sessionPointerPath(cwd), JSON.stringify({ session_key: sessionKey }), {
+    atomicWriteJson(sessionPointerPath(cwd), { session_key: sessionKey }, {
       encoding: "utf8",
       mode: 0o600,
     });
@@ -302,7 +302,7 @@ export function writeMarker(cwd: string, obj: MarkerState): void {
   try {
     // Owner-only perms (see enable()): the marker persists owner_session.
     mkdirSync(markerDir, { recursive: true, mode: 0o700 });
-    writeFileSync(markerPath(cwd), JSON.stringify(obj), { encoding: "utf8", mode: 0o600 });
+    atomicWriteJson(markerPath(cwd), obj, { encoding: "utf8", mode: 0o600 });
   } catch {
     // Fail-safe.
   }

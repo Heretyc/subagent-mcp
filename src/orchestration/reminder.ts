@@ -1,6 +1,7 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { atomicWriteJson } from "./atomic-write.js";
 import { cwdHash, stateDir } from "./marker.js";
 
 /**
@@ -64,7 +65,7 @@ export function writeReminder(cwd: string, obj: ReminderState): boolean {
   try {
     // Owner-only perms (see marker.enable()): the state persists session keys.
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(reminderPath(cwd), JSON.stringify(obj), {
+    atomicWriteJson(reminderPath(cwd), obj, {
       encoding: "utf8",
       mode: 0o600,
     });
