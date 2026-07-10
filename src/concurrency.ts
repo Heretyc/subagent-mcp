@@ -365,56 +365,193 @@ function unique(items: string[]): string[] {
   return [...new Set(items)];
 }
 
+type TomlMultilineQuote = `"""` | "'''" | null;
+
+function codexKeyPattern(key: string): RegExp {
+  return new RegExp(`^\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*=\\s*(.*)$`);
+}
+
+function scanBasicString(line: string, start: number): number {
+  for (let i = start + 1; i < line.length; i++) {
+    if (line[i] === "\\" && i + 1 < line.length) {
+      i++;
+      continue;
+    }
+    if (line[i] === "\"") return i;
+  }
+  throw new Error(`unbalanced TOML quotes: ${line.trim()}`);
+}
+
+function scanLiteralString(line: string, start: number): number {
+  const end = line.indexOf("'", start + 1);
+  if (end === -1) throw new Error(`unbalanced TOML quotes: ${line.trim()}`);
+  return end;
+}
+
+function stripTomlCommentsAndMultilineStrings(text: string): string {
+  let multiline: TomlMultilineQuote = null;
+  const out: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    let sanitized = "";
+    let i = 0;
+    if (multiline) {
+      const end = line.indexOf(multiline);
+      if (end === -1) {
+        out.push("");
+        continue;
+      }
+      i = end + 3;
+      multiline = null;
+    }
+    while (i < line.length) {
+      if (line.startsWith(`"""`, i) || line.startsWith("'''", i)) {
+        const delimiter = line.startsWith(`"""`, i) ? `"""` : "'''";
+        sanitized += delimiter === `"""` ? `""` : "''";
+        i += 3;
+        const end = line.indexOf(delimiter, i);
+        if (end === -1) {
+          multiline = delimiter;
+          break;
+        }
+        i = end + 3;
+        continue;
+      }
+      if (line[i] === "#") break;
+      if (line[i] === "\"") {
+        const end = scanBasicString(line, i);
+        sanitized += line.slice(i, end + 1);
+        i = end + 1;
+        continue;
+      }
+      if (line[i] === "'") {
+        const end = scanLiteralString(line, i);
+        sanitized += line.slice(i, end + 1);
+        i = end + 1;
+        continue;
+      }
+      sanitized += line[i];
+      i++;
+    }
+    out.push(sanitized);
+  }
+  if (multiline) throw new Error("unterminated TOML multiline string");
+  return out.join("\n");
+}
+
+function countTomlBrackets(line: string): { opens: number; closes: number } {
+  let opens = 0;
+  let closes = 0;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === "\"") {
+      i = scanBasicString(line, i);
+      continue;
+    }
+    if (line[i] === "'") {
+      i = scanLiteralString(line, i);
+      continue;
+    }
+    if (line[i] === "[") opens++;
+    if (line[i] === "]") closes++;
+  }
+  return { opens, closes };
+}
+
+function tomlAssignmentValue(text: string, key: string): string | null {
+  const keyPattern = codexKeyPattern(key);
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(keyPattern);
+    if (!m) continue;
+    let value = m[1].trim();
+    if (!value.startsWith("[")) return value;
+    let balance = 0;
+    for (let j = i; j < lines.length; j++) {
+      const fragment = j === i ? value : lines[j];
+      const { opens, closes } = countTomlBrackets(fragment);
+      balance += opens - closes;
+      if (j > i) value += `\n${fragment.trim()}`;
+      if (balance <= 0) return value;
+    }
+    return value;
+  }
+  return null;
+}
+
+function parseTomlScalar(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("\"")) {
+    const end = scanBasicString(trimmed, 0);
+    return trimmed.slice(1, end);
+  }
+  if (trimmed.startsWith("'")) {
+    const end = scanLiteralString(trimmed, 0);
+    return trimmed.slice(1, end);
+  }
+  const bare = trimmed.match(/^[^\s,]+/);
+  return bare ? bare[0] : null;
+}
+
 function codexTomlValue(text: string, key: string): string | null {
-  const m = text.match(new RegExp(`^\\s*${key}\\s*=\\s*["']?([^"'\\r\\n#]+)["']?`, "m"));
-  return m ? m[1].trim() : null;
+  const value = tomlAssignmentValue(text, key);
+  return value === null ? null : parseTomlScalar(value);
 }
 
 function codexTomlArray(text: string, key: string): string[] {
-  const m = text.match(new RegExp(`^\\s*${key}\\s*=\\s*\\[([^\\]]*)\\]`, "m"));
-  if (!m) return [];
-  return [...m[1].matchAll(/["']([^"']+)["']/g)].map((v) => v[1]);
+  const value = tomlAssignmentValue(text, key);
+  if (!value || !value.trim().startsWith("[")) return [];
+  const out: string[] = [];
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] === "\"") {
+      const end = scanBasicString(value, i);
+      out.push(value.slice(i + 1, end));
+      i = end;
+    } else if (value[i] === "'") {
+      const end = scanLiteralString(value, i);
+      out.push(value.slice(i + 1, end));
+      i = end;
+    }
+  }
+  return out;
 }
 
-function assertBasicTomlParsable(text: string): void {
-  let inArray = false;
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.replace(/#.*$/, "").trim();
+function assertBasicTomlParsable(text: string): string {
+  const sanitized = stripTomlCommentsAndMultilineStrings(text);
+  let arrayDepth = 0;
+  for (const line of sanitized.split(/\r?\n/)) {
+    const trimmed = line.trim();
     if (!trimmed) continue;
     if (/^\[[^\]]+\]$/.test(trimmed)) continue;
-    if (!trimmed.includes("=") && !inArray) throw new Error(`malformed TOML line: ${trimmed}`);
-    const quoteCount = (trimmed.match(/(?<!\\)"/g) ?? []).length + (trimmed.match(/(?<!\\)'/g) ?? []).length;
-    if (quoteCount % 2 !== 0) throw new Error(`unbalanced TOML quotes: ${trimmed}`);
-    const opens = (trimmed.match(/\[/g) ?? []).length;
-    const closes = (trimmed.match(/\]/g) ?? []).length;
-    inArray = inArray || opens > closes;
-    if (closes > opens) inArray = false;
+    if (!trimmed.includes("=") && arrayDepth === 0) throw new Error(`malformed TOML line: ${trimmed}`);
+    const { opens, closes } = countTomlBrackets(trimmed);
+    arrayDepth += opens - closes;
+    if (arrayDepth < 0) throw new Error(`malformed TOML line: ${trimmed}`);
   }
-  if (inArray) throw new Error("unterminated TOML array");
+  if (arrayDepth > 0) throw new Error("unterminated TOML array");
+  return sanitized;
 }
 
 function readCodexConfig(path: string): { rules: PermissionRulesConfig; failure: ConfigParseFailure | null } {
   try {
     const text = readFileSync(path, "utf8");
-    assertBasicTomlParsable(text);
+    const toml = assertBasicTomlParsable(text);
     const rules: PermissionRulesConfig = { allow: [], deny: [], ask: [], additionalDirectories: [], sandboxNetwork: false };
-    if (codexTomlValue(text, "sandbox_mode") === "read-only") {
+    if (codexTomlValue(toml, "sandbox_mode") === "read-only") {
       rules.deny.push("Edit", "Write", "NotebookEdit");
     }
     if (
-      /\bsandbox_workspace_write\.network_access\s*=\s*true\b/i.test(text) ||
-      /^\s*\[sandbox_workspace_write\][\s\S]*?^\s*network_access\s*=\s*true\b/im.test(text)
+      /\bsandbox_workspace_write\.network_access\s*=\s*true\b/i.test(toml) ||
+      /^\s*\[sandbox_workspace_write\][\s\S]*?^\s*network_access\s*=\s*true\b/im.test(toml)
     ) {
       rules.sandboxNetwork = true;
     }
-    rules.additionalDirectories.push(...codexTomlArray(text, "writable_roots"));
-    for (const m of text.matchAll(/^\s*path\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']deny["']/gm)) {
+    rules.additionalDirectories.push(...codexTomlArray(toml, "writable_roots"));
+    for (const m of toml.matchAll(/^\s*path\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']deny["']/gm)) {
       rules.deny.push(`Edit(${m[1]})`, `Write(${m[1]})`);
     }
-    for (const m of text.matchAll(/^\s*domain\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']deny["']/gm)) {
+    for (const m of toml.matchAll(/^\s*domain\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']deny["']/gm)) {
       rules.deny.push(`WebFetch(domain:${m[1]})`);
     }
-    for (const m of text.matchAll(/^\s*domain\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']allow["']/gm)) {
+    for (const m of toml.matchAll(/^\s*domain\s*=\s*["']([^"']+)["']\s*\r?\n\s*access\s*=\s*["']allow["']/gm)) {
       rules.allow.push(`WebFetch(domain:${m[1]})`);
       rules.sandboxNetwork = true;
     }

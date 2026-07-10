@@ -154,7 +154,7 @@ answered | auto_answered | errored` — code adds `errored`.
 |---|---|---|---|
 | `permissionsCeiling` | `yolo`\|`auto`\|`manual` | `auto` | §1 |
 | `escalation` | `irreversible-only`\|`off` | `irreversible-only` | Auto mode only. `irreversible-only` sets `escalate_to_human: true` on irreversible NEUTRAL residue so the orchestrator must route it to the human. `off` leaves NEUTRAL residue to orchestrator judgment. In `manual`, all residue already routes to the human, so the key is informational; in `yolo`, no gating occurs. |
-| `strictReadParity` | `warn`\|`off` | `warn` | Logging only; unparseable Codex approvals always fail-closed to `ask`. |
+| `strictReadParity` | `warn`\|`off` | `warn` | Logging only; unparseable Codex approvals and malformed repo Codex TOML fail-closed to `ask`, but valid `#` inside strings and multiline strings parse normally. |
 | `sandboxNetwork` | boolean | `false` | Codex only: when true, launches workspace-write with `sandbox_workspace_write.network_access=true`. Also enabled when effective allow rules are network-ish (`WebFetch`, broad `Bash`, or Bash rules for git/gh/npm/pnpm/yarn/curl/wget). Tradeoff: approvals still gate actions, but approved Codex processes can reach the network inside workspace-write. |
 | `disableBypassPermissionsMode` | `disable` | — | User-scope only (`~/.subagent-mcp/`), tighten-only: caps the effective ceiling at `auto`. Repo scope has no effect. |
 
