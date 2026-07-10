@@ -1,13 +1,12 @@
 import {
   mkdirSync,
   readFileSync,
-  renameSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 
 import { readCheckForUpdates } from "../concurrency.js";
+import { atomicWriteJson } from "./atomic-write.js";
 import { stateDir } from "./marker.js";
 
 export const UPDATE_NOTICE_TEXT =
@@ -48,12 +47,10 @@ function emitRecordPath(): string {
   return join(stateDir, "update-notice-emitted.json");
 }
 
-function atomicWriteJson(path: string, value: unknown): void {
+function writeStateJson(path: string, value: unknown): void {
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
-    writeFileSync(tmp, JSON.stringify(value), { encoding: "utf8", mode: 0o600 });
-    renameSync(tmp, path);
+    atomicWriteJson(path, value, { encoding: "utf8", mode: 0o600 });
   } catch {
     // Fail-safe: update notices must never affect the host turn or MCP channel.
   }
@@ -81,7 +78,7 @@ export function clearUpdateNoticeState(): void {
 }
 
 export function writePendingUpdateNotice(latestVersion: string, now: number = Date.now()): void {
-  atomicWriteJson(pendingNoticePath(), {
+  writeStateJson(pendingNoticePath(), {
     latest_version: latestVersion,
     checked_at: new Date(now).toISOString(),
   });
@@ -109,7 +106,7 @@ export function readUpdateNoticeEmitRecord(): UpdateNoticeEmitRecord | undefined
 }
 
 function writeUpdateNoticeEmitRecord(record: UpdateNoticeEmitRecord): void {
-  atomicWriteJson(emitRecordPath(), record);
+  writeStateJson(emitRecordPath(), record);
 }
 
 export function updateCheckEnvDisabled(env: NodeJS.ProcessEnv = process.env): boolean {

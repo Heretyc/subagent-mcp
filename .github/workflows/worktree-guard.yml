@@ -36,13 +36,13 @@ jobs:
           set -eu
           # Untrusted: HEAD_REF / BASE_REF / DEFAULT_BRANCH arrive only via env, never inlined.
           # NOTE: byte-identical to BRANCH_FORMULA in scripts/check_worktree.mjs and naming.md.
-          formula='^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration)/[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)?$'
+          formula='^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration|audit)/[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)?$'
 
           fail=0
           if ! printf '%s' "$HEAD_REF" | grep -Eq "$formula"; then
             echo "::error::head branch '$HEAD_REF' violates the worktree branch formula."
             echo "  allowed: <type>/<subject> or <type>/<actor>/<subject>"
-            echo "  types: feature fix hotfix release docs test refactor chore agent user integration"
+            echo "  types: feature fix hotfix release docs test refactor chore agent user integration audit"
             fail=1
           fi
 

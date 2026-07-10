@@ -585,6 +585,85 @@ await test("config precedence, unions, repo allow, legacy read, and parse fail-c
   }
 });
 
+await test("Codex TOML parser accepts hashes in strings and multiline strings", () => {
+  const root = mkdtempSync(join(process.cwd(), ".tmp-subagent-codex-toml-"));
+  const cwd = join(root, "repo");
+  const home = join(root, "home");
+  const globalPath = join(root, "global-subagent-mcp-config.jsonc");
+  try {
+    mkdirSync(join(cwd, ".codex"), { recursive: true });
+    mkdirSync(join(home, ".subagent-mcp"), { recursive: true });
+    writeFileSync(globalPath, "{}");
+    writeFileSync(join(cwd, ".codex", "config.toml"), [
+      'url = "http://x#y"',
+      "literal_url = 'http://x#z'",
+      'description = """',
+      'contains # and "quotes"',
+      '"""',
+      "literal_block = '''",
+      "contains # and 'quotes'",
+      "'''",
+      'sandbox_mode = "read-only"',
+      "writable_roots = [",
+      '  "extra#one",',
+      "  'extra#two',",
+      "]",
+      'domain = "registry.npmjs.org"',
+      'access = "allow"',
+      "",
+    ].join("\n"));
+
+    const code = `
+      import { readMergedPermissionConfig } from "./dist/concurrency.js";
+      const result = readMergedPermissionConfig(${JSON.stringify(cwd)}, ${JSON.stringify(globalPath)});
+      console.log(JSON.stringify(result));
+    `;
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", code], {
+      cwd: fileURLToPath(new URL("..", import.meta.url)),
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      encoding: "utf8",
+    });
+    const result = JSON.parse(out);
+    assert.deepEqual(result.configParseFailure, []);
+    assert.ok(result.deny.includes("Edit") && result.deny.includes("Write"), "read-only sandbox still maps to deny rules");
+    assert.ok(result.allow.includes("WebFetch(domain:registry.npmjs.org)"));
+    assert.ok(result.additionalDirectories.includes("extra#one"));
+    assert.ok(result.additionalDirectories.includes("extra#two"));
+    assert.equal(result.ask.includes("Bash"), false, "valid TOML must not inject blanket mutating ask rules");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("malformed Codex TOML still fails closed", () => {
+  const root = mkdtempSync(join(process.cwd(), ".tmp-subagent-codex-bad-toml-"));
+  const cwd = join(root, "repo");
+  const home = join(root, "home");
+  const globalPath = join(root, "global-subagent-mcp-config.jsonc");
+  try {
+    mkdirSync(join(cwd, ".codex"), { recursive: true });
+    mkdirSync(join(home, ".subagent-mcp"), { recursive: true });
+    writeFileSync(globalPath, "{}");
+    writeFileSync(join(cwd, ".codex", "config.toml"), 'sandbox_mode = "read-only\n');
+
+    const code = `
+      import { readMergedPermissionConfig } from "./dist/concurrency.js";
+      const result = readMergedPermissionConfig(${JSON.stringify(cwd)}, ${JSON.stringify(globalPath)});
+      console.log(JSON.stringify(result));
+    `;
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", code], {
+      cwd: fileURLToPath(new URL("..", import.meta.url)),
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+      encoding: "utf8",
+    });
+    const result = JSON.parse(out);
+    assert.ok(result.configParseFailure.some((f) => f.source === "repo-codex-config"));
+    assert.ok(result.ask.includes("Bash") && result.ask.includes("Edit"), "malformed TOML keeps fail-closed blanket asks");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 await test("settings isolation canary and temp permissions", async () => {
   let sdkOptions;
   async function* query(params) {

@@ -9,6 +9,16 @@
 
 export const MARKER = "<this is a request from a parent process>";
 
+export function hasParentMarker(prompt: unknown): boolean {
+  if (typeof prompt !== "string") return false;
+  const head = prompt.slice(0, 4096);
+  const nl = head.indexOf("\n");
+  let firstLine = nl === -1 ? head : head.slice(0, nl);
+  if (firstLine.endsWith("\r")) firstLine = firstLine.slice(0, -1);
+  if (firstLine.charCodeAt(0) === 0xfeff) firstLine = firstLine.slice(1);
+  return firstLine.startsWith(MARKER);
+}
+
 // Return `prompt` with MARKER guaranteed as its literal first line.
 // - First line = position 0 up to the first "\n"; a trailing "\r" (CRLF) is
 //   stripped before comparison only.
@@ -19,10 +29,6 @@ export const MARKER = "<this is a request from a parent process>";
 // - Present (after BOM-strip) -> returned unchanged (no duplicate).
 // - Absent -> MARKER + "\n" + prompt.
 export function ensureParentMarker(prompt: string): string {
-  const nl = prompt.indexOf("\n");
-  let firstLine = nl === -1 ? prompt : prompt.slice(0, nl);
-  if (firstLine.endsWith("\r")) firstLine = firstLine.slice(0, -1);
-  if (firstLine.charCodeAt(0) === 0xfeff) firstLine = firstLine.slice(1);
-  if (firstLine.startsWith(MARKER)) return prompt;
+  if (hasParentMarker(prompt)) return prompt;
   return MARKER + "\n" + prompt;
 }

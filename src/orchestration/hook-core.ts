@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
@@ -49,6 +48,8 @@ import {
 
 /** Long-reminder cadence: every Nth counted prompt is a LONG turn. */
 export const REMINDER_PERIOD = 5;
+export const ANON_CLAIM_TTL_MS = 2 * 60 * 60 * 1000;
+const OWNER_CLAIM_CAP = 8;
 
 export interface HookPayload {
   cwd?: string;
@@ -62,6 +63,7 @@ export interface HookPayload {
 export interface ProviderAdapter {
   isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean;
   currentTurn(transcriptPath: string | undefined): number;
+  anonScope: string;
   fullDirectiveFile: string;
   shortOnFile: string;
   shortOffFile: string;
@@ -213,22 +215,20 @@ export function countJsonlType(
  * sticky without changing classifyClaim's string/undefined contract.
  */
 export function sessionKey(payload: HookPayload): string | undefined {
-  if (typeof payload.session_id === "string") {
+  if (typeof payload.session_id === "string" && payload.session_id.length > 0) {
     return payload.session_id;
   }
   if (
     typeof payload.transcript_path === "string" &&
     payload.transcript_path.length > 0
   ) {
-    return (
-      "tp-" +
-      createHash("sha256")
-        .update(payload.transcript_path, "utf8")
-        .digest("hex")
-        .slice(0, 16)
-    );
+    return "tp-" + marker.hashKey(payload.transcript_path);
   }
   return undefined;
+}
+
+export function ownerKey(payload: HookPayload, cwd: string, adapter: ProviderAdapter): string {
+  return sessionKey(payload) ?? marker.anonKey(cwd, adapter.anonScope);
 }
 
 /**
@@ -257,16 +257,57 @@ export type ClaimKind = "fresh" | "carryover" | "same";
 export function classifyClaim(
   owner_session: string | null,
   baseline_turn: number | null,
-  current: string | undefined
+  current: string,
+  claimed_at: number | null = null,
+  now: number = Date.now()
 ): ClaimKind {
   if (baseline_turn == null || owner_session == null) {
     return "fresh";
   }
-  // owner_session is a real string here.
-  if (current === undefined || owner_session !== current) {
+  if (owner_session !== current) {
     return "carryover";
   }
+  if (!marker.isSessionScopedKey(current)) {
+    const age = typeof claimed_at === "number" ? now - claimed_at : Number.NaN;
+    if (!Number.isFinite(age) || age < 0 || age > ANON_CLAIM_TTL_MS) {
+      return "fresh";
+    }
+  }
   return "same";
+}
+
+export function classifyOwnerClaim(
+  m: marker.MarkerState,
+  owner: string,
+  now: number = Date.now()
+): ClaimKind {
+  const claim = m.owners?.[owner];
+  if (claim) {
+    return classifyClaim(owner, claim.baseline_turn, owner, claim.claimed_at, now);
+  }
+  const hasLiveOwner = m.owners !== undefined && Object.keys(m.owners).length > 0;
+  if (hasLiveOwner || typeof m.owner_session === "string") {
+    return "carryover";
+  }
+  return "fresh";
+}
+
+function claimOwner(m: marker.MarkerState, owner: string, turn: number, now: number): void {
+  const owners = { ...(m.owners ?? {}) };
+  owners[owner] = { baseline_turn: turn, claimed_at: now };
+  const entries = Object.entries(owners).sort((a, b) => {
+    const at = a[1].claimed_at ?? 0;
+    const bt = b[1].claimed_at ?? 0;
+    return at - bt;
+  });
+  while (entries.length > OWNER_CLAIM_CAP) {
+    const [oldest] = entries.shift() ?? [];
+    if (oldest) delete owners[oldest];
+  }
+  m.owners = owners;
+  m.owner_session = owner;
+  m.baseline_turn = turn;
+  m.claimed_at = now;
 }
 
 /**
@@ -301,7 +342,7 @@ function cadenceEmit(
  */
 export function claimAndEmit(
   cwd: string,
-  current: string | undefined,
+  current: string,
   turn: number,
   m: marker.MarkerState,
   kind: ClaimKind,
@@ -309,8 +350,7 @@ export function claimAndEmit(
   adapter: ProviderAdapter
 ): string {
   const firstCarryover = kind === "carryover" && !m.carryover_ack;
-  m.baseline_turn = turn;
-  m.owner_session = current ?? null;
+  claimOwner(m, current, turn, Date.now());
   if (kind === "carryover") {
     m.provenance = "carried-over";
     m.carryover_ack = true;
@@ -386,11 +426,11 @@ export function runHook(
     }
 
     const cwd = payload.cwd || process.cwd();
-    const current = sessionKey(payload);
+    const current = ownerKey(payload, cwd, adapter);
     const updateNoticeSessionId =
       typeof payload.session_id === "string" ? payload.session_id : undefined;
 
-    if (current) marker.writeCurrentSession(cwd, current);
+    marker.writeCurrentSession(cwd, current);
     if (!marker.isActive(cwd, current)) {
       // OFF: no claim machinery — just the per-prompt reminder cadence.
       const r = reminder.advance(cwd, current);
@@ -405,7 +445,7 @@ export function runHook(
     }
 
     const m = marker.readMarker(cwd);
-    const kind = classifyClaim(m.owner_session, m.baseline_turn, current);
+    const kind = classifyOwnerClaim(m, current);
 
     if (kind === "fresh" || kind === "carryover") {
       const turn = adapter.currentTurn(payload.transcript_path);

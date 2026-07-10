@@ -4,10 +4,10 @@ import {
   mkdirSync,
   readFileSync,
   unlinkSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { atomicWriteJson } from "./atomic-write.js";
 
 /**
  * Shared per-project marker module — the SINGLE source of truth for whether
@@ -16,9 +16,9 @@ import { join, resolve } from "node:path";
  *
  * The marker is a per-project temp file keyed by a hash of the normalized
  * working directory. Orchestration is default ON; marker presence is retained
- * only as legacy state for callers that still write/read it. OFF is represented
- * by a session-keyed disable record, falling back to cwd-keyed disable state
- * when no session key is available.
+ * only as legacy claim/carryover state. OFF is represented only by a
+ * session-keyed disable record. Anonymous owner keys carry cadence state only
+ * and never authorize disable records.
  *
  * FAIL-SAFE: every filesystem operation is wrapped so this module NEVER throws
  * to its caller. Reads that fail return safe defaults. A hook that cannot read
@@ -28,12 +28,20 @@ import { join, resolve } from "node:path";
 export interface MarkerState {
   owner_session: string | null;
   baseline_turn: number | null;
+  claimed_at?: number | null;
+  owners?: Record<string, OwnerClaim>;
   provenance: "user-enabled" | "carried-over" | null;
   carryover_ack: boolean;
 }
 
+export interface OwnerClaim {
+  baseline_turn: number;
+  claimed_at: number | null;
+}
+
 const markerDir = join(tmpdir(), "subagent-mcp");
 export const ORCH_DISABLE_TTL_MS = 2 * 60 * 60 * 1000; // 2h GC backstop ONLY (independent of model-mode WINDOW_MS)
+export const ANON_PREFIX = "anon-";
 
 /**
  * Shared per-project state dir for ALL hook state files (marker + reminder
@@ -67,7 +75,7 @@ export function normalizeCwd(cwd: string): string {
   return p;
 }
 
-function hashKey(key: string): string {
+export function hashKey(key: string): string {
   return createHash("sha256")
     .update(key, "utf8")
     .digest("hex")
@@ -76,6 +84,14 @@ function hashKey(key: string): string {
 
 export function cwdHash(cwd: string): string {
   return hashKey(normalizeCwd(cwd));
+}
+
+export function anonKey(cwd: string, scope: string): string {
+  return `${ANON_PREFIX}${scope}-${cwdHash(cwd)}`;
+}
+
+export function isSessionScopedKey(key: string): boolean {
+  return !key.startsWith(ANON_PREFIX);
 }
 
 export function markerPath(cwd: string): string {
@@ -114,10 +130,12 @@ export function enable(cwd: string): void {
     const state: MarkerState = {
       owner_session: null,
       baseline_turn: null,
+      claimed_at: null,
+      owners: {},
       provenance: "user-enabled",
       carryover_ack: false,
     };
-    writeFileSync(markerPath(cwd), JSON.stringify(state), { encoding: "utf8", mode: 0o600 });
+    atomicWriteJson(markerPath(cwd), state, { encoding: "utf8", mode: 0o600 });
     try {
       unlinkSync(cwdDisablePath(cwd));
     } catch (e) {
@@ -130,26 +148,11 @@ export function enable(cwd: string): void {
   }
 }
 
-/**
- * Disable orchestration for cwd using cwd-keyed shared fallback state. The
- * hook's session-keyed path uses writeDisable(sessionKey) instead.
- */
-export function disable(cwd: string): void {
-  try {
-    mkdirSync(markerDir, { recursive: true, mode: 0o700 });
-    writeFileSync(cwdDisablePath(cwd), JSON.stringify({ disabled_at: Date.now() }), {
-      encoding: "utf8",
-      mode: 0o600,
-    });
-  } catch {
-    // Fail-safe: never throw to the caller.
-  }
-}
-
 export function writeDisable(sessionKey: string): void {
+  if (!isSessionScopedKey(sessionKey)) return;
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(disablePath(sessionKey), JSON.stringify({ disabled_at: Date.now() }), {
+    atomicWriteJson(disablePath(sessionKey), { disabled_at: Date.now() }, {
       encoding: "utf8",
       mode: 0o600,
     });
@@ -158,13 +161,9 @@ export function writeDisable(sessionKey: string): void {
   }
 }
 
-export function writeDisableCwd(cwd: string): void {
+export function removeDisable(sessionKey: string): void {
   try {
-    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(cwdDisablePath(cwd), JSON.stringify({ disabled_at: Date.now() }), {
-      encoding: "utf8",
-      mode: 0o600,
-    });
+    unlinkSync(disablePath(sessionKey));
   } catch {
     // Fail-safe: never throw to the caller.
   }
@@ -177,13 +176,13 @@ export function writeCurrentSession(
 ): void {
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    writeFileSync(serverSessionPointerPath(cwd, serverKey), JSON.stringify({ session_key: sessionKey }), {
+    atomicWriteJson(serverSessionPointerPath(cwd, serverKey), { session_key: sessionKey }, {
       encoding: "utf8",
       mode: 0o600,
     });
     // Back-compat only: older consumers may still read the cwd-keyed pointer.
     // New disable/query paths must read the server-scoped pointer instead.
-    writeFileSync(sessionPointerPath(cwd), JSON.stringify({ session_key: sessionKey }), {
+    atomicWriteJson(sessionPointerPath(cwd), { session_key: sessionKey }, {
       encoding: "utf8",
       mode: 0o600,
     });
@@ -195,6 +194,13 @@ export function writeCurrentSession(
 export function readCurrentSession(cwd: string, serverKey: string | number = process.ppid): string | undefined {
   try {
     const raw = readFileSync(serverSessionPointerPath(cwd, serverKey), "utf8");
+    const parsed = JSON.parse(raw) as { session_key?: unknown };
+    if (typeof parsed.session_key === "string") return parsed.session_key;
+  } catch {
+    // Fall through to legacy cwd pointer below.
+  }
+  try {
+    const raw = readFileSync(sessionPointerPath(cwd), "utf8");
     const parsed = JSON.parse(raw) as { session_key?: unknown };
     return typeof parsed.session_key === "string" ? parsed.session_key : undefined;
   } catch {
@@ -221,11 +227,40 @@ function isDisableActive(path: string, now: number): boolean {
 
 export function isActive(cwd: string, sessionKey?: string): boolean {
   try {
-    const path = sessionKey === undefined ? cwdDisablePath(cwd) : disablePath(sessionKey);
-    return !isDisableActive(path, Date.now());
+    if (sessionKey === undefined || !isSessionScopedKey(sessionKey)) return true;
+    return !isDisableActive(disablePath(sessionKey), Date.now());
   } catch {
     return true;
   }
+}
+
+function readOwners(parsed: Partial<MarkerState>): Record<string, OwnerClaim> {
+  const owners: Record<string, OwnerClaim> = {};
+  if (parsed.owners && typeof parsed.owners === "object") {
+    for (const [owner, claim] of Object.entries(parsed.owners)) {
+      if (!owner || !claim || typeof claim !== "object") continue;
+      const baseline = (claim as Partial<OwnerClaim>).baseline_turn;
+      const claimed = (claim as Partial<OwnerClaim>).claimed_at;
+      if (typeof baseline !== "number" || !Number.isFinite(baseline)) continue;
+      owners[owner] = {
+        baseline_turn: baseline,
+        claimed_at: typeof claimed === "number" && Number.isFinite(claimed) ? claimed : null,
+      };
+    }
+  }
+  if (
+    Object.keys(owners).length === 0 &&
+    typeof parsed.owner_session === "string" &&
+    typeof parsed.baseline_turn === "number" &&
+    Number.isFinite(parsed.baseline_turn)
+  ) {
+    const claimed = parsed.claimed_at;
+    owners[parsed.owner_session] = {
+      baseline_turn: parsed.baseline_turn,
+      claimed_at: typeof claimed === "number" && Number.isFinite(claimed) ? claimed : null,
+    };
+  }
+  return owners;
 }
 
 export function readMarker(cwd: string): MarkerState {
@@ -241,6 +276,11 @@ export function readMarker(cwd: string): MarkerState {
         typeof parsed.owner_session === "string" ? parsed.owner_session : null,
       baseline_turn:
         typeof parsed.baseline_turn === "number" ? parsed.baseline_turn : null,
+      claimed_at:
+        typeof parsed.claimed_at === "number" && Number.isFinite(parsed.claimed_at)
+          ? parsed.claimed_at
+          : null,
+      owners: readOwners(parsed),
       provenance,
       carryover_ack:
         typeof parsed.carryover_ack === "boolean" ? parsed.carryover_ack : false,
@@ -250,6 +290,8 @@ export function readMarker(cwd: string): MarkerState {
     return {
       owner_session: null,
       baseline_turn: null,
+      claimed_at: null,
+      owners: {},
       provenance: null,
       carryover_ack: false,
     };
@@ -260,16 +302,8 @@ export function writeMarker(cwd: string, obj: MarkerState): void {
   try {
     // Owner-only perms (see enable()): the marker persists owner_session.
     mkdirSync(markerDir, { recursive: true, mode: 0o700 });
-    writeFileSync(markerPath(cwd), JSON.stringify(obj), { encoding: "utf8", mode: 0o600 });
+    atomicWriteJson(markerPath(cwd), obj, { encoding: "utf8", mode: 0o600 });
   } catch {
     // Fail-safe.
   }
-}
-
-/**
- * Cwd-keyed disable alias, identical to disable. RETAINED for callers that
- * clear legacy marker state explicitly (e.g. the tool's enabled:false path).
- */
-export function clearForCwd(cwd: string): void {
-  disable(cwd);
 }

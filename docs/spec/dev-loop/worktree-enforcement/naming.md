@@ -11,13 +11,13 @@ is the operational naming contract for the Worktree-Isolation Mandate, not a new
 <type>/<actor>/<subject>    (3-segment, optional)
 ```
 
-## Allowed types (the existing 11 — do NOT invent new ones)
+## Allowed types (the approved 12 — do NOT invent new ones)
 
 ```
-feature  fix  hotfix  release  docs  test  refactor  chore  agent  user  integration
+feature  fix  hotfix  release  docs  test  refactor  chore  agent  user  integration  audit
 ```
 
-No `feat`, no `wip`, no ad-hoc types. (Claude implementation routines may use the
+No `feat`, no `wip`, no other ad-hoc types. (Claude implementation routines may use the
 `claude/` prefix ONLY where `claude-routines-cicd.md` allows it — not for manual work.)
 
 ## Subject (and actor) rules
@@ -32,7 +32,7 @@ No `feat`, no `wip`, no ad-hoc types. (Claude implementation routines may use th
 ## The validation regex (literal)
 
 ```
-^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration)\/[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$
+^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration|audit)\/[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$
 ```
 
 The regex is necessary but NOT sufficient: `git check-ref-format --branch` MUST also
@@ -64,6 +64,7 @@ git worktree add -b <type>/<subject> ../<repo>.worktrees/<type>-<subject> origin
 | `fix/effort-none-routing` | `../subagent-mcp.worktrees/fix-effort-none-routing` |
 | `chore/worktree-enforcement-sop` | `../subagent-mcp.worktrees/chore-worktree-enforcement-sop` |
 | `docs/agents-load-triggers` | `../subagent-mcp.worktrees/docs-agents-load-triggers` |
+| `audit/session-4` | `../subagent-mcp.worktrees/audit-session-4` |
 | `agent/codex/seed-site-refresh` | `../subagent-mcp.worktrees/agent-codex-seed-site-refresh` |
 | `refactor/router-2.0` | `../subagent-mcp.worktrees/refactor-router-2.0` |
 

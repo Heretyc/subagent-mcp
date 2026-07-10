@@ -1,16 +1,5 @@
 /**
- * orchestration-marker.test.mjs — Unit tests for the shared marker module.
- *
- * Exercises the REAL compiled dist/orchestration/marker.js (single source of
- * truth for orchestration on/off state). Covers:
- *   - normalizeCwd determinism (two spellings of the same path collapse equal;
- *     on win32 'C:\\X\\' and 'c:/x' must normalize identically).
- *   - markerPath stability (same cwd -> same path across calls).
- *   - enable/disable/isActive/clearForCwd roundtrip against a temp cwd, plus
- *     readMarker/writeMarker persistence.
- *
- * WHY (Rule 9): these encode the invariant the hook depends on — absence of the
- * marker MUST mean OFF, and re-enable MUST re-baseline (owner/baseline null).
+ * orchestration-marker.test.mjs - Unit tests for the shared marker module.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, existsSync, writeFileSync } from "node:fs";
@@ -25,15 +14,15 @@ import {
   sessionPointerPath,
   serverSessionPointerPath,
   enable,
-  disable,
   writeDisable,
-  writeDisableCwd,
+  removeDisable,
   writeCurrentSession,
   readCurrentSession,
   isActive,
   readMarker,
   writeMarker,
-  clearForCwd,
+  anonKey,
+  isSessionScopedKey,
   ORCH_DISABLE_TTL_MS,
 } from "../dist/orchestration/marker.js";
 
@@ -54,123 +43,106 @@ function test(name, fn) {
 
 const isWin = process.platform === "win32";
 
-// ---------------------------------------------------------------------------
-// normalizeCwd determinism
-// ---------------------------------------------------------------------------
 test("normalizeCwd: trailing slash is stripped (same hash with/without)", () => {
   const a = "C:\\Some\\Project";
   const b = "C:\\Some\\Project\\";
-  assert.equal(normalizeCwd(a), normalizeCwd(b),
-    "trailing slash must not change the normalized path");
-  assert.equal(cwdHash(a), cwdHash(b), "trailing slash must not change the hash");
+  assert.equal(normalizeCwd(a), normalizeCwd(b));
+  assert.equal(cwdHash(a), cwdHash(b));
 });
 
 if (isWin) {
   test("normalizeCwd (win32): 'C:\\\\X\\\\' and 'c:/x' normalize equal", () => {
-    // Backslash-vs-forward-slash AND case differences both collapse on win32.
-    assert.equal(normalizeCwd("C:\\X\\"), normalizeCwd("c:/x"),
-      "win32 normalization must be case- and separator-insensitive");
-    assert.equal(cwdHash("C:\\X\\"), cwdHash("c:/x"),
-      "equal normalized paths must produce equal hashes");
+    assert.equal(normalizeCwd("C:\\X\\"), normalizeCwd("c:/x"));
+    assert.equal(cwdHash("C:\\X\\"), cwdHash("c:/x"));
   });
 
   test("normalizeCwd (win32): \\\\?\\ extended-length prefix and plain form hash equal", () => {
-    // The extended-length prefix must be stripped BEFORE resolve() (resolve
-    // canonicalizes it away), so an extended-length cwd and its plain spelling
-    // must collapse to the same normalized path and hash. Regression guard:
-    // stripping after resolve was dead code and these would diverge.
     const plain = "C:\\Some\\Project";
     const extended = "\\\\?\\C:\\Some\\Project";
-    assert.equal(normalizeCwd(extended), normalizeCwd(plain),
-      "extended-length prefix must not change the normalized path");
-    assert.equal(cwdHash(extended), cwdHash(plain),
-      "extended-length and plain spellings must produce equal hashes");
-    assert.ok(!normalizeCwd(extended).includes("?"),
-      "the \\\\?\\ prefix must be stripped, not carried into the hash input");
+    assert.equal(normalizeCwd(extended), normalizeCwd(plain));
+    assert.equal(cwdHash(extended), cwdHash(plain));
+    assert.ok(!normalizeCwd(extended).includes("?"));
   });
 
   test("normalizeCwd (win32): output uses forward slashes and lowercase", () => {
     const n = normalizeCwd("C:\\Foo\\Bar");
-    assert.ok(!n.includes("\\"), "no backslashes remain after normalization");
-    assert.equal(n, n.toLowerCase(), "win32 normalized path is lowercased");
+    assert.ok(!n.includes("\\"));
+    assert.equal(n, n.toLowerCase());
   });
 }
 
 test("cwdHash: 16 hex chars, stable for the same input", () => {
   const h1 = cwdHash("/some/dir");
   const h2 = cwdHash("/some/dir");
-  assert.equal(h1, h2, "hash must be deterministic");
-  assert.match(h1, /^[0-9a-f]{16}$/, "hash is a 16-char hex slice of sha256");
+  assert.equal(h1, h2);
+  assert.match(h1, /^[0-9a-f]{16}$/);
 });
 
 test("cwdHash: different paths produce different hashes", () => {
   assert.notEqual(cwdHash("/a/one"), cwdHash("/a/two"));
 });
 
-// ---------------------------------------------------------------------------
-// markerPath stability
-// ---------------------------------------------------------------------------
 test("markerPath: stable across calls and lives under tmp/subagent-mcp", () => {
   const cwd = "/stable/project";
   const p1 = markerPath(cwd);
   const p2 = markerPath(cwd);
-  assert.equal(p1, p2, "markerPath must be deterministic for the same cwd");
-  assert.ok(p1.includes("subagent-mcp"), "marker lives under the subagent-mcp tmp dir");
-  assert.ok(p1.endsWith(".flag"), "marker file uses the .flag suffix");
-  assert.ok(p1.includes("orch-"), "marker file uses the orch- prefix");
+  assert.equal(p1, p2);
+  assert.ok(p1.includes("subagent-mcp"));
+  assert.ok(p1.endsWith(".flag"));
+  assert.ok(p1.includes("orch-"));
 });
 
-// ---------------------------------------------------------------------------
-// enable / disable / isActive / clearForCwd roundtrip (temp cwd)
-// ---------------------------------------------------------------------------
-test("default ON; disable records make isActive false; per-session isolation", () => {
+test("default ON; session disable records are isolated and TTL-GC'd", () => {
   const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
   const sessA = `sessA-${cwdHash(dir)}`;
   const sessB = `sessB-${cwdHash(dir)}`;
   const expiredSess = `expired-${cwdHash(dir)}`;
   try {
-    assert.equal(isActive(dir), true, "fresh temp cwd starts active by default");
-
-    writeDisableCwd(dir);
-    assert.equal(isActive(dir), false, "cwd-keyed disable record makes cwd inactive");
-
+    assert.equal(isActive(dir), true, "fresh keyless check is active");
     assert.equal(isActive(dir, sessA), true, "fresh session key starts active");
     writeDisable(sessA);
-    assert.equal(isActive(dir, sessA), false, "session-keyed disable makes that session inactive");
+    assert.equal(isActive(dir, sessA), false, "session-keyed disable affects that session");
     assert.equal(isActive(dir, sessB), true, "different session key remains active");
 
-    assert.equal(ORCH_DISABLE_TTL_MS, 2 * 60 * 60 * 1000, "disable TTL is 2h");
+    assert.equal(ORCH_DISABLE_TTL_MS, 2 * 60 * 60 * 1000);
     writeFileSync(disablePath(expiredSess), JSON.stringify({
       disabled_at: Date.now() - ORCH_DISABLE_TTL_MS - 1,
     }));
     assert.equal(isActive(dir, expiredSess), true, "expired disable record is ignored");
     assert.equal(existsSync(disablePath(expiredSess)), false, "expired disable record is GC'd");
   } finally {
-    rmSync(disablePath(sessA), { force: true });
-    rmSync(disablePath(sessB), { force: true });
-    rmSync(disablePath(expiredSess), { force: true });
+    removeDisable(sessA);
+    removeDisable(sessB);
+    removeDisable(expiredSess);
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("current-session pointer is scoped by server key, not just cwd", () => {
+test("anonymous owner keys are cadence-only and cannot disable orchestration", () => {
+  const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
+  try {
+    const anon = anonKey(dir, "codex");
+    assert.match(anon, /^anon-codex-[0-9a-f]{16}$/);
+    assert.equal(isSessionScopedKey(anon), false);
+    assert.equal(isSessionScopedKey("session-1"), true);
+    writeDisable(anon);
+    assert.equal(existsSync(disablePath(anon)), false, "writeDisable ignores anonymous keys");
+    assert.equal(isActive(dir, anon), true, "isActive ignores anonymous disable authority");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("current-session pointer is scoped by server key with legacy cwd fallback", () => {
   const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
   try {
     writeCurrentSession(dir, "session-A", "server-A");
     writeCurrentSession(dir, "session-B", "server-B");
     assert.equal(readCurrentSession(dir, "server-A"), "session-A");
     assert.equal(readCurrentSession(dir, "server-B"), "session-B");
-    assert.equal(readCurrentSession(dir, "server-C"), undefined);
-    assert.notEqual(
-      serverSessionPointerPath(dir, "server-A"),
-      serverSessionPointerPath(dir, "server-B"),
-      "different server keys must not share a pointer file"
-    );
-    assert.notEqual(
-      serverSessionPointerPath(dir, "server-A"),
-      sessionPointerPath(dir),
-      "server-scoped pointer must be distinct from the legacy cwd pointer"
-    );
+    assert.equal(readCurrentSession(dir, "server-C"), "session-B");
+    assert.notEqual(serverSessionPointerPath(dir, "server-A"), serverSessionPointerPath(dir, "server-B"));
+    assert.notEqual(serverSessionPointerPath(dir, "server-A"), sessionPointerPath(dir));
   } finally {
     rmSync(serverSessionPointerPath(dir, "server-A"), { force: true });
     rmSync(serverSessionPointerPath(dir, "server-B"), { force: true });
@@ -185,38 +157,47 @@ test("enable writes an unclaimed, un-baselined marker (re-enable re-baselines)",
   try {
     enable(dir);
     const m = readMarker(dir);
-    assert.equal(m.owner_session, null, "fresh enable has no owner_session yet");
-    assert.equal(m.baseline_turn, null, "fresh enable has no baseline yet");
+    assert.equal(m.owner_session, null);
+    assert.equal(m.baseline_turn, null);
+    assert.equal(m.claimed_at, null);
+    assert.deepEqual(m.owners, {});
 
-    // Simulate a hook claiming + baselining the marker.
-    writeMarker(dir, { owner_session: "sess-1", baseline_turn: 7 });
-    const claimed = readMarker(dir);
-    assert.equal(claimed.owner_session, "sess-1");
-    assert.equal(claimed.baseline_turn, 7);
+    writeMarker(dir, {
+      owner_session: "sess-1",
+      baseline_turn: 7,
+      claimed_at: 123,
+      provenance: null,
+      carryover_ack: false,
+      owners: { "sess-1": { baseline_turn: 7, claimed_at: 123 } },
+    });
+    assert.equal(readMarker(dir).owner_session, "sess-1");
 
-    // Re-enable must overwrite back to null/null (re-baseline on next turn).
     enable(dir);
     const reenabled = readMarker(dir);
-    assert.equal(reenabled.owner_session, null, "re-enable clears owner_session");
-    assert.equal(reenabled.baseline_turn, null, "re-enable clears baseline_turn");
+    assert.equal(reenabled.owner_session, null);
+    assert.equal(reenabled.baseline_turn, null);
+    assert.deepEqual(reenabled.owners, {});
   } finally {
-    disable(dir);
+    rmSync(markerPath(dir), { force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("clearForCwd removes the marker (used by the tool's enabled:false path)", () => {
-  // NOTE: the server NO LONGER calls clearForCwd on startup — orchestration mode
-  // now persists across sessions. clearForCwd remains an alias for disable and is
-  // exercised here for its retained behavior, not for any startup reset.
+test("readMarker synthesizes owners map from legacy owner fields", () => {
   const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
   try {
-    enable(dir);
-    assert.equal(isActive(dir), true);
-    clearForCwd(dir);
-    assert.equal(isActive(dir), false, "clearForCwd must leave the cwd OFF");
+    writeMarker(dir, {
+      owner_session: "legacy-owner",
+      baseline_turn: 4,
+      claimed_at: 123,
+      provenance: null,
+      carryover_ack: false,
+    });
+    assert.deepEqual(readMarker(dir).owners, {
+      "legacy-owner": { baseline_turn: 4, claimed_at: 123 },
+    });
   } finally {
-    disable(dir);
+    rmSync(markerPath(dir), { force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -224,28 +205,19 @@ test("clearForCwd removes the marker (used by the tool's enabled:false path)", (
 test("readMarker on a missing marker returns safe defaults (no throw)", () => {
   const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
   try {
-    const m = readMarker(dir);
-    assert.deepEqual(m, { owner_session: null, baseline_turn: null, provenance: null, carryover_ack: false },
-      "missing marker reads as unclaimed/un-baselined/no-provenance/un-acked, never throws");
+    assert.deepEqual(readMarker(dir), {
+      owner_session: null,
+      baseline_turn: null,
+      claimed_at: null,
+      owners: {},
+      provenance: null,
+      carryover_ack: false,
+    });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("disable on an absent marker is a no-op (fail-safe)", () => {
-  const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
-  try {
-    // Must not throw even though no marker exists.
-    disable(dir);
-    assert.equal(isActive(dir), false);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Summary
-// ---------------------------------------------------------------------------
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);

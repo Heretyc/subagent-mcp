@@ -1,27 +1,117 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const repo = join(__dirname, "..");
+import {
+  currentUserSlotNamespace,
+  slotDir,
+} from "../dist/concurrency.js";
+
+import {
+  ZOMBIE_LIVE_IDLE_MS,
+  ZOMBIE_REPORTS_FILENAME,
+  cullStaleSlots,
+  drainZombieReports,
+  slotPathForAgent,
+  writeSlotMetadata,
+} from "../dist/zombie.js";
+
+function tmpSlotDir() {
+  return join(tmpdir(), `subagent-zombie-guard-${randomUUID()}`);
+}
 
 function run() {
-  const source = readFileSync(join(repo, "src", "zombie.ts"), "utf8");
+  const jsonlDir = tmpSlotDir();
+  try {
+    mkdirSync(jsonlDir, { recursive: true });
+    const valid = {
+      kind: "zombie_killed",
+      agent_id: "agent-jsonl",
+      child_pid: 101,
+      server_pid: null,
+      slot_path: "/tmp/slot-agent-jsonl.json",
+      reason: "stale_live",
+      detected_at_ms: 2,
+      last_activity_ms: 1,
+      message: "valid",
+    };
+    writeFileSync(join(jsonlDir, ZOMBIE_REPORTS_FILENAME), `${JSON.stringify(valid)}\n{bad-json\n`);
+    const errors = [];
+    const originalError = console.error;
+    console.error = (message) => errors.push(String(message));
+    try {
+      assert.deepEqual(drainZombieReports(jsonlDir), [valid]);
+      assert.equal(errors.length, 1, "corrupt jsonl lines should be skipped, not fatal");
+      assert.match(errors[0], /skipped corrupt jsonl line/);
+      assert.deepEqual(drainZombieReports(jsonlDir), []);
+    } finally {
+      console.error = originalError;
+    }
+  } finally {
+    rmSync(jsonlDir, { recursive: true, force: true });
+  }
 
-  assert.doesNotMatch(source, /\.map\(\(line\) => JSON\.parse\(line\) as ZombieRecord\)/);
-  // Fix 1: readFileSync of the renamed claim is guarded (rename-visibility
-  // races on Windows/AV/Dropbox can make a just-renamed file transiently
-  // unopenable), then lines are split off the captured `raw` string.
-  assert.match(source, /raw = readFileSync\(claim, "utf8"\);/);
-  assert.match(source, /for \(const line of raw\.split\(\/\\r\?\\n\/\)\.filter\(Boolean\)\) \{/);
-  assert.match(source, /try \{\s*records\.push\(JSON\.parse\(line\) as ZombieRecord\);\s*\} catch \{/);
-  assert.match(source, /console\.error\(`zombies: skipped corrupt jsonl line in \$\{claim\}: \$\{line\.slice\(0, 120\)\}`\);/);
-  // SRC-12: cull a live child only when its owning server is dead/absent (spare children of a live server).
-  assert.doesNotMatch(source, /if \(ownerPid !== null && livePid\(pid\) && pid !== process\.pid\) \{/);
-  assert.match(source, /ownerPid === null \|\| !ownerAlive/);
-  assert.match(source, /const childAlive = livePid\(pid\) && pid !== process\.pid && isProcessAlive\(pid\);/);
-  assert.match(source, /verifiedChild && \(ownerPid === null \|\| !ownerAlive\)/);
+  const liveOwnerDir = tmpSlotDir();
+  try {
+    const now = 1_000_000;
+    mkdirSync(liveOwnerDir, { recursive: true });
+    const slot = slotPathForAgent(liveOwnerDir, "live-owner");
+    writeSlotMetadata(slot, {
+      agent_id: "live-owner",
+      server_pid: 777,
+      child_pid: 888,
+      started_at_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+      last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+    });
+    const records = cullStaleSlots(liveOwnerDir, {
+      now: () => now,
+      isProcessAlive: (pid) => pid === 777 || pid === 888,
+      runCommand: () => assert.fail("live owner must spare its child"),
+      sleepMs: () => assert.fail("live owner must not enter force-grace kill path"),
+    });
+    assert.deepEqual(records, []);
+    assert.equal(existsSync(slot), true);
+  } finally {
+    rmSync(liveOwnerDir, { recursive: true, force: true });
+  }
+
+  const orphanDir = tmpSlotDir();
+  const previousSlotBase = process.env.SUBAGENT_SLOT_DIR;
+  try {
+    process.env.SUBAGENT_SLOT_DIR = orphanDir;
+    const now = 1_000_000;
+    const childPid = process.pid + 100_000;
+    const calls = [];
+    const userDir = slotDir();
+    assert.equal(userDir, join(orphanDir, currentUserSlotNamespace()));
+    mkdirSync(userDir, { recursive: true });
+    const slot = slotPathForAgent(userDir, "orphan");
+    writeSlotMetadata(slot, {
+      agent_id: "orphan",
+      server_pid: 777,
+      child_pid: childPid,
+      started_at_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+      last_activity_ms: now - ZOMBIE_LIVE_IDLE_MS - 1000,
+    });
+    const records = cullStaleSlots(userDir, {
+      now: () => now,
+      platform: "win32",
+      isProcessAlive: (pid) => pid !== 777,
+      isSubagentChildProcess: () => true,
+      runCommand: (command, args) => calls.push({ command, args }),
+      sleepMs: () => {},
+    });
+    assert.equal(records.length, 1);
+    assert.equal(records[0].agent_id, "orphan");
+    assert.equal(existsSync(slot), false);
+    assert.deepEqual(calls[0], { command: "taskkill", args: ["/PID", String(childPid), "/T"] });
+  } finally {
+    if (previousSlotBase === undefined) delete process.env.SUBAGENT_SLOT_DIR;
+    else process.env.SUBAGENT_SLOT_DIR = previousSlotBase;
+    rmSync(orphanDir, { recursive: true, force: true });
+  }
 }
 
 try {

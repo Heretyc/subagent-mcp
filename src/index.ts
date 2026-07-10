@@ -1970,7 +1970,7 @@ server.tool(
 // Tool 8: orchestration-mode
 server.tool(
   "orchestration-mode",
-  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF for THIS session only, omit = query. SOLE CHANNEL holds in BOTH states: subagent-mcp is the only sanctioned way to launch sub-agents; toggling OFF does not lift that. WHAT: default-ON mode for LONG-HORIZON work that would fill the context window if run inline; when ON act as a delegate-ONLY orchestrator — delegate every step, inline-by-right does not exist, a non-delegable atomic step needs a one-time user-approved exception via the structured-question tool (state which + why). OFF upgrade check: a long-horizon task = any whose TOTAL context footprint (input read + output produced) exceeds 200 lines, measured CUMULATIVELY since your last upgrade ask; after EVERY user turn, if it qualifies, STOP and ask whether to remain enabled (every qualifying turn; a decline does not latch; reset the count only when you ask). PERSISTENCE: a permitted disable applies to THIS session only, resumes ON next new session (or after the 2h backstop), no mid-session re-enable. CARRYOVER: if ON was inherited from a prior session (carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker) — notify the user it auto-activated and confirm keeping it ON. DISABLE: never on your own initiative; you may PROPOSE OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation). Full operating model is in this server's MCP `instructions` (read once at initialize) — this is the operational summary only.",
+  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF for THIS session only, omit = query. SOLE CHANNEL holds in BOTH states: subagent-mcp is the only sanctioned way to launch sub-agents; toggling OFF does not lift that. WHAT: default-ON mode for LONG-HORIZON work that would fill the context window if run inline; when ON act as a delegate-ONLY orchestrator — delegate every step, inline-by-right does not exist, a non-delegable atomic step needs a one-time user-approved exception via the structured-question tool (state which + why). OFF upgrade check: a long-horizon task = any whose TOTAL context footprint (input read + output produced) exceeds 200 lines, measured CUMULATIVELY since your last upgrade ask; after EVERY user turn, if it qualifies, STOP and ask whether to remain enabled (every qualifying turn; a decline does not latch; reset the count only when you ask). PERSISTENCE: a permitted disable is session-keyed only, applies to THIS session only, resumes ON next new session (or after the 2h backstop), no mid-session re-enable; keyless hosts get only the one-time non-persisted conversational opt-out. CARRYOVER: if ON was inherited from a prior session (carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker) — notify the user it auto-activated and confirm keeping it ON. DISABLE: never on your own initiative; you may PROPOSE OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation). Full operating model is in this server's MCP `instructions` (read once at initialize) — this is the operational summary only.",
   {
     enabled: z.boolean().optional(),
   },
@@ -1995,8 +1995,17 @@ server.tool(
         ],
       };
     } else if (params.enabled === false) {
-      if (key) orchestrationMarker.writeDisable(key);
-      else orchestrationMarker.writeDisableCwd(cwd);
+      if (!key) {
+        return errorResult(
+          "cannot disable: no session pointer found for this project (the per-turn hook has not fired yet). Disable records are session-keyed only; send one prompt first, or check wiring with `subagent-mcp doctor`."
+        );
+      }
+      if (!orchestrationMarker.isSessionScopedKey(key)) {
+        return errorResult(
+          "cannot disable: this host supplies no session identity (no session_id/transcript_path in hook payloads) and disable records are session-keyed only. Offer the user the one-time, non-persisted conversational opt-out for this window; orchestration stays ON."
+        );
+      }
+      orchestrationMarker.writeDisable(key);
       return {
         content: [
           {
@@ -2018,6 +2027,11 @@ server.tool(
           type: "text",
           text: JSON.stringify({
             orchestration_mode: active ? "ON" : "disabled-this-session",
+            session_scope: key
+              ? orchestrationMarker.isSessionScopedKey(key)
+                ? "session"
+                : "anonymous"
+              : "none",
           }),
         },
       ],
@@ -2278,8 +2292,8 @@ if (isMain) {
   // explicit user permission. On a new session a carried-over legacy ON marker
   // (if any) triggers a one-time prompt asking whether to remain enabled; under
   // default-ON this rarely fires.
-  // (the tool's enabled:false writes a disable record via writeDisable /
-  // writeDisableCwd; it does not call disable().)
+  // (the tool's enabled:false writes only a session-keyed disable record via
+  // writeDisable; keyless persistent-disable requests are refused.)
   getNpmPrefix();
   void checkForNpmUpdate().catch(() => {});
   startLivenessHeartbeat();

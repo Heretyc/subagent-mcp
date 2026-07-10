@@ -7,6 +7,7 @@ import {
   type HookPayload,
   type ProviderAdapter,
 } from "../orchestration/hook-core.js";
+import { hasParentMarker } from "../launch-prompt.js";
 
 /**
  * Claude Code UserPromptSubmit hook entry. Reads the JSON payload from stdin,
@@ -40,7 +41,10 @@ export const claudeAdapter: ProviderAdapter = {
       return true;
     }
     const entrypoint = env.CLAUDE_CODE_ENTRYPOINT;
-    return typeof entrypoint === "string" && SUBAGENT_ENTRYPOINTS.has(entrypoint);
+    if (typeof entrypoint === "string" && SUBAGENT_ENTRYPOINTS.has(entrypoint)) {
+      return true;
+    }
+    return hasParentMarker(payload.prompt);
   },
 
   // Count JSONL lines in the transcript whose parsed object.type === 'user'.
@@ -52,6 +56,7 @@ export const claudeAdapter: ProviderAdapter = {
     return countJsonlType(transcriptPath, "user");
   },
 
+  anonScope: "claude",
   fullDirectiveFile: "orchestration-claude.md",
   shortOnFile: "short-on.md",
   shortOffFile: "short-off.md",

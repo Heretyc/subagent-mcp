@@ -1,51 +1,249 @@
-// Structural guard for two driver-protocol regressions (LB-2, LB-3).
-// These live-agent deadlock/wedge bugs are expensive to integration-test, so we
-// assert the fix shape survives in src/drivers.ts source rather than exercising
-// the real SDK / codex app-server. Plain node + assert, no build step.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PassThrough } from "node:stream";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(join(here, "..", "src", "drivers.ts"), "utf8");
+import {
+  ClaudeSdkDriver,
+  CodexAppServerDriver,
+} from "../dist/drivers.js";
 
-// LB-2: codex driver must track approval RPCs by id and reply through JSON-RPC.
-assert.doesNotMatch(src, /pendingServerRequest/, "LB-2: deleted single-slot pendingServerRequest returned");
-assert.match(src, /pendingApprovals\s*=\s*new Map/, "LB-2: pendingApprovals map missing");
-assert.match(src, /maxPendingApprovals\s*=\s*16/, "LB-2: pending approval cap missing");
-assert.match(src, /replyCodexApproval\s*\(/, "LB-2: codex approval reply path missing");
-assert.match(src, /replyJsonRpc\s*\(/, "LB-2: JSON-RPC reply helper missing");
-assert.match(src, /isElicitationMethod\s*\(/, "LB-2: elicitation-method detection missing");
-assert.match(
-  src,
-  /buildElicitationResult\s*\(/,
-  "LB-2: elicitation reply builder missing"
-);
+const repo = new URL("..", import.meta.url);
 
-// LB-3: claude driver must expose a resume path for post-bg-task wakeups.
-assert.match(src, /notifyTaskComplete\s*\(/, "LB-3: notifyTaskComplete method missing");
-assert.match(src, /resumePending/, "LB-3: resume debounce guard missing");
+function collect(stream) {
+  let text = "";
+  stream.setEncoding("utf8");
+  stream.on("data", (chunk) => {
+    text += chunk;
+  });
+  return () => text;
+}
 
-// Bash-bypass regression: the Claude SDK auto-approves Bash without consulting
-// canUseTool, so the driver must register a PreToolUse hook routing EVERY tool
-// through the same engine gate. The hook must be non-yolo only (yolo stays
-// hook-free), and both canUseTool and the hook must share one gate method.
-assert.match(src, /private\s+async\s+gateRequest\s*\(/, "shared gateRequest method missing");
-assert.match(
-  src,
-  /if\s*\(!isYolo\)\s*\{[\s\S]*?sdkOptions\.hooks\s*=\s*\{[\s\S]*?PreToolUse/,
-  "PreToolUse hook must be registered (non-yolo only) to gate Bash"
-);
-assert.match(
-  src,
-  /this\.gateRequest\([\s\S]*?"claude-canUseTool"\)/,
-  "canUseTool must delegate to the shared gate"
-);
-assert.match(
-  src,
-  /this\.gateRequest\([\s\S]*?"claude-pretooluse-hook"\s*\)/,
-  "PreToolUse hook must delegate to the shared gate"
-);
+async function waitFor(predicate, label, timeoutMs = 1500) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`timed out waiting for ${label}`);
+}
 
-console.log("drivers-guard: OK (LB-2 + LB-3 + permission-gate structural guards present)");
+function permissionSnapshot(overrides = {}) {
+  return {
+    ceiling: "auto",
+    escalation: "irreversible-only",
+    rules: { allow: [], deny: [], ask: [] },
+    additionalDirectories: [],
+    repoConfigChangedSinceFirstSeen: false,
+    ...overrides,
+  };
+}
+
+function options(provider, overrides = {}) {
+  return {
+    provider,
+    command: provider,
+    args: [],
+    cwd: process.cwd(),
+    env: process.env,
+    model: provider === "claude" ? "sonnet" : "gpt-5.5",
+    effort: "high",
+    agentId: "driver-guard-agent",
+    permissionSnapshot: permissionSnapshot(),
+    ...overrides,
+  };
+}
+
+function writeApprovalServer(tempRoot, logFile) {
+  const script = join(tempRoot, "approval-server.mjs");
+  writeFileSync(
+    script,
+    `
+import fs from "node:fs";
+import readline from "node:readline";
+
+const logFile = process.env.APP_SERVER_LOG;
+let turn = 0;
+function send(obj) { process.stdout.write(JSON.stringify(obj) + "\\n"); }
+function log(obj) { fs.appendFileSync(logFile, JSON.stringify(obj) + "\\n"); }
+
+readline.createInterface({ input: process.stdin }).on("line", (line) => {
+  if (!line.trim()) return;
+  const msg = JSON.parse(line);
+  log(msg);
+  if (msg.method === "initialize") return send({ id: msg.id, result: { protocolVersion: "test" } });
+  if (msg.method === "initialized") return;
+  if (msg.method === "thread/start") {
+    send({ id: msg.id, result: { thread: { id: "thread-1" } } });
+    send({ method: "thread/started", params: { thread: { id: "thread-1" } } });
+    return;
+  }
+  if (msg.method === "turn/start") {
+    turn += 1;
+    const turnId = "turn-" + turn;
+    send({ id: msg.id, result: { turn: { id: turnId } } });
+    send({ method: "turn/started", params: { turn: { id: turnId } } });
+    send({ id: 101, method: "execCommandApproval", params: { command: "rm guarded-a" } });
+    send({ id: 102, method: "execCommandApproval", params: { command: "rm guarded-b" } });
+    return;
+  }
+  if (msg.id === 101 && msg.result) send({ method: "item/agentMessage/delta", params: { delta: "reply101" } });
+  if (msg.id === 102 && msg.result) {
+    send({ method: "item/agentMessage/delta", params: { delta: "reply102" } });
+    send({ method: "turn/completed", params: { turn: { id: "turn-1" } } });
+  }
+});
+`,
+    "utf8"
+  );
+  writeFileSync(logFile, "");
+  return script;
+}
+
+function spawnServer(script, logFile) {
+  return spawn(process.execPath, [script], {
+    cwd: process.cwd(),
+    env: { ...process.env, APP_SERVER_LOG: logFile },
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
+  });
+}
+
+async function testCodexApprovalRepliesByJsonRpcId() {
+  const tempRoot = mkdtempSync(join(tmpdir(), "drivers-guard-codex-"));
+  try {
+    const logFile = join(tempRoot, "app-server.log");
+    const script = writeApprovalServer(tempRoot, logFile);
+    const child = spawnServer(script, logFile);
+    const driver = new CodexAppServerDriver(
+      child,
+      options("codex", {
+        permissionSnapshot: permissionSnapshot({
+          rules: { allow: [], deny: ["Bash"], ask: [] },
+        }),
+      })
+    );
+    const stdout = collect(driver.process.stdout);
+    await once(driver.process, "spawn");
+    await driver.start("first");
+    await waitFor(() => stdout().includes("reply102"), "both approval replies");
+
+    const replies = readFileSync(logFile, "utf8")
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line))
+      .filter((msg) => msg.result && (msg.id === 101 || msg.id === 102));
+    assert.deepEqual(
+      replies.map((msg) => [msg.id, msg.result]),
+      [
+        [101, { decision: "denied" }],
+        [102, { decision: "denied" }],
+      ],
+      "Codex approvals should be tracked and answered independently by JSON-RPC id"
+    );
+    driver.kill();
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+async function testClaudePreToolUseAndCanUseToolShareGateBehavior() {
+  let sdkOptions;
+  async function* query(params) {
+    sdkOptions = params.options;
+    for await (const msg of params.prompt) {
+      yield { type: "assistant", message: { content: [{ type: "text", text: msg.message.content }] } };
+    }
+  }
+
+  const driver = new ClaudeSdkDriver(query);
+  driver.open(options("claude", {
+    permissionSnapshot: permissionSnapshot({
+      rules: { allow: [], deny: ["Bash"], ask: [] },
+    }),
+  }));
+  await once(driver.process, "spawn");
+  await driver.start("first");
+  await waitFor(() => sdkOptions !== undefined, "Claude SDK options");
+
+  const request = {
+    tool_name: "Bash",
+    tool_input: { command: "rm guarded" },
+    tool_use_id: "tool-1",
+  };
+  const canUseTool = await sdkOptions.canUseTool(request);
+  assert.equal(canUseTool.behavior, "deny");
+
+  const hook = sdkOptions.hooks.PreToolUse[0].hooks[0];
+  const hookResult = await hook(request);
+  assert.deepEqual(hookResult.hookSpecificOutput, {
+    hookEventName: "PreToolUse",
+    permissionDecision: "deny",
+    permissionDecisionReason: canUseTool.message,
+  });
+  driver.kill();
+
+  let yoloOptions;
+  async function* yoloQuery(params) {
+    yoloOptions = params.options;
+    for await (const _msg of params.prompt) {
+      yield { type: "result", result: "ok" };
+    }
+  }
+  const yolo = new ClaudeSdkDriver(yoloQuery);
+  yolo.open(options("claude", {
+    permissionSnapshot: permissionSnapshot({
+      ceiling: "yolo",
+      rules: { allow: [], deny: ["Bash"], ask: [] },
+    }),
+  }));
+  await once(yolo.process, "spawn");
+  await yolo.start("first");
+  await waitFor(() => yoloOptions !== undefined, "yolo Claude SDK options");
+  assert.equal(yoloOptions.hooks, undefined, "yolo launches should stay hook-free");
+  yolo.kill();
+}
+
+async function testClaudeNotifyTaskCompleteDebouncesResumeTurns() {
+  const seen = [];
+  async function* query(params) {
+    for await (const msg of params.prompt) {
+      seen.push(msg.message.content);
+      if (seen.length === 1) {
+        yield { type: "assistant", message: { content: [{ type: "text", text: "started" }] } };
+      }
+    }
+  }
+
+  const driver = new ClaudeSdkDriver(query);
+  driver.open(options("claude"));
+  await once(driver.process, "spawn");
+  await driver.start("first");
+  await waitFor(() => seen.length === 1, "initial Claude turn");
+  await driver.notifyTaskComplete("resume once");
+  await driver.notifyTaskComplete("resume twice");
+  await waitFor(() => seen.length === 2, "first resume turn");
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.deepEqual(seen, ["first", "resume once"]);
+  driver.kill();
+}
+
+function assertPrivateTextualContracts() {
+  const source = readFileSync(new URL("src/drivers.ts", repo), "utf8");
+  assert.match(source, /maxPendingApprovals\s*=\s*16/, "pending approval cap is private; keep semantic source guard");
+  assert.doesNotMatch(source, /pendingServerRequest/, "deleted single-slot pendingServerRequest must not return");
+}
+
+try {
+  await testCodexApprovalRepliesByJsonRpcId();
+  await testClaudePreToolUseAndCanUseToolShareGateBehavior();
+  await testClaudeNotifyTaskCompleteDebouncesResumeTurns();
+  assertPrivateTextualContracts();
+  console.log("drivers-guard: OK (behavioral LB-2/LB-3/permission-gate guards plus private cap text guard)");
+} catch (error) {
+  console.error(error);
+  process.exit(1);
+}

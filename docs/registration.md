@@ -1,242 +1,65 @@
 # Registering the MCP Server
 
-Per-platform registration for `subagent-mcp` across Claude Code, Codex, and
-Gemini CLIs. Replace the path in each example with the absolute path where you
-cloned the repo.
+Retrieval map for per-platform registration of `subagent-mcp` across Claude
+Code, Codex, and Gemini CLIs. This page is an index — load the one matched leaf
+under [`registration/`](registration/), not the whole folder. Replace the path
+in each leaf's examples with the absolute path where you cloned the repo.
 
-This page is the MCP-only registration reference. To install the
-**orchestration-mode hook together with the server** on each host (the
-plugin path, npm path, manual wiring, and per-host verification), see
-[docs/install/_INDEX.md](install/_INDEX.md).
+This is the MCP-only registration reference. To install the orchestration-mode
+hook **together with** the server on each host (plugin/npm/manual wiring + per-host
+verification), see [docs/install/_INDEX.md](install/_INDEX.md). See
+[README.md](../README.md) for the project overview and [docs/SPEC.md](SPEC.md)
+for the full technical specification.
 
-See [README.md](../README.md) for the project overview and
-[docs/SPEC.md](SPEC.md) for the full technical specification.
+## Topic index
 
----
-
-## Prerequisites
-
-- **Node.js >= 18**
-- **`claude` CLI** (Claude Code) installed globally and authenticated (`claude login`)
-- **`codex` CLI** (OpenAI Codex CLI) installed globally and authenticated (`codex auth`)
-- Both CLIs must be installed and on `PATH` (macOS/Linux: standard npm global bin or Homebrew; Windows: resolved via npm global prefix automatically)
-
----
-
-## Install
-
-**npmjs install (default; auto-wires Claude and Codex):**
-
-```bash
-npm install -g @heretyc/subagent-mcp
-subagent-mcp setup
-```
-
-Use GitHub Packages only when an internal workflow requires that registry:
-
-```bash
-# One-time: configure registry + auth (classic PAT with read:packages)
-echo "@heretyc:registry=https://npm.pkg.github.com" >> ~/.npmrc
-echo "//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PAT" >> ~/.npmrc
-
-npm install -g @heretyc/subagent-mcp
-subagent-mcp setup
-```
-
-`setup` writes the MCP server entry and `UserPromptSubmit` hook for each
-detected vendor. Re-run after upgrading. Pass `--dry-run` to preview.
-
-Consumer repos can also run `subagent-mcp init --root /path/to/project` to
-upsert managed invariant blocks; use `--dry-run` or `--remove`.
-
-### Global settings
-
-The installed `dist/global-concurrency.jsonc` file holds machine-local settings:
-
-- `globalConcurrentSubagents`: live subagent cap; default `20`, minimum `10`.
-- `checkForUpdates`: silent npmjs update check; default `true`.
-
-When `checkForUpdates` is true, the MCP server starts a non-blocking npmjs
-metadata check after launch. If a newer `@heretyc/subagent-mcp` exists, the CLI
-hook appends this notice at most once per session and no more than every 12
-hours: run `subagent-mcp update`, then `subagent-mcp setup`. If a hook host
-omits `session_id`, the notice falls back to timestamp-only throttling.
-
-Set `"checkForUpdates": false` to skip the registry fetch and suppress the hook
-notice. `SUBAGENT_UPDATE_CHECK=0` or `SUBAGENT_UPDATE_CHECK=false`
-(case-insensitive) disables the same behavior for that process.
-
-### `init --global` (provider global user-config)
-
-`subagent-mcp init --global` upserts the managed init/directive block into each
-provider's **official global user-config file** instead of a project tree:
-
-| Provider | Global file |
+| Topic | Leaf |
 |---|---|
-| Claude Code | `~/.claude/CLAUDE.md` |
-| Codex | `~/.codex/AGENTS.md` |
-| Gemini CLI | `~/.gemini/GEMINI.md` |
+| Prerequisites, `npm install`, `setup`, global settings, `init --global`, source install | [`registration/prerequisites-and-install.md`](registration/prerequisites-and-install.md) |
+| Claude Code / Claude Desktop MCP-server config | [`registration/claude-code.md`](registration/claude-code.md) |
+| Codex MCP-server config (`config.toml`) | [`registration/codex.md`](registration/codex.md) |
+| Gemini MCP-server config (`settings.json`) | [`registration/gemini.md`](registration/gemini.md) |
+| Orchestration hook + plugin (per host) + desktop degradation | [`registration/orchestration-plugin.md`](registration/orchestration-plugin.md) |
 
-These are the homedir dotdir paths on macOS, Windows, and Linux; scope is
-exactly those three files. The command honors `--dry-run`, `--remove`, and
-`--force`, and is **mutually exclusive** with `--root`, `--files`, `--copilot`,
-and `--cursor`.
+## Aliases / synonyms
 
-```bash
-subagent-mcp init --global            # upsert into the three global files
-subagent-mcp init --global --dry-run  # preview
-subagent-mcp init --global --remove   # remove the managed block
-```
+- register / wire / add / connect the server → the per-host leaf for that vendor
+- install / setup / bootstrap → `prerequisites-and-install.md`
+- plugin / hook / injection / `UserPromptSubmit` / per-turn directive → `orchestration-plugin.md`
+- global config / machine settings / update check / concurrency cap → `prerequisites-and-install.md` (Global settings)
+- `init --global` / global user-config / managed block → `prerequisites-and-install.md`
 
-### Developer install from source
+## Task → doc
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) §Local Setup for clone, install, build, and run steps.
+| Task | Load |
+|---|---|
+| Install from npmjs or GitHub Packages and auto-wire both CLIs | `prerequisites-and-install.md` |
+| Tune `globalConcurrentSubagents` / `checkForUpdates` | `prerequisites-and-install.md` |
+| Upsert managed blocks into provider global user-config | `prerequisites-and-install.md` (`init --global`) |
+| Add the server to Claude Code (user or project scope) | `claude-code.md` |
+| Add the server to Codex | `codex.md` |
+| Add the server to Gemini | `gemini.md` |
+| Turn on per-turn orchestration injection | `orchestration-plugin.md` |
 
-Once built, wire the from-source binary into your vendor config using the
-per-platform steps below.
+## Symptom → doc
 
----
+| Symptom | Load |
+|---|---|
+| `401 Unauthorized` installing from GitHub Packages | `prerequisites-and-install.md` (GitHub Packages `.npmrc` auth) |
+| CLI not found / not on PATH | `prerequisites-and-install.md` (Prerequisites) |
+| Server registered but no per-turn directive appears | `orchestration-plugin.md` (desktop hosts / Gemini inject nothing) |
+| Claude plugin load fails with duplicate-hooks error | `orchestration-plugin.md` (manifest must not re-declare hooks/mcpServers) |
+| Codex hook never fires | `orchestration-plugin.md` (absolute path for `orchestration-codex.js`) |
 
-## Claude Code CLI
+## Workflow map
 
-**macOS / Linux** — run once from any directory:
+Install → wire server (per-host leaf) → (optional) install orchestration
+hook/plugin → verify (`claude mcp list` / `/mcp` / restart Gemini).
 
-```bash
-claude mcp add subagent-mcp -- node /abs/path/to/subagent-mcp/dist/index.js
-```
+## Load-this-when rules
 
-**Windows:**
-
-```bash
-claude mcp add subagent-mcp -- node "C:\Users\YourName\Dropbox\subagent-mcp\dist\index.js"
-```
-
-To make it available across all projects (user scope), add `--scope user`. Or add it to a project's `.mcp.json` for team sharing:
-
-**macOS / Linux `.mcp.json`:**
-
-```json
-{
-  "mcpServers": {
-    "subagent-mcp": {
-      "command": "node",
-      "args": ["/abs/path/to/subagent-mcp/dist/index.js"]
-    }
-  }
-}
-```
-
-**Windows `.mcp.json`:** same shape with a double-backslash path, e.g.
-`"args": ["C:\\Users\\YourName\\Dropbox\\subagent-mcp\\dist\\index.js"]`.
-
-The Claude Desktop config lives at:
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-- **Linux:** `~/.config/Claude/claude_desktop_config.json`
-
-Verify with `claude mcp list` or `/mcp` inside a Claude Code session.
-
----
-
-## Codex CLI
-
-**macOS / Linux** — edit `~/.codex/config.toml` (create if it doesn't exist):
-
-```toml
-[mcp_servers.subagent-mcp]
-command = "node"
-args = ["/abs/path/to/subagent-mcp/dist/index.js"]
-```
-
-**Windows** — edit `C:\Users\YourName\.codex\config.toml`:
-
-```toml
-[mcp_servers.subagent-mcp]
-command = "node"
-args = ["C:/Users/YourName/Dropbox/subagent-mcp/dist/index.js"]
-```
-
-Forward or double-backslash paths both work in TOML. Verify with `/mcp` inside a Codex session.
-
-### Project-local Codex config
-
-Repo-level `.codex/config.toml` (trust requirement, `enabled` toggle,
-`disabled_tools` deny-list): see [docs/install/codex-cli.md](install/codex-cli.md).
-
----
-
-## Gemini CLI
-
-**macOS / Linux** — edit `~/.gemini/settings.json` (merge into existing file):
-
-```json
-{
-  "mcpServers": {
-    "subagent-mcp": {
-      "command": "node",
-      "args": ["/abs/path/to/subagent-mcp/dist/index.js"]
-    }
-  }
-}
-```
-
-**Windows** — edit `C:\Users\YourName\.gemini\settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "subagent-mcp": {
-      "command": "node",
-      "args": ["C:\\Users\\YourName\\Dropbox\\subagent-mcp\\dist\\index.js"]
-    }
-  }
-}
-```
-
-Restart the Gemini CLI session after editing.
-
----
-
-## Orchestration mode (plugin: hook + server)
-
-`orchestration-mode` is a toggle. When ON, every top-level user turn gets an
-orchestrator-only directive injected ahead of the prompt, re-pinning "delegate,
-do not execute directly" so it survives long sessions. The MCP tool flips the
-toggle; a bundled `UserPromptSubmit` hook does the per-turn injection. Both ship
-in the same plugin, so install the plugin (not just the bare server) to get the
-full feature. Run `npm run build` first — the hook runs from `dist/`.
-
-### Claude Code CLI (plugin)
-
-The plugin manifest is `.claude-plugin/plugin.json` (just
-`name`/`version`/`description`); Claude **auto-discovers** the bundled hook
-(`hooks/hooks.json`) and the server (`.mcp.json`) at the plugin root, so the
-manifest must **not** re-declare `hooks`/`mcpServers` (doing so fails the load
-with a duplicate-hooks error). Install it as a local marketplace plugin so
-Claude resolves `${CLAUDE_PLUGIN_ROOT}`:
-
-```bash
-claude plugin marketplace add /abs/path/to/subagent-mcp
-claude plugin install subagent-mcp@subagent-mcp
-```
-
-On Windows, pass the absolute repo path (for example
-`C:\Users\YourName\Dropbox\subagent-mcp`) to `marketplace add`. Restart the
-session, then toggle with the `orchestration-mode` tool (`enabled: true` /
-`enabled: false`; omit `enabled` to query).
-
-### Codex CLI (hook + server)
-
-Codex has no plugin manifest in this repo, so install the hook by hand: copy
-`codex/hooks.json` to `~/.codex/hooks.json` and replace the placeholder path
-with an **absolute** path to the built `dist/hooks/orchestration-codex.js`
-(`${PLUGIN_ROOT}` only expands inside a real plugin and would otherwise no-op).
-The server comes from the `config.toml` entry shown above. Full step-by-step in
-[docs/install/codex-cli.md](install/codex-cli.md).
-
-### Desktop hosts toggle but do not inject
-
-Claude Desktop and Codex Desktop have **no `UserPromptSubmit` hook host**, so
-the `orchestration-mode` tool still flips the marker but **nothing is injected
-per turn**. This is documented degradation, not a bug — use a CLI host for the
-full per-turn behavior.
+- Load exactly one vendor leaf for a single-host wiring task; load
+  `prerequisites-and-install.md` first only if the CLIs are not yet installed.
+- Load `orchestration-plugin.md` only when the per-turn hook/injection is in
+  scope; bare MCP registration does not need it.
+- Do not preload the whole `registration/` folder — match a row above first.
