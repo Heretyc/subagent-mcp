@@ -3,15 +3,16 @@ import { pathToFileURL } from "node:url";
 
 import {
   claimAndEmit,
-  classifyClaim,
+  classifyOwnerClaim,
   countJsonlType,
   cullHookZombies,
+  ownerKey,
   runHook,
-  sessionKey,
   type HookPayload,
   type ProviderAdapter,
 } from "../orchestration/hook-core.js";
 import * as marker from "../orchestration/marker.js";
+import { hasParentMarker } from "../launch-prompt.js";
 
 /**
  * Codex CLI hook entry. Branches on payload.hook_event_name:
@@ -31,8 +32,6 @@ const SUBAGENT_SOURCE_STRINGS = new Set([
   "subAgentThreadSpawn",
   "subAgentOther",
 ]);
-
-const PARENT_PROCESS_MARKER = "this is a request from a parent process";
 
 export const codexAdapter: ProviderAdapter = {
   isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean {
@@ -54,16 +53,7 @@ export const codexAdapter: ProviderAdapter = {
       return true;
     }
 
-    // Fallback: a parent-process handoff is detectable from the prompt's first
-    // non-empty line (our own subagent contract starts with this sentinel).
-    const prompt = typeof payload.prompt === "string" ? payload.prompt : "";
-    const head = prompt.slice(0, 200);
-    for (const line of head.split("\n")) {
-      const trimmed = line.trim().toLowerCase();
-      if (!trimmed) continue;
-      return trimmed.includes(PARENT_PROCESS_MARKER);
-    }
-    return false;
+    return hasParentMarker(payload.prompt);
   },
 
   // Count JSONL lines whose parsed object.type === 'turn_context'. Delegates to
@@ -75,6 +65,7 @@ export const codexAdapter: ProviderAdapter = {
     return countJsonlType(transcriptPath, "turn_context");
   },
 
+  anonScope: "codex",
   fullDirectiveFile: "orchestration-codex.md",
   shortOnFile: "short-on.md",
   shortOffFile: "short-off.md",
@@ -108,14 +99,15 @@ export function runCodexHook(
         return "";
       }
       const cwd = payload.cwd || process.cwd();
-      if (!marker.isActive(cwd)) {
+      const current = ownerKey(payload, cwd, adapter);
+      marker.writeCurrentSession(cwd, current);
+      if (!marker.isActive(cwd, current)) {
         return "";
       }
 
-      const current = sessionKey(payload);
       const turn = adapter.currentTurn(payload.transcript_path);
       const m = marker.readMarker(cwd);
-      const kind = classifyClaim(m.owner_session, m.baseline_turn, current);
+      const kind = classifyOwnerClaim(m, current);
 
       // Claim/re-claim + emit via the SHARED claim path (one copy of the
       // semantics — FULL + ON reminder, ack-latched CARRYOVER prepend, counter

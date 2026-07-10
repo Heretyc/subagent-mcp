@@ -66,8 +66,22 @@ confused child cannot recurse:
    main orchestrator = depth **0** → sub-orchestrators depth **1** → workers depth
    **2**. `launch_agent` is **code-rejected at depth >= 2** (workers cannot spawn),
    giving exactly two spawn levels below the main orchestrator. A legacy sub-agent
-   carrying `SUBAGENT_MCP_SUBAGENT=1` but no `SUBAGENT_MCP_DEPTH` is treated as
-   depth **1** (so it may still launch one level, but its children hit the cap).
+  carrying `SUBAGENT_MCP_SUBAGENT=1` but no `SUBAGENT_MCP_DEPTH` is treated as
+  depth **1** (so it may still launch one level, but its children hit the cap).
+
+### 6.4 Hook-side child detection ladder
+
+Hook adapters detect child turns by degrading to the next-strongest signal,
+never to a guess and never to `undefined`: spawn env
+`SUBAGENT_MCP_SUBAGENT=1` -> host-structured metadata -> exact wire marker.
+Claude structured metadata is `agent_id` or a sub-agent
+`CLAUDE_CODE_ENTRYPOINT`; Codex structured metadata is the `source` object/enum.
+The final marker tier uses the shared `hasParentMarker()` predicate from
+`src/launch-prompt.ts`, the same constant/extractor used by `ensureParentMarker`.
+It is case-sensitive and accepts only the exact bracketed marker at character
+position 0 on the physical first line, with BOM and CRLF comparison tolerance.
+Leading blank lines, line-2 markers, bracketless prose, case variants, and
+mid-line substrings do not count.
 
 ---
 

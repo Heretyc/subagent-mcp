@@ -32,14 +32,22 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { cullHookZombies, runHook, REMINDER_PERIOD } from "../dist/orchestration/hook-core.js";
+import {
+  ANON_CLAIM_TTL_MS,
+  cullHookZombies,
+  ownerKey,
+  runHook,
+  REMINDER_PERIOD,
+} from "../dist/orchestration/hook-core.js";
 import {
   enable,
-  disable,
+  markerPath,
   isActive,
   readMarker,
+  removeDisable,
   writeDisable,
   writeMarker,
+  anonKey,
 } from "../dist/orchestration/marker.js";
 import {
   readReminder,
@@ -110,6 +118,7 @@ function makeAdapter({ subagent = false, turn = 0 } = {}) {
   return {
     isSubagent: () => subagent,
     currentTurn: () => turn,
+    anonScope: "test",
     fullDirectiveFile: "full.md",
     shortOnFile: "short-on.md",
     shortOffFile: "short-off.md",
@@ -125,7 +134,7 @@ function makeCwd() {
 }
 
 function cleanup(cwd, root) {
-  disable(cwd);
+  rmSync(markerPath(cwd), { force: true });
   rmSync(reminderPath(cwd), { force: true });
   rmSync(cwd, { recursive: true, force: true });
   rmSync(root, { recursive: true, force: true });
@@ -152,8 +161,8 @@ function withSlotDir(fn) {
 test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule carrier, 10 -> LONG", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
+  const session = `s-off:${cwd}`;
   try {
-    const session = `s-off:${cwd}`;
     assert.equal(isActive(cwd, session), true, "fresh sessions are ON by default");
     writeDisable(session);
     assert.equal(isActive(cwd, session), false, "precondition: session disabled");
@@ -169,6 +178,7 @@ test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule ca
     }
     assert.equal(readReminder(cwd).counts[session], 10, "counter persisted across prompts");
   } finally {
+    removeDisable(session);
     cleanup(cwd, root);
   }
 });
@@ -180,9 +190,9 @@ test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule ca
 test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
+  const sessions = [`s-A:${cwd}`, `s-B:${cwd}`];
   try {
     const adapter = makeAdapter();
-    const sessions = [`s-A:${cwd}`, `s-B:${cwd}`];
     for (const session of sessions) {
       writeDisable(session);
       assert.equal(isActive(cwd, session), false, `${session} precondition: session disabled`);
@@ -201,6 +211,7 @@ test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)",
     assert.equal(counts[sessions[0]], 5, "session A keeps its own count");
     assert.equal(counts[sessions[1]], 5, "session B keeps its own count");
   } finally {
+    for (const session of sessions) removeDisable(session);
     cleanup(cwd, root);
   }
 });
@@ -208,10 +219,10 @@ test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)",
 test("OFF: a new session starts its own count without disturbing others", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
+  const sessionA = `s-A:${cwd}`;
+  const sessionB = `s-B:${cwd}`;
   try {
     const adapter = makeAdapter();
-    const sessionA = `s-A:${cwd}`;
-    const sessionB = `s-B:${cwd}`;
     writeDisable(sessionA);
     writeDisable(sessionB);
     assert.equal(isActive(cwd, sessionA), false, "session A precondition: disabled");
@@ -226,6 +237,8 @@ test("OFF: a new session starts its own count without disturbing others", () => 
     assert.equal(counts[sessionB], 1, "a new session starts its own count at 1");
     assert.equal(counts[sessionA], 3, "the other session's count is untouched");
   } finally {
+    removeDisable(sessionA);
+    removeDisable(sessionB);
     cleanup(cwd, root);
   }
 });
@@ -365,19 +378,87 @@ test("CARRYOVER then next same-session turn -> rule carrier, no repeat notice", 
   }
 });
 
-test("CARRYOVER null-safety: real owner + undefined current -> carryover", () => {
+test("keyless payload resolves to anonymous owner and converges within TTL", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
     enable(cwd);
     writeMarker(cwd, { owner_session: "prev", baseline_turn: 12 });
-    // No session_id on the payload: cannot confirm same-session -> CARRYOVER.
+    const owner = anonKey(cwd, "test");
     const out = runHook({ cwd, transcript_path: undefined }, env,
       makeAdapter({ turn: 3 }));
     assert.ok(out.includes(CARRYOVER_TEXT),
-      "a real owner with an undefined current session is treated as carryover");
-    assert.equal(readMarker(cwd).owner_session, null,
-      "re-claim with an undefined current session stores null");
+      "a real prior owner and new anonymous owner is carryover once");
+    assert.equal(readMarker(cwd).owner_session, owner);
+    assert.equal(readReminder(cwd).counts[owner], 0);
+    assert.equal(runHook({ cwd, transcript_path: undefined }, env, makeAdapter({ turn: 4 })), SHORT_ON_TEXT);
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("identity ladder is total: session_id > transcript_path > anon", () => {
+  const cwd = makeCwd();
+  try {
+    const adapter = makeAdapter();
+    assert.equal(
+      ownerKey({ cwd, session_id: "s1", transcript_path: "t1" }, cwd, adapter),
+      "s1"
+    );
+    assert.match(
+      ownerKey({ cwd, session_id: "", transcript_path: "C:/tmp/transcript.jsonl" }, cwd, adapter),
+      /^tp-[0-9a-f]{16}$/
+    );
+    assert.equal(ownerKey({ cwd }, cwd, adapter), anonKey(cwd, "test"));
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("anonymous owner claim re-anchors after TTL and then returns to cadence", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  try {
+    enable(cwd);
+    const owner = anonKey(cwd, "test");
+    writeMarker(cwd, {
+      owner_session: owner,
+      baseline_turn: 1,
+      claimed_at: Date.now() - ANON_CLAIM_TTL_MS - 1,
+      owners: {
+        [owner]: {
+          baseline_turn: 1,
+          claimed_at: Date.now() - ANON_CLAIM_TTL_MS - 1,
+        },
+      },
+      provenance: null,
+      carryover_ack: false,
+    });
+    const out = runHook({ cwd, transcript_path: undefined }, env, makeAdapter({ turn: 2 }));
+    assert.equal(out, FULL_TEXT + REM_ON_TEXT, "expired anonymous claim re-anchors with FULL");
+    assert.equal(readMarker(cwd).owner_session, owner);
+    assert.equal(runHook({ cwd, transcript_path: undefined }, env, makeAdapter({ turn: 3 })), SHORT_ON_TEXT);
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("owners map prevents alternating keyed sessions from FULL-thrashing", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  try {
+    enable(cwd);
+    const adapter = makeAdapter({ turn: 0 });
+    const firstA = runHook({ cwd, session_id: "A" }, env, adapter);
+    const firstB = runHook({ cwd, session_id: "B" }, env, adapter);
+    assert.equal(firstA, FULL_TEXT + REM_ON_TEXT);
+    assert.equal(firstB, CARRYOVER_TEXT + FULL_TEXT + REM_ON_TEXT);
+    for (let i = 0; i < 4; i++) {
+      assert.equal(runHook({ cwd, session_id: "A" }, env, adapter), SHORT_ON_TEXT);
+      assert.equal(runHook({ cwd, session_id: "B" }, env, adapter), SHORT_ON_TEXT);
+    }
+    assert.equal(runHook({ cwd, session_id: "A" }, env, adapter), REM_ON_TEXT);
+    assert.equal(runHook({ cwd, session_id: "B" }, env, adapter), REM_ON_TEXT);
   } finally {
     cleanup(cwd, root);
   }
@@ -426,9 +507,9 @@ test("missing directive files -> '' (fail-safe read, never throws)", () => {
 test("missing OFF reminder asset -> '' on the LONG OFF prompt (fail-safe)", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv({ withReminderOff: false });
+  const session = `s-missing-off:${cwd}`;
   try {
     const adapter = makeAdapter();
-    const session = `s-missing-off:${cwd}`;
     writeDisable(session);
     assert.equal(isActive(cwd, session), false, "precondition: session disabled");
     const payload = { cwd, session_id: session, transcript_path: undefined };
@@ -438,6 +519,7 @@ test("missing OFF reminder asset -> '' on the LONG OFF prompt (fail-safe)", () =
     assert.equal(runHook(payload, env, adapter), "",
       "a missing LONG asset degrades to '' on its turn, never a throw");
   } finally {
+    removeDisable(session);
     cleanup(cwd, root);
   }
 });
@@ -445,6 +527,7 @@ test("missing OFF reminder asset -> '' on the LONG OFF prompt (fail-safe)", () =
 test("hook culls stale slots silently and preserves server report", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
+  const session = `s-hook-zombie:${cwd}`;
   try {
     withSlotDir((slotDir) => {
       const agentId = "agent-hook";
@@ -455,7 +538,6 @@ test("hook culls stale slots silently and preserves server report", () => {
         last_activity_ms: Date.now() - ZOMBIE_LIVE_IDLE_MS - 1000,
         status: "processing",
       });
-      const session = `s-hook-zombie:${cwd}`;
       writeDisable(session);
       const payload = { cwd, session_id: session, transcript_path: undefined };
       const first = runHook(payload, env, makeAdapter());
@@ -472,6 +554,7 @@ test("hook culls stale slots silently and preserves server report", () => {
       assert.equal(reports[0].agent_id, agentId);
     });
   } finally {
+    removeDisable(session);
     cleanup(cwd, root);
   }
 });

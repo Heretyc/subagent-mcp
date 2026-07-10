@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ensureParentMarker, MARKER } from "../dist/launch-prompt.js";
+import { ensureParentMarker, hasParentMarker, MARKER } from "../dist/launch-prompt.js";
 
 // Count non-overlapping occurrences of MARKER in s.
 function countMarker(s) {
@@ -69,5 +69,25 @@ test("A7-7: idempotent", () => {
     const once = ensureParentMarker(input);
     const twice = ensureParentMarker(once);
     assert.equal(twice, once);
+  }
+});
+
+test("hasParentMarker and ensureParentMarker are coherent", () => {
+  const inputs = [
+    "do the thing",
+    MARKER + "\nbody",
+    "pre\n" + MARKER,
+    "",
+    MARKER + "\r\nx",
+    "\n" + MARKER,
+    "this is a request from a parent process",
+  ];
+  for (const input of inputs) {
+    const ensured = ensureParentMarker(input);
+    assert.equal(hasParentMarker(ensured), true);
+    if (hasParentMarker(input)) {
+      assert.equal(ensured, input);
+    }
+    assert.equal(ensureParentMarker(ensured), ensured);
   }
 });

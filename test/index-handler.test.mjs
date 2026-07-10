@@ -33,6 +33,13 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const distIndex = join(repoRoot, "dist", "index.js");
 const preloadPath = join(repoRoot, "test", "fixtures", "fake-ruleset-preload.cjs");
 const { currentUserSlotNamespace } = await import("../dist/concurrency.js");
+const {
+  anonKey,
+  disablePath,
+  readCurrentSession,
+  writeCurrentSession,
+  removeDisable,
+} = await import("../dist/orchestration/marker.js");
 
 let passed = 0;
 let failed = 0;
@@ -986,6 +993,46 @@ await test("zombie culling: mode tools reap without surfacing zombie_report", as
     assert.equal(JSON.parse(modeText).zombie_report, undefined);
     assert.doesNotMatch(modeText, /zombies:/);
   } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("orchestration-mode enabled:false is session-keyed and refuses keyless pointers", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, { cwd: workDir, env });
+  const sessionKey = `session-${Date.now()}`;
+  try {
+    await session.initialize();
+
+    const missing = await session.request("tools/call", {
+      name: "orchestration-mode",
+      arguments: { enabled: false },
+    });
+    assert.equal(missing.result.isError, true);
+    assert.match(missing.result.content[0].text, /no session pointer found/);
+
+    const anon = anonKey(workDir, "codex");
+    writeCurrentSession(workDir, anon);
+    const anonymous = await session.request("tools/call", {
+      name: "orchestration-mode",
+      arguments: { enabled: false },
+    });
+    assert.equal(anonymous.result.isError, true);
+    assert.match(anonymous.result.content[0].text, /supplies no session identity/);
+
+    writeCurrentSession(workDir, sessionKey);
+    const disabled = await session.request("tools/call", {
+      name: "orchestration-mode",
+      arguments: { enabled: false },
+    });
+    assert.notEqual(disabled.result.isError, true);
+    assert.equal(JSON.parse(disabled.result.content[0].text).orchestration_mode, "disabled-this-session");
+    assert.equal(readCurrentSession(workDir), sessionKey);
+    assert.equal(existsSync(disablePath(sessionKey)), true);
+    assert.equal(existsSync(disablePath(anon)), false);
+  } finally {
+    removeDisable(sessionKey);
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });
   }

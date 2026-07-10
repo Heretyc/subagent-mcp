@@ -21,9 +21,17 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { MARKER, hasParentMarker } from "../dist/launch-prompt.js";
 import { claudeAdapter } from "../dist/hooks/orchestration-claude.js";
 import { codexAdapter, runCodexHook } from "../dist/hooks/orchestration-codex.js";
-import { enable, disable } from "../dist/orchestration/marker.js";
+import {
+  enable,
+  markerPath,
+  writeDisable,
+  removeDisable,
+  readCurrentSession,
+  anonKey,
+} from "../dist/orchestration/marker.js";
 import { readReminder, reminderPath } from "../dist/orchestration/reminder.js";
 
 let passed = 0;
@@ -113,6 +121,34 @@ test("claude isSubagent: top-level entrypoints -> false (these SHOULD inject)", 
   assert.equal(claudeAdapter.isSubagent({}, {}), false);
 });
 
+test("shared parent marker predicate is exact, anchored, and BOM/CRLF tolerant", () => {
+  const positives = [
+    MARKER,
+    MARKER + "\nbody",
+    MARKER + "\r\nbody",
+    "\ufeff" + MARKER + "\nbody",
+  ];
+  for (const prompt of positives) {
+    assert.equal(hasParentMarker(prompt), true, JSON.stringify(prompt));
+    assert.equal(claudeAdapter.isSubagent({ prompt }, {}), true);
+    assert.equal(codexAdapter.isSubagent({ prompt }, {}), true);
+  }
+
+  const negatives = [
+    "\n" + MARKER,
+    "preamble\n" + MARKER,
+    "x " + MARKER,
+    "this is a request from a parent process",
+    "<THIS IS A REQUEST FROM A PARENT PROCESS>",
+    42,
+  ];
+  for (const prompt of negatives) {
+    assert.equal(hasParentMarker(prompt), false, String(prompt));
+    assert.equal(claudeAdapter.isSubagent({ prompt }, {}), false);
+    assert.equal(codexAdapter.isSubagent({ prompt }, {}), false);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Codex adapter: currentTurn counts 'turn_context' lines
 // ---------------------------------------------------------------------------
@@ -147,10 +183,10 @@ test("codex isSubagent: source string enum -> true", () => {
   }
 });
 
-test("codex isSubagent: parent-process prompt sentinel -> true", () => {
-  const prompt = "<this is a request from a parent process>\nDo the thing.";
+test("codex isSubagent: exact parent-process prompt marker -> true", () => {
+  const prompt = MARKER + "\nDo the thing.";
   assert.equal(codexAdapter.isSubagent({ prompt }, {}), true,
-    "the parent-process handoff sentinel marks a subagent");
+    "the exact parent-process handoff marker marks a subagent");
 });
 
 test("codex isSubagent: ordinary prompt / unknown source -> false", () => {
@@ -176,22 +212,30 @@ test("codex SessionStart: active + not subagent -> FULL + ON reminder, counter r
     const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, env);
     assert.equal(out, "CODEX-FULL" + "CODEX-REM-ON",
       "SessionStart emits FULL plus the ON reminder block when active (turn 0)");
-    assert.equal(readReminder(cwd).counts["null"], 0,
+    const owner = anonKey(cwd, "codex");
+    assert.equal(readReminder(cwd).counts[owner], 0,
       "SessionStart re-baselines the session's reminder count to 0 (claim IS a LONG turn)");
+    assert.equal(readCurrentSession(cwd), owner, "SessionStart writes the resolved owner pointer");
   } finally {
-    disable(cwd);
+    rmSync(markerPath(cwd), { force: true });
     rmSync(reminderPath(cwd), { force: true });
     rmSync(cwd, { recursive: true, force: true });
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("codex SessionStart: inactive cwd -> '' (no marker, no injection)", () => {
+test("codex SessionStart: disabled session key -> ''", () => {
   const cwd = mkdtempSync(join(tmpdir(), "orch-cx-cwd-"));
+  const session = `disabled-${cwd}`;
   try {
-    const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, { PLUGIN_ROOT: cwd });
-    assert.equal(out, "", "SessionStart on an inactive cwd emits nothing");
+    writeDisable(session);
+    const out = runCodexHook(
+      { hook_event_name: "SessionStart", cwd, session_id: session },
+      { PLUGIN_ROOT: cwd }
+    );
+    assert.equal(out, "", "SessionStart checks the session-keyed disable before injecting");
   } finally {
+    removeDisable(session);
     rmSync(cwd, { recursive: true, force: true });
   }
 });
@@ -210,7 +254,7 @@ test("codex SessionStart: subagent -> '' even when active", () => {
     );
     assert.equal(out, "", "a subagent SessionStart emits nothing");
   } finally {
-    disable(cwd);
+    rmSync(markerPath(cwd), { force: true });
     rmSync(cwd, { recursive: true, force: true });
     rmSync(root, { recursive: true, force: true });
   }
