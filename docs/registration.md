@@ -51,7 +51,9 @@ upsert managed invariant blocks; use `--dry-run` or `--remove`.
 
 ### Global settings
 
-The installed `dist/global-concurrency.jsonc` file holds machine-local settings:
+The installed `dist/global-subagent-mcp-config.jsonc` file holds machine-local
+settings (the legacy `dist/global-concurrency.jsonc` is still read as a
+back-compat fallback):
 
 - `globalConcurrentSubagents`: live subagent cap; default `20`, minimum `10`.
 - `checkForUpdates`: silent npmjs update check; default `true`.
