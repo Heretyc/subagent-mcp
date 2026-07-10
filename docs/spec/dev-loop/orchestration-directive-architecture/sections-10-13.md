@@ -59,6 +59,15 @@
   session-keyed disable-record above. Keyless hosts get only the one-time,
   non-persisted conversational opt-out. The carryover directives reference this
   backstop when explaining when ON resumes.
+- **Atomic state writes.** Every marker/state file (`orch-<cwdHash>.flag`, the
+  session-keyed disable-record, and both session pointers) is written through
+  `atomicWriteFile`/`atomicWriteJson` (`src/orchestration/atomic-write.ts`):
+  write to a unique sibling `.<name>.<pid>.<time>.<rand>.tmp`, then `rename`
+  onto the target so a concurrent reader sees either the whole old file or the
+  whole new one, never a torn write. On a Windows `EEXIST`/`EPERM` rename over
+  an existing target, it unlinks the target and retries; on any write/rename
+  failure it best-effort unlinks the temp so no `.tmp` litter is left behind.
+  This preserves the module's fail-safe contract (never throws to the hook).
 - **Fail-safe ON is NOT the same as default ON.** Default ON is the normal
   hook-bearing state (no active disable-record). Fail-safe ON is the separate
   hookless / no-tag case (Gemini, desktop) where no state channel exists and

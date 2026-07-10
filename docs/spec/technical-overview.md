@@ -10,6 +10,15 @@ subagent-mcp does NOT and will NOT:
 - Act as a general HTTP proxy or model gateway
 - Add direct API support in future versions
 
+The "no API keys / no direct API" non-goals are enforced by a grep-gate test
+(`test/no-api-keys.test.mjs`, in the default `npm test` run): it fails the build
+if `src/**/*.ts` or `dist/index.js` references `ANTHROPIC_API_KEY`,
+`OPENAI_API_KEY`, `api.anthropic.com`, or `api.openai.com`, or introduces a raw
+`fetch(...)`/`https.request(...)` model-inference call site (the sole allowed
+exception is the npmjs update check in `src/orchestration/update-check.ts`).
+subagent-mcp only drives the locally authenticated `claude` and `codex` CLIs; it
+never holds provider credentials of its own.
+
 ## Architecture
 
 ```
