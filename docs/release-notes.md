@@ -13,6 +13,18 @@ Historical entries:
 
 ---
 
+## v2.12.11
+
+### Session-5 audit hardening
+
+- **ISS-040..047, ISS-049:** Shipped the session-5 premise-audit batch with
+  targeted fixes across orchestration, documentation, and validation surfaces.
+- Added the ASCII prose policy and `check:prose` gate coverage.
+- Added the README configuration section and Gemini CLI install guide.
+- Added cross-platform graphify hook support.
+
+---
+
 ## v2.12.10
 
 ### Session-4 audit hardening
