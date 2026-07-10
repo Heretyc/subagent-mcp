@@ -16,6 +16,6 @@ This page is an index. Detail lives in `packaging-node/`. Load the sub-page(s) f
 
 **Quick facts (no sub-page load needed):**
 
-- Never use `console.log` in a stdio server — it pollutes stdout. Use `console.error`.
+- Never use `console.log` in a stdio server : it pollutes stdout. Use `console.error`.
 - `"type": "module"` in package.json enables ESM; the `bin` entry is what `npx my-mcp-server` runs.
 - Under `"module": "Node16"`, ESM imports need the `.js` extension (e.g. `.../server/mcp.js`).

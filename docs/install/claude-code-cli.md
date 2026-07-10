@@ -1,17 +1,17 @@
-# Install — Claude Code (CLI)
+# Install : Claude Code (CLI)
 
 Full support: per-turn `UserPromptSubmit` hook **plus** the MCP server, bundled
 in one plugin. Do the [build prerequisite](_INDEX.md) first.
 
 ---
 
-## Option A — local-marketplace plugin (hook + server together)
+## Option A : local-marketplace plugin (hook + server together)
 
 The repo ships a single-plugin marketplace whose plugin source is the repo root
 itself, bundling both `.mcp.json` (server) and `hooks/hooks.json` (hook). The
 plugin loader **auto-discovers** the root-level `.mcp.json` and `hooks/hooks.json`,
 so `.claude-plugin/plugin.json` carries only `name`/`version`/`description` and
-must **not** re-declare `mcpServers` or `hooks` — re-declaring them collides with
+must **not** re-declare `mcpServers` or `hooks` : re-declaring them collides with
 auto-discovery and the plugin fails to load with a duplicate-hooks error
 (`Hook load failed: Duplicate hooks file detected`). Only the plugin loader
 resolves `${CLAUDE_PLUGIN_ROOT}` and loads both together, so this is the
@@ -31,7 +31,7 @@ claude plugin marketplace add "C:\Users\YourName\Dropbox\subagent-mcp"
 claude plugin install subagent-mcp@subagent-mcp
 ```
 
-`install` is `<plugin-name>@<marketplace-name>` — both are `subagent-mcp` here.
+`install` is `<plugin-name>@<marketplace-name>` : both are `subagent-mcp` here.
 Optional scope: append `--scope project` (writes `enabledPlugins` to
 `.claude/settings.json`) or `--scope user` (default, all projects).
 
@@ -40,7 +40,7 @@ Restart the session, then toggle with the `orchestration-mode` tool
 
 ---
 
-## Option B — manual wiring (no plugin): `claude mcp add` + settings.json hook
+## Option B : manual wiring (no plugin): `claude mcp add` + settings.json hook
 
 Use this when wiring the server and hook separately.
 `${CLAUDE_PLUGIN_ROOT}` is **not** available outside a plugin, so use an
@@ -104,7 +104,7 @@ On Windows use a doubled-backslash or forward-slash absolute path in `args`.
    `dist/hooks/orchestration-claude.js`, and
    `dist/hooks/orchestration-claude-pretool.js` exist.
 3. **Server + tools:** restart the session, then `claude plugin list`
-   (`subagent-mcp` enabled), `claude mcp list`, and `/mcp` inside a session —
+   (`subagent-mcp` enabled), `claude mcp list`, and `/mcp` inside a session :
    `subagent-mcp` connected, with `orchestration-mode`, `launch_agent`,
    `list_agents`, etc. listed.
 4. **Hook fires when ON:** toggle `orchestration-mode` ON via the tool, submit

@@ -1,7 +1,7 @@
 # Install Guide Index
 
-Copy-pasteable install directions for getting the **MCP server** and the
-per-turn **orchestration-mode hook** installed together on each supported host.
+Copy-pasteable install directions for getting the **MCP server** and each
+host's supported orchestration wiring installed together.
 
 > **Automated SOP:** for a permanent, repo-decoupled install (the addon copied to
 > a stable global location, not run out of the checkout), use the
@@ -12,7 +12,7 @@ per-turn **orchestration-mode hook** installed together on each supported host.
 
 For the lighter, MCP-only registration reference (no orchestration hook) see
 [docs/registration.md](../registration.md). For what orchestration mode *is*,
-see [docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md §10](../spec/dev-loop/orchestration-directive-architecture/sections-10-13.md).
+see [docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md section 10](../spec/dev-loop/orchestration-directive-architecture/sections-10-13.md).
 
 ## Build prerequisite (do this first, every host)
 
@@ -28,17 +28,17 @@ npm run build      # tsc + copy-provider -> dist/index.js, dist/hooks/*.js
 
 Requires **Node.js >= 18**. After the build, confirm these exist:
 
-- `dist/index.js` — MCP server entry
-- `dist/hooks/orchestration-claude.js` — Claude per-turn hook
-- `dist/hooks/orchestration-claude-pretool.js` — Claude PreToolUse gate
-- `dist/hooks/orchestration-codex.js` — Codex per-turn hook
+- `dist/index.js` : MCP server entry
+- `dist/hooks/orchestration-claude.js` : Claude per-turn hook
+- `dist/hooks/orchestration-claude-pretool.js` : Claude PreToolUse gate
+- `dist/hooks/orchestration-codex.js` : Codex per-turn hook
 
 > **Distribution note:** `dist/` is git-ignored, so it must be built before any
 > host can load it. The `subagent-mcp-installer` skill handles this via
 > `npm pack` + `npm install -g`: the `prepare` script rebuilds `dist/` before
 > packing, so the tarball ships a fresh `dist/` to a permanent, decoupled global
 > location. For the plugin-marketplace approach, a **local-path** plugin
-> install (which copies your built working tree) is required — a git/GitHub URL
+> install (which copies your built working tree) is required : a git/GitHub URL
 > install clones *without* `dist/` and fails with `ENOENT`, so build after
 > cloning if you go that route.
 
@@ -50,10 +50,12 @@ Requires **Node.js >= 18**. After the build, confirm these exist:
 | Claude Desktop | **no** (MCP-only) | [claude-desktop.md](claude-desktop.md) |
 | Codex CLI | yes | [codex-cli.md](codex-cli.md) |
 | Codex Desktop / IDE | **no** (MCP-only) | [codex-desktop.md](codex-desktop.md) |
+| Gemini CLI | **no** (MCP-only) | [gemini-cli.md](gemini-cli.md) |
 
-Desktop hosts have no `UserPromptSubmit` hook host, so the `orchestration-mode`
-tool still flips the marker but **nothing is injected per turn**. This is
-documented degradation, not a bug — use a CLI host for the full behavior.
+Desktop hosts and Gemini CLI have no repo-documented `UserPromptSubmit` hook
+host, so the `orchestration-mode` tool still flips the marker but **nothing is
+injected per turn**. This is documented degradation, not a bug : use Claude Code
+CLI or Codex CLI for the full behavior.
 
 ## Host capability matrix
 
@@ -61,5 +63,6 @@ documented degradation, not a bug — use a CLI host for the full behavior.
 |---|---|---|
 | Claude Code CLI | yes | yes (`UserPromptSubmit` + `PreToolUse`) |
 | Codex CLI | yes | yes (bundled `SessionStart` + `UserPromptSubmit`) |
-| Claude Desktop | yes | **no** — no hook host |
-| Codex Desktop / IDE | yes | **no** — no hook host |
+| Claude Desktop | yes | **no** : no hook host |
+| Codex Desktop / IDE | yes | **no** : no hook host |
+| Gemini CLI | yes | **no** : no hook injection; UNKNOWN defaults to ON |

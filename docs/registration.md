@@ -1,7 +1,7 @@
 # Registering the MCP Server
 
 Retrieval map for per-platform registration of `subagent-mcp` across Claude
-Code, Codex, and Gemini CLIs. This page is an index — load the one matched leaf
+Code, Codex, and Gemini CLIs. This page is an index : load the one matched leaf
 under [`registration/`](registration/), not the whole folder. Replace the path
 in each leaf's examples with the absolute path where you cloned the repo.
 
@@ -23,13 +23,13 @@ for the full technical specification.
 
 ## Aliases / synonyms
 
-- register / wire / add / connect the server → the per-host leaf for that vendor
-- install / setup / bootstrap → `prerequisites-and-install.md`
-- plugin / hook / injection / `UserPromptSubmit` / per-turn directive → `orchestration-plugin.md`
-- global config / machine settings / update check / concurrency cap → `prerequisites-and-install.md` (Global settings)
-- `init --global` / global user-config / managed block → `prerequisites-and-install.md`
+- register / wire / add / connect the server -> the per-host leaf for that vendor
+- install / setup / bootstrap -> `prerequisites-and-install.md`
+- plugin / hook / injection / `UserPromptSubmit` / per-turn directive -> `orchestration-plugin.md`
+- global config / machine settings / update check / concurrency cap -> `prerequisites-and-install.md` (Global settings)
+- `init --global` / global user-config / managed block -> `prerequisites-and-install.md`
 
-## Task → doc
+## Task -> doc
 
 | Task | Load |
 |---|---|
@@ -41,7 +41,7 @@ for the full technical specification.
 | Add the server to Gemini | `gemini.md` |
 | Turn on per-turn orchestration injection | `orchestration-plugin.md` |
 
-## Symptom → doc
+## Symptom -> doc
 
 | Symptom | Load |
 |---|---|
@@ -53,8 +53,8 @@ for the full technical specification.
 
 ## Workflow map
 
-Install → wire server (per-host leaf) → (optional) install orchestration
-hook/plugin → verify (`claude mcp list` / `/mcp` / restart Gemini).
+Install -> wire server (per-host leaf) -> (optional) install orchestration
+hook/plugin -> verify (`claude mcp list` / `/mcp` / restart Gemini).
 
 ## Load-this-when rules
 
@@ -62,4 +62,4 @@ hook/plugin → verify (`claude mcp list` / `/mcp` / restart Gemini).
   `prerequisites-and-install.md` first only if the CLIs are not yet installed.
 - Load `orchestration-plugin.md` only when the per-turn hook/injection is in
   scope; bare MCP registration does not need it.
-- Do not preload the whole `registration/` folder — match a row above first.
+- Do not preload the whole `registration/` folder : match a row above first.

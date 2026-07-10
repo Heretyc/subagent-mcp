@@ -13,14 +13,14 @@ from `visibility-and-failover.md` and `io-contract.md`.
 `advanced-ruleset.py` is a USER-EDITABLE Python script with FINAL authority
 over model routing for `launch_agent`. It lives in the same directory as
 `routing-table.json` (`dist/advanced-ruleset.py`; globally
-`$(npm root -g)/@heretyc/subagent-mcp/dist/advanced-ruleset.py` — note the
-SCOPED package name). After the server builds the candidate list — in EVERY
-selection mode, including a fully explicit `provider+model+effort` request —
+`$(npm root -g)/@heretyc/subagent-mcp/dist/advanced-ruleset.py` : note the
+SCOPED package name). After the server builds the candidate list : in EVERY
+selection mode, including a fully explicit `provider+model+effort` request :
 the script may reorder, filter, or replace that list, and the returned list is
 consumed verbatim by the attempt loop. The shipped scaffold is a passthrough
 with `LOAD_RULES = False`, so the feature is inert until a user opts in.
 
-LOUD WARNING — a machine with NO Python interpreter cannot run the mandatory
+LOUD WARNING : a machine with NO Python interpreter cannot run the mandatory
 environment check, and ANY ruleset failure (missing interpreter included)
 hard-fails `launch_agent` with the exact message in `io-contract.md`. On such a
 machine EVERY `launch_agent` call fails until Python is installed or
@@ -40,7 +40,7 @@ after the fix succeeds without a server restart.
 
 ## Invariants carried from `AGENTS.md`
 
-- Fail loud: a ruleset malfunction is NEVER swallowed — `launch_agent` returns
+- Fail loud: a ruleset malfunction is NEVER swallowed : `launch_agent` returns
   the exact hard-fail message (`io-contract.md`), never a silent fallback to
   the unmodified candidate list.
 - User-owned files are sacred: a package update must never overwrite a

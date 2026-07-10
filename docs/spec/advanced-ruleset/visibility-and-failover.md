@@ -16,7 +16,7 @@ rulesetApplied?: boolean;
 rulesetOriginalSelection?: { provider: string; model: string; effort: string };
 ```
 
-Presence rule — fields exist ONLY when the ruleset actually ALTERED the
+Presence rule : fields exist ONLY when the ruleset actually ALTERED the
 routing decision, determined by an order-sensitive `(provider, model, effort)`
 triple-list comparison of the pre-ruleset vs post-ruleset candidate lists.
 Ran-but-passthrough and gate-disabled launches look BYTE-IDENTICAL to the
@@ -24,7 +24,7 @@ pre-feature payload shape (existing absent-field test assertions stay valid).
 
 - `ruleset_original_selection` = the PRE-ruleset rank-1 candidate.
 - The FINAL selection is already the payload's top-level
-  `provider`/`model`/`effort` — the candidate that actually launched, which
+  `provider`/`model`/`effort` : the candidate that actually launched, which
   after failover may not be the ruleset's rank-1. Original vs final is
   therefore fully readable from one payload.
 
@@ -47,7 +47,7 @@ pre-feature payload shape (existing absent-field test assertions stay valid).
 add `...(agent.rulesetApplied ? { ruleset_applied: true,
 ruleset_original_selection: agent.rulesetOriginalSelection } : {})`.
 
-No tool-description text changes — no mcp-compliance byte-cap risk.
+No tool-description text changes : no mcp-compliance byte-cap risk.
 
 ### Override-mode failure shape
 
@@ -61,10 +61,10 @@ only mode that silently advances to a later candidate.
 ### Amendments (visibility)
 
 - `../auto-mode/param-contract.md` ("the launch payload carries no
-  routing-internal fields"): amended — the conditional `ruleset_applied` +
+  routing-internal fields"): amended : the conditional `ruleset_applied` +
   `ruleset_original_selection` pair is the single sanctioned exception.
 - `../auto-mode/routing-table-contract.md` ("`poll_agent.routing_tier` is the
-  sole sanctioned tier/branch exposure"): amended to an enumerated list —
+  sole sanctioned tier/branch exposure"): amended to an enumerated list :
   `routing_tier`, `ruleset_applied`, `ruleset_original_selection`. Nothing
   else; deadlock/branch/window state remains invisible everywhere.
 
@@ -72,7 +72,7 @@ only mode that silently advances to a later candidate.
 
 Bug being fixed: launch success used to be declared solely on the child
 `spawn` event. A provider that spawns and dies immediately (codex installed
-but not logged in) was a FALSE success — the agent registered, the attempt
+but not logged in) was a FALSE success : the agent registered, the attempt
 loop never advanced, and the failure surfaced only later via `poll_agent`.
 
 Contract:
@@ -83,35 +83,35 @@ Contract:
    captured, and a healthy provider has accepted its first turn.
 2. THEN it awaits a race between the child `exit` event and a
    `SPAWN_GRACE_MS` timer, BEFORE registering the agent.
-3. ANY exit within the window — any exit code INCLUDING 0, or any signal — is
+3. ANY exit within the window : any exit code INCLUDING 0, or any signal : is
    a LAUNCH-TIME failure: the candidate is pushed to `skipped` with a reason
    of the form (illustrative; tests assert it contains the exit code):
    `process exited (code <code-or-signal>) within <SPAWN_GRACE_MS>ms of
-   spawn: <last stderr line>` — and the loop SILENTLY advances. The agent is
+   spawn: <last stderr line>` : and the loop SILENTLY advances. The agent is
    never registered; the existing `close` handler cleans up. Rationale: a CLI
    that exits in under the window without consuming the task did not launch;
    auth failures are non-zero anyway, and code-0 instant exits are equally
    useless to the orchestrator.
    EXCEPTIONS: (a) a provider driver whose `AgentState` was already finalized
    by its turn-completion marker (the dedicated `turnCompleted` flag set by the
-   stdout data/flush scans — NOT `status`, which any code-0 exit also sets to
+   stdout data/flush scans : NOT `status`, which any code-0 exit also sets to
    `finished`) is a legitimate fast COMPLETION; (b) a provider whose
    `definitelyStarted` promise resolved has already crossed the execution
    boundary. Either case IS registered and IS a launch success, never a failover
-   trigger — failing it would risk duplicate execution. Because `exit` can be
+   trigger : failing it would risk duplicate execution. Because `exit` can be
    delivered before the final stdout chunk, the grace path awaits `close`
-   (streams drained, flush scanned) before deciding. Any other in-window exit —
-   including code 0 without completion or a definite-start boundary — remains a
+   (streams drained, flush scanned) before deciding. Any other in-window exit :
+   including code 0 without completion or a definite-start boundary : remains a
    launch-time failure.
 3a. The failure `reason` and last stderr line are passed to
    `classifyFailureReason(reason, stderr)` to produce a `failure_type` label:
    `"transient_provider"` (usage caps, quota 429, HTTP 5xx, network timeouts,
-   connection resets — ETIMEDOUT/ECONNRESET) or `"permanent"` (everything else:
+   connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"` (everything else:
    ENOENT, EACCES, bad option, missing config). This label travels with the
    skipped-candidate entry (`{model,effort,provider,reason,failure_type}`) and
    surfaces in the success payload's `failover_from[]` array, in `poll_agent`'s
    `failover_from[]`, and in `ERR_ALL_FAILED`'s numbered list
-   (`[<failure_type>]`). The label does NOT change failover behavior — in auto
+   (`[<failure_type>]`). The label does NOT change failover behavior : in auto
    mode the loop advances to the next ruleset-selected candidate either way
    (same-call failover on any launch-time failure). It only changes how the
    failure is reported, and drives the transient `Note:` line on
@@ -127,7 +127,7 @@ Contract:
    (ENOENT), not-logged-in (early exit), and any other launch-time error all
    advance silently; NOTHING aborts the cycle early.
 6. Cost: every successful launch gains up to +1.5 s latency inside
-   `launch_agent`. Accepted — launches are infrequent, and first-output gating
+   `launch_agent`. Accepted : launches are infrequent, and first-output gating
    would misclassify slow-thinking claude starts.
 7. AFTER the window: late deaths remain TASK outcomes observed via
    `poll_agent`/`wait` (the existing `reconcileAgent`/close-handler paths are
@@ -135,7 +135,7 @@ Contract:
    (a readonly field on the `ProviderDriver` interface, implemented by all
    drivers) marks a secondary classification boundary: once it resolves, the
    provider is definitively processing the first turn and ALL subsequent errors
-   are post-boundary task outcomes — never failover triggers. The grace window
+   are post-boundary task outcomes : never failover triggers. The grace window
    remains the PRIMARY launch-time detection
    mechanism; `definitelyStarted` does not displace it. Composition with
    same-call failover: a transient-error failover fires only on a launch-time
@@ -146,14 +146,14 @@ Contract:
 
 - `../auto-mode/routing-table-contract.md` ("launch_agent returns immediately
   after a successful `spawn` ... eventual death is never a fallback trigger"):
-  amended — success now additionally requires surviving the grace window;
+  amended : success now additionally requires surviving the grace window;
   the never-a-fallback-trigger rule is rescoped to AFTER the window.
 - `../auto-mode/resolution-matrix.md` anti-example ("do NOT treat a
   sub-agent's eventual TASK failure as a fallback trigger"): rescoped the same
-  way — in-window exits are launch-time failures, post-window deaths are task
+  way : in-window exits are launch-time failures, post-window deaths are task
   outcomes.
 - `../auto-mode/param-contract.md` ("the launch payload carries no
-  routing-internal fields"): further amended — the conditional
+  routing-internal fields"): further amended : the conditional
   `failover_occurred` + `failover_from` + `failover_note` trio is a second
   sanctioned exception (alongside `ruleset_applied`/`ruleset_original_selection`),
   present only when same-call failover occurred. `poll_agent` mirrors
@@ -162,7 +162,7 @@ Contract:
 ## Negative constraints
 
 - Never expose `ruleset_applied`/`ruleset_original_selection` on passthrough
-  or disabled launches — absence is part of the contract.
+  or disabled launches : absence is part of the contract.
 - Never re-run the ruleset script per failover attempt (the list is final).
 - Never register an agent that exited inside the grace window, except one
   finalized by its provider turn-completion marker or one that crossed the

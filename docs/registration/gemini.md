@@ -1,16 +1,16 @@
 <!-- Part of registration (split). Retrieval map: ../registration.md -->
 
-# Gemini CLI — MCP server registration
+# Gemini CLI : MCP server registration
 
 **Load when:** registering the bare `subagent-mcp` server in Gemini's
 `settings.json`.
 **Do not load when:** wiring Claude/Codex (see `claude-code.md`, `codex.md`).
 Gemini fires no `UserPromptSubmit` hook, so there is no orchestration-hook
-install step for it — orchestration falls back to fail-safe ON.
+install step for it : orchestration falls back to fail-safe ON.
 
 Replace the path with the absolute path where you cloned the repo.
 
-**macOS / Linux** — edit `~/.gemini/settings.json` (merge into existing file):
+**macOS / Linux** : edit `~/.gemini/settings.json` (merge into existing file):
 
 ```json
 {
@@ -23,7 +23,7 @@ Replace the path with the absolute path where you cloned the repo.
 }
 ```
 
-**Windows** — edit `C:\Users\YourName\.gemini\settings.json`:
+**Windows** : edit `C:\Users\YourName\.gemini\settings.json`:
 
 ```json
 {

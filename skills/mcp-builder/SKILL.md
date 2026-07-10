@@ -11,7 +11,7 @@ Build and ship MCP servers for Claude and Codex. Load `references/retrieval-map.
 
 ## Quick Decision Tree
 
-Some "Load" targets below are thin indexes with a same-named sub-directory (`config-claude.md`, `implementation-patterns.md`, `install-windows.md`, `packaging-node.md`, `packaging-python.md`, `tool-resource-prompt-schemas.md`, `troubleshooting.md`). For these, follow the index's table of contents into `references/<topic>/` for full detail — don't stop at the index. See `references/retrieval-map.md` for specifics.
+Some "Load" targets below are thin indexes with a same-named sub-directory (`config-claude.md`, `implementation-patterns.md`, `install-windows.md`, `packaging-node.md`, `packaging-python.md`, `tool-resource-prompt-schemas.md`, `troubleshooting.md`). For these, follow the index's table of contents into `references/<topic>/` for full detail : don't stop at the index. See `references/retrieval-map.md` for specifics.
 
 | Task | Load |
 |------|------|

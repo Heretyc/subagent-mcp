@@ -35,10 +35,10 @@ The checker reports a contradiction in ANY of these classes:
    (e.g. `AGENTS.md`, `docs/spec/**`, skill references, wiring-shape docs)
    says X. Cite both sides with file:line locators.
 2. **Stale build-participating docs/specs.** Docs or specs that PARTICIPATE in
-   the build, package, or test output — anything consumed by the `build`,
+   the build, package, or test output : anything consumed by the `build`,
    `test`, `prepare`, or pack steps in `package.json` (e.g. `directives/**`
    shipped in the tarball, generator inputs read by `scripts/*.mjs`, files
-   listed in `package.json` `files[]`) — that the change set renders
+   listed in `package.json` `files[]`) : that the change set renders
    inaccurate or inconsistent but does not update. A code change that alters
    behavior documented in a shipped or build-consumed doc, without updating
    that doc in the same change set, is a contradiction.
@@ -60,7 +60,7 @@ The checker reports a contradiction in ANY of these classes:
 
 ## Return Shape
 
-Return STRICT JSON only — no prose outside it:
+Return STRICT JSON only : no prose outside it:
 
 ```json
 {

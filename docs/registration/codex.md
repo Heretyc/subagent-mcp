@@ -1,6 +1,6 @@
 <!-- Part of registration (split). Retrieval map: ../registration.md -->
 
-# Codex CLI — MCP server registration
+# Codex CLI : MCP server registration
 
 **Load when:** registering the bare `subagent-mcp` server in Codex's
 `config.toml`, or locating repo-level Codex config docs.
@@ -10,7 +10,7 @@
 
 Replace the path with the absolute path where you cloned the repo.
 
-**macOS / Linux** — edit `~/.codex/config.toml` (create if it doesn't exist):
+**macOS / Linux** : edit `~/.codex/config.toml` (create if it doesn't exist):
 
 ```toml
 [mcp_servers.subagent-mcp]
@@ -18,7 +18,7 @@ command = "node"
 args = ["/abs/path/to/subagent-mcp/dist/index.js"]
 ```
 
-**Windows** — edit `C:\Users\YourName\.codex\config.toml`:
+**Windows** : edit `C:\Users\YourName\.codex\config.toml`:
 
 ```toml
 [mcp_servers.subagent-mcp]

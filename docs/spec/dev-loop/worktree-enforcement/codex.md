@@ -1,4 +1,4 @@
-# Codex — Worktree-Isolation Specifics
+# Codex : Worktree-Isolation Specifics
 
 The Worktree-Isolation Mandate (`_INDEX.md`) binds Codex exactly as it binds Claude Code
 and humans. This page covers Codex-specific traps and the compliant path.
@@ -6,7 +6,7 @@ and humans. This page covers Codex-specific traps and the compliant path.
 ## No native worktree command
 
 Codex has NO native worktree command (open request: openai/codex#12862). There is no
-auto-name pitfall to avoid — but you MUST create the compliant worktree manually before
+auto-name pitfall to avoid : but you MUST create the compliant worktree manually before
 any mutating work.
 
 ## Compliant path
@@ -39,7 +39,7 @@ See `naming.md` for the formula and `enforcement.md` for the full gate algorithm
 ## Project trust
 
 Use a project-local `.codex/config.toml` to record trust for the worktree/clone so Codex
-runs without re-prompting. Trust configuration does NOT relax the gate — the SAME gate,
+runs without re-prompting. Trust configuration does NOT relax the gate : the SAME gate,
 git hooks, and CI guard apply.
 
 ## Do not

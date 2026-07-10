@@ -17,7 +17,7 @@ list, normalizes effort, and runs the attempt loop with silent fallback.
   (`resolution-matrix.md`). Never throw uncaught; never crash the server.
 - Fresh read per launch (no process-lifetime cache): re-read + `JSON.parse`
   `dist/routing-table.json` on every launch. The file is tiny and launches are
-  infrequent, so a freshly-emitted table needs no restart — a profiler run that
+  infrequent, so a freshly-emitted table needs no restart : a profiler run that
   writes the table AFTER server start is picked up on the next launch.
 
 ## Branch selection
@@ -35,7 +35,7 @@ while a deadlock window is armed.
 A single integer counter scoped to the server PROCESS and shared across all
 concurrent callers. Starts at 0 (disarmed); not persisted; a restart resets it.
 
-- `deadlock=true` arms it (counter = 3) — ONLY after full validation passes
+- `deadlock=true` arms it (counter = 3) : ONLY after full validation passes
   (`resolution-matrix.md` step 7); a rejected call never arms.
 - `deadlock=true` while armed RE-ARMS to 3 (not additive).
 - `deadlock=false` is identical to omitting it: neither arms nor disarms.
@@ -44,7 +44,7 @@ concurrent callers. Starts at 0 (disarmed); not persisted; a restart resets it.
 A PURE-AUTO launch reads `performance.<task_category>` when counter > 0, else
 `cost_efficiency.<task_category>`. The counter decrements by 1 ONLY on a
 SUCCESSFUL pure-auto launch that read `performance`. The `deadlock=true` call is
-itself pure-auto, routes `performance`, and consumes 1 of 3 on its own success —
+itself pure-auto, routes `performance`, and consumes 1 of 3 on its own success :
 so one `deadlock=true` covers up to 3 successful pure-auto `performance` launches
 (trigger + 2 followers), then pure-auto reverts to `cost_efficiency`.
 
@@ -57,7 +57,7 @@ read `cost_efficiency` (a window never diverts them) and never decrement;
 
 Shared-scope caveat (stated honestly): the counter is per-PROCESS, not per-task
 or per-caller. A window armed for one atomic task is consumed by ANY concurrent
-pure-auto launch in the same process — including unrelated tasks from other
+pure-auto launch in the same process : including unrelated tasks from other
 callers; no task affinity, no cancellation. Under concurrency the 3 `performance`
 launches are not guaranteed to be the arming caller's own.
 
@@ -109,7 +109,7 @@ candidate; `buildCommand` + `resolveEffort` remain the final authority.
 
 ## Candidate-list construction (by mode)
 
-From the selected branch's `<task_category>` array (per §Branch selection), sorted by `rank` asc:
+From the selected branch's `<task_category>` array (per section Branch selection), sorted by `rank` asc:
 
 - `auto`: all pairings.
 - `provider`: pairings whose mapped provider == the supplied provider.
@@ -150,7 +150,7 @@ For each candidate in order (best→worst):
    candidate. Do not surface intermediate failures to the caller.
    - `failure_type` is `classifyFailureReason(reason, stderr)` →
      `"transient_provider"` (usage caps, quota 429, HTTP 5xx, network timeouts,
-     connection resets — ETIMEDOUT/ECONNRESET) or `"permanent"` (everything
+     connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"` (everything
      else: ENOENT, EACCES, bad option, missing config). It is a label only;
      auto mode advances to the next candidate either way (same-call failover).
 4. On the FIRST successful driver start: register the agent with `AgentState`,
@@ -159,11 +159,11 @@ For each candidate in order (best→worst):
    this success, the payload additionally carries `failover_occurred: true`,
    `failover_from` (the skipped candidates), and `failover_note`
    (`param-contract.md`). This same-call failover is scoped to the single
-   `launch_agent` call: `skipped[]` is local to the handler invocation — no
+   `launch_agent` call: `skipped[]` is local to the handler invocation : no
    persisted cooldown or cross-call state. After the agent is "definitely
    started", no further failover occurs (`../advanced-ruleset/visibility-and-failover.md`).
 
-CRITICAL — launch-time only: a launch succeeds when the driver starts AND
+CRITICAL : launch-time only: a launch succeeds when the driver starts AND
 survives the post-spawn grace window; ANY exit inside that window (any code or
 signal) is a launch-time failure that silently advances the loop. Exceptions:
 a provider driver already finalized by its turn-completion marker, or a driver

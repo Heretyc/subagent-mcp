@@ -1,4 +1,4 @@
-# citations-labels.md — Citations, Labels & New-Model Sparsity
+# citations-labels.md : Citations, Labels & New-Model Sparsity
 
 **Load when:** any sub-agent makes a sourced claim, or you are reviewing provenance during the
 adversarial loop / validation.
@@ -8,7 +8,7 @@ adversarial loop / validation.
 ## Citation rules
 
 - **APA, to ORIGINAL sources only.** Cite the vendor doc, the benchmark, the eval report, the
-  primary article — never an internal `.spec/references/*.md` file. Internal leaves are navigation
+  primary article : never an internal `.spec/references/*.md` file. Internal leaves are navigation
   targets, not provenance. The validator's provenance-purity check fails any leaf that cites an
   internal KB path as a `Source:`/`Citation:`/`Provenance:` line.
 - Each source is recorded in `src/routing-table-audit.json` `citations[]` (url, retrieved_at,
@@ -16,7 +16,7 @@ adversarial loop / validation.
   `research-seed-sites.json` (the accumulating learned source registry). Add the new model's sources to
   the audit citations; the emission step merges them into the seed registry. There is no `.spec` ledger.
 - If a source URL is dead/redirecting, keep the citation but mark it `[UNVERIFIED]` (or note the
-  redirect) and flag dependent claims — do not silently drop it.
+  redirect) and flag dependent claims : do not silently drop it.
 
 ## Label key
 
@@ -25,7 +25,7 @@ adversarial loop / validation.
 | *(unlabeled)* | Official vendor docs / verified benchmark | Highest |
 | `[INFERRED]` | Extrapolated from cited facts; not directly vendor-stated | Below vendor docs |
 | `[ASSUMPTION]` | Mandated working premise (an interview decision); overrides inference | Binding steering |
-| `[SEED]` | A prior hypothesis (e.g., Blackburn seed) — treated as hypothesis; docs/benchmarks override | Lowest |
+| `[SEED]` | A prior hypothesis (e.g., Blackburn seed) : treated as hypothesis; docs/benchmarks override | Lowest |
 | `[PRESS]` | Press/announcement-sourced, pending independent replication | Use with caution |
 
 **Authority chain:** Phase 1.5 interview decisions are binding > official vendor docs + verified
@@ -35,7 +35,7 @@ benchmarks override seed > conflicts resolved by best-sourced evidence, never by
 
 A just-released model often has only the vendor announcement and same-day press. For it:
 
-- Use **task-split framing** — claim leadership only where evidence supports it (e.g., "leads on
+- Use **task-split framing** : claim leadership only where evidence supports it (e.g., "leads on
   long-horizon/agentic; roughly equal on isolated coding"), not blanket superiority.
 - Mark magnitude/superiority claims that lack independent replication as `[ASSUMPTION]` or
   `[PRESS]`, and record the residual uncertainty in the audit `basis`/`citations[]`.
@@ -52,4 +52,4 @@ A just-released model often has only the vendor announcement and same-day press.
 
 ---
 
-*Author: Lexi Blackburn — https://github.com/Heretyc/ — May 2026*
+*Author: Lexi Blackburn : https://github.com/Heretyc/ : May 2026*

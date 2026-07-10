@@ -8,4 +8,5 @@ node "$TOP/scripts/check_worktree.mjs" || {
   echo "pre-commit: WORKTREE-GATE failed — commit blocked. Move work into a compliant linked worktree." >&2
   exit 1
 }
+node "$TOP/scripts/check-ascii-prose.mjs"
 exit 0

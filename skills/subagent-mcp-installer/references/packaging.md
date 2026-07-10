@@ -1,7 +1,7 @@
-# Packaging — building the decoupled, shippable copy
+# Packaging : building the decoupled, shippable copy
 
 Goal: a self-contained install that no longer depends on the dev checkout. The
-mechanism is standard npm packaging — `npm pack` then `npm install -g` the
+mechanism is standard npm packaging : `npm pack` then `npm install -g` the
 tarball (a **copy**, never `npm link`'s symlink).
 
 ## What ships
@@ -9,19 +9,22 @@ tarball (a **copy**, never `npm link`'s symlink).
 `subagent-mcp`'s `package.json` declares `bin`/`main` = `dist/index.js`,
 `type: module`, and deps `@modelcontextprotocol/sdk` + `zod`. A pack includes:
 
-- `dist/**` — server + compiled provider hooks. `dist/` is git-ignored, but the
+- `dist/**` : server + compiled provider hooks. `dist/` is git-ignored, but the
   `prepare` script (`npm run build`) rebuilds it before pack, so the tarball
   carries a fresh `dist/`.
-- `directives/**` — the per-turn directive assets (tracked, always shipped).
+- `directives/**` : the per-turn directive assets (tracked, always shipped),
+  including orchestration, carryover, reminder, and short pointer files.
 - `package.json` (+ `README`, `src/`). Dependencies are resolved by
-  `npm install -g` into the global tree — `node_modules` is never in the tarball.
+  `npm install -g` into the global tree : `node_modules` is never in the tarball.
 
-Confirm a pack contains both `dist/` and `directives/` before trusting it:
+Confirm a pack contains `dist/index.js`, provider hooks,
+`dist/advanced-ruleset.py`, `dist/global-subagent-mcp-config.jsonc`, and all
+`directives/` carryover/reminder/short pointer assets before trusting it:
 `npm pack --dry-run` and check the file list.
 
 ## Why pack-and-global-install, not local-path plugin
 
-An earlier approach pointed Claude/Codex at `…/subagent-mcp/dist/…` in the build
+An earlier approach pointed Claude/Codex at `.../subagent-mcp/dist/...` in the build
 tree (or a local-path plugin that copies the working tree). Both keep a live
 dependency on a specific checkout. `npm pack` + `npm install -g`:
 
@@ -59,5 +62,6 @@ the `hooks.json` content changed.
   entries (`claude mcp remove subagent-mcp -s user`; delete the settings.json
   hook; delete the Codex `[mcp_servers.subagent-mcp]` table + `hooks.json`
   entries).
+  Legacy unscoped installs used the package name `subagent-mcp`.
 - Repoint (e.g. to a new global prefix): re-run deploy, then re-run the vendor
   wiring so config references the new `npm root -g`.

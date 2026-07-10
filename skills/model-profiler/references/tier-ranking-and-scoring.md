@@ -1,7 +1,7 @@
-# tier-ranking-and-scoring.md — Interpolation, Cost Figure, and Scoring Methodology
+# tier-ranking-and-scoring.md : Interpolation, Cost Figure, and Scoring Methodology
 
 **Load when:** a run builds tier rankings, assigns scores, or computes cost figures. Encodes the
-rules and formula forms — NOT the run-time values (composite weights, sentiment cap, and cost
+rules and formula forms : NOT the run-time values (composite weights, sentiment cap, and cost
 figures are produced at run time and recorded to the **audit** metadata).
 
 ---
@@ -17,15 +17,15 @@ not yet measured.
    tracking the nearest measured lower-effort pairing as the running **anchor**.
 2. For each unmeasured `M@E′` (where `E′` > `E` on the effort ladder):
    - **Anchor:** the nearest measured lower-effort pairing for the same model (`M@E`). If no
-     measured lower-effort pairing exists, leave `M@E′` null (a data-free sentinel) — lower-effort
+     measured lower-effort pairing exists, leave `M@E′` null (a data-free sentinel) : lower-effort
      performance is never inferred from high-effort data.
    - **Inherit:** `M@E′` takes the anchor's score **exactly** (no cross-model clamp; no
-     interpolation toward any competitor — the anchor value is copied verbatim).
+     interpolation toward any competitor : the anchor value is copied verbatim).
    - Mark `interpolated: true` on the pairing object.
 3. **Monotonic raise (same-model only):** in a separate downstream pass, walk each model's efforts
    low→high and raise any interpolated pairing **up** to the running maximum of its lower-effort
    same-model scores, so a higher effort never scores below a lower one. This raise consults only
-   same-model scores — there is no cross-model competitor bound, and measured pairings are never
+   same-model scores : there is no cross-model competitor bound, and measured pairings are never
    altered.
 4. Tie-breaking (reproducible): sort ties by model id ascending, then effort-ladder index ascending.
 
@@ -58,7 +58,7 @@ effort setting. If a member supports selectable efforts, exclude `none` from its
 universe and score only concrete selectable tiers.
 
 **Owner directive (absolute):** the ban on no-effort sentinels for effort-capable models is
-enforced independent of the authority chain — even vendor documentation claiming a model supports
+enforced independent of the authority chain : even vendor documentation claiming a model supports
 `@none` does not override this. Phase 2 judges and the merge must silently exclude any `<model>@none`
 pairing from tier outputs if the model has any selectable effort tiers, regardless of Phase 1 notes.
 
@@ -67,17 +67,17 @@ launchable effort. The deterministic builder purges it from the global universe 
 ranking, and validators reject any committed table or audit universe that contains it.
 
 **No-effort exclusion (per-category; SKILL.md invariant #14):** a model whose ONLY effort is a
-no-effort sentinel (`null`/`none`/`n/a`) is excluded from the ranked universe in 6 categories —
+no-effort sentinel (`null`/`none`/`n/a`) is excluded from the ranked universe in 6 categories :
 `agentic_execution`, `architecture`, `security_review`, `debugging`, `quality_review`,
-`knowledge_synthesis` — so those carry a REDUCED per-category universe. It REMAINS ranked in the other
+`knowledge_synthesis` : so those carry a REDUCED per-category universe. It REMAINS ranked in the other
 4: `math_proof`, `data_analysis`, `coding`, `mechanical`. `build_routing_table.mjs` applies this at
 ranking; distinct from the effort-capable `@none` ban above. On the `performance` branch the
 effort floor below subsumes this exclusion.
 
-**Performance effort floor (SKILL.md invariant #16 — owner directive 2026-06-11, FINAL AND
+**Performance effort floor (SKILL.md invariant #16 : owner directive 2026-06-11, FINAL AND
 BINDING, NO EXCEPTIONS):** the `performance` branch ranks ONLY pairings at effort >= `high` on the
 ladder. Every remaining below-floor effort (`null`/`none`/`min`/`light`/`medium`) is hard-rejected on
-EVERY build — the branch filter blocks new entries AND purges existing ones on rebuild, and a
+EVERY build : the branch filter blocks new entries AND purges existing ones on rebuild, and a
 post-build assertion fails loud if one slips through. Never add weak reasoning-effort variants to
 performance rankings: they are a widely-bad choice for performance/deadlock situations, and no
 benchmark result, vendor claim, or research consensus overrides this. `cost_efficiency` may still
@@ -92,13 +92,13 @@ rank valid non-low efforts below `high`.
 `perf_norm = composite(normalized_benchmarks) + sentiment_adjustment`  (in `(0, 1]`)
 
 - **Normalization:** the run picks ONE method and records it in the **audit** `formula_definitions`:
-  - `min-max` — rescale each benchmark to [0, 1] within the measured set, OR
-  - `z-score-then-squash` — z-score then apply a sigmoid/tanh to bound to (0, 1).
+  - `min-max` : rescale each benchmark to [0, 1] within the measured set, OR
+  - `z-score-then-squash` : z-score then apply a sigmoid/tanh to bound to (0, 1).
 - **Composite:** weighted mean of the normalized benchmark scores for the benchmarks relevant to
   that category. Weights are chosen and recorded by the run. SOP-1 version-promotion and SOP-3
   sourcing apply to this capability component.
 - **Sentiment adjustment:** anecdotal/qualitative evidence enters as a bounded, capped, labelled
-  additive term only: `sentiment_adjustment ∈ [−cap, +cap]` where `cap < min(benchmark weight)`.
+  additive term only: `sentiment_adjustment ∈ [-cap, +cap]` where `cap < min(benchmark weight)`.
   Label each adjustment with its source on the audit pairing's `basis` field.
 
 ### Two-branch power-law scoring
@@ -109,17 +109,17 @@ Both branches rank by the **same** power law; only the exponents differ:
 
 - `perf_norm` = the capability composite above, in `(0, 1]`.
 - `cost_norm` = the normalized worst-case `$/token` in `(0, 1]` (SOP-2; each pairing's `$/token`
-  divided by the universe max — rank-preserving, keeps the denominator bounded).
+  divided by the universe max : rank-preserving, keeps the denominator bounded).
 - **Performance-branch cost winsorization (refinement #6, owner approach B):** the `performance`
   branch is capability-dominant (`b = 0.2`), yet an extreme price ratio `R` still swings its score by
-  `R^0.2` — a ~100× ratio swings the score ~2.5×, enough for a cheap-but-weaker tier to lift above a
+  `R^0.2` : a ~100× ratio swings the score ~2.5×, enough for a cheap-but-weaker tier to lift above a
   strong high-effort pairing. So on the **performance** branch ONLY, each pairing's `$/token` is
   **winsorized to the `[p05, p95]` window** of the universe `$/token` distribution **before** it is
   normalized into `cost_norm` (then renormalized by the winsorized max so `cost_norm` stays in
   `(0, 1]`). This clips only the single cheapest / single priciest outliers, leaves the entire
   in-window cost order intact, and is recorded in the **audit** metadata
   (`performance_cost_winsorization`: window, clip bounds, raw-vs-clipped cost ratio). The
-  `cost_efficiency` branch is **unchanged** — it is intentionally cost-dominant, so clipping there
+  `cost_efficiency` branch is **unchanged** : it is intentionally cost-dominant, so clipping there
   would defeat its intent and it keeps the raw `cost_norm`.
 - The `a:b` ratio sets the relative influence of performance vs cost (log-space weights):
 
@@ -146,9 +146,9 @@ canonical table.
 
 ### Retired (lean schema, `schema_version` 2)
 
-- The **calibration_gate** (it required a perf-vs-cost divergence floor) is **retired** — the two
+- The **calibration_gate** (it required a perf-vs-cost divergence floor) is **retired** : the two
   fixed `a:b` ratios already guarantee the branches differ, and the gate metadata is gone.
-- The **cheapest-AND-weakest ban** is **retired** — it fought the now cost-dominant
+- The **cheapest-AND-weakest ban** is **retired** : it fought the now cost-dominant
   `cost_efficiency` intent.
 - The `a > b` constraint no longer applies as a validator check.
 
@@ -159,7 +159,7 @@ canonical table.
 
 ---
 
-## D. Owner SOPs (BINDING — applied by the deterministic builder)
+## D. Owner SOPs (BINDING : applied by the deterministic builder)
 
 Three owner-mandated SOPs gate how the builder fills versions, prices cost, and weighs sources. They
 are deterministic and example-backed; see the leaf:
@@ -170,9 +170,9 @@ are deterministic and example-backed; see the leaf:
 | **SOP-2 Worst-case cost** | Most-expensive defensible value: tokenizer inflation = **1.35×** max (1.4× DEPRECATED); gpt-5.5 cliff → post-cliff rate when `G_CTX_272` in play | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) · dataset `pricing` + builder constants |
 | **SOP-3 Sourcing policy** | Thin-sourced (vendor-only/single-press) moves a pairing ≤±1 tier and only if the gap clears ~10pp; withdrawn vendor self-reports discarded; tier-2/3 corroboration lifts the cap | [`tier-ranking-and-scoring/01-sops.md`](tier-ranking-and-scoring/01-sops.md) |
 
-This is distinct from §A: §A interpolates a missing **effort** of the same model; SOP-1 fills a missing
+This is distinct from section A: section A interpolates a missing **effort** of the same model; SOP-1 fills a missing
 **version** of a lineage. Both set `interpolated: true`.
 
 ---
 
-*Author: Lexi Blackburn — https://github.com/Heretyc/ — June 2026*
+*Author: Lexi Blackburn : https://github.com/Heretyc/ : June 2026*

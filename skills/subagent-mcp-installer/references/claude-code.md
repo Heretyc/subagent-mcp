@@ -1,4 +1,4 @@
-# Vendor — Claude Code (CLI)
+# Vendor : Claude Code (CLI)
 
 Full support: user-scope MCP server **plus** machine-wide `UserPromptSubmit`
 and `PreToolUse` hooks. All paths absolute and pointing at the permanent root
@@ -7,17 +7,17 @@ and `PreToolUse` hooks. All paths absolute and pointing at the permanent root
 Prereq: the decoupled global install exists (`packaging.md` / `deploy.mjs`).
 Resolve the install root once: `INSTALL = <npm root -g>/@heretyc/subagent-mcp`.
 
-## 1) MCP server — user scope (official CLI)
+## 1) MCP server : user scope (official CLI)
 
 ```
 claude mcp add --scope user subagent-mcp -- node "<INSTALL>/dist/index.js"
 ```
 
 - User scope → persisted to `~/.claude.json`, available in every project.
-- Verify: `claude mcp list` shows `subagent-mcp … ✓ Connected` and
+- Verify: `claude mcp list` shows `subagent-mcp ... ✓ Connected` and
   `claude mcp get subagent-mcp` shows the `node <INSTALL>/dist/index.js` command.
 
-## 2) Per-turn hook — `~/.claude/settings.json` (exec form)
+## 2) Per-turn hook : `~/.claude/settings.json` (exec form)
 
 Add (do not duplicate an existing entry; back the file up first):
 

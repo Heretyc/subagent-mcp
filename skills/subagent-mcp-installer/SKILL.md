@@ -1,15 +1,15 @@
 ---
 name: subagent-mcp-installer
 version: 1.0.0
-description: Install, deploy, register, or set up the subagent-mcp addon (MCP server + orchestration-mode hooks) standards-compliant across every supported vendor (currently Claude Code CLI and Codex CLI; expandable). Ships ALL parts — MCP stdio server, per-turn hooks, and directive assets — to a PERMANENT, repo-decoupled location and wires each vendor with its official mechanism. Use when asked to "install subagent-mcp", "install the mcp", "install this", "deploy subagent-mcp", "set up subagent-mcp", "add subagent-mcp to Claude/Codex", "register the addon", "globally install subagent-mcp", "reinstall/repoint subagent-mcp", or "update the subagent-mcp install". HARD RULE: never install or run the addon from a worktree, %TEMP%/TMP/tmp, Downloads, or any temporary/ephemeral path — install only to a permanent global location. Stay compliant to the official vendor specs listed in references/compliance.md.
+description: Install, deploy, register, or set up the subagent-mcp addon (MCP server + orchestration-mode hooks) standards-compliant across every supported vendor (currently Claude Code CLI and Codex CLI; expandable). Ships ALL parts : MCP stdio server, per-turn hooks, and directive assets : to a PERMANENT, repo-decoupled location and wires each vendor with its official mechanism. Use when asked to "install subagent-mcp", "install the mcp", "install this", "deploy subagent-mcp", "set up subagent-mcp", "add subagent-mcp to Claude/Codex", "register the addon", "globally install subagent-mcp", "reinstall/repoint subagent-mcp", or "update the subagent-mcp install". HARD RULE: never install or run the addon from a worktree, %TEMP%/TMP/tmp, Downloads, or any temporary/ephemeral path : install only to a permanent global location. Stay compliant to the official vendor specs listed in references/compliance.md.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: June 2026
 ---
 
 # subagent-mcp Installer
 
-Deploy the **subagent-mcp** addon — the MCP stdio server **plus** the per-turn
-`orchestration-mode` hooks and their directive assets — to a **permanent,
+Deploy the **subagent-mcp** addon : the MCP stdio server **plus** the per-turn
+`orchestration-mode` hooks and their directive assets : to a **permanent,
 repo-decoupled location**, then register it with each supported vendor using
 that vendor's **official, standards-compliant** mechanism.
 
@@ -32,21 +32,25 @@ decoupled copy). When they disagree, **this skill wins**.
 2. **Ship ALL parts.** Server (`dist/index.js`), Claude hooks
    (`dist/hooks/orchestration-claude.js`, `orchestration-claude-pretool.js`),
    Codex hook (`orchestration-codex.js`), the ruleset
-   scaffold (`dist/advanced-ruleset.py`), and the `directives/` dir must all
-   land in the install. The compiled hooks resolve their directive assets via
-   `../../directives`, so `directives/` must sit beside `dist/` in the install
-   root. A user-edited `dist/advanced-ruleset.py` is NEVER overwritten on
+   scaffold (`dist/advanced-ruleset.py`), the global config
+   (`dist/global-subagent-mcp-config.jsonc`), and the `directives/` dir must
+   all land in the install. Required directive assets include orchestration,
+   carryover, reminder, and short pointer files for every supported hook host.
+   The compiled hooks resolve their directive assets via `../../directives`, so
+   `directives/` must sit beside `dist/` in the install root. A user-edited
+   `dist/advanced-ruleset.py` is NEVER overwritten on
    update: `deploy.mjs` snapshots it before `npm install -g` and restores it
    after.
-   `dist/global-concurrency.jsonc` is also user-editable retained config; the
-   same snapshot/restore mechanism preserves user edits to the global
-   concurrency cap across installs and updates.
+   `dist/global-subagent-mcp-config.jsonc` is also user-editable retained
+   config; the same snapshot/restore mechanism preserves user edits to the
+   global config across installs and updates. `dist/global-concurrency.jsonc`
+   remains a legacy fallback only.
 3. **Standards-compliant per vendor.** Use each vendor's official registration
    path and config schema, verbatim from the specs in
    `references/compliance.md`. No bespoke shims.
 4. **Decoupled from source.** A repo edit must NOT change a live install until
    the operator re-runs the install. `npm pack` + `npm install -g` (a copy, not
-   a symlink — never `npm link`) guarantees this.
+   a symlink : never `npm link`) guarantees this.
 5. **Idempotent + reversible.** Re-running is safe; back up any user config file
    before editing it; repoint/uninstall is documented.
 
@@ -68,14 +72,14 @@ of truth for spec URLs.
 Run the steps in order. Each is detailed in the linked reference.
 
 1. **Resolve a permanent source** (`references/packaging.md`). The build source
-   must be a real clone/checkout on a permanent path — **not** a worktree or
+   must be a real clone/checkout on a permanent path : **not** a worktree or
    temp dir. If the only copy you have is a worktree/temp, first clone to a
    permanent dir and build there.
 2. **Build + package + global-install** the decoupled copy:
    `scripts/deploy.mjs` does this with a hard guard that REFUSES forbidden
    source paths. It runs `npm run build`, `npm pack`, `npm install -g <tarball>`,
    removes the tarball, resolves `npm root -g`, and verifies every shipped part.
-3. **Detect present vendors** — is `claude` on PATH? does `~/.codex/` exist?
+3. **Detect present vendors** : is `claude` on PATH? does `~/.codex/` exist?
    Install for each present vendor; skip absent ones (note what you skipped).
 4. **Wire each vendor** with its official mechanism:
    - Claude Code: `references/claude-code.md` (user-scope `claude mcp add` +
@@ -84,14 +88,14 @@ Run the steps in order. Each is detailed in the linked reference.
      `~/.codex/hooks.json` with `commandWindows`).
 5. **Verify** per the vendor guide (server connects; tools present; hook emits
    the FULL directive when `orchestration-mode` is ON and downgrades to the OFF
-   reminder cadence — LONG block every 5th prompt, state-aware short pointer
-   (`short-on.md`/`short-off.md`) between — when OFF).
+   reminder cadence : LONG block every 5th prompt, state-aware short pointer
+   (`short-on.md`/`short-off.md`) between : when OFF).
 6. **Report** the install root, the per-vendor wiring, what was skipped, and any
    required user follow-up (session restart; Codex `/hooks` re-trust).
 
 ## Helper script
 
-`skills/subagent-mcp-installer/scripts/deploy.mjs` (zero-dep ESM, Node >= 18) —
+`skills/subagent-mcp-installer/scripts/deploy.mjs` (zero-dep ESM, Node >= 18) :
 the robust, location-guarded installer (path is relative to the repo root). Usage:
 
 ```
@@ -110,5 +114,5 @@ node skills/subagent-mcp-installer/scripts/deploy.mjs --source <permanent-repo-p
 
 Before any install action, confirm the source AND the target are permanent.
 Reject and stop if either matches `references/locations.md`'s forbidden set.
-"It works right now" from a worktree/temp path is a trap — it breaks the moment
+"It works right now" from a worktree/temp path is a trap : it breaks the moment
 the path is cleaned up. Fail loud; do not silently install to a temp path.

@@ -8,7 +8,7 @@ update PRs.
 `.github/dependabot.yml` runs two weekly update jobs: `github-actions` (rooted at
 `/`) and `npm` (rooted at `/`, monitoring the package manifest). Both open PRs on
 `dependabot/*` branches, so both are subject to the guards below. Adding a further
-ecosystem does not change the guard procedure — any Dependabot-actor PR inherits it.
+ecosystem does not change the guard procedure : any Dependabot-actor PR inherits it.
 
 ## When This Applies
 

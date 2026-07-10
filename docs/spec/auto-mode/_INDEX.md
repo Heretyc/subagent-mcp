@@ -10,13 +10,13 @@ is design + contract only.
 
 `launch_agent` gains a required `task_category` param. When the caller supplies
 only `prompt` + `task_category`, the server reads the **cost_efficiency** branch of
-the routing table, builds a best→worst candidate list for that category, and
-launches the first candidate that spawns successfully — silently falling back
+the routing table, builds a best-to-worst candidate list for that category, and
+launches the first candidate that spawns successfully : silently falling back
 down the list on any launch-time failure. `provider`/`model`/`effort` become
 optional overrides that are usually unnecessary.
 
-Branch selection — the `cost_efficiency` default, the `performance` branch armed
-by the optional `deadlock` flag, and the window decrement/re-arm rules — is
+Branch selection : the `cost_efficiency` default, the `performance` branch armed
+by the optional `deadlock` flag, and the window decrement/re-arm rules : is
 specified in `routing-table-contract.md`.
 
 This is a server-side capability change. It reuses the existing
@@ -28,15 +28,16 @@ front of that path.
 | File | Contains | Read when |
 |---|---|---|
 | `param-contract.md` | New `launch_agent` param schema; required/optional rules; selection modes. | Changing the tool's input schema or param semantics. |
-| `resolution-matrix.md` | Full presence→behavior matrix; every hard-error case with EXACT message text. | Implementing/validating param validation and candidate-list construction. |
-| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window), pairing schema ref, model→provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior. | Implementing the loader/resolver against the table. |
+| `resolution-matrix.md` | Full presence-to-behavior matrix. | Implementing/validating param validation and candidate-list construction. |
+| `resolution-errors.md` | Exact auto-mode error text, shared hint blocks, and anti-examples. | Implementing/validating hard-error response text. |
+| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window), pairing schema ref, model->provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior. | Implementing the loader/resolver against the table. |
 | `tool-description.md` | Verbatim rewritten tool description + the 15 caveman `task_category` metadata glosses. | Rewriting the MCP tool metadata strings. |
 | `build-and-test.md` | B2 file partition (non-overlapping ownership) + the fixture-based test plan. | Splitting build work or writing tests. |
 
 Related leaf set: `../advanced-ruleset/` specifies the user-editable
 `advanced-ruleset.py` override hook, which runs between candidate-list
 construction and the attempt loop and deliberately AMENDS clauses of this set
-— the launch-payload no-routing-fields rule (`param-contract.md`), the
+: the launch-payload no-routing-fields rule (`param-contract.md`), the
 every-error-hints convention and the task-failure anti-example
 (`resolution-matrix.md`), and the sanctioned-exposure list plus the
 launch-time-only clause (`routing-table-contract.md`). Read
@@ -46,7 +47,7 @@ launch-time-only clause (`routing-table-contract.md`). Read
 
 - Fail loud: every rejected input returns a clear MCP error, never a silent
   default or a crash. Silent fallback applies ONLY to launch-time candidate
-  failures (see `routing-table-contract.md §Attempt loop`).
+  failures (see `routing-table-contract.md section Attempt loop`).
 - The 14 categories (directly benchmarked parents + 4 composite-inferred) +
   `fallback_default` are the fixed taxonomy
   (`docs/spec/task-taxonomy/_INDEX.md`); auto-mode consumes them, never
@@ -57,9 +58,9 @@ launch-time-only clause (`routing-table-contract.md`). Read
 
 ## Authoritative pairing shape note
 
-The runtime pairing shape is defined by `skills/model-profiler/references/provider-json-emission.md` and enforced by `scripts/validate_provider.mjs`: `performance.<category>` is a **direct array** of pairing objects (no `.pairings` wrapper). The `.spec/references/assets/routing-table.json` file is the spine/category-key mirror used for structural validation only — it is NOT the runtime pairing shape and must not be treated as the authoritative source for array vs. object layout.
+The runtime pairing shape is defined by `skills/model-profiler/references/provider-json-emission.md` and enforced by `scripts/validate_provider.mjs`: `performance.<category>` is a **direct array** of pairing objects (no `.pairings` wrapper). The `.spec/references/assets/routing-table.json` file is the spine/category-key mirror used for structural validation only : it is NOT the runtime pairing shape and must not be treated as the authoritative source for array vs. object layout.
 
-## AGENTS.md load-trigger note (for B2 — do NOT edit AGENTS.md from this task)
+## AGENTS.md load-trigger note (for B2 : do NOT edit AGENTS.md from this task)
 
 B2 should add a load trigger to `AGENTS.md` "Load Triggers":
 

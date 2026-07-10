@@ -17,5 +17,5 @@ This page is an index. Detail lives in `packaging-python/`. Load the sub-page(s)
 **Quick facts (no sub-page load needed):**
 
 - FastMCP derives the tool description from the docstring and the inputSchema from type hints.
-- Never use `print()` in a stdio server — it corrupts stdout. Use `sys.stderr.write()`.
+- Never use `print()` in a stdio server : it corrupts stdout. Use `sys.stderr.write()`.
 - The `project.scripts` entry name must match what users invoke via `uvx`/`pip`; the entry function calls `mcp.run()`.

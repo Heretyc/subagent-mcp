@@ -14,7 +14,7 @@ The script prints ONE JSON object to stdout:
 ```
 
 - Both keys REQUIRED, both booleans. The second key is `"load-rules"` with a
-  HYPHEN — not `load_rules`, not `loadRules`.
+  HYPHEN : not `load_rules`, not `loadRules`.
 - Extra keys are ignored. Missing/non-boolean keys, or `"ready": false`, are
   failures (→ hard fail, non-latching; `execution-contract.md`).
 
@@ -50,12 +50,12 @@ One JSON object, written to stdin then EOF. Example (valid JSON):
 | `context.provider/model/effort` | The caller's own overrides, or `null`. Keys ALWAYS present (deterministic shape). |
 
 The context deliberately EXCLUDES deadlock status, branch, tier, and window
-counters — the script must never learn them. OS environment variables are
+counters : the script must never learn them. OS environment variables are
 visible natively (`os.environ`); use them for machine-local policy inputs.
 
 ## Routing mode stdout (script → server)
 
-A BARE JSON array — the modified candidate list (reorder / filter / replace
+A BARE JSON array : the modified candidate list (reorder / filter / replace
 allowed). Template:
 
 ```json
@@ -74,12 +74,12 @@ output; use short launch id `fable` for `claude-fable-5`.
 
 | Rule | Detail |
 |---|---|
-| Top level | Bare JSON array. An object wrapper (e.g. `{"candidates": [...]}`) is INVALID. `[]` is VALID — see Veto below. |
-| Element | Object with string `provider`, `model`, `effort`. All other keys — including `rank` — are IGNORED on output. |
+| Top level | Bare JSON array. An object wrapper (e.g. `{"candidates": [...]}`) is INVALID. `[]` is VALID : see Veto below. |
+| Element | Object with string `provider`, `model`, `effort`. All other keys : including `rank` : are IGNORED on output. |
 | `provider` | `claude` or `codex`. |
 | `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude) or `gpt-5.5` (codex); the provider↔model pair must be legal. |
 | `effort` | Per-model table below; the validator does its OWN membership checks. |
-| Duplicates | Allowed — the attempt loop simply tries them in order. |
+| Duplicates | Allowed : the attempt loop simply tries them in order. |
 | Anything else | Ruleset failure → hard fail. |
 
 Per-model effort legality:
@@ -92,7 +92,7 @@ Per-model effort legality:
 | `opus`, `opus-4-8` | `medium`, `high`, `xhigh`, `max`, `ultracode` |
 | `gpt-5.5` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
 
-HAZARD — the validator must not delegate effort checks to the launch path:
+HAZARD : the validator must not delegate effort checks to the launch path:
 `resolveEffort` has a lenient fallback that silently coerces
 unrecognized effort strings to `high`. Without own membership checks, junk
 like `"banana"` would launch instead of failing. The strict table above is the
@@ -101,7 +101,7 @@ contract; `buildCommand`/`resolveEffort` remain defense-in-depth only.
 ## Empty array = VETO (valid, not a malfunction)
 
 Filtering to zero candidates is the limit case of the explicitly allowed
-filter operation — a legitimate policy ("never launch codex in this repo")
+filter operation : a legitimate policy ("never launch codex in this repo")
 must be expressible without masquerading as a system malfunction. An empty
 array therefore returns a clean `isError` result with EXACTLY this text (the
 `<AUTO_HINT>` block from `../auto-mode/resolution-matrix.md` appended on the
@@ -117,16 +117,16 @@ never touches the deadlock window. Tests assert this text verbatim.
 
 ## THE hard-fail message (verbatim, immutable)
 
-Any ruleset failure — non-zero exit, non-serializable or invalid JSON output,
+Any ruleset failure : non-zero exit, non-serializable or invalid JSON output,
 any invalid element, timeout, missing interpreter, `ready: false`, scaffold
-recreate write failure — makes `launch_agent` fail with EXACTLY:
+recreate write failure : makes `launch_agent` fail with EXACTLY:
 
 ```
 subagent ruleset erroring. Please ask the system administrator to debug before continuing. It is highly discouraged to continue use of this chat session as the system is now operating outside safe parameters.
 ```
 
 - No `Error: ` prefix. No trailing-punctuation changes. Never reworded.
-- It carries NO `<AUTO_HINT>` and NO `<SPLIT_HINT>` — a deliberate, documented
+- It carries NO `<AUTO_HINT>` and NO `<SPLIT_HINT>` : a deliberate, documented
   EXCEPTION to the append-hints-to-every-error convention in
   `../auto-mode/resolution-matrix.md` (amended there). The owner demands the
   exact string and nothing else.

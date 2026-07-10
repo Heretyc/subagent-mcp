@@ -1,4 +1,4 @@
-# benchmark-sources.md — Canonical Benchmark Source List (check FIRST, run-to-run stability)
+# benchmark-sources.md : Canonical Benchmark Source List (check FIRST, run-to-run stability)
 
 **Load when:** any Phase 1 agent is about to gather benchmark scores. Check this list **first** so
 profiling stays reasonably stable between runs; only go beyond it for genuinely new entrants, and let
@@ -6,7 +6,7 @@ the emission step harvest any new source into `research-seed-sites.json` (the le
 New sources are recorded in `src/routing-table-audit.json` `citations[]`; they are NOT written to any
 `.spec` ledger.
 
-This file (`benchmark-sources.md`, in the skill) is the **CURATED** seed — stable, hand-maintained.
+This file (`benchmark-sources.md`, in the skill) is the **CURATED** seed : stable, hand-maintained.
 `research-seed-sites.json` (repo root) is the **LEARNED/accumulating** seed, grown from each run's audit
 citations. Phase-1 agents read **BOTH**: the curated list here plus the learned registry (if present).
 
@@ -20,7 +20,7 @@ fixed categories; they NEVER endorse a model.
 model card for the specific self-reported number + config, read symmetrically (Tier 1) →
 (4) arXiv / OpenReview for the bench's definition, currency, and new entrants (Tier 4) →
 (5) preference aggregators for orientation only (Tier 5). Prefer held-out / windowed leaderboards for
-the *live* number. **Rule:** never rank on vendor cards alone — they are the self-claim, corroborated
+the *live* number. **Rule:** never rank on vendor cards alone : they are the self-claim, corroborated
 at Tier 2/3.
 
 **Source count: 41 distinct sources/venues** (5 Tier-1 vendor families · 7 Tier-2 hubs · ~20 Tier-3
@@ -30,8 +30,8 @@ official boards across 10 category rows · 6 Tier-4 venues · 3 Tier-5 trackers)
 
 ## Per-category benchmark-family map (onto the directly benchmarked parents)
 
-Key each score to the category it is most diagnostic of. The 4 composite-inferred tiles (11–14)
-carry no benchmark family — they are composed from parent scores, never mapped directly. `findability` flags how directly the
+Key each score to the category it is most diagnostic of. The 4 composite-inferred tiles (11:14)
+carry no benchmark family : they are composed from parent scores, never mapped directly. `findability` flags how directly the
 category is measured (strong / moderate / proxy).
 
 | Category (precedence) | Benchmark families | Findability |
@@ -51,15 +51,15 @@ category is measured (strong / moderate / proxy).
 (discriminator = observed-failure precondition); `mechanical`'s extraction leg and
 `agentic_execution`'s floor both touch BFCL (resolved by the invocation-vs-transform axis). The
 `perception_required` modifier draws on a multimodal family (MMMU/MMMU-Pro · ScreenSpot-Pro · CharXiv
-· OCRBench · MathVista · Video-MME · BLINK) — a modifier re-rank input, not a category.
+· OCRBench · MathVista · Video-MME · BLINK) : a modifier re-rank input, not a category.
 
 **Polarity (record when non-obvious):** a benchmark's direction may be stated explicitly per row via an optional `polarity` field (`higher_is_better` / `lower_is_better`); absent that, the builder infers it from the benchmark name (defaulting to higher-is-better) and records any name-inferred assumption in the audit's `polarity_inference_warnings`.
 
-**Single-category keying (one most-diagnostic category per score):** each benchmark score should be keyed to the **one** category it is most diagnostic of. The builder treats each category's `category_benchmarks` list as that category's canonical allowed-benchmark set. It does **not** auto-decide which single category is canonical for a benchmark that is currently keyed under more than one (e.g. GPQA Diamond under `math_proof` + `knowledge_synthesis`; SWE-bench Pro / SWE-bench Verified across `debugging`/`coding`/`agentic_execution`) — that is the **dataset owner's domain call**. Such cross-category duplicates are **surfaced for owner triage** in `src/routing-table-audit.json` `metadata.cross_category_benchmarks` (`{benchmark, categories:[…]}`), never dropped or reassigned. A genuinely **off-map** row (a benchmark under a category whose canonical keying does not list it) is a fail-loud regression: the builder **throws** on any future off-map row (the current dataset has none); only a future dataset already shipping off-map rows downgrades to a recorded `metadata.off_map_rows` warning to keep regen green.
+**Single-category keying (one most-diagnostic category per score):** each benchmark score should be keyed to the **one** category it is most diagnostic of. The builder treats each category's `category_benchmarks` list as that category's canonical allowed-benchmark set. It does **not** auto-decide which single category is canonical for a benchmark that is currently keyed under more than one (e.g. GPQA Diamond under `math_proof` + `knowledge_synthesis`; SWE-bench Pro / SWE-bench Verified across `debugging`/`coding`/`agentic_execution`) : that is the **dataset owner's domain call**. Such cross-category duplicates are **surfaced for owner triage** in `src/routing-table-audit.json` `metadata.cross_category_benchmarks` (`{benchmark, categories:[...]}`), never dropped or reassigned. A genuinely **off-map** row (a benchmark under a category whose canonical keying does not list it) is a fail-loud regression: the builder **throws** on any future off-map row (the current dataset has none); only a future dataset already shipping off-map rows downgrades to a recorded `metadata.off_map_rows` warning to keep regen green.
 
 ---
 
-## Tier 1 — Official vendor model cards & docs (self-reported; symmetric; corroborate before trusting)
+## Tier 1 : Official vendor model cards & docs (self-reported; symmetric; corroborate before trusting)
 
 | Source | Authoritative for | Stability note |
 |---|---|---|
@@ -69,19 +69,19 @@ category is measured (strong / moderate / proxy).
 | ai.meta.com · llama.com (model cards; Purple Llama / CyberSecEval) | that vendor's scores + the CyberSecEval security suite | same caveat |
 | docs.mistral.ai · x.ai/docs · DeepSeek & Qwen tech reports · Microsoft (Phi) cards | respective vendors' self-reported scores | read symmetrically |
 
-## Tier 2 — Independent live leaderboards & standardized eval hubs (impartiality backbone)
+## Tier 2 : Independent live leaderboards & standardized eval hubs (impartiality backbone)
 
 | Source | Authoritative for | Stability note |
 |---|---|---|
-| paperswithcode.com/sota | locating current SOTA + the holding paper per bench | community-edited, can lag — index, then verify primary |
+| paperswithcode.com/sota | locating current SOTA + the holding paper per bench | community-edited, can lag : index, then verify primary |
 | crfm.stanford.edu/helm (HELM) | standardized, reproducible multi-metric eval | very stable methodology; model coverage lags latest |
 | epoch.ai / epoch.ai/benchmarks | FrontierMath + independent re-runs | rigorous, current |
 | scale.com/leaderboard (Scale SEAL, held-out) | contamination-resistant private-set rankings | held-out; best for a live capability number |
-| artificialanalysis.ai | cross-model aggregate index + price/latency | live per-release; composite — interpret composition |
+| artificialanalysis.ai | cross-model aggregate index + price/latency | live per-release; composite : interpret composition |
 | lmarena.ai (Chatbot Arena Elo) | open-ended human-preference ranking | live; style/volume effects; orientation only |
-| huggingface.co (datasets + per-task leaderboard spaces; OpenCompass) | hosting datasets + community leaderboards | Open LLM Leaderboard v2 archived — check freshness per space |
+| huggingface.co (datasets + per-task leaderboard spaces; OpenCompass) | hosting datasets + community leaderboards | Open LLM Leaderboard v2 archived : check freshness per space |
 
-## Tier 3 — Per-benchmark official leaderboards (primary sources, by category)
+## Tier 3 : Per-benchmark official leaderboards (primary sources, by category)
 
 | Category | Primary leaderboards (domain) | Stability note |
 |---|---|---|
@@ -96,32 +96,32 @@ category is measured (strong / moderate / proxy).
 | multimodal (modifier) | mmmu-benchmark.github.io · ScreenSpot-Pro repo · CharXiv · OCRBench · MathVista · video-mme.github.io · BLINK | MMMU-Pro/ScreenSpot-Pro non-saturated |
 | long-context | RULER (NVIDIA) · LongBench v2 (THUDM) · HELMET · InfiniteBench | live |
 
-## Tier 4 — Publication venues (new / unindexed benches + tech reports)
+## Tier 4 : Publication venues (new / unindexed benches + tech reports)
 
 | Source | Authoritative for | Stability note |
 |---|---|---|
-| arxiv.org (cs.CL/AI/LG/SE/CR) | new benchmark papers + model tech reports | preprint; check version — results get revised |
+| arxiv.org (cs.CL/AI/LG/SE/CR) | new benchmark papers + model tech reports | preprint; check version : results get revised |
 | openreview.net | peer-reviewed venue submissions (NeurIPS/ICLR D&B) | more stable; scores frozen at publication |
 | aclanthology.org · NeurIPS D&B · ICML/ICLR · ICAPS (planning) · USENIX Security/IEEE S&P/CCS (security) | peer-reviewed bench definitions + methodology | stable methodology; cross-check a live board for current scores |
 
-## Tier 5 — Trackers / orientation only (never the capability number)
+## Tier 5 : Trackers / orientation only (never the capability number)
 
 | Source | Authoritative for | Stability note |
 |---|---|---|
-| Stanford HAI AI Index · llm-stats.com · vendor release-note blogs | landscape orientation, context-window/pricing trackers | resolve to a Tier 1–3 primary before using any figure |
+| Stanford HAI AI Index · llm-stats.com · vendor release-note blogs | landscape orientation, context-window/pricing trackers | resolve to a Tier 1:3 primary before using any figure |
 
 ---
 
 ## Roster-only discovery checklist (#29)
 
 Agent 1 (model discovery) MUST check every item below before declaring the universe complete.
-HELM is NOT a model registry (DO-NOT-ADOPT #1) — use provider APIs + OpenRouter only.
+HELM is NOT a model registry (DO-NOT-ADOPT #1). Use publicly published model-list documentation, release announcements, and public catalog pages only. No authenticated API calls and no API keys are ever used.
 
 | # | Source | What to check |
 |---|--------|--------------|
 | 1 | Provider release blogs (Anthropic/OpenAI) | New model announcements in recency window |
-| 2 | Provider `/v1/models` API response | Live model IDs + availability flags |
-| 3 | OpenRouter `/api/v1/models` | Third-party hosted models, aliased IDs, availability |
+| 2 | Public provider model-list documentation and release announcements (no authenticated API calls, no API keys) | Published model IDs and availability statements |
+| 3 | OpenRouter public model catalog documentation and release announcements (no authenticated API calls, no API keys) | Third-party hosted models, aliased IDs, availability |
 | 4 | Official system/model cards | Supported effort tiers, sampling locks, context in/out, modality |
 | 5 | Pricing pages (provider + cloud partner) | Per-model pricing tier, cliff thresholds |
 | 6 | Deprecation / EOL announcements | Models withdrawn within recency window (do NOT re-roster) |
@@ -134,5 +134,5 @@ After completing the checklist, emit a per-provider inclusion/exclusion table wi
 
 ---
 
-*Provenance: derived from the ratified task-shape taxonomy consensus (§G canonical source list) +
+*Provenance: derived from the ratified task-shape taxonomy consensus (section G canonical source list) +
 the per-category benchmark families. Provider-impartial; symmetric vendor set; no model endorsed.*

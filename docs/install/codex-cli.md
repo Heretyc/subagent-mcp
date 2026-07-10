@@ -1,4 +1,4 @@
-# Install — Codex CLI
+# Install : Codex CLI
 
 Full support: per-turn hook (`SessionStart` + `UserPromptSubmit`) **plus** the
 MCP server. Two parts, two files of record. Do the
@@ -9,7 +9,7 @@ registering the MCP server once serves both. The per-turn hook is **CLI-only**.
 
 ---
 
-## 1) MCP server — `~/.codex/config.toml`
+## 1) MCP server : `~/.codex/config.toml`
 
 Either run `codex mcp add` (writes the user config) or edit the TOML by hand.
 
@@ -48,10 +48,10 @@ hooks = true
 
 ---
 
-## 2) Per-turn hook — `~/.codex/hooks.json` (CLI only)
+## 2) Per-turn hook : `~/.codex/hooks.json` (CLI only)
 
 Create `~/.codex/hooks.json` (Windows: `C:\Users\YourName\.codex\hooks.json`).
-Use the repo's `codex/hooks.json` as a **template to copy** — it is not usable
+Use the repo's `codex/hooks.json` as a **template to copy** : it is not usable
 in place. `SessionStart` covers turn 0; `UserPromptSubmit` covers turns 1+.
 
 Two install-critical rules:
@@ -97,7 +97,7 @@ Two install-critical rules:
 
 `commandWindows` is optional but makes the file cross-platform; on a single OS
 you may keep just `command` with that OS's absolute path. Do **not** add a
-matcher to `UserPromptSubmit` — it does not accept one.
+matcher to `UserPromptSubmit` : it does not accept one.
 
 > **Why user config, not repo `.codex/hooks.json`:** repo-local hooks load only
 > when the project `.codex/` layer is **trusted**. `~/.codex/hooks.json` fires
@@ -123,7 +123,7 @@ server defined in the user config, project config can toggle it:
 enabled = true  # or false
 ```
 
-Granular alternative — keep the server enabled but hide specific tools:
+Granular alternative : keep the server enabled but hide specific tools:
 
 ```toml
 [mcp_servers.subagent-mcp]

@@ -1,13 +1,13 @@
-# Worktree-Isolation Mandate — Index
+# Worktree-Isolation Mandate : Index
 
 Status: MANDATORY, max-priority, unskippable except for delegated sub-agents
 (`SUBAGENT_MCP_SUBAGENT=1`, see item 5). Provider-equal (Claude Code, Codex,
 humans). Integrates with `docs/spec/dev-loop/git-collaboration.md` (reuses its branch
-types and ref rules — this folder does not fork a parallel policy).
+types and ref rules : this folder does not fork a parallel policy).
 
 ## The Mandate (in brief)
 
-1. NO mutating work may occur in the PRIMARY working tree (the main repo checkout) —
+1. NO mutating work may occur in the PRIMARY working tree (the main repo checkout) :
    ever, even locally or trivially. All mutating work (file create/edit/delete; `git
    add|commit|branch|merge|rebase|reset|clean`; dependency/lockfile changes; code-gen
    that writes) MUST happen inside a LINKED git worktree that lives OUTSIDE the repo
@@ -20,9 +20,9 @@ types and ref rules — this folder does not fork a parallel policy).
    first; take no other repo-affecting action. See `enforcement.md`.
 4. IMMUTABLE / read-only actions are EXEMPT and allowed anywhere: reading files;
    `git status|log|diff|show|branch --list|worktree list`; grep/glob/ls; fetch without
-   merge; read-only queries — anything that does not mutate working tree, index, refs,
+   merge; read-only queries : anything that does not mutate working tree, index, refs,
    stash, or remote.
-5. Enforcement is mandatory and provider-equal — unskippable for orchestrators and
+5. Enforcement is mandatory and provider-equal : unskippable for orchestrators and
    normal sessions. The sole exemption is delegated sub-agents
    (`SUBAGENT_MCP_SUBAGENT=1`), which `scripts/check_worktree.mjs` short-circuits per the
    documented carve-out, since the orchestrator already placed them in their target tree.
@@ -45,16 +45,16 @@ the exact remediation command (exit 1). Hooks and CI call the same script/logic.
 
 ## Load-trigger map to the leaves
 
-- `naming.md`: read before naming/creating a branch or worktree directory — the exact
+- `naming.md`: read before naming/creating a branch or worktree directory : the exact
   formula, allowed types, subject rules, validation regex, folder-vs-branch naming, and
   good/anti-pattern examples.
-- `enforcement.md`: read before any mutating action — the gate algorithm, the read-only
+- `enforcement.md`: read before any mutating action : the gate algorithm, the read-only
   allowlist, the check-script contract, the THREE-TIER enforcement model (Tier-1
   authoritative server-side branch protection; Tier-2 local hooks; Tier-3 agent
   self-enforcement), the PR-time branch-name workflow, and explicit loophole closures.
-- `claude.md`: read when working as/with Claude Code — why native EnterWorktree is
+- `claude.md`: read when working as/with Claude Code : why native EnterWorktree is
   non-compliant and the compliant manual command + PreToolUse hook.
-- `codex.md`: read when working as/with Codex — the manual worktree + `codex -C`
+- `codex.md`: read when working as/with Codex : the manual worktree + `codex -C`
   isolation flow and sandbox caveats.
 
 ## Install (once per clone)

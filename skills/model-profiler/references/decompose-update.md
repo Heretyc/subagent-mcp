@@ -6,17 +6,17 @@ rankings + rationale (the spine is a fixed input, never a verdict to be re-decid
 
 ---
 
-## 1. The category spine is FIXED — never re-architected here
+## 1. The category spine is FIXED : never re-architected here
 
 The 14 categories (directly benchmarked parents + 4 composite-inferred) + `fallback_default`@99 and their precedence are an **immutable input**
 (`work-categories.md`; determination methodology in `docs/spec/task-taxonomy/`). A run refreshes the
-per-category **rankings** (the member+effort ordering) — it never adds, merges, renames, reorders, or
+per-category **rankings** (the member+effort ordering) : it never adds, merges, renames, reorders, or
 drops a category. Keep the spine as-is. If a run surfaces evidence the spine itself is wrong, **surface
-it to the owner as `needs_user`** — do not mutate the spine in this skill. The builder reads the spine
+it to the owner as `needs_user`** : do not mutate the spine in this skill. The builder reads the spine
 from `.spec/references/assets/routing-table.json` and asserts its category keys; `validate_provider.mjs`
-checks category keys/order — see `validation.md`.
+checks category keys/order : see `validation.md`.
 
-## 2. The output contract — EXACTLY 3 persisted artifacts
+## 2. The output contract : EXACTLY 3 persisted artifacts
 
 A run persists EXACTLY 3 artifacts to the repo and nothing else:
 
@@ -27,18 +27,18 @@ A run persists EXACTLY 3 artifacts to the repo and nothing else:
 | `research-seed-sites.json` (repo root) | `update_seed_sites.mjs` (merges this run's audit citations) | Accumulating learned source registry |
 
 NO `.spec/references` writes. NO `validate_kb.py`. NO `source-ledger.md` / `retrieval-map.md` /
-`decision-rationale.md` / `model-profiles.md` / `routing-table.md` prose — those KB leaves are gone.
+`decision-rationale.md` / `model-profiles.md` / `routing-table.md` prose : those KB leaves are gone.
 The "why" of each route lives in the audit's `basis` / `citations[]`, not a separate prose file.
 
 ## 3. Emission steps (after the Phase-2 merge)
 
-Phase research is EPHEMERAL — written to `%TEMP%` scratch, consumed by the builder, never persisted to
+Phase research is EPHEMERAL : written to `%TEMP%` scratch, consumed by the builder, never persisted to
 the repo. The emission is **deterministic code** (sanity Rule 5), not free-hand LLM ranking:
 
 1. **Assemble the ephemeral dataset.** From the Phase-2 merge, assemble `structured-dataset.json` under
    `%TEMP%\model-profiler\<run-id>\` (per-model `pricing`, benchmarks, effort ladders, tier-ordering
    inputs). It is never committed.
-2. **Point the builder at it + stamp the run.** Set env (see `tier-ranking-and-scoring.md` §D.6 / the
+2. **Point the builder at it + stamp the run.** Set env (see `tier-ranking-and-scoring.md` section D.6 / the
    builder header):
    ```powershell
    $env:DATASET_PATH = "$env:TEMP\model-profiler\<run-id>\structured-dataset.json"
@@ -53,12 +53,12 @@ the repo. The emission is **deterministic code** (sanity Rule 5), not free-hand 
    ```
 4. **Merge this run's citations into the seed registry.** `update_seed_sites.mjs` reads
    `src/routing-table-audit.json`, harvests every non-empty-url citation, and accumulates into
-   `research-seed-sites.json` (the spine is fixed — never re-derive it):
+   `research-seed-sites.json` (the spine is fixed : never re-derive it):
    ```powershell
    node scripts/update_seed_sites.mjs
    ```
 5. **Validate.** Run `validate_provider.mjs` + the audit-mirror check + `validate_seed_sites.mjs` + the
-   run-level §1c existence/growth gate (`validation.md`):
+   run-level section 1c existence/growth gate (`validation.md`):
    ```powershell
    node scripts/validate_provider.mjs
    node scripts/validate_seed_sites.mjs
@@ -75,9 +75,9 @@ Do **not** rewrite them on a run that produces no schema change.
 
 All 3 artifacts move TOGETHER on a short-lived topic branch. The merge gate is:
 
-1. `node scripts/validate_provider.mjs` — **PASS**
-2. `node scripts/validate_seed_sites.mjs` — **PASS** (plus the §1c existence/growth gate)
-3. `npm run build` — green (emits `dist/routing-table.json` from `src/routing-table.json`; `tsc` must
+1. `node scripts/validate_provider.mjs` : **PASS**
+2. `node scripts/validate_seed_sites.mjs` : **PASS** (plus the section 1c existence/growth gate)
+3. `npm run build` : green (emits `dist/routing-table.json` from `src/routing-table.json`; `tsc` must
    not emit a compiled routing-table.json)
 
 A half-emitted state (one artifact refreshed but not its siblings) must never reach the default branch.
@@ -86,10 +86,10 @@ A half-emitted state (one artifact refreshed but not its siblings) must never re
 
 Ephemeral dataset assembled under `%TEMP%`; the builder emitted `src/routing-table.json` +
 `src/routing-table-audit.json`; `update_seed_sites.mjs` merged this run's citations into
-`research-seed-sites.json`; `validate_provider.mjs` + audit-mirror + `validate_seed_sites.mjs` + §1c all
+`research-seed-sites.json`; `validate_provider.mjs` + audit-mirror + `validate_seed_sites.mjs` + section 1c all
 PASS; all 3 artifacts move together; no `.spec/references` writes. Then run the adversarial loop
 (`adversarial-loop.md`).
 
 ---
 
-*Author: Lexi Blackburn — https://github.com/Heretyc/ — May 2026*
+*Author: Lexi Blackburn : https://github.com/Heretyc/ : May 2026*

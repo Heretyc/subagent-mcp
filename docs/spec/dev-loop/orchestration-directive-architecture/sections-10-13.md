@@ -1,6 +1,6 @@
 <!-- Part of orchestration-directive-architecture (split). Retrieval map: ../orchestration-directive-architecture.md -->
 
-## §10 - Persistence, Carryover & Disable
+## section 10 - Persistence, Carryover & Disable
 
 > **Truth source: `src/orchestration/marker.ts`** (module doc comment +
 > `isActive()`). This section MIRRORS the code. The old
@@ -71,12 +71,12 @@
 - **Fail-safe ON is NOT the same as default ON.** Default ON is the normal
   hook-bearing state (no active disable-record). Fail-safe ON is the separate
   hookless / no-tag case (Gemini, desktop) where no state channel exists and
-  state is UNKNOWN -> default ON; see §5 (D18/D6) and the §9 host matrix. Both
+  state is UNKNOWN -> default ON; see section 5 (D18/D6) and the section 9 host matrix. Both
   land on ON; only a session-keyed disable-record can produce OFF.
 
 ---
 
-## §11 - Tests (S7 gating + S4 non-gating)
+## section 11 - Tests (S7 gating + S4 non-gating)
 
 ### 11.1 GATING (S7) - block merge
 
@@ -94,19 +94,19 @@
 
 ---
 
-## §12 - Failure-Mode Matrix
+## section 12 - Failure-Mode Matrix
 
 | Failure mode | Behavior | Explicit suppressor / exit |
 |---|---|---|
-| subagent-mcp dropout while ON | HALT-until-restored; nothing inline (§7) | user explicitly abandons the whole task (S5): ends task, never inline-degrades |
-| No hook injection (hookless host) | UNKNOWN (tag absence) -> warn + explain -> **fail-safe ON** (§5) | one-time per-session user opt-out (S6); sub-agent first-line exemption |
-| Fail-safe-ON recursion / fork-bomb | child would re-orchestrate | **first-line exemption** (§6) + `launch_agent` silent upsert (A7) |
-| Hook execution error | hook emits `""`; turn never crashes | n/a (fail-open to no-injection, which the host handles per §5) |
+| subagent-mcp dropout while ON | HALT-until-restored; nothing inline (section 7) | user explicitly abandons the whole task (S5): ends task, never inline-degrades |
+| No hook injection (hookless host) | UNKNOWN (tag absence) -> warn + explain -> **fail-safe ON** (section 5) | one-time per-session user opt-out (S6); sub-agent first-line exemption |
+| Fail-safe-ON recursion / fork-bomb | child would re-orchestrate | **first-line exemption** (section 6) + `launch_agent` silent upsert (A7) |
+| Hook execution error | hook emits `""`; turn never crashes | n/a (fail-open to no-injection, which the host handles per section 5) |
 | Stale MCP `instructions` (S9) | FAT INIT_BLOCK governs the session | reconnect refresh (S9) |
 
 ---
 
-## §13 - Cross-Provider / Structured-Question Tool Map
+## section 13 - Cross-Provider / Structured-Question Tool Map
 
 | Provider | Structured-question tool | Directive variants |
 |---|---|---|

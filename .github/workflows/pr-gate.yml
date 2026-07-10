@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prose policy
+        run: npm run check:prose
+
       - name: Build
         run: npm run build
 

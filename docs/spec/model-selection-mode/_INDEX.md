@@ -11,13 +11,13 @@ the orchestration marker. This directory is design + contract only.
 A per-project mode that gates the `launch_agent` tool's model/provider/effort
 SELECTOR params. Two modes only:
 
-- **`smart`** — the DEFAULT, used whenever the mode is unset. In smart mode,
+- **`smart`** : the DEFAULT, used whenever the mode is unset. In smart mode,
   `launch_agent` KEEPS `provider`/`model`/`effort` in its schema but REJECTS any
   call that supplies them. The server auto-selects the best model. The rejection
   tells the agent the best model is already being selected from latest
   benchmarking data, rigorous research, and environment conditions the agent may
   be unaware of.
-- **`user-approved-overrides`** — grants a 30-minute window during which
+- **`user-approved-overrides`** : grants a 30-minute window during which
   `launch_agent` honors `provider`/`model`/`effort` normally.
 
 The MCP tool only flips the mode (and stamps the enable-timestamp). No hook and
@@ -28,7 +28,7 @@ itself.
 
 Only `launch_agent`'s `provider`/`model`/`effort` selectors are gated by this
 mode. No other tool is affected. The selector params stay in the `launch_agent`
-schema in BOTH modes — the mode changes whether supplying them is honored or
+schema in BOTH modes : the mode changes whether supplying them is honored or
 rejected, not whether they exist.
 
 ## Smart-mode rejection and fallback ladder
@@ -55,7 +55,7 @@ structured-question tool to ask the user for authorization, then call
 
 `user-approved-overrides` MUST NOT be enabled without explicit interactive user
 authorization obtained via the structured-question tool (or plain yes/no if
-none exists). Enforcement is honor-based — the tool CANNOT technically verify
+none exists). Enforcement is honor-based : the tool CANNOT technically verify
 that authorization was obtained; the metadata makes the requirement binding.
 Never enable on your own initiative.
 

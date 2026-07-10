@@ -12,7 +12,7 @@ orchestrator-only directive injected ahead of the prompt, re-pinning "delegate,
 do not execute directly" so it survives long sessions. The MCP tool flips the
 toggle; a bundled `UserPromptSubmit` hook does the per-turn injection. Both ship
 in the same plugin, so install the plugin (not just the bare server) to get the
-full feature. Run `npm run build` first — the hook runs from `dist/`.
+full feature. Run `npm run build` first : the hook runs from `dist/`.
 
 ## Claude Code CLI (plugin)
 
@@ -46,5 +46,5 @@ step-by-step in [docs/install/codex-cli.md](../install/codex-cli.md).
 
 Claude Desktop and Codex Desktop have **no `UserPromptSubmit` hook host**, so
 the `orchestration-mode` tool still flips the marker but **nothing is injected
-per turn**. This is documented degradation, not a bug — use a CLI host for the
+per turn**. This is documented degradation, not a bug : use a CLI host for the
 full per-turn behavior.

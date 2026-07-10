@@ -1,17 +1,17 @@
-# 01-sops.md — Owner SOPs (BINDING, deterministic): version-promotion, worst-case cost, sourcing
+# 01-sops.md : Owner SOPs (BINDING, deterministic): version-promotion, worst-case cost, sourcing
 
 **Load when:** the deterministic builder constructs `routing-table.json` / `routing-table-audit.json`
 and must apply the three owner-mandated Standard Operating Procedures. Parent index:
 `../tier-ranking-and-scoring.md`. Authority: the run's ephemeral Phase-1.5 adjudication record (under
-`%TEMP%\model-profiler\<run-id>\`) — owner answers > vendor docs/verified benchmarks > seed. These SOPs
+`%TEMP%\model-profiler\<run-id>\`) : owner answers > vendor docs/verified benchmarks > seed. These SOPs
 are **deterministic**: a code builder applies them, not free-hand LLM ranking. Worked examples are
 owner-supplied and **normative**.
 
 ---
 
-## SOP-1 — Version-Promotion (monotonic-newer-fill)
+## SOP-1 : Version-Promotion (monotonic-newer-fill)
 
-**Scope.** Distinct from §A effort-interpolation (same model, higher *effort*). SOP-1 fills a missing
+**Scope.** Distinct from section A effort-interpolation (same model, higher *effort*). SOP-1 fills a missing
 *version* within ONE model-family lineage (e.g. Opus `4.6 < 4.7 < 4.8`), **per category C**, after the
 category's measured pairings are ordered best→worst.
 
@@ -42,10 +42,10 @@ category's measured pairings are ordered best→worst.
 **Tie-break (determinism).** `V_new` inherits `V_old`'s score (equal value). Equal score is admissible
 under the validator's non-increasing-score rule (`score[i] ≤ score[i-1]`). To place `V_new` strictly
 above `V_old` at equal score, break the tie **in favor of the newer version within the same lineage**
-(newer version → smaller rank index). Cross-lineage ties keep the existing §A tie-break (model id asc,
+(newer version → smaller rank index). Cross-lineage ties keep the existing section A tie-break (model id asc,
 then effort-ladder index asc).
 
-**Worked examples (owner-supplied — NORMATIVE, reproduce verbatim):**
+**Worked examples (owner-supplied : NORMATIVE, reproduce verbatim):**
 
 - Category X = `{4.6:#1}`, 4.8 missing → `{4.8:#1, 4.6:#2}`.
 - Category Y = `{GPT-5.5:#1, 4.7:#2}`, 4.8 missing → `{GPT-5.5:#1, 4.8:#2, 4.7:#3}`.
@@ -55,20 +55,20 @@ then effort-ladder index asc).
   `{4.8:#1, 4.7:#2, 4.6:#3}` (4.7 inserted immediately above 4.6, then 4.8 immediately above 4.7;
   each exactly one tier higher than the prior version).
 
-**Validator note.** Rule 6 (same-model higher-effort monotonicity) does NOT apply across versions —
+**Validator note.** Rule 6 (same-model higher-effort monotonicity) does NOT apply across versions :
 distinct versions are distinct `model` ids. The cross-model clamp is unaffected because SOP-1 never
 moves `V_new` above a different model.
 
 ---
 
-## SOP-2 — Worst-Case ("Most Expensive") Cost
+## SOP-2 : Worst-Case ("Most Expensive") Cost
 
 **Rule.** For any cost figure that has a range or a cliff, use the **most-expensive DEFENSIBLE** value.
 Per-model rates live in the dataset's `pricing` block; the blend/multiplier constants are hardcoded in
 `build_routing_table.mjs`. This SOP encodes the selection rule, never the numbers.
 
 - **Tokenizer inflation (Opus 4.7 / 4.8).** Adopt the documented **MAXIMUM = 1.35×** (vendor-documented
-  ceiling). The prior **1.4× assumption is DEPRECATED** — it exceeds the vendor-documented max. Owner
+  ceiling). The prior **1.4× assumption is DEPRECATED** : it exceeds the vendor-documented max. Owner
   directive was "most expensive"; 1.35× is the most-expensive *defensible* (documented-ceiling) value.
   *(Surfaced: if the owner intends a literal 1.4×, flip the tokenizer-inflation constant in `build_routing_table.mjs`.)*
 - **gpt-5.5 272K price cliff.** Price at the **post-cliff** rate (`$10` in / `$45` out) whenever
@@ -76,16 +76,16 @@ Per-model rates live in the dataset's `pricing` block; the blend/multiplier cons
   provably sub-cliff**. When uncertain, use the cliff (worst-case) rate.
 
 Records: the blend's cliff side is recorded as `cost_blend.price_cliff_side` (`"above"`/`"below"`/
-`"n/a"`) in the **audit** metadata (`routing-table-audit.json`) — the lean canonical table
+`"n/a"`) in the **audit** metadata (`routing-table-audit.json`) : the lean canonical table
 (`schema_version` 2) no longer carries `cost_blend` (see `../provider-json-emission.md`). (#19)
 `cost_blend.above_cliff_cost_figure` is also recorded **audit-only**: the blend cost at the
 post-cliff rates ($10 in / $45 out), at the reference blend (100K in / 20K out), hiddenMult=0
-excluded. Non-null only when a cliff exists. This figure is for `G_CTX_272` route-time context — it
+excluded. Non-null only when a cliff exists. This figure is for `G_CTX_272` route-time context : it
 is never used in the scoring formula, only in the audit for informational provenance.
 
 ---
 
-## SOP-3 — Sourcing Policy (tier-move gate)
+## SOP-3 : Sourcing Policy (tier-move gate)
 
 **Rule.** A thin-sourced number constrains how far it may move a pairing:
 
@@ -102,4 +102,4 @@ Label provenance on the pairing's `basis` field per `citations-labels.md` (`[UNV
 
 ---
 
-*Author: Lexi Blackburn — https://github.com/Heretyc/ — June 2026*
+*Author: Lexi Blackburn : https://github.com/Heretyc/ : June 2026*

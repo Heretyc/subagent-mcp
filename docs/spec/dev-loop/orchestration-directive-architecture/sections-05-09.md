@@ -1,16 +1,16 @@
 <!-- Part of orchestration-directive-architecture (split). Retrieval map: ../orchestration-directive-architecture.md -->
 
-## §5 — No-Hook Fail-Safe-ON + One-Time Opt-Out (D18 / S6 / D6 / D7)
+## section 5 : No-Hook Fail-Safe-ON + One-Time Opt-Out (D18 / S6 / D6 / D7)
 
 Hosts that inject **no** hook block (Gemini, desktop apps, any session without
-hook injection — D6) cannot report `state`. The tag is **ABSENT** ⇒ state is
+hook injection : D6) cannot report `state`. The tag is **ABSENT** ⇒ state is
 **UNKNOWN** (never an emitted `state="unknown"` value).
 
 On such a host (S6, three parts):
 
 1. **Emit the UNKNOWN-STATE WARNING** (base literal from C3):
-   `subagent-mcp: no hook injection detected — orchestration state unknown; defaulting to ON`
-2. **Briefly EXPLAIN WHY:** *no hook injection detected — cannot verify
+   `subagent-mcp: no hook injection detected : orchestration state unknown; defaulting to ON`
+2. **Briefly EXPLAIN WHY:** *no hook injection detected : cannot verify
    orchestration state; defaulting to ON to prevent uncontrolled inline
    execution.*
 3. **Allow a ONE-TIME per-session opt-out:** *If you are not currently running
@@ -19,25 +19,25 @@ On such a host (S6, three parts):
    user opts out, honor OFF **for this session only** (no persistence, no
    recording; the next new session defaults back to the ON warning).
 
-The **sub-agent first-line exemption (§6) is the ONLY automatic suppressor** of
-this fail-safe default — it prevents fail-safe-ON from recursing into a
+The **sub-agent first-line exemption (section 6) is the ONLY automatic suppressor** of
+this fail-safe default : it prevents fail-safe-ON from recursing into a
 fork-bomb.
 
 ---
 
-## §6 — Sub-Agent First-Line Exemption + `launch_agent` Upsert (D19 / D20 / S8)
+## section 6 : Sub-Agent First-Line Exemption + `launch_agent` Upsert (D19 / D20 / S8)
 
 ### 6.1 The exemption (D19)
 
 > **Any session whose prompt's literal FIRST LINE begins with the exact string
 > `<this is a request from a parent process>` SKIPS the ENTIRE init /
-> orchestration regime** — it ignores the INIT_BLOCK and every `<subagent-mcp>`
+> orchestration regime** : it ignores the INIT_BLOCK and every `<subagent-mcp>`
 > tag. This is the canonical child-session identifier and the **ONLY exception
-> to all mandates**. It exists to stop the §5 fail-safe-ON default from
+> to all mandates**. It exists to stop the section 5 fail-safe-ON default from
 > recursively orchestrating child sessions (fork-bomb prevention).
 
 "First line" = the literal line at character position 0 up to the first newline.
-**Leading blank lines do NOT count** — the marker must be physically line 1.
+**Leading blank lines do NOT count** : the marker must be physically line 1.
 Child identity is a **first-line SKIP, never a tag attribute** (the hook emits
 `""` for a sub-agent turn). Defensive guard: every injected directive (A5) also
 restates this first-line check so a stray injection into a child self-skips.
@@ -49,9 +49,9 @@ every sub-agent prompt when absent, and does **not** duplicate it when present.
 The contract is Appendix **A7** (`ensureParentMarker`). It is BOM-tolerant on
 the first-line comparison only, CRLF-safe, idempotent, and **never mutates the
 prompt body**. It is wired into **all** launch paths (Claude Agent SDK + Codex
-app-server). The D20 unit test (A7.2 / §11) is **GATING**.
+app-server). The D20 unit test (A7.2 / section 11) is **GATING**.
 
-### 6.3 Fork-bomb hardening — native-tool denial + depth cap (D19 extension)
+### 6.3 Fork-bomb hardening : native-tool denial + depth cap (D19 extension)
 
 Two code-enforced guards backstop the prose exemption so a compromised or
 confused child cannot recurse:
@@ -85,7 +85,7 @@ mid-line substrings do not count.
 
 ---
 
-## §7 — Dropout / HALT Semantics + Task-Abandonment Exit (D12 / D23 / S5)
+## section 7 : Dropout / HALT Semantics + Task-Abandonment Exit (D12 / D23 / S5)
 
 If subagent-mcp stops responding **while orchestration is ON**:
 
@@ -103,7 +103,7 @@ never converts the orchestrator into an inline worker.
 
 ---
 
-## §8 — Markers, Union Migration & Collapse (D9 / D17 / D22 / S2 / S3)
+## section 8 : Markers, Union Migration & Collapse (D9 / D17 / D22 / S2 / S3)
 
 ### 8.1 Markers (S2)
 
@@ -117,7 +117,7 @@ The outer `subagent-mcp:` prefix is **unchanged** (external-tooling stability);
 the `:managed:` segment makes the block self-describing; `schema=N` is the
 version/format dial (D9 bump). **No migration note inside the block** (D9).
 
-### 8.2 Union migration regex (S3) — verified vs real `init.ts`
+### 8.2 Union migration regex (S3) : verified vs real `init.ts`
 
 ```
 MIGRATE_RE = /<!-- subagent-mcp:(?:managed:)?begin\b[^>]*-->[\s\S]*?<!-- subagent-mcp:(?:managed:)?end -->/
@@ -141,7 +141,7 @@ one** schema=3 block. `removeManagedBlock` uses the same `MIGRATE_RE` so
 
 Any block labeled "do not edit between markers", carrying a `schema=N` marker, or
 otherwise looking machine-managed must be flagged-and-proposed before it is
-touched — sequencing, not new information, is the fix. Before making any edit:
+touched : sequencing, not new information, is the fix. Before making any edit:
 
 1. **Say so out loud, before editing:** the block looks installer-managed and is
    labeled do-not-edit; editing it in place risks a silent overwrite on the next
@@ -153,19 +153,19 @@ touched — sequencing, not new information, is the fix. Before making any edit:
    asks for it directly.
 
 Having the do-not-edit label and the `schema=N` marker in hand *before* the first
-edit is exactly the trigger — do not edit first and produce the adjacent-file
+edit is exactly the trigger : do not edit first and produce the adjacent-file
 alternative only after a revert demand.
 
 ---
 
-## §9 — Cross-Provider Behavior (D6 / D7 / D18)
+## section 9 : Cross-Provider Behavior (D6 / D7 / D18)
 
 | Host | Hook fires? | `state` source | Structured-question tool | Behavior |
 |---|---|---|---|---|
 | Claude Code CLI | Yes | hook tag | `AskUserQuestion` | authoritative ON/OFF |
 | Codex CLI | Yes | hook tag | `request-user-input` | authoritative ON/OFF |
-| Gemini CLI | No | — (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (§5) |
-| Desktop apps | Toggle session disable, inject nothing | — (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (§5) |
+| Gemini CLI | No | : (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (section 5) |
+| Desktop apps | Toggle session disable, inject nothing | : (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (section 5) |
 
 The supremacy clause (A4) is byte-identical in all three host files **regardless
 of whether that host fires hooks** (D7). No hook-core behavior change is

@@ -20,13 +20,13 @@ Start a new always-interactive sub-agent session.
 | `deadlock` | boolean | No | MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory - the 3rd attempt onward. Re-wording or splitting unchanged work does NOT reset attempts. Auto mode only: cannot be combined with provider/model/effort; from the 3rd attempt, drop those params. Passing false is identical to omitting it. |
 | `cwd` | string | No | Working directory for the agent session |
 
-[^haiku-effort]: `haiku` accepts any effort value but the effort is ignored — the Claude Agent SDK session takes no effort for Haiku.
+[^haiku-effort]: `haiku` accepts any effort value but the effort is ignored : the Claude Agent SDK session takes no effort for Haiku.
 
 Returns: `{ agent_id, status, provider, model, effort, task_category }`, plus `ruleset_applied: true` and `ruleset_original_selection` ONLY when the advanced ruleset altered the routing decision ([docs/spec/advanced-ruleset/visibility-and-failover.md](spec/advanced-ruleset/visibility-and-failover.md)). `launch_agent` runs zombie maintenance silently before launching; it does not return `zombie_report`. Culled agents remain observable as `zombie_killed` via `poll_agent`, `list_agents`, and `wait`.
 
 **Auto mode (recommended):** pass only `prompt` + `task_category`. The server reads its routing table, builds a best→worst candidate list for that category, starts the first interactive candidate that accepts startup, and silently falls back to the next-best on a launch-time failure.
 
-**Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. Rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`. Passing all three is `explicit` mode — a single direct attempt with no fallback. Omitting or partially supplying them on a bad combination is a hard error (see the spec).
+**Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. Rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`. Passing all three is `explicit` mode : a single direct attempt with no fallback. Omitting or partially supplying them on a bad combination is a hard error (see the spec).
 
 Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable`. Codex accepts only `gpt-5.5`.
 
@@ -121,13 +121,13 @@ With `verbose: true`, every entry in `finished` gains a `final_output` field car
 
 Each finished job is reported exactly once per `wait` call (deduplicated by an internal `waitReported` flag). Calling `wait` again after a timeout will block for another 15 minutes.
 
-`wait` also returns unreported `permission_requested` agents (alongside `finished`) so a parked sub-agent surfaces promptly — see [`respond_permission`](#respond_permission).
+`wait` also returns unreported `permission_requested` agents (alongside `finished`) so a parked sub-agent surfaces promptly : see [`respond_permission`](#respond_permission).
 
 ---
 
 ## `respond_permission`
 
-Answer a parked permission request for a gated sub-agent (parents only — children have no such tool). One-time only; creates no session-wide approvals. Available when `permissionsCeiling` is `auto`/`manual` (see [docs/spec/permissions.md](spec/permissions.md)).
+Answer a parked permission request for a gated sub-agent (parents only : children have no such tool). One-time only; creates no session-wide approvals. Available when `permissionsCeiling` is `auto`/`manual` (see [docs/spec/permissions.md](spec/permissions.md)).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -136,7 +136,7 @@ Answer a parked permission request for a gated sub-agent (parents only — child
 | `decision` | `"allow"` \| `"deny"` | Yes | Approve or deny the parked action |
 | `reason` | string | No | Note delivered to the sub-agent; required when allowing a request flagged `escalate_to_human` |
 
-The sub-agent continues regardless of the decision — a deny never kills it. Unanswered requests auto-deny after 5 minutes; the per-agent pending queue caps at 16. When a request is parked the agent's status is `permission_requested` and it appears in `poll_agent` (`pending_permissions`) and `list_agents` (`pending_permission_count`). `send_message` is rejected while any request is pending. In `auto` mode, irreversible residue with `escalation: "irreversible-only"` is surfaced as `escalate_to_human: true`; the orchestrator must route it to the human.
+The sub-agent continues regardless of the decision : a deny never kills it. Unanswered requests auto-deny after 5 minutes; the per-agent pending queue caps at 16. When a request is parked the agent's status is `permission_requested` and it appears in `poll_agent` (`pending_permissions`) and `list_agents` (`pending_permission_count`). `send_message` is rejected while any request is pending. In `auto` mode, irreversible residue with `escalation: "irreversible-only"` is surfaced as `escalate_to_human: true`; the orchestrator must route it to the human.
 
 ---
 
@@ -150,7 +150,7 @@ Toggle or query the per-project ORCHESTRATION MODE marker (keyed by cwd).
 
 Returns: `{ orchestration_mode, marker_path }`.
 
-When ON, act as a delegate-only orchestrator: every step runs in a sub-agent; inline-by-right does not exist; a non-delegable atomic step needs a one-time user-approved exception. The marker persists across restarts/sessions until a permitted disable. DISABLE is never on your own initiative — you may PROPOSE OFF, but only explicit user permission (via the structured-question tool) may set `enabled:false`. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing.
+When ON, act as a delegate-only orchestrator: every step runs in a sub-agent; inline-by-right does not exist; a non-delegable atomic step needs a one-time user-approved exception. The marker persists across restarts/sessions until a permitted disable. DISABLE is never on your own initiative : you may PROPOSE OFF, but only explicit user permission (via the structured-question tool) may set `enabled:false`. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing.
 
 ---
 
