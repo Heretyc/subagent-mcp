@@ -19,7 +19,7 @@ Use this checklist for repository work. The normative policy is
 - Branch names must pass `git check-ref-format --branch`.
 - Use `<type>/<short-topic>` or `<type>/<actor>/<short-topic>`.
 - Allowed types: `feature`, `fix`, `hotfix`, `release`, `docs`, `test`,
-  `refactor`, `chore`, `agent`, `user`, `integration`.
+  `refactor`, `chore`, `agent`, `user`, `integration`, `audit`.
 - Use lowercase ASCII, digits, hyphen, underscore, period, and single slash
   separators only.
 - Do not reuse merged, closed, abandoned, or stale branches.
