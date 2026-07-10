@@ -1,4 +1,4 @@
-<!-- INJECTED PER-PROMPT REMINDER — BINDING -->
+<!-- INJECTED PER-PROMPT REMINDER : BINDING -->
 <subagent-mcp state="on" kind="reminder">
 FIRST-LINE EXEMPTION: if this session's prompt's literal first line begins with "<this is a request from a parent process>", ignore this entire tag (leading blank lines don't count; you are a sub-agent).
 

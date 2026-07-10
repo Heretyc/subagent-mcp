@@ -4,7 +4,7 @@ Status: normative spec for the machine-global cap on **live** subagents
 enforced by `launch_agent`. This directory is the canonical home for the cap
 design. Implementation lives in `src/**` (chiefly `src/concurrency.ts`); this
 directory is design + contract only. The cap is independent of model routing
-and of orchestration mode — it governs only how many subagents may be alive at
+and of orchestration mode : it governs only how many subagents may be alive at
 once across the whole machine.
 
 ## What the global concurrency cap is
@@ -14,11 +14,11 @@ the same time** across EVERY session, process, and user on the host. The whole
 recursive descendant tree counts toward ONE number: every descendant runs its
 own MCP server and its own `launch_agent`, so the tree-wide total is emergent
 from shared state, not computed by any PID-tree walk or liveness probe. When
-the limit is reached, `launch_agent` is REJECTED — the cap never queues or
+the limit is reached, `launch_agent` is REJECTED : the cap never queues or
 blocks. The limit value lives in a user-editable `global-subagent-mcp-config.jsonc`
 config that is re-read live on every call and preserved across package updates
 by the same bracket that protects `advanced-ruleset.py`.
-See `docs/spec/permissions.md` §4 for the 2.12.5 rename; `global-concurrency.jsonc` is a deprecated fallback.
+See `docs/spec/permissions.md` section 4 for the 2.12.5 rename; `global-concurrency.jsonc` is a deprecated fallback.
 
 `launch_agent` silently runs zombie reaping before cap rejection but does not
 return `zombie_report`; culled `zombie_killed` status remains observable through
@@ -36,9 +36,9 @@ return `zombie_report`; culled `zombie_killed` status remains observable through
 
 ## Related specs
 
-- `../advanced-ruleset/scaffold-and-deployment.md` — the cap config reuses this
+- `../advanced-ruleset/scaffold-and-deployment.md` : the cap config reuses this
   leaf's preserve-on-update 3-site bracket and gen-scaffold / copy-provider
   build chain verbatim; read it before touching retention or packaging.
-- `../auto-mode/_INDEX.md` — the `launch_agent` candidate-selection and attempt
+- `../auto-mode/_INDEX.md` : the `launch_agent` candidate-selection and attempt
   loop the cap check sits in front of (the check runs after routing + the
   advanced-ruleset hook, before the first spawn attempt).

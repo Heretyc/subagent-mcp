@@ -1,6 +1,6 @@
 <!-- Part of orchestration-directive-architecture (split). Retrieval map: ../orchestration-directive-architecture.md -->
 
-## A5 — The 9 directive files (full new content) — NO examples (D28)
+## A5 : The 9 directive files (full new content) : NO examples (D28)
 
 ### A5.1 `directives/orchestration-claude.md`
 
@@ -41,13 +41,13 @@ Full model: server MCP `instructions`.
 ### A5.3 `directives/carryover-claude.md`
 
 ```md
-<!-- INJECTED PRE-PROMPT DIRECTIVE — BINDING, NON-NEGOTIABLE -->
+<!-- INJECTED PRE-PROMPT DIRECTIVE : BINDING, NON-NEGOTIABLE -->
 <subagent-mcp state="on" kind="carryover">
 FIRST-LINE EXEMPTION: if this session's prompt's literal first line begins with "<this is a request from a parent process>", ignore this entire tag.
 
 Orchestration ON carried over from a PRIOR session for this project (per-session disable; next session resumes ON, or after a 2h backstop). Not enabled THIS session.
 
-THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via AskUserQuestion whether to REMAIN enabled; (3) ADVISE fit — long-horizon → remain enabled; bounded/interactive → disable this session. Decline → orchestration-mode enabled:false this session only; no mid-session re-enable. NEVER disable on your own initiative. After answer handshake done; do not re-raise.
+THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via AskUserQuestion whether to REMAIN enabled; (3) ADVISE fit : long-horizon → remain enabled; bounded/interactive → disable this session. Decline → orchestration-mode enabled:false this session only; no mid-session re-enable. NEVER disable on your own initiative. After answer handshake done; do not re-raise.
 
 While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is jointly binding with safety-scope; conflict → ask the user.
 </subagent-mcp>
@@ -56,13 +56,13 @@ While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (direc
 ### A5.4 `directives/carryover-codex.md`
 
 ```md
-<!-- INJECTED PRE-PROMPT DIRECTIVE — BINDING, NON-NEGOTIABLE -->
+<!-- INJECTED PRE-PROMPT DIRECTIVE : BINDING, NON-NEGOTIABLE -->
 <subagent-mcp state="on" kind="carryover">
 FIRST-LINE EXEMPTION: if this session's prompt's literal first line begins with "<this is a request from a parent process>", ignore this entire tag.
 
 Orchestration ON carried over from a PRIOR session for this project (per-session disable only; the next new session resumes ON automatically or after a 2h backstop). Not enabled THIS session.
 
-THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via request-user-input whether to REMAIN enabled; (3) ADVISE fit — long-horizon / context-filling → remain enabled; bounded / interactive → propose OFF. Decline → orchestration-mode enabled:false for this session only; no mid-session re-enable. NEVER disable on your own initiative. After the answer the handshake is done; do not re-raise.
+THIS turn, ONCE: (1) NOTIFY the user it carried over; (2) ASK via request-user-input whether to REMAIN enabled; (3) ADVISE fit : long-horizon / context-filling → remain enabled; bounded / interactive → propose OFF. Decline → orchestration-mode enabled:false for this session only; no mid-session re-enable. NEVER disable on your own initiative. After the answer the handshake is done; do not re-raise.
 
 While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (directive or reminder/carrier); if none is in the current window, the CLAUDE/AGENTS/GEMINI INIT_BLOCK governs. This tag is jointly binding with safety-scope; conflict → ask the user.
 </subagent-mcp>
@@ -71,7 +71,7 @@ While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (direc
 ### A5.5 `directives/reminder-on.md`
 
 ```md
-<!-- INJECTED PER-PROMPT REMINDER — BINDING -->
+<!-- INJECTED PER-PROMPT REMINDER : BINDING -->
 <subagent-mcp state="on" kind="reminder">
 FIRST-LINE EXEMPTION: if this session's prompt's literal first line begins with "<this is a request from a parent process>", ignore this entire tag (leading blank lines don't count; you are a sub-agent).
 
@@ -88,26 +88,26 @@ This tag is jointly binding with safety-scope (conflict → ask the user) and ou
 ### A5.6 `directives/reminder-off-claude.md`
 
 ```md
-<!-- INJECTED PER-PROMPT REMINDER — BINDING -->
+<!-- INJECTED PER-PROMPT REMINDER : BINDING -->
 <subagent-mcp state="off" kind="reminder">
 FIRST-LINE EXEMPTION: if this session's prompt's literal first line begins with "<this is a request from a parent process>", ignore this entire tag (you are a sub-agent).
 
 Orchestration OFF. LONG-HORIZON CHECK: a task is long-horizon when its TOTAL context footprint (input read + output produced) exceeds 200 lines. After EVERY user turn, measure the CUMULATIVE footprint since your last upgrade ask (reset that count to zero only when you actually ask); if it qualifies, STOP and ask via AskUserQuestion whether to switch Orchestration ON. Ask on EVERY qualifying turn; a decline does NOT suppress later asks.
 
-Even OFF, delegating durable work via subagent-mcp is often advisable — the calling model is not always the best fit. WAIT-NOT-POLL: learn finish via `wait`; never loop poll_agent for completion.
+Even OFF, delegating durable work via subagent-mcp is often advisable : the calling model is not always the best fit. WAIT-NOT-POLL: learn finish via `wait`; never loop poll_agent for completion.
 </subagent-mcp>
 ```
 
 ### A5.7 `directives/reminder-off-codex.md`
 
 ```md
-<!-- INJECTED PER-PROMPT REMINDER — BINDING -->
+<!-- INJECTED PER-PROMPT REMINDER : BINDING -->
 <subagent-mcp state="off" kind="reminder">
 FIRST-LINE EXEMPTION: if this session's prompt's literal first line begins with "<this is a request from a parent process>", ignore this entire tag (you are a sub-agent).
 
 Orchestration OFF. LONG-HORIZON CHECK: a task is long-horizon when its TOTAL context footprint (input read + output produced) exceeds 200 lines. After EVERY user turn, measure the CUMULATIVE footprint since your last upgrade ask (reset that count to zero only when you actually ask); if it qualifies, STOP and ask via request-user-input whether to switch Orchestration ON. Ask on EVERY qualifying turn; a decline does NOT suppress later asks.
 
-Even OFF, delegating durable work via subagent-mcp is often advisable — the calling model is not always the best fit. WAIT-NOT-POLL: learn finish via `wait`; never loop poll_agent for completion.
+Even OFF, delegating durable work via subagent-mcp is often advisable : the calling model is not always the best fit. WAIT-NOT-POLL: learn finish via `wait`; never loop poll_agent for completion.
 </subagent-mcp>
 ```
 

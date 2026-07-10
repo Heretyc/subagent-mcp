@@ -108,7 +108,7 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
     branch protection on the default branch (applied to `main`: enforce_admins,
     PR-required, force-push/deletion blocked); Tier-2 (best-effort) = local
     `core.hooksPath=.githooks` pre-commit/pre-push running the gate (bypassable,
-    per-clone — every clone must run `node scripts/install_worktree_hooks.mjs`);
+    per-clone : every clone must run `node scripts/install_worktree_hooks.mjs`);
     Tier-3 = the agent-run pre-action gate. Full spec + naming + provider notes:
     `docs/spec/dev-loop/worktree-enforcement/`.
 41. Before opening any PR, ask the owner using the provider-appropriate
@@ -125,9 +125,9 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
    Run `node scripts/check_worktree.mjs` to confirm compliance.
 3. Edit: keep changes scoped. Preserve user changes. Separate mechanical
    rewrites from behavior changes.
-4. Commit: inspect staged diff, run validation — including `node
+4. Commit: inspect staged diff, run validation : including `node
    scripts/check_mcp_compliance.mjs` (vendor metadata limits; FAIL blocks) and
-   the pre-commit contradiction-checker — then commit the smallest coherent unit
+   the pre-commit contradiction-checker : then commit the smallest coherent unit
    only when requested or workflow-required.
 5. PR: open draft PRs for early feedback and ready PRs only after self-review,
    validation, description, risks, and blockers are complete.

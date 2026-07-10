@@ -1,7 +1,7 @@
-# Install locations — permanent only
+# Install locations : permanent only
 
 The addon must run from a **permanent, user-owned** path. A temporary or
-ephemeral path "works" until it is cleaned up, rebuilt, or moved — then every
+ephemeral path "works" until it is cleaned up, rebuilt, or moved : then every
 vendor that points at it breaks silently. Enforce this on BOTH the build source
 and the install target.
 
@@ -9,15 +9,15 @@ and the install target.
 
 Reject if a normalized, resolved path matches any of these:
 
-- A git **worktree** — any path under a `*.worktrees/` dir, or any path whose
+- A git **worktree** : any path under a `*.worktrees/` dir, or any path whose
   `git rev-parse --git-common-dir` differs from its `--absolute-git-dir`
   (a linked worktree). Worktrees are throwaway by policy.
-- The OS temp dir — `os.tmpdir()` and anything under it. On Windows that
-  includes `%TEMP%`, `%TMP%`, and `…\AppData\Local\Temp\…`. On POSIX, `/tmp`,
+- The OS temp dir : `os.tmpdir()` and anything under it. On Windows that
+  includes `%TEMP%`, `%TMP%`, and `...\AppData\Local\Temp\...`. On POSIX, `/tmp`,
   `/TMP`, `$TMPDIR`.
 - A **`Downloads`** folder (any case).
 - The live **dev checkout** you are actively editing (install a decoupled copy
-  instead — see `packaging.md`).
+  instead : see `packaging.md`).
 - Any path segment matching `(?i)\b(temp|tmp)\b`, or a UNC/removable/transient
   mount you do not control.
 
@@ -31,9 +31,9 @@ Reject if a normalized, resolved path matches any of these:
   - macOS/Linux: typically `<prefix>/lib/node_modules/@heretyc/subagent-mcp`.
   - Note: Windows global modules are under `<prefix>\node_modules`, POSIX under
     `<prefix>/lib/node_modules`. Always resolve with `npm root -g` rather than
-    hardcoding — it returns the correct dir on every platform.
+    hardcoding : it returns the correct dir on every platform.
 - **A dedicated user dir:** e.g. `~/.subagent-mcp/` or
-  `~/Library/Application Support/subagent-mcp/` (macOS) — acceptable if you copy
+  `~/Library/Application Support/subagent-mcp/` (macOS) : acceptable if you copy
   the full package (`dist/`, `directives/`, `package.json`, and resolved
   `node_modules`) there and point config at it. Global npm is simpler because it
   resolves dependencies for you.

@@ -1,6 +1,6 @@
 <!-- Part of registration (split). Retrieval map: ../registration.md -->
 
-# Claude Code CLI — MCP server registration
+# Claude Code CLI : MCP server registration
 
 **Load when:** registering the bare `subagent-mcp` server with Claude Code (CLI
 or Desktop), choosing user vs project scope, or locating the Claude Desktop
@@ -10,7 +10,7 @@ config file.
 
 Replace the path in each example with the absolute path where you cloned the repo.
 
-**macOS / Linux** — run once from any directory:
+**macOS / Linux** : run once from any directory:
 
 ```bash
 claude mcp add subagent-mcp -- node /abs/path/to/subagent-mcp/dist/index.js

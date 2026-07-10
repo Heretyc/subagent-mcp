@@ -1,8 +1,8 @@
-# Install — Codex Desktop / IDE extension (MCP-only)
+# Install : Codex Desktop / IDE extension (MCP-only)
 
 The Codex Desktop / IDE extension has **no per-turn hook host**, so it gets the
 **MCP server only**. The `orchestration-mode` tool still flips the marker, but
-**nothing is injected per turn** — documented degradation, not a bug. For
+**nothing is injected per turn** : documented degradation, not a bug. For
 per-turn injection use the [Codex CLI](codex-cli.md) host.
 
 Do the [build prerequisite](_INDEX.md) first.
@@ -13,7 +13,7 @@ Do the [build prerequisite](_INDEX.md) first.
 
 The Desktop/IDE extension and the Codex CLI **share one** `~/.codex/config.toml`
 (Windows: `C:\Users\YourName\.codex\config.toml`). If you already registered the
-server for the CLI, **it is already available here** — no second step.
+server for the CLI, **it is already available here** : no second step.
 
 If you have not registered it yet, add it once:
 
@@ -35,7 +35,7 @@ codex mcp add subagent-mcp -- node /abs/path/to/subagent-mcp/dist/index.js
 ```
 
 The `hooks.json` per-turn hook from the [Codex CLI guide](codex-cli.md) is
-**not** loaded here — Desktop/IDE has no hook host. Do not expect per-turn
+**not** loaded here : Desktop/IDE has no hook host. Do not expect per-turn
 injection.
 
 ---

@@ -1,4 +1,4 @@
-# Claude Code — Worktree-Isolation Specifics
+# Claude Code : Worktree-Isolation Specifics
 
 The Worktree-Isolation Mandate (`_INDEX.md`) binds Claude Code exactly as it binds Codex
 and humans. This page covers Claude-specific traps and the compliant path.
@@ -7,7 +7,7 @@ and humans. This page covers Claude-specific traps and the compliant path.
 
 Claude Code's built-in `EnterWorktree` tool does NOT produce a compliant worktree:
 
-- It AUTO-NAMES the branch `worktree-<name>` and replaces `/` with `+` — e.g. a request
+- It AUTO-NAMES the branch `worktree-<name>` and replaces `/` with `+` : e.g. a request
   for `chore/worktree-enforcement-sop` becomes the branch
   `worktree-chore+worktree-enforcement-sop`. That has the wrong type prefix
   (`worktree-`), uses `+` instead of `/`, and FAILS the formula regex.
@@ -39,7 +39,7 @@ By default NO tool mechanically blocks a primary-tree file EDIT. Claude Code's
 OPTIONAL `PreToolUse` hook below. Edit-time control here is best-effort (the optional
 hook) plus the agent self-enforced pre-action gate (Tier 3). The AUTHORITATIVE guarantee
 is the Tier-1 server-side branch-protection merge boundary on `main` (see
-`enforcement.md`) — not anything at edit time.
+`enforcement.md`) : not anything at edit time.
 
 ## OPTIONAL PreToolUse hook (best-effort, edit-time)
 
@@ -72,7 +72,7 @@ allowlist. This hook is a client-side convenience layered on top of Tier-1.
 
 ## Do not
 
-- Do not use `EnterWorktree` and then rename the branch to dodge the gate — the gate
+- Do not use `EnterWorktree` and then rename the branch to dodge the gate : the gate
   re-runs on every mutating action.
 - Do not edit in the primary tree "just this once"; the mandate has no trivial-change
   exemption.

@@ -2,7 +2,7 @@
 
 # Orchestration Directive Architecture (schema=3)
 
-> **D21 — THIS DOCUMENT IS THE GENERATIVE SOURCE OF TRUTH.** The MCP
+> **D21 : THIS DOCUMENT IS THE GENERATIVE SOURCE OF TRUTH.** The MCP
 > `instructions` string (`src/index.ts`), the upserted `INIT_BLOCK`
 > (`src/init.ts`), the nine `directives/*.md` files, and both tool descriptions
 > are **DERIVED** from this document. They must not drift from it. When any of
@@ -12,7 +12,7 @@
 
 ---
 
-## §0 — Overview & Layering
+## section 0 : Overview & Layering
 
 ### 0.1 Why this exists
 
@@ -42,7 +42,7 @@ hook directives (directives/*.md)                            ← short, state-aw
   reconnect (S9). It carries the full model **plus labeled examples** (D28).
 - **INIT_BLOCK** is a **FAT** block (S10): it carries the full ON operating
   model, the jointly binding precedence clause, and the read-escalation ladder
-  **inline and verbatim** — so a session is fully governed even when the MCP
+  **inline and verbatim** : so a session is fully governed even when the MCP
   `instructions` are stale or absent. It carries **no few-shot examples** (D28).
 - **Directives** are short, state-aware per-turn reminders that point back to
   the MCP `instructions`; they restate only the load-bearing rules.
@@ -57,9 +57,9 @@ Two fragments are **deliberately duplicated** and MUST be kept byte-identical:
 | Hook-state / jointly binding clause (Appendix **A4**) | INIT_BLOCK as upserted into CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md | D7 | `test/mirror-fragments.test.mjs` (S4, non-gating) |
 
 Anti-drift mechanism (S4) = **convention** (this doc + the derivation map in
-§8) **plus** a mirror byte-identity CI test. The mirror test is **NON-GATING**
-(it does not block merge); the three S7 tests are the hard gate (§11). Rejected:
-fragment `.txt` registry files (C4) and a build-step generator — both add
+section 8) **plus** a mirror byte-identity CI test. The mirror test is **NON-GATING**
+(it does not block merge); the three S7 tests are the hard gate (section 11). Rejected:
+fragment `.txt` registry files (C4) and a build-step generator : both add
 format/EOL/tooling fragility for no safety gain over convention + CI.
 
 ### 0.4 Known limitations (status)
@@ -75,7 +75,7 @@ format/EOL/tooling fragility for no safety gain over convention + CI.
 
 ---
 
-## §1 — Single Tag Schema (S1 / D26)
+## section 1 : Single Tag Schema (S1 / D26)
 
 There is exactly **ONE** tag type. Its **attributes** select the variant (D26).
 It replaces the legacy three-name zoo (`<ORCHESTRATION-INVARIANT>`,
@@ -96,7 +96,7 @@ The tag name equals the MCP **server** name. To stop prose mentions of the
 server from being read as authoritative tags:
 
 > **A token counts as this tag ONLY when it appears as a real tag bearing a
-> `state` attribute — i.e. `<subagent-mcp state="...">`. A bare mention of
+> `state` attribute : i.e. `<subagent-mcp state="...">`. A bare mention of
 > "subagent-mcp" in ordinary prose is NEVER a tag and carries no authority.**
 
 This rule is stated verbatim in the INIT_BLOCK (A1) and the MCP `instructions`
@@ -106,17 +106,17 @@ This rule is stated verbatim in the INIT_BLOCK (A1) and the MCP `instructions`
 
 - **UNKNOWN = tag ABSENCE**, never a `state` value. A hookless host injects
   *nothing*; there is no emitter that could add a `state="unknown"` tag, so the
-  value would be dead. Absence is the only honest signal (see §5, §8 R-NOHOOK).
+  value would be dead. Absence is the only honest signal (see section 5, section 8 R-NOHOOK).
 - **Sub-agent identity = first-line skip**, never a `kind` value. Children are
   identified by the literal first line `<this is a request from a parent
-  process>` (the hook emits `""` for a child turn — see §6, §8 R-EXEMPT).
+  process>` (the hook emits `""` for a child turn : see section 6, section 8 R-EXEMPT).
 - **No constant decoration attribute.** Hook authority is conveyed by the tag's
   PRESENCE plus the hook-state / jointly binding clause (A4), not by an
   attribute.
 
 ---
 
-## §2 — Precedence & Joint Binding (D5 / D7)
+## section 2 : Precedence & Joint Binding (D5 / D7)
 
 `<subagent-mcp>` hook tags and repo/system safety-scope rules are **jointly
 binding**: both bind at the same priority, and neither is read as outranking
@@ -135,11 +135,11 @@ CLAUDE.md / AGENTS.md / GEMINI.md (D7).
 
 ---
 
-## §3 — Orchestration ON Model (D1 / D2 / D8 / D13 / D14 / D29 / S10)
+## section 3 : Orchestration ON Model (D1 / D2 / D8 / D13 / D14 / D29 / S10)
 
 When ON you are an **ORCHESTRATOR**.
 
-- **ALLOWED TOOLS — exhaustive:** ONLY the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. **NO direct reads or writes of any kind** (D2).
+- **ALLOWED TOOLS : exhaustive:** ONLY the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. **NO direct reads or writes of any kind** (D2).
 - **"Inline-by-right" DOES NOT EXIST.** Every step runs in a sub-agent.
 - **One-time exception protocol (D8):** if one atomic step truly cannot run in a
   sub-agent, ASK the user via the structured-question tool for a **one-time
@@ -168,7 +168,7 @@ reads; the orchestrator **NEVER** reads those files.
 
 ---
 
-## §4 — Orchestration OFF Model (B / D3 / D4 / D11 / D15 / D24 / D27)
+## section 4 : Orchestration OFF Model (B / D3 / D4 / D11 / D15 / D24 / D27)
 
 When OFF you work solo, **but** you run a per-turn upgrade check.
 
@@ -184,14 +184,14 @@ When OFF you work solo, **but** you run a per-turn upgrade check.
 - **Reset:** reset the cumulative counter to zero **ONLY** when you actually
   ask (stated identically in INIT_BLOCK and the OFF directives, so the reset is
   not asymmetric).
-- **You never assert ON yourself in OFF mode** — you only ask; state is
+- **You never assert ON yourself in OFF mode** : you only ask; state is
   authoritative from the hook.
 
 **THE 5-CALL RULE IS DELETED (D11 / D24).** It is gone from the INIT_BLOCK, MCP
 `instructions`, both tool descriptions, all nine directive files, and
 `hook-core.ts` source comments; the repo managed blocks purge it automatically
 on re-upsert. The OFF >200-line cumulative footprint check **silently replaces**
-it. A permanent grep gate (`test/no-five-call.test.mjs`, §11) keeps it gone.
+it. A permanent grep gate (`test/no-five-call.test.mjs`, section 11) keeps it gone.
 
 ---
 

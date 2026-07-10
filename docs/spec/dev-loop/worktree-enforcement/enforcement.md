@@ -1,4 +1,4 @@
-# Enforcement — Gate, Hooks, CI, Loophole Closures
+# Enforcement : Gate, Hooks, CI, Loophole Closures
 
 Read before any mutating action. The pre-action gate is MANDATORY and provider-equal.
 
@@ -9,7 +9,7 @@ Run `node scripts/check_worktree.mjs` (or apply this logic) BEFORE any mutating 
 1. `git rev-parse --is-inside-work-tree` must be `true`. Else FAIL: not in a git work
    tree.
 2. `gitDir = git rev-parse --absolute-git-dir`; `commonDir = realpath(git rev-parse
-   --git-common-dir)`. If `realpath(gitDir) === commonDir` → FAIL: primary working tree —
+   --git-common-dir)`. If `realpath(gitDir) === commonDir` → FAIL: primary working tree :
    all mutating work must be in a linked worktree. Record `primaryTop = realpath(parent
    of commonDir)`.
 3. `branch = git rev-parse --abbrev-ref HEAD`. If `HEAD` (detached) → FAIL. The protected
@@ -31,7 +31,7 @@ action.
 ## Immutable / read-only allowlist (EXEMPT from the gate, allowed anywhere)
 
 These never mutate working tree, index, refs, stash, or remote, so they run in the
-primary tree too — do NOT gate them:
+primary tree too : do NOT gate them:
 
 - Reading files; `cat`/`less`/editor open without save; grep / glob / ls / find.
 - `git status`, `git log`, `git diff`, `git show`, `git branch --list`,
@@ -39,8 +39,8 @@ primary tree too — do NOT gate them:
 - `git fetch` WITHOUT merge/pull; read-only `git ls-files`, `git rev-parse`, `git blame`.
 - Any read-only query or analysis.
 
-Anything that writes — file create/edit/delete, `git add|commit|branch|merge|rebase|
-reset|clean|stash|push`, dependency/lockfile edits, code-gen that writes — is GATED.
+Anything that writes : file create/edit/delete, `git add|commit|branch|merge|rebase|
+reset|clean|stash|push`, dependency/lockfile edits, code-gen that writes : is GATED.
 
 ## Check-script contract (`scripts/check_worktree.mjs`)
 
@@ -49,9 +49,9 @@ reset|clean|stash|push`, dependency/lockfile edits, code-gen that writes — is 
 - Standalone-runnable and hook-runnable.
 - Prints `WORKTREE-GATE: PASS` (exit 0) OR `WORKTREE-GATE: FAIL` + numbered reasons +
   the exact remediation command (exit 1).
-- Third path — delegated sub-agents (`SUBAGENT_MCP_SUBAGENT=1`): short-circuits BEFORE
+- Third path : delegated sub-agents (`SUBAGENT_MCP_SUBAGENT=1`): short-circuits BEFORE
   any isolation check, prints `check_worktree: delegated sub-agent
-  (SUBAGENT_MCP_SUBAGENT=1) — worktree isolation skipped; operating in provided cwd.`
+  (SUBAGENT_MCP_SUBAGENT=1) : worktree isolation skipped; operating in provided cwd.`
   (exit 0), and does NOT emit `WORKTREE-GATE: PASS`.
 
 ## Git hooks
@@ -80,28 +80,28 @@ protected/default branch remains blocked by Tier-1 branch protection
 
 Enforcement is TIERED. Only Tier 1 is authoritative; Tiers 2-3 are best-effort.
 
-- TIER 1 — AUTHORITATIVE (server-side). A GitHub branch-protection ruleset on the
+- TIER 1 : AUTHORITATIVE (server-side). A GitHub branch-protection ruleset on the
   DEFAULT branch. It IS applied to this repo's `main` with: `enforce_admins=true`,
   required pull request (0 approvals), `allow_force_pushes=false`,
   `allow_deletions=false`, `required_conversation_resolution=true`,
   `required_status_checks=null`. This blocks ALL direct pushes, force-pushes, and
-  deletions to `main` — for EVERYONE, admins included; every change lands via PR. This,
+  deletions to `main` : for EVERYONE, admins included; every change lands via PR. This,
   not local hooks, is the real guarantee. Reproduce/re-apply idempotently with
   `node scripts/apply_branch_protection.mjs` (ruleset in
   `.github/main-branch-protection.json`).
-- TIER 2 — LOCAL best-effort. `core.hooksPath=.githooks` `pre-commit`/`pre-push` run
+- TIER 2 : LOCAL best-effort. `core.hooksPath=.githooks` `pre-commit`/`pre-push` run
   `scripts/check_worktree.mjs`. Bypassable via `--no-verify` or
   `-c core.hooksPath=`, and ABSENT on a fresh clone until
   `node scripts/install_worktree_hooks.mjs` runs. Therefore advisory, NOT
   authoritative. Every clone MUST run the installer (clone bootstrap).
-- TIER 3 — AGENT self-enforcement. The `AGENTS.md` mandate plus the pre-action gate
+- TIER 3 : AGENT self-enforcement. The `AGENTS.md` mandate plus the pre-action gate
   that compliant agents run themselves; optionally a Claude `PreToolUse` hook for
   edit-time blocking (see `claude.md`). Depends on agent compliance; not a mechanical
   guarantee.
 
 `.github/workflows/worktree-guard.yml` (owner-approved exception to directive 23;
 `contents: read` only; NO checkout; NO PR-code execution) is a PR-time branch-NAME
-check only — a fast signal, NOT the Tier-1 block. It validates the PR head against the
+check only : a fast signal, NOT the Tier-1 block. It validates the PR head against the
 formula and asserts the base is the repo's default branch, treating all `github.event`
 fields as untrusted.
 

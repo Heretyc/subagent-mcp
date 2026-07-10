@@ -19,7 +19,7 @@ Rule: Claude model ids map to `claude`; any GPT/codex-family id maps to
 a launch-time failure for that candidate; advance). Note: the launch model enum
 is currently `["haiku","sonnet","opus","opus-4-8","fable","gpt-5.5"]`; if a future
 pairing names a codex sibling not in that enum, it cannot be launched by the
-current `buildCommand` and is skipped — flag for B2 as a known limitation, do
+current `buildCommand` and is skipped : flag for B2 as a known limitation, do
 not silently coerce it to `gpt-5.5`.
 
 ## effort normalization (table tier → launch enum)
@@ -45,4 +45,4 @@ pairing's `effort` before passing to `buildCommand`:
 The resolver should produce a `{ provider, launchModel, launchEffort }` triple
 per surviving candidate. `buildCommand` + `resolveEffort` remain the final
 authority; if they still throw for an edge combo, the attempt loop treats it as
-a launch failure and advances (auto/partial modes) — defense in depth.
+a launch failure and advances (auto/partial modes) : defense in depth.

@@ -153,6 +153,8 @@ function verify(install) {
     "dist/hooks/orchestration-codex.js",
     "dist/advanced-ruleset.py",
     "dist/global-subagent-mcp-config.jsonc",
+    "directives/carryover-claude.md",
+    "directives/carryover-codex.md",
     "directives/orchestration-claude.md",
     "directives/orchestration-codex.md",
     "directives/short-on.md",

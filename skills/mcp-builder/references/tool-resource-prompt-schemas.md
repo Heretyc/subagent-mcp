@@ -20,4 +20,4 @@ This page is an index. Detail lives in `tool-resource-prompt-schemas/`. Load the
 - `inputSchema` root MUST be `"type": "object"`; omitting the `required` array makes all fields optional.
 - Use `isError: true` in the result for recoverable execution errors; reserve protocol errors (e.g. `-32602`) for protocol-level issues.
 - `name` is `verb_noun`, alphanumeric + underscore, unique within the server; `description` drives LLM tool selection.
-- Claude Code truncates tool descriptions / server instructions at 2KB — put critical info first.
+- Claude Code truncates tool descriptions / server instructions at 2KB : put critical info first.

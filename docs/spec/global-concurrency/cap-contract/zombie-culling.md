@@ -24,7 +24,7 @@ the current user's namespace**: the slot dir must be the caller's own
 `isSubagentChildProcess(pid, meta)` must confirm the process command line looks
 like a `claude`/`codex`/`gemini` provider child (via `/proc/<pid>/cmdline` on POSIX
 or a `Win32_Process` query on Windows). If any check fails, culling **deletes the
-stale marker without killing** — no attacker-directed or cross-user kills. When
+stale marker without killing** : no attacker-directed or cross-user kills. When
 verified and the owner is gone, culling terminates the full tree:
 
 ```text

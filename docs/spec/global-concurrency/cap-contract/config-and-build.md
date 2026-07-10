@@ -3,7 +3,7 @@
 - Canonical source: `src/global-subagent-mcp-config.jsonc`.
 - Installed path: `dist/global-subagent-mcp-config.jsonc` beside compiled modules.
 - Keys: `globalConcurrentSubagents`, `checkForUpdates`.
-- See `docs/spec/permissions.md` §4 for the 2.12.5 rename; `global-concurrency.jsonc` is a deprecated fallback.
+- See `docs/spec/permissions.md` section 4 for the 2.12.5 rename; `global-concurrency.jsonc` is a deprecated fallback.
 - Default: `20`; minimum valid: `10`.
 - Re-read on every `launch_agent`; no restart and no cache.
 - JSONC supports whole-line `//` comments only.

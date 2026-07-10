@@ -1,4 +1,4 @@
-# Compliance — official sources & the rules they impose
+# Compliance : official sources & the rules they impose
 
 The single source of truth for "is this install standards-compliant?". Every
 wiring decision in the other reference docs traces back to a line here. When a
@@ -6,17 +6,17 @@ vendor changes its spec, update THIS file first, then the vendor guide.
 
 ## Authoritative sources
 
-- **Claude Code — MCP:** https://code.claude.com/docs/en/mcp
-- **Claude Code — Hooks:** https://code.claude.com/docs/en/hooks
-- **Codex — MCP:** https://developers.openai.com/codex/mcp
-- **Codex — Config Reference:** https://developers.openai.com/codex/config-reference
-- **Codex — Hooks:** https://developers.openai.com/codex/hooks
+- **Claude Code : MCP:** https://code.claude.com/docs/en/mcp
+- **Claude Code : Hooks:** https://code.claude.com/docs/en/hooks
+- **Codex : MCP:** https://developers.openai.com/codex/mcp
+- **Codex : Config Reference:** https://developers.openai.com/codex/config-reference
+- **Codex : Hooks:** https://developers.openai.com/codex/hooks
 
-## Claude Code — MCP server registration
+## Claude Code : MCP server registration
 
-- **Scopes** (Claude Code — MCP): `local` and `user` both persist to
+- **Scopes** (Claude Code : MCP): `local` and `user` both persist to
   `~/.claude.json`; `project` persists to a checked-in `.mcp.json`. **User
-  scope** = available across all the operator's projects, private to them —
+  scope** = available across all the operator's projects, private to them :
   the correct scope for a machine-wide addon.
 - **Register** via the official CLI: `claude mcp add --scope user <name> -- <cmd> <args...>`.
   Everything after `--` is the server command, passed through untouched.
@@ -29,24 +29,24 @@ vendor changes its spec, update THIS file first, then the vendor guide.
   machine (so the user-scope install wins, no scope conflict), add the server
   name to that project's `disabledMcpjsonServers`.
 
-## Claude Code — hooks
+## Claude Code : hooks
 
-- **Schema** (Claude Code — Hooks): a `UserPromptSubmit` command hook is
+- **Schema** (Claude Code : Hooks): a `UserPromptSubmit` command hook is
   `{ "type": "command", "command": "...", "args": [...]? , "timeout": <s>? }`,
   nested under a matcher group: `"UserPromptSubmit": [ { "hooks": [ <hook> ] } ]`.
 - **Location:** `~/.claude/settings.json` = all projects (machine-wide).
   `.claude/settings.json` / `.claude/settings.local.json` = single project.
 - **Windows form (REQUIRED for robustness):** prefer **exec form** for a Node
-  script — `command: "node"`, `args: ["<abs>/...js"]`. Shell form
+  script : `command: "node"`, `args: ["<abs>/...js"]`. Shell form
   (`command: "node \"...\""`, no `args`) is valid but the docs reserve it for
   `.cmd`/`.bat` shims; a `.js` run by `node` is a real executable invocation, so
   exec form is the documented-preferred pattern.
 - **Timeout:** `UserPromptSubmit` defaults to **30 s** (it blocks the model);
   set `timeout` explicitly only if the hook needs longer.
 
-## Codex CLI — MCP server
+## Codex CLI : MCP server
 
-- **Schema** (Codex — Config Reference): a server is a
+- **Schema** (Codex : Config Reference): a server is a
   `[mcp_servers.<name>]` table in `~/.codex/config.toml`. `command` (required)
   + `args` (array). Env via `env_vars` (forwarded names) or `[mcp_servers.<name>.env]`.
   Optional `enabled`, `startup_timeout_sec` (default 10), `tool_timeout_sec`
@@ -54,15 +54,15 @@ vendor changes its spec, update THIS file first, then the vendor guide.
 - **Register** via `codex mcp add <name> -- <cmd> <args...>` or by hand-editing
   the TOML. The CLI and the Codex IDE/Desktop extension SHARE this file.
 
-## Codex CLI — hooks
+## Codex CLI : hooks
 
-- **Schema** (Codex — Hooks): `hooks.json` (next to a config layer) is a `hooks`
+- **Schema** (Codex : Hooks): `hooks.json` (next to a config layer) is a `hooks`
   object keyed by lifecycle event. `SessionStart` fires once at session start;
   `UserPromptSubmit` fires per prompt before reasoning. Each event holds matcher
-  groups whose `hooks` arrays carry command hooks (`type`, `command`, …).
+  groups whose `hooks` arrays carry command hooks (`type`, `command`, ...).
 - **`commandWindows`** is the documented Windows-only command override (TOML
   alias `command_windows`). Use it to keep one cross-platform `hooks.json`.
-- **`timeout`** (seconds) — NOT `timeoutSec`.
+- **`timeout`** (seconds) : NOT `timeoutSec`.
 - **Trust:** command hooks must be trusted (`/hooks`) before they run; trust is
   keyed to the hook's hash, so editing a hook requires re-trust. Hooks are
   enabled by default on recent Codex; `[features] hooks = true` only if disabled.
@@ -75,21 +75,21 @@ Five hard caps the addon's own metadata must stay under. The script is the
 single source of truth; it runs in `npm test` and is the contradiction-checker's
 mandatory first step (`AGENTS.md` Always Enforce).
 
-1. **Server `instructions` <= 2048 B** (Claude Code — MCP, "truncates tool
+1. **Server `instructions` <= 2048 B** (Claude Code : MCP, "truncates tool
    descriptions and server instructions at 2KB each"). Repo target **1950 B**
    for tail-safety margin; Tool Search loads this field at session start, so a
    truncated tail silently drops directives. Source: https://code.claude.com/docs/en/mcp
 2. **Every tool `description` <= 2048 B** (same 2KB Claude Code cap, same source).
-3. **Tool `name` matches `^[a-zA-Z0-9_-]{1,128}$`** — the MCP spec is silent on
+3. **Tool `name` matches `^[a-zA-Z0-9_-]{1,128}$`** : the MCP spec is silent on
    charset, but the Anthropic/OpenAI function-name pattern is enforced
    downstream and includes the hyphen (`orchestration-mode` complies). Sources:
    https://modelcontextprotocol.io/specification/2025-06-18/server/tools ,
    https://developers.openai.com/codex/config-reference
-4. **UserPromptSubmit hook injected output < 10000 chars** — each `directives/*.md`
+4. **UserPromptSubmit hook injected output < 10000 chars** : each `directives/*.md`
    asset AND each provider's carryover+full combined injection. Overflow is
    saved to a file + previewed (truncated) by Claude Code. Source:
    https://code.claude.com/docs/en/hooks
-5. **Directive asset byte budgets** — `orchestration-*.md` <= 1250 B,
+5. **Directive asset byte budgets** : `orchestration-*.md` <= 1250 B,
    `carryover-*.md` <= 800 B. Keeps the caveman-compressed per-turn injection
    lean; limits sit just above current sizes (codex 1151 B / carryover 704 B)
    with headroom. Internal repo budget, not a vendor cap.
@@ -97,7 +97,7 @@ mandatory first step (`AGENTS.md` Always Enforce).
 ## Cross-vendor invariants
 
 - Absolute paths everywhere; never a placeholder (`${CLAUDE_PLUGIN_ROOT}`,
-  `${PLUGIN_ROOT}`) outside the plugin loader that defines it — it reaches a
+  `${PLUGIN_ROOT}`) outside the plugin loader that defines it : it reaches a
   hand-install as a literal and silently no-ops.
 - The install root must be **permanent** (see `locations.md`).
 - `directives/` ships beside `dist/` so the hooks' `../../directives` fallback

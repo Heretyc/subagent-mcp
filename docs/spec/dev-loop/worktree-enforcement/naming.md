@@ -1,7 +1,7 @@
 # Worktree & Branch Naming
 
 Read before naming or creating a branch or worktree directory. Reuses the branch types
-and ref rules from `docs/spec/dev-loop/git-collaboration.md` (directives 5, 6, 7) — this
+and ref rules from `docs/spec/dev-loop/git-collaboration.md` (directives 5, 6, 7) : this
 is the operational naming contract for the Worktree-Isolation Mandate, not a new policy.
 
 ## The formula
@@ -11,14 +11,14 @@ is the operational naming contract for the Worktree-Isolation Mandate, not a new
 <type>/<actor>/<subject>    (3-segment, optional)
 ```
 
-## Allowed types (the approved 12 — do NOT invent new ones)
+## Allowed types (the approved 12 : do NOT invent new ones)
 
 ```
 feature  fix  hotfix  release  docs  test  refactor  chore  agent  user  integration  audit
 ```
 
 No `feat`, no `wip`, no other ad-hoc types. (Claude implementation routines may use the
-`claude/` prefix ONLY where `claude-routines-cicd.md` allows it — not for manual work.)
+`claude/` prefix ONLY where `claude-routines-cicd.md` allows it : not for manual work.)
 
 ## Subject (and actor) rules
 
@@ -44,7 +44,7 @@ still apply. `scripts/check_worktree.mjs` enforces both.
 - The BRANCH keeps its slashes: `chore/worktree-enforcement-sop`.
 - The DIRECTORY replaces each `/` with `-`: `chore-worktree-enforcement-sop`.
 - The directory MUST live OUTSIDE the repo, under a dedicated sibling worktree root,
-  e.g. `<repo>.worktrees/` next to the primary checkout — NEVER inside the repo (not
+  e.g. `<repo>.worktrees/` next to the primary checkout : NEVER inside the repo (not
   `.claude/worktrees/`, not `.git/`, not any path nested under the primary tree).
 - (N1) The gate only requires the worktree to be OUTSIDE the primary tree; a compliant
   worktree may live at ANY such path. The `<repo>.worktrees/` sibling root is the
@@ -68,12 +68,12 @@ git worktree add -b <type>/<subject> ../<repo>.worktrees/<type>-<subject> origin
 | `agent/codex/seed-site-refresh` | `../subagent-mcp.worktrees/agent-codex-seed-site-refresh` |
 | `refactor/router-2.0` | `../subagent-mcp.worktrees/refactor-router-2.0` |
 
-## ANTI-PATTERNS (each rejected — and why)
+## ANTI-PATTERNS (each rejected : and why)
 
 | Rejected | Why |
 | --- | --- |
-| working on `main` in the primary checkout | primary tree is read-only; `main` is protected — gate FAIL. |
-| `.claude/worktrees/feature-x` inside the repo | worktree must live OUTSIDE the primary repo — outside-repo check FAIL. |
+| working on `main` in the primary checkout | primary tree is read-only; `main` is protected : gate FAIL. |
+| `.claude/worktrees/feature-x` inside the repo | worktree must live OUTSIDE the primary repo : outside-repo check FAIL. |
 | `wip` | no `<type>/`; not in the allowed type set. |
 | `temp` | no `<type>/`; bare disposable name is forbidden. |
 | `mybranch` | no `<type>/` segment; fails the formula. |

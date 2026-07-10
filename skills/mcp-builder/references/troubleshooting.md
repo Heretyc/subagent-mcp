@@ -12,7 +12,7 @@ This page is an index. Detail lives in `troubleshooting/`. Load the sub-page mat
 | Sub-page | Covers | retrieval-map section labels |
 |----------|--------|------------------------------|
 | [`troubleshooting/01-startup-and-connection.md`](troubleshooting/01-startup-and-connection.md) | Debugging workflow; `spawn ENOENT` / command not found; stdout pollution / JSON parse / `Error -32000`; tool not appearing; connection refused / server disconnected. | `connection_failures`, `tool_visibility`, `stdout_pollution` |
-| [`troubleshooting/02-params-schema-timeout-platform.md`](troubleshooting/02-params-schema-timeout-platform.md) | `Error -32602` invalid params; schema validation error; timeout (Claude + Codex); Windows path / MSIX issues; Node.js ESM/CJS conflict. | — |
+| [`troubleshooting/02-params-schema-timeout-platform.md`](troubleshooting/02-params-schema-timeout-platform.md) | `Error -32602` invalid params; schema validation error; timeout (Claude + Codex); Windows path / MSIX issues; Node.js ESM/CJS conflict. | : |
 | [`troubleshooting/03-inspector-logs-restart-error-codes.md`](troubleshooting/03-inspector-logs-restart-error-codes.md) | MCP Inspector usage; reading log files (macOS/Windows) + DevTools; after-config-change restart requirements; error-code quick-reference table. | `restart_requirements` |
 
 **Debugging workflow (start here):**
@@ -24,4 +24,4 @@ This page is an index. Detail lives in `troubleshooting/`. Load the sub-page mat
 5. Check log files.
 6. Add to Claude/Codex and use `/mcp` to check status.
 
-**Top error codes:** `ENOENT` (use absolute path) · `-32000` (fix stdout pollution) · `-32602` (capability/schema) · `-32601` (method not supported) · empty tools list (schema/capability — use MCP Inspector).
+**Top error codes:** `ENOENT` (use absolute path) · `-32000` (fix stdout pollution) · `-32602` (capability/schema) · `-32601` (method not supported) · empty tools list (schema/capability : use MCP Inspector).

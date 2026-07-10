@@ -11,7 +11,7 @@ gloss on `task_category`.
 ## Rewritten tool description (verbatim)
 
 ```
-Spawn a sub-agent. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category` and NO overrides; the server picks the best provider/model/effort for that category from its routing table, launches the top candidate, and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are overrides — licensed on 1st/2nd attempts ONLY when the task verifiably requires a specific capability; STATE that capability when overriding; if you pass `model` you must also pass `provider`, and if you pass `effort` you must pass both `provider` and `model`. SOLE CHANNEL: while this server is connected this tool is the ONLY sanctioned way to spawn sub-agents, in BOTH orchestration states — harness-native Task/Agent tools are FORBIDDEN for sub-agent launches. PROMPT RULE: the FIRST line of every `prompt` MUST be "<this is a request from a parent process>" (sub-agent self-identification). Unsure which task_category fits? Don't submit one amorphous task — SPLIT into atomic steps that each map to a single category, one agent per step. ultracode effort is Opus-4.8+ only (induced via a temp `--settings {"ultracode":true}` file; the CLI rejects `--effort ultracode`). Each sub-agent is a separate claude/codex CLI child that does NOT inherit this session's MCP servers; children run with env SUBAGENT_MCP_SUBAGENT=1 so the orchestration hooks skip them (they are not orchestrators and don't re-trigger carryover). Launch returns status `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting the prompt does NOT make it a different task), and NEVER otherwise — from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.
+Spawn a sub-agent. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category` and NO overrides; the server picks the best provider/model/effort for that category from its routing table, launches the top candidate, and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are overrides : licensed on 1st/2nd attempts ONLY when the task verifiably requires a specific capability; STATE that capability when overriding; if you pass `model` you must also pass `provider`, and if you pass `effort` you must pass both `provider` and `model`. SOLE CHANNEL: while this server is connected this tool is the ONLY sanctioned way to spawn sub-agents, in BOTH orchestration states : harness-native Task/Agent tools are FORBIDDEN for sub-agent launches. PROMPT RULE: the FIRST line of every `prompt` MUST be "<this is a request from a parent process>" (sub-agent self-identification). Unsure which task_category fits? Don't submit one amorphous task : SPLIT into atomic steps that each map to a single category, one agent per step. ultracode effort is Opus-4.8+ only (induced via a temp `--settings {"ultracode":true}` file; the CLI rejects `--effort ultracode`). Each sub-agent is a separate claude/codex CLI child that does NOT inherit this session's MCP servers; children run with env SUBAGENT_MCP_SUBAGENT=1 so the orchestration hooks skip them (they are not orchestrators and don't re-trigger carryover). Launch returns status `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead : wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting the prompt does NOT make it a different task), and NEVER otherwise : from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.
 ```
 
 Rationale (Structure/Clarity reviewers): auto mode still leads and is the
@@ -34,7 +34,7 @@ threshold, processing/stalled distinction) are carried on `poll_agent`'s
 description, so the "(see poll_agent)" pointer resolves, while the
 cap-accounting parenthetical has no remaining agent-visible carrier. The
 prior CLI-not-API note ("Spawns the LOCALLY INSTALLED ... no API keys, no
-SDK") is dropped entirely — only "separate claude/codex CLI child" remains as
+SDK") is dropped entirely : only "separate claude/codex CLI child" remains as
 residue. Both are deliberate byte trades: the description sits at 2025/2048 B.
 
 ## `deadlock` param metadata gloss (verbatim)
@@ -46,29 +46,29 @@ exists at runtime: the `validatePresence` error in `src/routing.ts` for
 deadlock combined with provider/model/effort. It is error text, not metadata;
 it now mirrors the same 3rd-attempt/drop-overrides rule and must stay in the
 same attempts+task-identity vocabulary. Per the tool-surface opacity invariant
-(`routing-table-contract.md §Tool-surface opacity`) NONE of these may name tiers,
-branches, counters, or windows — only attempts and task identity. Both
+(`routing-table-contract.md section Tool-surface opacity`) NONE of these may name tiers,
+branches, counters, or windows : only attempts and task identity. Both
 metadata strings encode the same trigger: 2 failed/unsatisfactory launch
 attempts for the SAME atomic task (re-wording or re-splitting the prompt does
 NOT change task identity), so the 3rd attempt onward MUST set `deadlock=true`
 and drop any overrides. Two precise clauses live in the param gloss only: the
 unchanged-parts clause ("splitting a failed task does NOT reset attempts for
 its unchanged parts") and the attempt-counting clause ("re-launching for the
-same deliverable means the prior attempt COUNTS as failed/unsatisfactory" —
+same deliverable means the prior attempt COUNTS as failed/unsatisfactory" :
 this closes the dodge of classifying every prior attempt as partial progress
 so the count never reaches 2). The tool description carries only the compact
 "or re-splitting" form of the same anti-dodge family because it sits at
 2025/2048 B.
 
 ```
-MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it.
+MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory : the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort : from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it.
 ```
 
 ## `task_category` param metadata gloss (verbatim)
 
 The `task_category` param `.describe(...)` string. Lead line + the 15 caveman
 glosses (token-efficient: articles/filler dropped, exact technical terms kept).
-A calling agent self-classifies from these alone. Tiles 11–14 are
+A calling agent self-classifies from these alone. Tiles 11:14 are
 composite-inferred (no direct benchmark) and follow `mechanical`, before
 `fallback_default`.
 

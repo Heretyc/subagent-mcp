@@ -51,6 +51,12 @@ graphify hook install
 graphify hook status
 ```
 
+The repository Claude `PreToolUse` hint is implemented as a Node script at
+`scripts/hooks/graphify-hint.mjs`, wired from `.claude/settings.json`. It reads
+the hook JSON payload from stdin and, before raw search commands such as `rg`,
+`grep`, `find`, or `fd`, reminds the agent to read
+`graphify-out/GRAPH_REPORT.md` when `graphify-out/graph.json` exists.
+
 ## Build And Update
 
 Run a full graph build when no graph exists or when semantic extraction needs a

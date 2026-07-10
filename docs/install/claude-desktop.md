@@ -1,8 +1,8 @@
-# Install — Claude Desktop (MCP-only)
+# Install : Claude Desktop (MCP-only)
 
 Claude Desktop has **no `UserPromptSubmit` hook host**, so it gets the **MCP
 server only**. The `orchestration-mode` tool still flips the marker, but
-**nothing is injected per turn** — this is documented degradation, not a bug.
+**nothing is injected per turn** : this is documented degradation, not a bug.
 For per-turn injection, use the [Claude Code CLI](claude-code-cli.md) host.
 
 Do the [build prerequisite](_INDEX.md) first.
@@ -41,7 +41,7 @@ or ensure `node` is on the GUI app's `PATH` (absolute path avoids Windows
 > *wrong* file. Edit the `Packages\...\LocalCache` path directly.
 
 After editing, **fully quit and reopen** Claude Desktop (closing the window is
-not enough — the server only reloads on a full restart).
+not enough : the server only reloads on a full restart).
 
 ---
 

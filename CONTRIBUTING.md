@@ -2,7 +2,7 @@
 
 This repository is operated by **specification-first changes** and **Claude
 Routine CI/CD**, and is licensed under **Apache-2.0**. Before making changes,
-read [AGENTS.md](AGENTS.md) — it is the canonical repository instruction file —
+read [AGENTS.md](AGENTS.md) : it is the canonical repository instruction file :
 along with the dev-loop specs under [docs/spec/dev-loop/](docs/spec/dev-loop/).
 This guide covers the developer environment, build, test, contribution
 workflow, CI/CD gates, and publishing.
@@ -10,14 +10,14 @@ workflow, CI/CD gates, and publishing.
 ## Prerequisites
 
 Developer / build-from-source toolchain (end-user runtime requirements live in
-[README § What you need first](README.md#what-you-need-first)):
+[README section  What you need first](README.md#what-you-need-first)):
 
 - **Node.js >= 18**  (`node --version`)
 - **npm >= 8**  (`npm --version`)
-- **`claude` CLI** — globally installed and authenticated  (`claude --version`)
-- **`codex` CLI** — globally installed and authenticated  (`codex --version`; optional if only using Claude paths)
+- **`claude` CLI** : globally installed and authenticated  (`claude --version`)
+- **`codex` CLI** : globally installed and authenticated  (`codex --version`; optional if only using Claude paths)
 - **Git**  (`git --version`)
-- **TypeScript 5** — dev dependency, installed by `npm install`; no global install needed
+- **TypeScript 5** : dev dependency, installed by `npm install`; no global install needed
 
 ## Local Setup (Build from Source)
 
@@ -43,7 +43,7 @@ The server entry point after build is `dist/index.js`.
 surfaces, then edit `src/index.ts` manually, then re-run `npm run check:versions`.
 
 **From-source registration.** See
-[docs/registration.md](docs/registration.md) — *Developer install from source* —
+[docs/registration.md](docs/registration.md) : *Developer install from source* :
 for the per-platform MCP host wiring steps (Claude Code, Codex, Gemini CLI,
 Claude Desktop) once the from-source binary is built.
 
@@ -53,7 +53,8 @@ Claude Desktop) once the from-source binary is built.
 |---|---|
 | `npm run build` | Version sync (`check:versions`) → scaffold gen → TypeScript compile (`tsc`) → copy provider assets |
 | `npm run check:versions` | Assert all version surfaces match (incl. `.claude-plugin/plugin.json` + marketplace `plugins[].version`); blocks the build on mismatch |
-| `npm start` | `node dist/index.js` — run the compiled server |
+| `npm run check:prose` | Enforce ASCII prose policy across markdown docs, excluding managed blocks and vendored docs |
+| `npm start` | `node dist/index.js` : run the compiled server |
 | `npm test` | Full test suite (~40 test files) plus three validator scripts |
 
 Lifecycle hooks: `prepare` runs `npm run build` (fires on `npm install`);
@@ -67,8 +68,8 @@ npm test
 ```
 
 `npm test` runs `check:versions` as a precondition (a version-surface mismatch
-fails before any test logic), then the ~40 test files under `test/`, plus the
-validator scripts:
+fails before any test logic), then `check:prose`, the ~40 test files under
+`test/`, plus the validator scripts:
 
 - `scripts/validate_provider.mjs`
 - `scripts/validate_seed_sites.mjs`
@@ -76,10 +77,10 @@ validator scripts:
 
 **Doc-invariant guard tests** (fail the suite on documentation drift):
 
-- `test/no-per-provider-cap.test.mjs` — asserts no doc reintroduces
+- `test/no-per-provider-cap.test.mjs` : asserts no doc reintroduces
   per-provider concurrency-cap language; the cap is a single machine-global,
   provider-agnostic value (default 20).
-- `test/rag-pointers.test.mjs` — asserts the RAG retrieval map (`retrieval-map.md`)
+- `test/rag-pointers.test.mjs` : asserts the RAG retrieval map (`retrieval-map.md`)
   and doc cross-pointers stay valid (every indexed path exists).
 
 ## Contribution Workflow
@@ -100,7 +101,7 @@ See [docs/spec/dev-loop/git-collaboration.md](docs/spec/dev-loop/git-collaborati
 - **Git hooks.** Install the repo hooks once (`git config core.hooksPath .githooks`).
   They run the pre-commit compliance and contradiction checks locally.
 - **Worktree-per-task.** All mutating work happens in a **linked worktree on a
-  `<type>/<subject>` branch outside the repo dir** — never in the primary
+  `<type>/<subject>` branch outside the repo dir** : never in the primary
   checkout. Run the pre-action gate `node scripts/check_worktree.mjs` before any
   mutating action; on failure, create/enter a compliant worktree first.
 - **Contradiction-checker pre-commit.** Before committing any executable/source
@@ -113,9 +114,9 @@ See [docs/spec/dev-loop/git-collaboration.md](docs/spec/dev-loop/git-collaborati
 
 - Claude Code Routines are the canonical CI/CD path.
 - `.github/workflows/claude-routine.yml` is the GitHub-standard dispatch bridge to Claude routine CI/CD.
-- `.github/workflows/pr-gate.yml` is a **required check** — it runs the test
-  suite (including the doc-invariant guard tests above) on every PR; a failure
-  blocks merge.
+- `.github/workflows/pr-gate.yml` is a **required check** : it runs the test
+  suite and the standalone `check:prose` ASCII prose gate on every PR; a
+  failure blocks merge.
 - `.github/workflows/worktree-guard.yml` enforces the worktree-isolation mandate.
 - PRs must pass required checks, independent review, CODEOWNER review when applicable, and resolved conversations before merge.
 - Agent-authored PRs use the same CI, review, and merge gates as human PRs.
@@ -132,7 +133,7 @@ for the merge/collaboration rules.
 ## Spec-First Changes
 
 The specification is authoritative. Before changing behavior, update or verify
-the corresponding spec doc. When spec and code diverge, **halt and clarify** —
+the corresponding spec doc. When spec and code diverge, **halt and clarify** :
 do not self-resolve. Triage each drift item four ways: code-stale, spec-stale,
 genuine-ambiguity, or informational. Never batch newly discovered drift issues.
 See
@@ -144,7 +145,7 @@ for the canonical orchestration model.
 npmjs.com is the default publish target. GitHub Packages is the optional mirror,
 selected with an explicit `--registry` override (`publishConfig.registry` points
 at npmjs, so the override redirects the same tarball). The release/publish SOP is
-maintained as a single source of truth — see
+maintained as a single source of truth : see
 [docs/spec/dev-loop/release-publishing.md](docs/spec/dev-loop/release-publishing.md)
 for the exact current commands.
 
@@ -155,21 +156,21 @@ duplicate the content in the "Must NOT be duplicated in" column.
 
 | Topic | Single home | Must NOT be duplicated in |
 |---|---|---|
-| End-user runtime prerequisites | README § Prerequisites | CONTRIBUTING (link only) |
-| Developer / build prerequisites | CONTRIBUTING § Prerequisites | README (link only); docs/registration.md; CONTRIBUTING § Publishing |
-| From-source build steps (clone/install/build/run) | CONTRIBUTING § Local Setup | README; any other CONTRIBUTING section |
+| End-user runtime prerequisites | README section  Prerequisites | CONTRIBUTING (link only) |
+| Developer / build prerequisites | CONTRIBUTING section  Prerequisites | README (link only); docs/registration.md; CONTRIBUTING section  Publishing |
+| From-source build steps (clone/install/build/run) | CONTRIBUTING section  Local Setup | README; any other CONTRIBUTING section |
 | MCP host wiring (per-platform) | docs/registration.md | README; CONTRIBUTING prose |
-| Contribution workflow (8 steps) | CONTRIBUTING § Contribution Workflow | docs/CONTRIBUTING.md (redirect stub only); README |
-| GitHub CI/CD gates | CONTRIBUTING § GitHub Gates (CI/CD) | README; any other doc |
-| Release / publish SOP | docs/spec/dev-loop/release-publishing.md | README; CONTRIBUTING § Local Setup |
-| Install commands (npmjs + GitHub Packages) | README § Install | CONTRIBUTING § Publishing (brief context only; no install commands) |
+| Contribution workflow (8 steps) | CONTRIBUTING section  Contribution Workflow | docs/CONTRIBUTING.md (redirect stub only); README |
+| GitHub CI/CD gates | CONTRIBUTING section  GitHub Gates (CI/CD) | README; any other doc |
+| Release / publish SOP | docs/spec/dev-loop/release-publishing.md | README; CONTRIBUTING section  Local Setup |
+| Install commands (npmjs + GitHub Packages) | README section  Install | CONTRIBUTING section  Publishing (brief context only; no install commands) |
 | Auto Mode routing table | docs/spec/auto-mode/_INDEX.md | CONTRIBUTING; other spec docs |
 | Tools parameter/return shapes | docs/tools.md | CONTRIBUTING; spec docs |
 | Agent lifecycle semantics | docs/reference/status-lifecycle.md | CONTRIBUTING; Auto Mode section |
 | Orchestration model (schema=3) | docs/spec/dev-loop/orchestration-directive-architecture.md | Any doc that would copy schema text inline |
 | Model-selection-mode semantics | docs/spec/model-selection-mode/_INDEX.md | CONTRIBUTING; other README sections |
 | version string | src/index.ts + package.json (kept in sync via check:versions) | Any markdown doc (do not hard-code version strings in prose) |
-| publishConfig rationale | CONTRIBUTING § Publishing | README; any spec doc not listed |
+| publishConfig rationale | CONTRIBUTING section  Publishing | README; any spec doc not listed |
 
 ## License
 

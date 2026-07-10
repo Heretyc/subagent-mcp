@@ -85,6 +85,6 @@ subagent-mcp init --global --remove   # remove the managed block
 
 ## Developer install from source
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) §Local Setup for clone, install,
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) section Local Setup for clone, install,
 build, and run steps. Once built, wire the from-source binary into your vendor
 config using the per-platform steps (`claude-code.md`, `codex.md`, `gemini.md`).

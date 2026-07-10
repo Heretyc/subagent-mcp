@@ -1,9 +1,9 @@
 # Composite-Inferred Tiles
 
 Methodology and parent-map rationale for the 4 **composite-inferred** task categories
-(precedence 11–14). These extend the directly benchmarked parent set (precedence 1–10, see
+(precedence 11:14). These extend the directly benchmarked parent set (precedence 1:10, see
 `category-rationale.md` / `determination-rationale.md`) without altering it. Operational
-definitions — signals, examples, boundaries — live in `.spec/references/work-categories.md`.
+definitions : signals, examples, boundaries : live in `.spec/references/work-categories.md`.
 
 ---
 
@@ -51,7 +51,7 @@ classification honest and lets the profiler compose a competency estimate from t
 of forcing a single ill-fitting parent score.
 
 Because they are benchmark-exempt by construction, composite tiles do **not** weaken the
-benchmark-findability criterion (`derivation-methodology.md` §6) — that criterion gates only the
+benchmark-findability criterion (`derivation-methodology.md` section 6) : that criterion gates only the
 parent set.
 
 ---
@@ -65,4 +65,4 @@ finds a genuinely homeless shape surfaces it as `needs_user`.
 
 ---
 
-Author: Lexi Blackburn — https://github.com/Heretyc/ — June 2026
+Author: Lexi Blackburn : https://github.com/Heretyc/ : June 2026

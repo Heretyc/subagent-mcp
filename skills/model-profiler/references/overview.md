@@ -1,4 +1,4 @@
-# overview.md — Goal, I/O, Orchestrator Contract
+# overview.md : Goal, I/O, Orchestrator Contract
 
 **Load first.** Establishes what this skill does, the orchestrator's role, and the sub-agent
 contract every later phase depends on. After this, follow the SKILL.md decision tree per phase.
@@ -22,31 +22,31 @@ It does two things, and only these two:
 - **Input:** the consented profiling scope (in-scope provider families + recent window), mode,
   runtime/budget, and provider mix from Phase 0, including the standing repository profile when its
   exact trigger matches.
-- **Output — EXACTLY 3 persisted artifacts** (nothing else persists to the repo):
-  1. `src/routing-table.json` — lean canonical routing table, `performance` + `cost_efficiency`
+- **Output : EXACTLY 3 persisted artifacts** (nothing else persists to the repo):
+  1. `src/routing-table.json` : lean canonical routing table, `performance` + `cost_efficiency`
      branches → 14 fixed categories (directly benchmarked parents + 4 composite-inferred) →
      ordered model+effort pairings (copied to `dist/routing-table.json`
      at build by `copy-provider.mjs`).
-  2. `src/routing-table-audit.json` — full-provenance audit trail of the rankings (per-pairing source
+  2. `src/routing-table-audit.json` : full-provenance audit trail of the rankings (per-pairing source
      URLs, ISO8601 retrieval times, one-sentence annotations, tier rationale). The SOLE provenance
      store; the change note lives in its metadata.
-  3. `research-seed-sites.json` (repo root) — accumulating learned source registry, merged from this
+  3. `research-seed-sites.json` (repo root) : accumulating learned source registry, merged from this
      run's audit citations by `update_seed_sites.mjs`.
 
-Phase research is EPHEMERAL — written to `%TEMP%\model-profiler\<run-id>\` scratch, consumed by the
+Phase research is EPHEMERAL : written to `%TEMP%\model-profiler\<run-id>\` scratch, consumed by the
 builder, and never persisted to the repo. The audit carries provenance; `routing-table.json` carries
 scores/ranks/metadata only. Both share the one fixed taxonomy.
 
 **Fixed-taxonomy mandate.** The 14 categories (directly benchmarked parents + 4 composite-inferred)
 + `fallback_default`@99 are **immutable**. This skill
-profiles models **against** them — it never derives, chooses, renames, reorders, merges, or
+profiles models **against** them : it never derives, chooses, renames, reorders, merges, or
 reshuffles categories. Operational definitions live in `.spec/references/work-categories.md`;
 determination methodology + rationale (incl. debate provenance) in `docs/spec/task-taxonomy/`. If a
 run surfaces evidence that the taxonomy itself is wrong, **surface that to the owner** as
-`needs_user` — do not alter the spine inside this skill.
+`needs_user` : do not alter the spine inside this skill.
 
 **Impartiality mandate (non-negotiable).** The skill's directives name **no** preferred provider,
-model, or effort — only impartial role descriptors (a web-research member, a deterministic-extraction
+model, or effort : only impartial role descriptors (a web-research member, a deterministic-extraction
 member, a flagship-judging member, elevated effort, etc.). The operator binds concrete members at
 dispatch time. Rankings are derived **solely** from discovered research; the only place judged
 model+effort names legitimately appear is the OUTPUT artifacts, which are the profiler's product.
@@ -59,7 +59,7 @@ spine) as an input but never writes it. It MUST NOT touch `src/index.ts` routing
 
 This is a **re-profiling** of an existing routing table, not a greenfield build. Read the prior
 `src/routing-table.json` + `research-seed-sites.json` first so the refreshed rankings are a recorded
-delta — but the prior rankings are diffed, never inherited as the source of truth (Invariant:
+delta : but the prior rankings are diffed, never inherited as the source of truth (Invariant:
 impartial judging).
 
 ## Orchestrator-Only Contract
@@ -100,7 +100,7 @@ output; critics are fresh and distinct (self-review ban / Anti-Pattern D).
 
 | Condition | Action |
 |-----------|--------|
-| Only one provider family reachable | NOT a halt and NOT a degrade — single-family (e.g. Claude-only) is a fully-supported, first-class path (invariant #5). Critics stay FRESH within-family agents distinct from producers. No risk logging required |
+| Only one provider family reachable | NOT a halt and NOT a degrade : single-family (e.g. Claude-only) is a fully-supported, first-class path (invariant #5). Critics stay FRESH within-family agents distinct from producers. No risk logging required |
 | No Phase 0 consent or matching standing repository profile | Do not dispatch |
 | Two hard gates / specs irreducibly conflict | Surface to owner (`needs_user`) |
 | Evidence suggests the FIXED taxonomy is wrong | Surface to owner (`needs_user`); never alter the spine here |
@@ -128,8 +128,8 @@ SETUP     Worktree/branch gate FIRST (before Phase 0): node scripts/check_worktr
    |          else STOP and create one. (references/execution-lifecycle.md)
    |
    v
-Phase 0   HARD GATE: AskUserQuestion or exact standing repository profile — scope? Fast/Full?
-   |          runtime/budget? provider mix? (impartial — do NOT preselect models/efforts;
+Phase 0   HARD GATE: AskUserQuestion or exact standing repository profile : scope? Fast/Full?
+   |          runtime/budget? provider mix? (impartial : do NOT preselect models/efforts;
    |          no dispatch before consent/profile match)
    |
    v
@@ -139,7 +139,7 @@ CHECK:    For exact bare prompt ONLY: if pre-existing phase-1-agent-*.md files a
    |       run. There is NO bounded-continuation / skip-Phase-1 path.
    |
    v
-Phase 1   [MANDATORY — fresh every run] N domain-partitioned discovery+research agents (web-enabled; any provider mix):
+Phase 1   [MANDATORY : fresh every run] N domain-partitioned discovery+research agents (web-enabled; any provider mix):
                DISCOVER every model published in the recent window by the in-scope provider families;
                gather ALL public benchmark scores + stats, mapped onto the directly benchmarked
                parent categories (composites inferred from parents, never directly benchmarked).
@@ -156,7 +156,7 @@ Phase 2   N flagship judges (elevated effort; any provider mix) independently AR
    v
 EMIT      Assemble ephemeral structured-dataset.json under %TEMP%; run the deterministic builder ->
    |          src/routing-table.json + src/routing-table-audit.json; run update_seed_sites.mjs ->
-   |          research-seed-sites.json (fixed spine — never re-derive). No .spec/references writes.
+   |          research-seed-sites.json (fixed spine : never re-derive). No .spec/references writes.
    |
    v
 3-PASS    Adversarial loop on the 3 artifacts: P1 coverage/activation; P2 citation honesty;
@@ -164,7 +164,7 @@ EMIT      Assemble ephemeral structured-dataset.json under %TEMP%; run the deter
    |
    v
 VALIDATE  Run scripts/validate_provider.mjs + audit-mirror + scripts/validate_seed_sites.mjs +
-   |          run-level existence/growth check (validation.md §1c) + spec checklist + scenario routing tests.
+   |          run-level existence/growth check (validation.md section 1c) + spec checklist + scenario routing tests.
    |
    v
 DELIVER   commit (3 artifacts) -> push -> PR -> resolve merge conflicts -> PR ready ->
@@ -173,4 +173,4 @@ DELIVER   commit (3 artifacts) -> push -> PR -> resolve merge conflicts -> PR re
 
 ---
 
-*Author: Lexi Blackburn — https://github.com/Heretyc/ — May 2026*
+*Author: Lexi Blackburn : https://github.com/Heretyc/ : May 2026*
