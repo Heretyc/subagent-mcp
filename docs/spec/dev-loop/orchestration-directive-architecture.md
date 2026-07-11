@@ -13,7 +13,9 @@
 `subagent-mcp` ships a per-turn orchestration regime expressed redundantly across
 three surfaces (MCP `instructions`, upserted `INIT_BLOCK`, per-turn hook
 directives). ON = delegate-only orchestrator (launch_agent sole channel, no
-inline reads/writes). OFF = solo + per-turn >200-line upgrade check. State is
+inline reads/writes). OFF = solo + provider-metered context tracking
+(context-metering.md); ENFORCED-ON at the 15%/50% thresholds (see
+R-LATCH-15/R-HANDOFF-50). State is
 reported SOLELY by the hook `<subagent-mcp state="...">` tag; hookless hosts →
 UNKNOWN → fail-safe ON. Sub-agent first-line marker skips the whole regime.
 
@@ -44,7 +46,7 @@ permission decisions : those run through the shared engine in `src/drivers.ts`.)
 - single tag `<subagent-mcp state kind>`, no dead values → `sections-00-04.md` (section 1)
 - joint binding, escalate-to-user, tag > user request → `sections-00-04.md` (section 2); verbatim clause → `appendix-a1-a4.md` (A4)
 - ON allowed-tools, sole channel, read-ladder → `sections-00-04.md` (section 3); ladder verbatim → `appendix-a1-a4.md` (A2)
-- OFF >200-line cumulative footprint upgrade ask → `sections-00-04.md` (section 4)
+- OFF metering fail-safe + phase thresholds → `sections-00-04.md` (section 4), `context-metering.md`, `handoff.md`
 - fail-safe ON / UNKNOWN / one-time opt-out → `sections-05-09.md` (section 5)
 - first-line `<this is a request from a parent process>` skip + upsert → `sections-05-09.md` (section 6), `appendix-a6-a7.md` (A7)
 - schema=3 markers, MIGRATE_RE, duplicate collapse → `sections-05-09.md` (section 8), `appendix-a6-a7.md` (A6)

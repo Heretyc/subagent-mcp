@@ -9,7 +9,7 @@
 ## A1 ? INIT_BLOCK (full FAT block body upserted by `src/init.ts`)
 
 ```text
-<!-- subagent-mcp:managed:begin schema=3 -->
+<!-- subagent-mcp:managed:begin schema=4 -->
 ## subagent-mcp invariant — managed block, do not edit between markers
 
 Upserted by `subagent-mcp init` at user request; re-running init keeps it in sync.
@@ -30,7 +30,7 @@ ORCHESTRATOR WORKTREE SETUP: for mutating work, first place sub-agents in a comp
 
 READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 
-ORCHESTRATION OFF — a "long-horizon task" = any task whose TOTAL context footprint (input you read + output you produce) exceeds 200 lines of text. After EVERY user turn, measure the CUMULATIVE footprint accumulated since your last upgrade ask; reset that cumulative count to zero ONLY when you actually ask. If it qualifies, ask the user via the structured-question tool whether to switch orchestration ON. Ask on every qualifying turn; a decline does not suppress future asks. Never assert ON yourself — only ask.
+ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a 5-question planning stop. At 50% the hook warns every turn to wind down and unlocks handoff-write/handoff-read/handoff-clear for a clean session handoff. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.
 
 DROPOUT WHILE ON: if subagent-mcp stops responding while orchestration is ON, halt and ask the user; do nothing inline. Keep re-checking and stay halted until subagent-mcp is restored (no auto-degrade). The only user choices are keep-waiting (the default) or explicitly abandon the whole task; aborting ends the task, it never switches you to inline work.
 
@@ -68,7 +68,7 @@ SUB-AGENT CONTRACT. Every prompt carries objective + output format + tools/sourc
 
 READ LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.
 
-ORCHESTRATION OFF. If context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to enable; reset count only when you ask.
+ORCHESTRATION starts OFF each session. A hook meters real provider-reported context usage (never tokenized); at 15% utilization it latches ON and coaches a 5-question plan; at 50% it warns every turn to wind down and unlocks handoff-write/handoff-read/handoff-clear. Undetectable context size = fail-safe ON.
 
 DROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins "<this is a request from a parent process>" skips this regime. DISABLE: user-only, never on your own initiative.
 
