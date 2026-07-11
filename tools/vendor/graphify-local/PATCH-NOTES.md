@@ -1,12 +1,45 @@
 # graphify-local — Patch Notes
 
 Upstream: https://github.com/safishamsi/graphify (branch v5)
+Upstream commit recorded: 762b85d7ca47bf492027277dfd43f111b496e836
 Vendor location: tools/vendor/graphify-local/
-Reason: Keyless local-harness extraction for Unity-Claude-Scaffold — no API key required.
+Reason: Keyless local-harness extraction for subagent-mcp — no API key required.
 
 ---
 
+## Provenance evidence
+
+Remote `v5` resolved to `762b85d7ca47bf492027277dfd43f111b496e836` on
+2026-07-10. This repository first vendored `tools/vendor/graphify-local/` on
+2026-06-17, after that upstream commit date. A shallow comparison against the
+last 100 `v5` commits found that commit as the best content match after
+normalizing line endings and excluding the documented local patch files
+`graphify/llm.py` and `graphify/__main__.py`.
+
+Exact snapshot commit is not independently verifiable because the vendored
+`.git` directory was removed and local differences remain beyond the documented
+patch files. The upstream `v0.5.7` tag
+`47a994ad5b14b8408ea392afeb5d95de0cc8fac2` was checked and did not match the
+vendored tree.
+
 ## Changes from upstream
+
+### 4. Offline-only network ingestion stubs
+
+Disabled URL ingestion in the vendored fork. `graphify/security.py` now raises a
+clear `RuntimeError` from `validate_url()`, `safe_fetch()`, and
+`safe_fetch_text()` before any network I/O or DNS lookup. `graphify/ingest.py`
+raises the same offline-only error from the public `ingest()` URL path and
+binary download helper. `graphify/transcribe.py` also raises before URL audio
+download via yt-dlp. `graphify/__main__.py` raises before the `graphify clone`
+path can shell out to `git clone` or `git pull`.
+
+Local corpus graph builds, incremental updates, hooks, and local file
+transcription are intentionally preserved.
+
+### 3. `pyproject.toml` - dependency bounds and dead extra prune
+
+Added conservative upper-bounded dependency ranges for runtime and optional extras, removed the dead `kimi` extra, and removed `openai` from the aggregate `all` extra because the fork no longer exposes Kimi or Claude HTTP backends.
 
 ### 0. Audit hardening - direct HTTP API/keyed backends disabled
 

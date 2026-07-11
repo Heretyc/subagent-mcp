@@ -14,6 +14,12 @@ import { dirname, resolve } from "node:path";
 // Owner/repo derive from `git remote get-url origin`; default branch from
 // origin/HEAD. The ruleset is read from .github/main-branch-protection.json.
 // Re-running with the same JSON is a no-op (PUT is idempotent).
+//
+// Solo-maintainer rationale: the JSON intentionally keeps
+// required_approving_review_count at 0 because no second reviewer exists, and
+// required_status_checks.strict at false because strict mode would force serial
+// rebase churn. Tier-1 still enforces PR flow, required status checks, admin
+// enforcement, no force-push, no deletion, and conversation resolution.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROTECTION_JSON = resolve(here, "..", ".github", "main-branch-protection.json");

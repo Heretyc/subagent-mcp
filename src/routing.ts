@@ -28,8 +28,9 @@ export const HAIKU_EFFORT = "none";
 
 /**
  * FULL table model id -> SHORT launch id. Only launchable models appear here.
- * Non-launchable ids (gpt-5.5-pro, gpt-5.4-mini, claude-opus-4-7, unknown) are
- * intentionally absent so buildCandidates skips them rather than coercing.
+ * The shipped routing table is expected to contain only these launchable ids.
+ * The undefined-map skip in buildCandidates remains a safety net for stale or
+ * hand-authored tables, never a primary filtering mechanism.
  * For models with aliases (e.g., opus and opus-4-8 both refer to claude-opus-4-8),
  * map to a Set of valid short ids to check membership during filtering.
  */

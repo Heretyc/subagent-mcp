@@ -12,6 +12,10 @@ URL_PREFIXES = ('http://', 'https://', 'www.')
 _DEFAULT_MODEL = "base"
 _TRANSCRIPTS_DIR = "graphify-out/transcripts"
 _FALLBACK_PROMPT = "Use proper punctuation and paragraph breaks."
+_NETWORK_DISABLED = (
+    "network ingestion is disabled in this offline vendored fork; "
+    "graphify operates on the local corpus only"
+)
 
 
 def _model_name() -> str:
@@ -51,6 +55,7 @@ def download_audio(url: str, output_dir: Path) -> Path:
     Returns the path to the downloaded audio file (.m4a or .opus).
     Uses cached file if already downloaded.
     """
+    raise RuntimeError(_NETWORK_DISABLED)
     from graphify.security import validate_url
     validate_url(url)  # blocks private IPs, bad schemes before yt-dlp runs
     yt_dlp = _get_yt_dlp()

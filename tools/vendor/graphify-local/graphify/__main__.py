@@ -14,6 +14,11 @@ try:
 except Exception:
     __version__ = "unknown"
 
+_NETWORK_DISABLED = (
+    "network ingestion is disabled in this offline vendored fork; "
+    "graphify operates on the local corpus only"
+)
+
 
 def _check_skill_version(skill_dst: Path) -> None:
     """Warn if the installed skill is from an older graphify version."""
@@ -804,6 +809,7 @@ def _clone_repo(url: str, branch: str | None = None, out_dir: Path | None = None
     Clones into ~/.graphify/repos/<owner>/<repo> by default so repeated
     runs on the same URL reuse the existing clone (git pull instead of clone).
     """
+    raise RuntimeError(_NETWORK_DISABLED)
     import subprocess as _sp
     import re as _re
 
