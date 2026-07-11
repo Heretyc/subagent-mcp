@@ -88,7 +88,8 @@ Enforcement is TIERED. Only Tier 1 is authoritative; Tiers 2-3 are best-effort.
   deletions to `main` : for EVERYONE, admins included; every change lands via PR. This,
   not local hooks, is the real guarantee. Reproduce/re-apply idempotently with
   `node scripts/apply_branch_protection.mjs` (ruleset in
-  `.github/main-branch-protection.json`).
+  `.github/main-branch-protection.json`; the script carries the rationale
+  comments because the JSON ruleset remains machine data).
 - TIER 2 : LOCAL best-effort. `core.hooksPath=.githooks` `pre-commit`/`pre-push` run
   `scripts/check_worktree.mjs`. Bypassable via `--no-verify` or
   `-c core.hooksPath=`, and ABSENT on a fresh clone until

@@ -12,15 +12,15 @@ Derive provider from the pairing's `model`:
 | `model` value(s) | provider |
 |---|---|
 | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` | `claude` |
-| `gpt-5.5` (and any codex sibling id, e.g. `gpt-5.4-mini`, `gpt-5.5-pro`) | `codex` |
+| `gpt-5.5` | `codex` |
 
 Rule: Claude model ids map to `claude`; any GPT/codex-family id maps to
 `codex`. An unknown model id that maps to neither → skip that pairing (treat as
 a launch-time failure for that candidate; advance). Note: the launch model enum
-is currently `["haiku","sonnet","opus","opus-4-8","fable","gpt-5.5"]`; if a future
-pairing names a codex sibling not in that enum, it cannot be launched by the
-current `buildCommand` and is skipped : flag for B2 as a known limitation, do
-not silently coerce it to `gpt-5.5`.
+is currently `["haiku","sonnet","opus","opus-4-8","fable","gpt-5.5"]`. The
+committed runtime table is launchable-only; benchmarked codex sibling ids that
+cannot be launched are retained only in the audit artifact and filtered out
+before comparing the audit universe to the shipped table.
 
 ## effort normalization (table tier → launch enum)
 

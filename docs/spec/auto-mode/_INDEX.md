@@ -60,6 +60,12 @@ launch-time-only clause (`routing-table-contract.md`). Read
 
 The runtime pairing shape is defined by `skills/model-profiler/references/provider-json-emission.md` and enforced by `scripts/validate_provider.mjs`: `performance.<category>` is a **direct array** of pairing objects (no `.pairings` wrapper). The `.spec/references/assets/routing-table.json` file is the spine/category-key mirror used for structural validation only : it is NOT the runtime pairing shape and must not be treated as the authoritative source for array vs. object layout.
 
+The committed `src/routing-table.json` is the launchable-only runtime table.
+`src/routing-table-audit.json` may retain benchmarked non-launchable ids for
+provenance, but `scripts/validate_provider.mjs` and
+`scripts/validate_routing_audit.mjs` project comparisons through
+`scripts/lib/launchable-models.mjs`.
+
 ## AGENTS.md load-trigger note (for B2 : do NOT edit AGENTS.md from this task)
 
 B2 should add a load trigger to `AGENTS.md` "Load Triggers":

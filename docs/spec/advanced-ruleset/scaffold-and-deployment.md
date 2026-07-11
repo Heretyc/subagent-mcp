@@ -20,7 +20,7 @@ is impossible (a test asserts byte-equality anyway, `build-and-test.md`):
 | Artifact | Derived how |
 |---|---|
 | `src/ruleset-scaffold.ts` (git-ignored, GENERATED) | `scripts/gen-ruleset-scaffold.mjs` reads the `.py` and emits `export const RULESET_SCAFFOLD: string = <JSON.stringify of the bytes>` with a `GENERATED ... DO NOT EDIT` header. Hard-fails if the `.py` is missing. |
-| `dist/advanced-ruleset.py` | `scripts/copy-provider.mjs` copies `src/advanced-ruleset.py` → `dist/`. HARD-FAILS the build (exit 1) if the source is missing : deliberately STRICTER than the routing-table warn-and-skip, because the scaffold is a verified shipped part and a silent skip ships an incomplete tarball. |
+| `dist/advanced-ruleset.py` | `scripts/copy-provider.mjs` copies `src/advanced-ruleset.py` -> `dist/`. HARD-FAILS the build (exit 1) if the source is missing, matching the routing-table and config copy policy for required shipped parts. |
 | Runtime recreate | `ensureScaffold()` writes `RULESET_SCAFFOLD` to the dist path when absent (`src/ruleset.ts`). |
 
 Build order (package.json `build`):
