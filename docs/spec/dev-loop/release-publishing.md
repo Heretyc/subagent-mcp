@@ -24,11 +24,15 @@ registry directly; never infer one from the other.
 ## Procedure
 
 The owner-approved GitHub release workflow `.github/workflows/npm-publish.yml`
-uses one shared `build` job per release tag. Its concurrency group is the
-release tag, with cancellation disabled. The build job checks versions, builds,
-tests, and uploads a single package artifact. Both publish jobs depend on that
-build artifact, download it, run `npm ci`, and then publish with npm's default
-lifecycle from the same bytes.
+uses one shared `build` job per release tag as a fail-fast gate. Its
+concurrency group is the release tag, with cancellation disabled. The build job
+checks versions, builds, and tests; if it fails, neither publish job runs.
+Both publish jobs `needs: build`, then each checks out the full release tree
+(`actions/checkout`) and runs `npm ci`, so npm's own lifecycle rebuilds and
+retests from complete sources: `prepare` runs `npm run build` (which needs
+`scripts/`), and `prepublishOnly` runs `npm test` at publish time. The publish
+jobs deliberately do not `--ignore-scripts`; they need the full repo, not a
+packed artifact subset, which is why the earlier artifact handoff was dropped.
 
 0. **Version-sync gate:** before commit, tag, release, or publish, all package
    version surfaces MUST match exactly:
