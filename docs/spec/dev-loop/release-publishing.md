@@ -23,6 +23,13 @@ registry directly; never infer one from the other.
 
 ## Procedure
 
+The owner-approved GitHub release workflow `.github/workflows/npm-publish.yml`
+uses one shared `build` job per release tag. Its concurrency group is the
+release tag, with cancellation disabled. The build job checks versions, builds,
+tests, and uploads a single package artifact. Both publish jobs depend on that
+build artifact, download it, run `npm ci`, and then publish with npm's default
+lifecycle from the same bytes.
+
 0. **Version-sync gate:** before commit, tag, release, or publish, all package
    version surfaces MUST match exactly:
    - `package.json` top-level `version`
@@ -79,6 +86,9 @@ These travel inside the tarball via the whole-dir `dist` entry : no
 `files`-array change : and the build regenerates them every time, so a publish
 of a stale tree cannot ship a drifted copy:
 
+- `dist/routing-table.json` : `copy-provider.mjs` hard-fail copy from
+  `src/routing-table.json`; the build refuses to publish without the runtime
+  routing table.
 - `dist/advanced-ruleset.py` : gen-scaffold embed + `copy-provider.mjs`
   hard-fail copy; preserved on update (`../advanced-ruleset/scaffold-and-deployment.md`).
 - `dist/global-subagent-mcp-config.jsonc` - the global concurrent-subagent cap config.

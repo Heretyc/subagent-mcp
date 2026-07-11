@@ -10,8 +10,8 @@ list, normalizes effort, and runs the attempt loop with silent fallback.
   `scripts/copy-provider.mjs` copies `src/routing-table.json` →
   `dist/routing-table.json` at build.
 - The source `src/routing-table.json` is emitted by the model-profiler run and
-  is ABSENT until then; the copy script already skips silently when absent
-  (`scripts/copy-provider.mjs`). So `dist/routing-table.json` may not exist.
+  is a required build input. `scripts/copy-provider.mjs` hard-fails the build
+  when it is absent, so packaged builds must include `dist/routing-table.json`.
 - Loading: read + `JSON.parse` inside try/catch. On ENOENT, parse error, or any
   read failure → treat as "table missing" → `ERR_TABLE_MISSING`
   (`resolution-matrix.md`). Never throw uncaught; never crash the server.
@@ -83,7 +83,10 @@ are exactly: `routing_tier` (poll), `ruleset_applied`,
 
 Each element of the selected branch's `<task_category>` array conforms to
 `skills/model-profiler/references/provider-json-emission.md` (the authoritative
-contract). The fields THIS resolver consumes:
+contract). The shipped `src/routing-table.json` contains only launchable model
+ids; benchmarked but non-launchable ids stay in `src/routing-table-audit.json`
+and are projected out by shared validator helper
+`scripts/lib/launchable-models.mjs`. The fields THIS resolver consumes:
 
 | Field | Use |
 |---|---|

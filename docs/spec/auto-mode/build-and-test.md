@@ -17,8 +17,9 @@ Each file is owned by exactly one work-unit; no two units edit the same file.
 | `README.md` / `docs/tools.md` / `docs/usage.md` | Document auto mode + `task_category`; link this spec dir. Markdown <=200 lines each. |
 | `AGENTS.md` | Add the auto-mode load trigger (see `_INDEX.md`); keep <=100 lines. |
 
-Build note: `src/routing.ts` compiles to `dist/routing.js`; no change to
-`scripts/copy-provider.mjs` is needed (it already copies the JSON when present).
+Build note: `src/routing.ts` compiles to `dist/routing.js`; `scripts/copy-provider.mjs`
+copies `src/routing-table.json` to `dist/routing-table.json` and hard-fails the
+build if the source table is missing.
 `src/effort.ts` and `src/platform.ts` are UNCHANGED : the resolver wraps them,
 it does not modify them (surgical-change invariant).
 
