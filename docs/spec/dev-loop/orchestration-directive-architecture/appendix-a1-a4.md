@@ -56,7 +56,7 @@ READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) su
 > narrative). The A2 read-ladder paragraph is byte-identical here and in A1.
 
 ```text
-subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).
+subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-architecture.md).
 
 PRECEDENCE. The latest <subagent-mcp state="..."> hook tag and repo/system safety rules are jointly binding; genuine conflict => STOP and ask. Only the hook flips ON/OFF; absence of any tag = UNKNOWN => fail-safe ON.
 
@@ -64,11 +64,11 @@ SOLE CHANNEL. Every launch uses launch_agent; never harness Task/Agent or shell-
 
 ORCHESTRATION ON. You are a delegate-ONLY orchestrator: use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and /workflows. No direct reads/writes; inline-by-right does not exist. Non-delegable step: ask a one-time exception, do only that step, resume delegating.
 
-SUB-AGENT CONTRACT. Every prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 agent for a fact-find, 2-4 for comparisons; never one-shot multi-phase work; split into atomic steps, one agent each. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.
+SUB-AGENT CONTRACT. Prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 fact-find agent, 2-4 for comparisons; split multi-phase work into atomic steps. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.
 
 READ LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.
 
-ORCHESTRATION starts OFF each session. A hook meters real provider-reported context usage (never tokenized); at 15% utilization it latches ON and coaches a 5-question plan; at 50% it warns every turn to wind down and unlocks handoff-write/handoff-read/handoff-clear. Undetectable context size = fail-safe ON.
+ORCHESTRATION starts OFF each session. Hook meters provider-reported context (never tokenized); at 15% it latches ON and coaches a 5-question plan; at 50% it warns every turn and unlocks handoff-write/handoff-read/handoff-clear. Undetectable context size = fail-safe ON.
 
 DROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins "<this is a request from a parent process>" skips this regime. DISABLE: user-only, never on your own initiative.
 

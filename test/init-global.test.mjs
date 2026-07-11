@@ -15,7 +15,7 @@ import {
   upsertInitBlock,
 } from "../dist/init.js";
 
-const BEGIN_MARKER = "<!-- subagent-mcp:managed:begin schema=3 -->";
+const BEGIN_MARKER = "<!-- subagent-mcp:managed:begin schema=4 -->";
 
 let passed = 0;
 let failed = 0;

@@ -1,12 +1,21 @@
-import { realpathSync } from "node:fs";
+import {
+  closeSync,
+  openSync,
+  readFileSync,
+  readSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { pathToFileURL } from "node:url";
 
 import {
   countJsonlType,
   runHook,
+  TRANSCRIPT_READ_CAP,
   type HookPayload,
   type ProviderAdapter,
 } from "../orchestration/hook-core.js";
+import type { MeteringHarness, MeteringUsage } from "../orchestration/metering.js";
 import { hasParentMarker } from "../launch-prompt.js";
 
 /**
@@ -31,7 +40,109 @@ const SUBAGENT_ENTRYPOINTS = new Set([
   "sdk-py",
 ]);
 
-export const claudeAdapter: ProviderAdapter = {
+interface UsageLiftResult {
+  harness: MeteringHarness;
+  model: string;
+  source_ref: string;
+  usage: MeteringUsage;
+  harnessPercentage: number | null;
+}
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function readTranscriptTail(transcriptPath: string | undefined): string | null {
+  if (!transcriptPath) return null;
+  let fd: number | undefined;
+  try {
+    const size = statSync(transcriptPath).size;
+    if (size <= TRANSCRIPT_READ_CAP) {
+      return readFileSync(transcriptPath, "utf8");
+    }
+
+    const start = size - TRANSCRIPT_READ_CAP;
+    const buf = Buffer.allocUnsafe(TRANSCRIPT_READ_CAP);
+    fd = openSync(transcriptPath, "r");
+    let offset = 0;
+    let pos = start;
+    while (offset < TRANSCRIPT_READ_CAP) {
+      const bytes = readSync(fd, buf, offset, TRANSCRIPT_READ_CAP - offset, pos);
+      if (bytes <= 0) break;
+      offset += bytes;
+      pos += bytes;
+    }
+    const raw = buf.toString("utf8", 0, offset);
+    const firstNewline = raw.indexOf("\n");
+    return firstNewline === -1 ? "" : raw.slice(firstNewline + 1);
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) {
+      try {
+        closeSync(fd);
+      } catch {
+        // Ignore close failures. The hook must never fail the host turn.
+      }
+    }
+  }
+}
+
+function liftClaudeUsageFromTranscript(transcriptPath: string | undefined): UsageLiftResult | null {
+  const raw = readTranscriptTail(transcriptPath);
+  if (raw === null || !transcriptPath) return null;
+  const lines = raw.split("\n");
+
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+    try {
+      const msg = JSON.parse(trimmed) as {
+        type?: unknown;
+        message?: {
+          model?: unknown;
+          usage?: {
+            input_tokens?: unknown;
+            output_tokens?: unknown;
+            cache_creation_input_tokens?: unknown;
+            cache_read_input_tokens?: unknown;
+          };
+        };
+      };
+      if (msg.type !== "assistant" || !msg.message?.usage) continue;
+      if (typeof msg.message.model !== "string") return null;
+      const usage = msg.message.usage;
+      return {
+        harness: "claude",
+        model: msg.message.model,
+        source_ref: transcriptPath,
+        usage: {
+          input: finiteNumber(usage.input_tokens) ? usage.input_tokens : 0,
+          output: finiteNumber(usage.output_tokens) ? usage.output_tokens : 0,
+          cache_creation: finiteNumber(usage.cache_creation_input_tokens)
+            ? usage.cache_creation_input_tokens
+            : 0,
+          cache_read: finiteNumber(usage.cache_read_input_tokens)
+            ? usage.cache_read_input_tokens
+            : 0,
+        },
+        harnessPercentage: null,
+      };
+    } catch {
+      // Skip malformed transcript lines and keep scanning older completed turns.
+    }
+  }
+
+  return null;
+}
+
+export const claudeAdapter: ProviderAdapter & {
+  liftUsage(
+    payload: HookPayload,
+    env: NodeJS.ProcessEnv,
+    transcriptPath: string | undefined,
+  ): UsageLiftResult | null;
+} = {
   isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean {
     // subagent-mcp-spawned children inherit this guard and must not claim/nag.
     if (env.SUBAGENT_MCP_SUBAGENT === "1") {
@@ -54,6 +165,14 @@ export const claudeAdapter: ProviderAdapter = {
   // at 0; cadence is counter-driven and unaffected). Read on claim turns only.
   currentTurn(transcriptPath: string | undefined): number {
     return countJsonlType(transcriptPath, "user");
+  },
+
+  liftUsage(
+    _payload: HookPayload,
+    _env: NodeJS.ProcessEnv,
+    transcriptPath: string | undefined,
+  ): UsageLiftResult | null {
+    return liftClaudeUsageFromTranscript(transcriptPath);
   },
 
   anonScope: "claude",

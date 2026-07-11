@@ -8,7 +8,7 @@
  * calls or asks on a sixth call.
  */
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -229,6 +229,12 @@ test("subagent env still allows ordinary inline tools", () => {
   } finally {
     cleanup(p);
   }
+});
+
+test("source comments no longer mention the retired 200-line self-estimation doctrine", () => {
+  const source = readFileSync(join(process.cwd(), "src", "orchestration", "pretool.ts"), "utf8");
+  assert.doesNotMatch(source, /200 line/i);
+  assert.doesNotMatch(source, /self-estimat/i);
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

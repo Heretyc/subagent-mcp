@@ -146,7 +146,7 @@ splits per harness. These three rows are binding.
 | Coaching trigger | Questions | Claude call shape | Codex call shape |
 |---|---|---|---|
 | 15% latch (plan phase) | 5 | 4 questions in one `AskUserQuestion` call + 1 question in a second `AskUserQuestion` call (four-plus-one, two calls; NEVER 5-in-one-call, NEVER any other split) | a single `request-user-input` call carrying all 5 questions (NOT split) |
-| handoff-write pre-write (>=50%) | 10 | one `AskUserQuestion` call | one `request-user-input` call |
+| handoff-write pre-write (>=50%) | 10 | three `AskUserQuestion` calls (4+4+2; each call takes at most 4 questions) | one `request-user-input` call carrying all 10 |
 | handoff-read pre-act | 5 | one call | one call |
 
 Latch coaching bodies live in `directives/latch-claude.md` / `latch-codex.md`;

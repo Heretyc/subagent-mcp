@@ -40,13 +40,17 @@ const ADDITIONAL_CONTEXT_CAP = 10000;
 const ORCHESTRATION_ASSET_MAX = 1600;
 const CARRYOVER_ASSET_MAX = 1100;
 const SHORT_ASSET_MAX = 600;
+const TAG_TEMPLATE_ASSET_MAX = 200;
 // Prefix -> C5 byte budget. Files matching no prefix get the default budget so
 // a NEW directive family can never ship with zero C5 coverage.
 const C5_BUDGETS = [
   ["orchestration-", ORCHESTRATION_ASSET_MAX],
   ["carryover-", CARRYOVER_ASSET_MAX],
   ["reminder-", ORCHESTRATION_ASSET_MAX],
+  ["latch-", ORCHESTRATION_ASSET_MAX],
+  ["handoff-", ORCHESTRATION_ASSET_MAX],
   ["short-", SHORT_ASSET_MAX],
+  ["tag-template.md", TAG_TEMPLATE_ASSET_MAX],
 ];
 const C5_DEFAULT_BUDGET = ORCHESTRATION_ASSET_MAX;
 
@@ -184,12 +188,17 @@ function main() {
   // C4 — combined claim-turn injection per provider: the hook's largest single
   // emission is carryover notice + full directive + ON reminder block.
   for (const provider of ["claude", "codex"]) {
-    const parts = [`carryover-${provider}.md`, `orchestration-${provider}.md`, "reminder-on.md"]
-      .filter((f) => dirFiles.includes(f));
+    const parts = [
+      `carryover-${provider}.md`,
+      `orchestration-${provider}.md`,
+      "reminder-on.md",
+      `latch-${provider}.md`,
+      `handoff-${provider}.md`,
+    ].filter((f) => dirFiles.includes(f));
     if (parts.length > 1) {
       const combinedLen = parts.map(read).join("").length;
       results.push({
-        name: `C4 combined[${provider} carryover+full+reminder-on] < ${ADDITIONAL_CONTEXT_CAP} chars`,
+        name: `C4 combined[${provider} carryover+full+reminder-on+latch+handoff] < ${ADDITIONAL_CONTEXT_CAP} chars`,
         fail: combinedLen >= ADDITIONAL_CONTEXT_CAP,
         detail: `${combinedLen} chars`,
       });

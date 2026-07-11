@@ -68,9 +68,9 @@ format/EOL/tooling fragility for no safety gain over convention + CI.
   client reconnect. The FAT INIT_BLOCK (S10) is the per-session safety net that
   covers a stale-instructions window.
 - **OFF-mode footprint metering (D3/D27):** OFF-mode footprint is now
-  provider-metered (context-metering.md), not model self-estimated; the D3/D27
-  self-estimation note is RETIRED. Hooks lift provider-reported usage only and
-  never count lines hook-side.
+  provider-metered (context-metering.md) and is never estimated by the model;
+  the D3/D27 self-estimation note is RETIRED. Hooks lift provider-reported
+  usage only and never count lines hook-side.
 - **Mirror test non-gating (S4 vs S7):** byte-identity drift between the two
   A2 occurrences would not block merge, only surface on the next CI run.
 
@@ -176,9 +176,9 @@ turns ON only via an explicit user enable, an active 15% latch, or the
 metering-undetectable fail-safe. When OFF you work solo.
 
 - **Provider-metered footprint (D3/D27):** OFF-mode footprint is now
-  provider-metered (context-metering.md), not model self-estimated; the D3/D27
-  self-estimation note is RETIRED. Hooks lift provider-reported usage only and
-  never tokenize or count lines hook-side.
+  provider-metered (context-metering.md) and is never estimated by the model;
+  the D3/D27 self-estimation note is RETIRED. Hooks lift provider-reported
+  usage only and never tokenize or count lines hook-side.
 - **Metering-undetectable fail-safe (D4 / D15):** when context usage cannot be
   measured for the session (no recognized model window, or no provider usage
   numbers), the hook fails safe to **ON**. A fail-safe-ON turn still reports
