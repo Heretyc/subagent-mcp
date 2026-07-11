@@ -7,7 +7,7 @@ import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 
-from graphify.security import safe_fetch, safe_fetch_text, validate_url
+from graphify.security import _NETWORK_DISABLED, safe_fetch, safe_fetch_text, validate_url
 
 
 def _yaml_str(s: str) -> str:
@@ -175,6 +175,7 @@ Source: {url}
 
 def _download_binary(url: str, suffix: str, target_dir: Path) -> Path:
     """Download a binary file (PDF, image) directly."""
+    raise RuntimeError(_NETWORK_DISABLED)
     filename = _safe_filename(url, suffix)
     out_path = target_dir / filename
     out_path.write_bytes(safe_fetch(url))
@@ -187,6 +188,7 @@ def ingest(url: str, target_dir: Path, author: str | None = None, contributor: s
 
     Returns the path of the saved file.
     """
+    raise RuntimeError(_NETWORK_DISABLED)
     target_dir.mkdir(parents=True, exist_ok=True)
     url_type = _detect_url_type(url)
 

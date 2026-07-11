@@ -15,6 +15,10 @@ import socket
 _ALLOWED_SCHEMES = {"http", "https"}
 _MAX_FETCH_BYTES = 52_428_800   # 50 MB hard cap for binary downloads
 _MAX_TEXT_BYTES  = 10_485_760   # 10 MB hard cap for HTML / text
+_NETWORK_DISABLED = (
+    "network ingestion is disabled in this offline vendored fork; "
+    "graphify operates on the local corpus only"
+)
 
 # AWS metadata, link-local, and common cloud metadata endpoints
 _BLOCKED_HOSTS = {"metadata.google.internal", "metadata.google.com"}
@@ -32,6 +36,7 @@ def validate_url(url: str) -> str:
     IP ranges (127.x, 10.x, 169.254.x, etc.) and cloud metadata endpoints
     to prevent SSRF in cloud environments.
     """
+    raise RuntimeError(_NETWORK_DISABLED)
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
         raise ValueError(
@@ -134,6 +139,7 @@ def safe_fetch(url: str, max_bytes: int = _MAX_FETCH_BYTES, timeout: int = 30) -
         urllib.error.URLError   - DNS / connection failure
         OSError               - size cap exceeded
     """
+    raise RuntimeError(_NETWORK_DISABLED)
     validate_url(url)
     opener = _build_opener()
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 graphify/1.0"})
@@ -167,6 +173,7 @@ def safe_fetch_text(url: str, max_bytes: int = _MAX_TEXT_BYTES, timeout: int = 1
 
     Wraps safe_fetch with tighter defaults for HTML / text content.
     """
+    raise RuntimeError(_NETWORK_DISABLED)
     raw = safe_fetch(url, max_bytes=max_bytes, timeout=timeout)
     return raw.decode("utf-8", errors="replace")
 

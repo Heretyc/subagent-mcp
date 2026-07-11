@@ -11,16 +11,15 @@ const legacyConcurrencyTarget = new URL("../dist/global-concurrency.jsonc", impo
 mkdirSync(new URL("../dist/", import.meta.url), { recursive: true });
 
 if (!existsSync(source)) {
-  console.warn("WARN src/routing-table.json is absent; skipping routing-table.json copy");
-} else {
-  copyFileSync(source, target);
-  console.log("Copied src/routing-table.json to dist/routing-table.json");
+  console.error("ERROR src/routing-table.json is absent; refusing to build without the routing table");
+  process.exit(1);
 }
+copyFileSync(source, target);
+console.log("Copied src/routing-table.json to dist/routing-table.json");
 
 // The ruleset scaffold is a verified shipped part (deploy/setup verify lists
-// include dist/advanced-ruleset.py), so unlike the routing table's
-// warn-and-skip above, a missing source HARD-FAILS the build: a silent skip
-// would ship an incomplete tarball.
+// include dist/advanced-ruleset.py), so a missing source HARD-FAILS the build:
+// a silent skip would ship an incomplete tarball.
 if (!existsSync(scaffoldSource)) {
   console.error("ERROR src/advanced-ruleset.py is absent; refusing to build without the ruleset scaffold");
   process.exit(1);

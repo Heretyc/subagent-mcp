@@ -6,6 +6,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { isLaunchableModel } from "./lib/launchable-models.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const AUDIT_PATH = process.env.AUDIT_PATH
@@ -42,14 +43,21 @@ for (const branch of BRANCHES) {
     fail(`${branch} category keys/order differ: audit=[${auditCats}] routing=[${provCats}]`);
   }
   for (const category of provCats) {
-    const auditPairings = audit[branch][category];
+    const auditPairingsFull = audit[branch][category];
     const provPairings = provider[branch][category];
-    if (!Array.isArray(auditPairings)) { fail(`audit ${branch}.${category} not an array`); continue; }
+    if (!Array.isArray(auditPairingsFull)) { fail(`audit ${branch}.${category} not an array`); continue; }
     if (!Array.isArray(provPairings)) continue;
+    // ISS-057: the audit carries the FULL benchmark universe (incl. non-launchable
+    // ids like claude-opus-4-7 / gpt-5.5-pro / gpt-5.4-mini), but the shipped table
+    // carries only launchable pairings. Project the audit down to the launchable
+    // subset (SSOT: FULL_TO_SHORT via scripts/lib/launchable-models.mjs) so the
+    // count + set-equality checks compare like-for-like instead of flagging the
+    // intentionally-excluded ids.
+    const auditPairings = auditPairingsFull.filter((p) => isLaunchableModel(p.model));
     if (auditPairings.length !== provPairings.length) {
-      fail(`${branch}.${category} pairing count: audit=${auditPairings.length} routing=${provPairings.length}`);
+      fail(`${branch}.${category} launchable pairing count: audit=${auditPairings.length} routing=${provPairings.length}`);
     }
-    // model+effort set equality
+    // model+effort set equality (launchable subset)
     const auditKeys = new Set(auditPairings.map((p) => `${p.model}@${p.effort}`));
     const provKeys = new Set(provPairings.map((p) => `${p.model}@${p.effort}`));
     for (const k of provKeys) if (!auditKeys.has(k)) fail(`${branch}.${category} pairing ${k} in routing-table but absent from audit`);

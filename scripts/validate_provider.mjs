@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { isLaunchableModel } from "./lib/launchable-models.mjs";
 
 const providerPath = new URL("../src/routing-table.json", import.meta.url);
 const auditPath = new URL("../src/routing-table-audit.json", import.meta.url);
@@ -99,6 +100,10 @@ function deriveRosterFromAudit() {
     if (at < 1) continue;
     const model = key.slice(0, at);
     const effort = key.slice(at + 1);
+    // ISS-057: the audit universe carries the FULL benchmark roster; the shipped
+    // table (and therefore VALID_MODELS / MODEL_EFFORT_LADDERS) is the launchable
+    // subset only. Skip non-launchable ids so the derived mirror matches the table.
+    if (!isLaunchableModel(model)) continue;
     models.add(model);
     const arr = ladders.get(model) || [];
     arr.push(effort);
@@ -308,11 +313,20 @@ function crossCheckAuditUniverse(derivedUniverse, issues) {
   if (!audit) {
     return;
   }
-  const universe = isObject(audit.metadata) ? audit.metadata.model_effort_universe : undefined;
-  if (!Array.isArray(universe) || !universe.every((key) => typeof key === "string")) {
+  const rawUniverse = isObject(audit.metadata) ? audit.metadata.model_effort_universe : undefined;
+  if (!Array.isArray(rawUniverse) || !rawUniverse.every((key) => typeof key === "string")) {
     issues.push("src/routing-table-audit.json metadata.model_effort_universe must be a string array");
     return;
   }
+  // ISS-057: project the FULL audit universe onto the launchable subset before every
+  // cross-check below. The shipped table intentionally omits non-launchable ids
+  // (claude-opus-4-7 / gpt-5.5-pro / gpt-5.4-mini), so comparing the raw audit
+  // universe against the table-derived universe would falsely report those ids as
+  // drift. SSOT for launchability: scripts/lib/launchable-models.mjs (FULL_TO_SHORT).
+  const universe = rawUniverse.filter((key) => {
+    const at = key.lastIndexOf("@");
+    return isLaunchableModel(at > 0 ? key.slice(0, at) : key);
+  });
   const auditCanon = canonicalSet(universe);
   const derivedCanon = canonicalSet(derivedUniverse);
   const onlyAudit = setDiff(auditCanon, derivedCanon);

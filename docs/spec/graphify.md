@@ -17,6 +17,10 @@ Use graphify to understand relationships before searching raw files, especially
 for architecture, navigation, cross-module dependency, and "how does X relate to
 Y" questions.
 
+This repository uses an offline-only vendored graphify fork. Network ingestion
+from URLs, including web pages, PDFs, images, arXiv, tweets, and YouTube audio,
+is disabled. Use graphify only against the local repository corpus.
+
 ## MCP Health
 
 At session start and before graph-dependent work, expect the `graphify` MCP to

@@ -4,13 +4,18 @@ graphify — vendored patched fork
 Upstream project: graphify (PyPI package: graphifyy)
 Upstream repository: https://github.com/safishamsi/graphify
 Upstream branch vendored: v5
+Upstream commit recorded: 762b85d7ca47bf492027277dfd43f111b496e836
+Provenance qualifier: branch v5 head, consistent with the 2026-06-17
+vendoring date; exact snapshot commit is not independently verifiable because
+the .git directory was removed at vendoring and local differences remain beyond
+the documented patch files.
 Upstream author: Safi Shamsi <safishamsi>
 
 License (MIT — reproduced from upstream LICENSE file):
 ------------------------------------------------------
 MIT License
 
-Copyright (c) 2024 Safi Shamsi
+Copyright (c) 2026 Safi Shamsi
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +38,7 @@ SOFTWARE.
 ------------------------------------------------------
 This vendored copy is maintained at:
   tools/vendor/graphify-local/
-within the Unity-Claude-Scaffold repository.
+within the subagent-mcp repository.
 
 Modifications made to this fork are described in PATCH-NOTES.md.
 The .git directory has been removed (vendoring, not a submodule).
