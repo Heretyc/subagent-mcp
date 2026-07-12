@@ -39,9 +39,9 @@ function decision(
  * deny harness-native Task/Agent/Explore while subagent-mcp is alive so all
  * sub-agent launches route through launch_agent. There is NO inline tool-call
  * counter — the old inline tool-call-count injection is gone (D11/D24).
- * Long-horizon
- * upgrades are now agent-self-driven via the OFF-mode cumulative footprint
- * check (no hook-side counting).
+ * Long-horizon upgrades are now driven by provider-metered context tracking
+ * (see docs/spec/dev-loop/orchestration-directive-architecture/context-metering.md),
+ * not any hook-side footprint counting.
  */
 export function runClaudePreTool(
   payload: PreToolPayload,

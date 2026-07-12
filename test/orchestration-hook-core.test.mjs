@@ -44,7 +44,9 @@ import {
   markerPath,
   isActive,
   readMarker,
+  removeEnable,
   removeDisable,
+  writeEnable,
   writeDisable,
   writeMarker,
   anonKey,
@@ -53,6 +55,12 @@ import {
   readReminder,
   reminderPath,
 } from "../dist/orchestration/reminder.js";
+import { clearLatch } from "../dist/orchestration/latch.js";
+import {
+  clearHandoff,
+  markRead,
+  writeHandoff,
+} from "../dist/orchestration/handoff.js";
 import {
   drainZombieReports,
   slotPathForAgent,
@@ -91,6 +99,8 @@ const SHORT_OFF_TEXT = "SHORT-OFF-RULE-CARRIER";
 const CARRYOVER_TEXT = "CARRYOVER-NOTICE-BODY";
 const REM_ON_TEXT = "REMINDER-ON-BLOCK";
 const REM_OFF_TEXT = "REMINDER-OFF-BLOCK";
+const LATCH_TEXT = "LATCH-COACH-BODY";
+const HANDOFF_TEXT = "HANDOFF-WINDDOWN-BODY";
 
 // Build a temp directives dir and an env that points the resolver at it.
 function makeDirectivesEnv({
@@ -100,6 +110,8 @@ function makeDirectivesEnv({
   withCarryover = true,
   withReminderOn = true,
   withReminderOff = true,
+  withLatch = true,
+  withHandoff = true,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "orch-root-"));
   const dir = join(root, "directives");
@@ -110,14 +122,17 @@ function makeDirectivesEnv({
   if (withCarryover) writeFileSync(join(dir, "carryover.md"), CARRYOVER_TEXT, "utf8");
   if (withReminderOn) writeFileSync(join(dir, "rem-on.md"), REM_ON_TEXT, "utf8");
   if (withReminderOff) writeFileSync(join(dir, "rem-off.md"), REM_OFF_TEXT, "utf8");
+  if (withLatch) writeFileSync(join(dir, "latch-test.md"), LATCH_TEXT, "utf8");
+  if (withHandoff) writeFileSync(join(dir, "handoff-test.md"), HANDOFF_TEXT, "utf8");
   return { root, env: { PLUGIN_ROOT: root } };
 }
 
 // Synthetic adapter with injectable subagent/turn behavior.
-function makeAdapter({ subagent = false, turn = 0 } = {}) {
+function makeAdapter({ subagent = false, turn = 0, liftUsage = () => null } = {}) {
   return {
     isSubagent: () => subagent,
     currentTurn: () => turn,
+    liftUsage,
     anonScope: "test",
     fullDirectiveFile: "full.md",
     shortOnFile: "short-on.md",
@@ -155,6 +170,23 @@ function withSlotDir(fn) {
   }
 }
 
+function assertTagged(out, {
+  state,
+  kind,
+  phase = "normal",
+  utilization = "unknown",
+  body,
+  remaining = null,
+}) {
+  assert.match(out, new RegExp(`^<subagent-mcp state="${state}" kind="${kind}" phase="${phase}" utilization="${utilization}">\\n`));
+  assert.ok(out.includes(`\n${body}\n</subagent-mcp>`), `body must include ${JSON.stringify(body)}`);
+  if (remaining === null) {
+    assert.doesNotMatch(out, /Remaining Context=/);
+  } else {
+    assert.ok(out.endsWith(`Remaining Context=${remaining}%`));
+  }
+}
+
 // ---------------------------------------------------------------------------
 // OFF: no marker -> per-prompt reminder cadence (the hook emits in BOTH modes)
 // ---------------------------------------------------------------------------
@@ -163,7 +195,7 @@ test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule ca
   const { root, env } = makeDirectivesEnv();
   const session = `s-off:${cwd}`;
   try {
-    assert.equal(isActive(cwd, session), true, "fresh sessions are ON by default");
+    assert.equal(isActive(cwd, session), false, "fresh keyed sessions are OFF by default");
     writeDisable(session);
     assert.equal(isActive(cwd, session), false, "precondition: session disabled");
     const adapter = makeAdapter();
@@ -171,9 +203,9 @@ test("OFF: prompts 1-4 -> rule carrier, prompt 5 -> LONG OFF block, 6 -> rule ca
     for (let prompt = 1; prompt <= 10; prompt++) {
       const out = runHook(payload, env, adapter);
       if (prompt % REMINDER_PERIOD === 0) {
-        assert.equal(out, REM_OFF_TEXT, `prompt ${prompt} must emit the LONG OFF block`);
+        assertTagged(out, { state: "off", kind: "reminder", body: REM_OFF_TEXT });
       } else {
-        assert.equal(out, SHORT_OFF_TEXT, `prompt ${prompt} must emit the OFF one-line rule carrier`);
+        assertTagged(out, { state: "off", kind: "carrier", body: SHORT_OFF_TEXT });
       }
     }
     assert.equal(readReminder(cwd).counts[session], 10, "counter persisted across prompts");
@@ -201,9 +233,9 @@ test("OFF: interleaved sessions each keep their own cadence (LONG on each 5th)",
       for (const session of sessions) {
         const out = runHook({ cwd, session_id: session, transcript_path: undefined }, env, adapter);
         if (round === 5) {
-          assert.equal(out, REM_OFF_TEXT, `${session} round 5 must be its LONG block`);
+          assertTagged(out, { state: "off", kind: "reminder", body: REM_OFF_TEXT });
         } else {
-          assert.equal(out, SHORT_OFF_TEXT, `${session} round ${round} must be the OFF rule carrier`);
+          assertTagged(out, { state: "off", kind: "carrier", body: SHORT_OFF_TEXT });
         }
       }
     }
@@ -232,7 +264,7 @@ test("OFF: a new session starts its own count without disturbing others", () => 
     }
     assert.equal(readReminder(cwd).counts[sessionA], 3);
     const out = runHook({ cwd, session_id: sessionB, transcript_path: undefined }, env, adapter);
-    assert.equal(out, SHORT_OFF_TEXT, "first prompt of a new session emits the OFF rule carrier");
+    assertTagged(out, { state: "off", kind: "carrier", body: SHORT_OFF_TEXT });
     const counts = readReminder(cwd).counts;
     assert.equal(counts[sessionB], 1, "a new session starts its own count at 1");
     assert.equal(counts[sessionA], 3, "the other session's count is untouched");
@@ -250,7 +282,7 @@ test("unclaimed marker -> FULL + ON reminder block AND baseline written", () => 
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd);
+    writeEnable("sess-X");
     const before = readMarker(cwd);
     assert.equal(before.baseline_turn, null, "precondition: unclaimed");
 
@@ -259,8 +291,11 @@ test("unclaimed marker -> FULL + ON reminder block AND baseline written", () => 
       env,
       makeAdapter({ turn: 4 })
     );
-    assert.equal(out, FULL_TEXT + REM_ON_TEXT,
-      "the toggle-ON turn emits FULL plus the ON reminder block");
+    assertTagged(out, {
+      state: "on",
+      kind: "directive",
+      body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
+    });
 
     const after = readMarker(cwd);
     assert.equal(after.baseline_turn, 4, "baseline is stamped at the current turn");
@@ -268,6 +303,7 @@ test("unclaimed marker -> FULL + ON reminder block AND baseline written", () => 
     assert.equal(readReminder(cwd).counts["sess-X"], 0,
       "the claim turn re-baselines the session's reminder count to 0 (claim IS a LONG turn)");
   } finally {
+    removeEnable("sess-X");
     cleanup(cwd, root);
   }
 });
@@ -279,23 +315,23 @@ test("ON cadence: claim -> 4 rule carriers -> LONG ON block on the 5th prompt af
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd);
+    writeEnable("s");
     const adapter = makeAdapter({ turn: 10 });
     const payload = { cwd, session_id: "s", transcript_path: undefined };
 
     const claim = runHook(payload, env, adapter);
-    assert.equal(claim, FULL_TEXT + REM_ON_TEXT, "claim turn is a LONG turn");
+    assertTagged(claim, { state: "on", kind: "directive", body: `${FULL_TEXT}\n${REM_ON_TEXT}` });
 
     for (let i = 1; i <= 4; i++) {
       const out = runHook(payload, env, adapter);
-      assert.equal(out, SHORT_ON_TEXT, `prompt ${i} after claim -> ON rule carrier`);
+      assertTagged(out, { state: "on", kind: "carrier", body: SHORT_ON_TEXT });
     }
     const fifth = runHook(payload, env, adapter);
-    assert.equal(fifth, REM_ON_TEXT,
-      "the 5th prompt after the claim emits the LONG ON block (not FULL)");
+    assertTagged(fifth, { state: "on", kind: "reminder", body: REM_ON_TEXT });
     assert.equal(readMarker(cwd).baseline_turn, 10,
       "same-session prompts never re-baseline the marker");
   } finally {
+    removeEnable("s");
     cleanup(cwd, root);
   }
 });
@@ -313,19 +349,19 @@ test("FRESH (owner_session null) -> FULL + ON reminder, no carryover, claims cur
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd); // marker active, owner_session/baseline_turn both null.
+    writeEnable("sess-now");
     const out = runHook(
       { cwd, session_id: "sess-now", transcript_path: undefined },
       env,
       makeAdapter({ turn: 2 })
     );
-    assert.equal(out, FULL_TEXT + REM_ON_TEXT,
-      "a freshly-enabled marker emits FULL + ON reminder (no carryover)");
+    assertTagged(out, { state: "on", kind: "directive", body: `${FULL_TEXT}\n${REM_ON_TEXT}` });
     assert.ok(!out.includes(CARRYOVER_TEXT), "FRESH must NOT prepend the carryover notice");
     const after = readMarker(cwd);
     assert.equal(after.owner_session, "sess-now", "FRESH claims the current session");
     assert.equal(after.baseline_turn, 2, "FRESH baselines at the current turn");
   } finally {
+    removeEnable("sess-now");
     cleanup(cwd, root);
   }
 });
@@ -334,7 +370,7 @@ test("CARRYOVER (owner !== current) -> notice + FULL + ON reminder, re-claims cu
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd);
+    writeEnable("current-session");
     // Simulate a marker left ON by a PRIOR session.
     writeMarker(cwd, { owner_session: "prev-session", baseline_turn: 99 });
 
@@ -343,8 +379,11 @@ test("CARRYOVER (owner !== current) -> notice + FULL + ON reminder, re-claims cu
       env,
       makeAdapter({ turn: 4 })
     );
-    assert.equal(out, CARRYOVER_TEXT + FULL_TEXT + REM_ON_TEXT,
-      "an inherited marker emits notice, then FULL, then the ON reminder block");
+    assertTagged(out, {
+      state: "on",
+      kind: "carryover",
+      body: `${CARRYOVER_TEXT}\n${FULL_TEXT}\n${REM_ON_TEXT}`,
+    });
 
     const after = readMarker(cwd);
     assert.equal(after.owner_session, "current-session",
@@ -352,6 +391,7 @@ test("CARRYOVER (owner !== current) -> notice + FULL + ON reminder, re-claims cu
     assert.equal(after.baseline_turn, 4,
       "CARRYOVER re-baselines at the current turn (notice fires once)");
   } finally {
+    removeEnable("current-session");
     cleanup(cwd, root);
   }
 });
@@ -360,7 +400,7 @@ test("CARRYOVER then next same-session turn -> rule carrier, no repeat notice", 
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd);
+    writeEnable("S");
     writeMarker(cwd, { owner_session: "prev", baseline_turn: 50 });
 
     // Turn 7: carryover re-claim + re-baseline at 7.
@@ -371,9 +411,10 @@ test("CARRYOVER then next same-session turn -> rule carrier, no repeat notice", 
     // Next prompt: same-session -> rule carrier, NO carryover repeat.
     const second = runHook({ cwd, session_id: "S", transcript_path: undefined }, env,
       makeAdapter({ turn: 8 }));
-    assert.equal(second, SHORT_ON_TEXT, "next same-session turn is normal ON cadence, not carryover");
+    assertTagged(second, { state: "on", kind: "carrier", body: SHORT_ON_TEXT });
     assert.ok(!second.includes(CARRYOVER_TEXT), "the carryover notice fires exactly once");
   } finally {
+    removeEnable("S");
     cleanup(cwd, root);
   }
 });
@@ -391,7 +432,10 @@ test("keyless payload resolves to anonymous owner and converges within TTL", () 
       "a real prior owner and new anonymous owner is carryover once");
     assert.equal(readMarker(cwd).owner_session, owner);
     assert.equal(readReminder(cwd).counts[owner], 0);
-    assert.equal(runHook({ cwd, transcript_path: undefined }, env, makeAdapter({ turn: 4 })), SHORT_ON_TEXT);
+    assertTagged(
+      runHook({ cwd, transcript_path: undefined }, env, makeAdapter({ turn: 4 })),
+      { state: "on", kind: "carrier", body: SHORT_ON_TEXT }
+    );
   } finally {
     cleanup(cwd, root);
   }
@@ -435,9 +479,12 @@ test("anonymous owner claim re-anchors after TTL and then returns to cadence", (
       carryover_ack: false,
     });
     const out = runHook({ cwd, transcript_path: undefined }, env, makeAdapter({ turn: 2 }));
-    assert.equal(out, FULL_TEXT + REM_ON_TEXT, "expired anonymous claim re-anchors with FULL");
+    assertTagged(out, { state: "on", kind: "directive", body: `${FULL_TEXT}\n${REM_ON_TEXT}` });
     assert.equal(readMarker(cwd).owner_session, owner);
-    assert.equal(runHook({ cwd, transcript_path: undefined }, env, makeAdapter({ turn: 3 })), SHORT_ON_TEXT);
+    assertTagged(
+      runHook({ cwd, transcript_path: undefined }, env, makeAdapter({ turn: 3 })),
+      { state: "on", kind: "carrier", body: SHORT_ON_TEXT }
+    );
   } finally {
     cleanup(cwd, root);
   }
@@ -447,19 +494,26 @@ test("owners map prevents alternating keyed sessions from FULL-thrashing", () =>
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd);
+    writeEnable("A");
+    writeEnable("B");
     const adapter = makeAdapter({ turn: 0 });
     const firstA = runHook({ cwd, session_id: "A" }, env, adapter);
     const firstB = runHook({ cwd, session_id: "B" }, env, adapter);
-    assert.equal(firstA, FULL_TEXT + REM_ON_TEXT);
-    assert.equal(firstB, CARRYOVER_TEXT + FULL_TEXT + REM_ON_TEXT);
+    assertTagged(firstA, { state: "on", kind: "directive", body: `${FULL_TEXT}\n${REM_ON_TEXT}` });
+    assertTagged(firstB, {
+      state: "on",
+      kind: "carryover",
+      body: `${CARRYOVER_TEXT}\n${FULL_TEXT}\n${REM_ON_TEXT}`,
+    });
     for (let i = 0; i < 4; i++) {
-      assert.equal(runHook({ cwd, session_id: "A" }, env, adapter), SHORT_ON_TEXT);
-      assert.equal(runHook({ cwd, session_id: "B" }, env, adapter), SHORT_ON_TEXT);
+      assertTagged(runHook({ cwd, session_id: "A" }, env, adapter), { state: "on", kind: "carrier", body: SHORT_ON_TEXT });
+      assertTagged(runHook({ cwd, session_id: "B" }, env, adapter), { state: "on", kind: "carrier", body: SHORT_ON_TEXT });
     }
-    assert.equal(runHook({ cwd, session_id: "A" }, env, adapter), REM_ON_TEXT);
-    assert.equal(runHook({ cwd, session_id: "B" }, env, adapter), REM_ON_TEXT);
+    assertTagged(runHook({ cwd, session_id: "A" }, env, adapter), { state: "on", kind: "reminder", body: REM_ON_TEXT });
+    assertTagged(runHook({ cwd, session_id: "B" }, env, adapter), { state: "on", kind: "reminder", body: REM_ON_TEXT });
   } finally {
+    removeEnable("A");
+    removeEnable("B");
     cleanup(cwd, root);
   }
 });
@@ -514,7 +568,7 @@ test("missing OFF reminder asset -> '' on the LONG OFF prompt (fail-safe)", () =
     assert.equal(isActive(cwd, session), false, "precondition: session disabled");
     const payload = { cwd, session_id: session, transcript_path: undefined };
     for (let prompt = 1; prompt <= 4; prompt++) {
-      assert.equal(runHook(payload, env, adapter), SHORT_OFF_TEXT);
+      assertTagged(runHook(payload, env, adapter), { state: "off", kind: "carrier", body: SHORT_OFF_TEXT });
     }
     assert.equal(runHook(payload, env, adapter), "",
       "a missing LONG asset degrades to '' on its turn, never a throw");
@@ -589,6 +643,258 @@ test("hook culler blocks through force-after-grace instead of unref scheduling",
       { command: "taskkill", args: ["/PID", "424242", "/T", "/F"] },
     ]);
   });
+});
+
+test("metering lift at turn >=2 renders plan utilization and trips latch at exactly 15%", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-plan:${cwd}`;
+  const adapter = makeAdapter({
+    turn: 2,
+    liftUsage: () => ({
+      harness: "claude",
+      model: "claude-sonnet-4-5",
+      source_ref: "synthetic-transcript",
+      usage: {
+        input: 30000,
+        output: 0,
+        cache_creation: 0,
+        cache_read: 0,
+      },
+      harnessPercentage: null,
+    }),
+  });
+  try {
+    const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(out, {
+      state: "on",
+      kind: "directive",
+      phase: "plan",
+      utilization: "15%",
+      body: LATCH_TEXT,
+      remaining: 85,
+    });
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("plan latch persists but the one-time latch coaching body does not re-fire", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-latch-steady:${cwd}`;
+  const adapter = makeAdapter({
+    turn: 2,
+    liftUsage: () => ({
+      harness: "claude",
+      model: "claude-sonnet-4-5",
+      source_ref: "synthetic-transcript",
+      usage: { input: 30000, output: 0, cache_creation: 0, cache_read: 0 },
+      harnessPercentage: null,
+    }),
+  });
+  try {
+    const first = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assert.ok(first.includes(LATCH_TEXT), "precondition: first plan turn coaches once");
+    const second = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(second, {
+      state: "on",
+      kind: "carrier",
+      phase: "plan",
+      utilization: "15%",
+      body: SHORT_ON_TEXT,
+      remaining: 85,
+    });
+    assert.ok(!second.includes(LATCH_TEXT), "steady-state plan turns do not re-fire latch coaching");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("handoff phase appends handoff body on both short and long cadence turns", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-handoff:${cwd}`;
+  const adapter = makeAdapter({
+    turn: 2,
+    liftUsage: () => ({
+      harness: "claude",
+      model: "claude-sonnet-4-5",
+      source_ref: "synthetic-transcript",
+      usage: { input: 100000, output: 0, cache_creation: 0, cache_read: 0 },
+      harnessPercentage: null,
+    }),
+  });
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assert.ok(claim.includes(HANDOFF_TEXT), "handoff claim turn includes wind-down body");
+    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(short, {
+      state: "on",
+      kind: "carrier",
+      phase: "handoff",
+      utilization: "50%",
+      body: `${SHORT_ON_TEXT}\n${HANDOFF_TEXT}`,
+      remaining: 50,
+    });
+    for (let i = 0; i < 3; i++) {
+      runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    }
+    const long = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(long, {
+      state: "on",
+      kind: "reminder",
+      phase: "handoff",
+      utilization: "50%",
+      body: `${REM_ON_TEXT}\n${HANDOFF_TEXT}`,
+      remaining: 50,
+    });
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("metering-undetectable fail-safe does not override an explicit session disable", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-undetectable-disabled:${cwd}`;
+  const adapter = makeAdapter({
+    turn: 2,
+    liftUsage: () => null,
+  });
+  try {
+    writeDisable(session);
+    const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(out, {
+      state: "off",
+      kind: "carrier",
+      phase: "normal",
+      utilization: "unknown",
+      body: SHORT_OFF_TEXT,
+    });
+  } finally {
+    removeDisable(session);
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Template-error fail-safe (mission item 5 / S37): if composeTag throws while
+// building the tag, the ENTIRE turn's injection is suppressed (inject nothing),
+// never a partial/malformed tag. The SUBAGENT_MCP_TEST_TAG_TEMPLATE seam forces
+// composeTag to render a malformed (unresolved-placeholder) template so the
+// throw path is reachable from runHook's public surface.
+// ---------------------------------------------------------------------------
+test("template error while composing the tag -> '' (inject nothing, never a partial tag)", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-tag-throw:${cwd}`;
+  try {
+    writeEnable(session);
+    // A template carrying a placeholder that hook-core never supplies makes
+    // renderTemplate throw inside composeTag -> runHook's fail-safe returns ''.
+    process.env.SUBAGENT_MCP_TEST_TAG_TEMPLATE = '<subagent-mcp {{unresolved}}>';
+    const out = runHook(
+      { cwd, session_id: session, transcript_path: undefined },
+      env,
+      makeAdapter({ turn: 0 })
+    );
+    assert.equal(out, "", "a throwing tag template suppresses the whole injection");
+  } finally {
+    delete process.env.SUBAGENT_MCP_TEST_TAG_TEMPLATE;
+    removeEnable(session);
+    cleanup(cwd, root);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Reader-session handoff re-append fires on EVERY LONG reminder, including the
+// OFF cadence (spec: every LONG reminder for the reading session, not just ON).
+// ---------------------------------------------------------------------------
+test("reader session re-appends handoff content on OFF-cadence LONG reminders", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-off-reader:${cwd}`;
+  const HANDOFF_SAVED = "HANDOFF-SAVED-CONTENT";
+  try {
+    // OFF session (no enable/latch/metering) that has already read a handoff.
+    writeHandoff(cwd, { content: HANDOFF_SAVED, createdBySession: "prev" });
+    markRead(cwd, session);
+    const adapter = makeAdapter();
+    const payload = { cwd, session_id: session, transcript_path: undefined };
+    let longOut = "";
+    for (let prompt = 1; prompt <= REMINDER_PERIOD; prompt++) {
+      const out = runHook(payload, env, adapter);
+      if (prompt < REMINDER_PERIOD) {
+        assert.ok(
+          !out.includes(HANDOFF_SAVED),
+          "carrier (non-LONG) OFF turns do not re-append handoff content"
+        );
+      } else {
+        longOut = out;
+      }
+    }
+    assertTagged(longOut, {
+      state: "off",
+      kind: "reminder",
+      body: `${REM_OFF_TEXT}\n${HANDOFF_SAVED}`,
+    });
+  } finally {
+    clearHandoff(cwd);
+    cleanup(cwd, root);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// carryover_ack must burn ONLY on the turn the CARRYOVER notice actually emits,
+// even when a just-tripped latch also selects a FULL-body override that turn.
+// ---------------------------------------------------------------------------
+test("carryover + just-tripped latch: notice emits AND carryover_ack burns together", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-carry-latch:${cwd}`;
+  try {
+    writeEnable(session);
+    // Marker left ON by a PRIOR session -> this turn is a CARRYOVER claim.
+    writeMarker(cwd, { owner_session: "prev-session", baseline_turn: 99 });
+    const adapter = makeAdapter({
+      turn: 2,
+      liftUsage: () => ({
+        harness: "claude",
+        model: "claude-sonnet-4-5",
+        source_ref: "synthetic",
+        usage: { input: 30000, output: 0, cache_creation: 0, cache_read: 0 },
+        harnessPercentage: null,
+      }),
+    });
+    const out = runHook(
+      { cwd, session_id: session, transcript_path: "synthetic" },
+      env,
+      adapter
+    );
+    // Both the carryover notice AND the just-tripped latch body must appear.
+    assertTagged(out, {
+      state: "on",
+      kind: "carryover",
+      phase: "plan",
+      utilization: "15%",
+      body: `${CARRYOVER_TEXT}\n${LATCH_TEXT}`,
+      remaining: 85,
+    });
+    assert.equal(
+      readMarker(cwd).carryover_ack,
+      true,
+      "carryover_ack is set on the turn the notice actually emits"
+    );
+  } finally {
+    removeEnable(session);
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
 });
 
 // ---------------------------------------------------------------------------

@@ -76,6 +76,9 @@ import {
 import { shouldReapTerminalButAlive } from "./zombie.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
+import * as handoff from "./orchestration/handoff.js";
+import * as metering from "./orchestration/metering.js";
+import { computeEffectiveActive } from "./orchestration/hook-core.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
 import { checkForNpmUpdate } from "./orchestration/update-check.js";
 import { ensureParentMarker } from "./launch-prompt.js";
@@ -237,6 +240,24 @@ const TASK_CATEGORY_GLOSS =
 
 function errorResult(text: string) {
   return { content: [{ type: "text" as const, text }], isError: true };
+}
+
+function textResult(text: string) {
+  return { content: [{ type: "text" as const, text }] };
+}
+
+function computeEffectiveOrchestrationActive(cwd: string, key: string | undefined): boolean {
+  const now = Date.now();
+  // Derive the metering fail-safe from the PERSISTED record only: a record that
+  // exists but cannot resolve a percentage is undetectable (fail-safe ON). The
+  // ABSENCE of a record is NOT fail-safed -- it matches the hook's turn-1 grace
+  // window (no completed turn yet), so the tool's report agrees with the hook's
+  // tag on turn 1 instead of spuriously flipping ON. Everything else flows
+  // through the one shared helper so the tool never diverges from the hook.
+  const record = key !== undefined ? metering.readMetering(key) : null;
+  const meteringUndetectableFailSafe =
+    record !== null && record.used_percentage === null;
+  return computeEffectiveActive(cwd, key, now, meteringUndetectableFailSafe);
 }
 
 function currentLaunchDepth(env: NodeJS.ProcessEnv = process.env): number {
@@ -726,7 +747,7 @@ reconcileInterval.unref();
 // compressed under MCP metadata limits:
 // READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: docs/spec/dev-loop/orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are jointly binding; genuine conflict => STOP and ask. Only the hook flips ON/OFF; absence of any tag = UNKNOWN => fail-safe ON.\n\nSOLE CHANNEL. Every launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator: use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and /workflows. No direct reads/writes; inline-by-right does not exist. Non-delegable step: ask a one-time exception, do only that step, resume delegating.\n\nSUB-AGENT CONTRACT. Every prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 agent for a fact-find, 2-4 for comparisons; never one-shot multi-phase work; split into atomic steps, one agent each. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.\n\nORCHESTRATION OFF. If context footprint since last upgrade ask exceeds 200 lines, after that turn STOP and ask whether to enable; reset count only when you ask.\n\nDROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime. DISABLE: user-only, never on your own initiative.\n\nMODEL SELECTION. Default smart auto-picks, rejects provider/model/effort selectors. user-approved-overrides honors them 30 min, expires lazily on launch_agent, needs user authorization.";
+  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are jointly binding; genuine conflict => STOP and ask. Only the hook flips ON/OFF; absence of any tag = UNKNOWN => fail-safe ON.\n\nSOLE CHANNEL. Every launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator: use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and /workflows. No direct reads/writes; inline-by-right does not exist. Non-delegable step: ask a one-time exception, do only that step, resume delegating.\n\nSUB-AGENT CONTRACT. Prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 fact-find agent, 2-4 for comparisons; split multi-phase work into atomic steps. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.\n\nORCHESTRATION starts OFF each session. Hook meters provider-reported context (never tokenized); at 15% it latches ON and coaches a 5-question plan; at 50% it warns every turn and unlocks handoff-write/handoff-read/handoff-clear. Undetectable context size = fail-safe ON.\n\nDROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime. DISABLE: user-only, never on your own initiative.\n\nMODEL SELECTION. Default smart auto-picks, rejects provider/model/effort selectors. user-approved-overrides honors them 30 min, expires lazily on launch_agent, needs user authorization.";
 
 const SUBAGENT_INSTRUCTIONS =
   "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that. launch_agent is code-capped at 2 spawn levels below the main orchestrator: depth 1 may launch depth 2 workers; depth 2 workers cannot spawn further.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
@@ -734,7 +755,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.12.12",
+    version: "2.12.13",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -1970,7 +1991,7 @@ server.tool(
 // Tool 8: orchestration-mode
 server.tool(
   "orchestration-mode",
-  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF for THIS session only, omit = query. SOLE CHANNEL holds in BOTH states: subagent-mcp is the only sanctioned way to launch sub-agents; toggling OFF does not lift that. WHAT: default-ON mode for LONG-HORIZON work that would fill the context window if run inline; when ON act as a delegate-ONLY orchestrator — delegate every step, inline-by-right does not exist, a non-delegable atomic step needs a one-time user-approved exception via the structured-question tool (state which + why). OFF upgrade check: a long-horizon task = any whose TOTAL context footprint (input read + output produced) exceeds 200 lines, measured CUMULATIVELY since your last upgrade ask; after EVERY user turn, if it qualifies, STOP and ask whether to remain enabled (every qualifying turn; a decline does not latch; reset the count only when you ask). PERSISTENCE: a permitted disable is session-keyed only, applies to THIS session only, resumes ON next new session (or after the 2h backstop), no mid-session re-enable; keyless hosts get only the one-time non-persisted conversational opt-out. CARRYOVER: if ON was inherited from a prior session (carried-over, not user-enabled this session), the bundled hook prepends a ONE-TIME notice (once per marker) — notify the user it auto-activated and confirm keeping it ON. DISABLE: never on your own initiative; you may PROPOSE OFF on task-fit mismatch, but only EXPLICIT user permission (AskUserQuestion on Claude, request-user-input on Codex) may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing (documented degradation). Full operating model is in this server's MCP `instructions` (read once at initialize) — this is the operational summary only.",
+  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF for THIS session only, omit = query. SOLE CHANNEL holds in BOTH states: subagent-mcp is the only sanctioned way to launch sub-agents; toggling OFF does not lift that. WHAT: when ON act as a delegate-ONLY orchestrator; delegate every step, inline-by-right does not exist, a non-delegable atomic step needs a one-time user-approved exception via the structured-question tool. Default is now OFF each session (metering-driven latch/handoff supersede the old manual-upgrade-ask model); enabled:true explicitly turns ON early (before any latch); enabled:false remains a session-scoped 2h-TTL opt-out, HONORED even after the 15% latch or metering fail-safe forces ON. PERSISTENCE: a permitted disable is session-keyed only, applies to THIS session only, resumes ON next new session or after the 2h backstop; keyless hosts get only the one-time non-persisted conversational opt-out. DISABLE: never on your own initiative; you may PROPOSE OFF on task-fit mismatch, but only EXPLICIT user permission may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing.",
   {
     enabled: z.boolean().optional(),
   },
@@ -1978,18 +1999,25 @@ server.tool(
     const cwd = process.cwd();
     const key = orchestrationMarker.readCurrentSession(cwd);
     if (params.enabled === true) {
-      if (!orchestrationMarker.isActive(cwd, key)) {
+      if (!key) {
         return errorResult(
-          "orchestration already disabled for this session, cannot re-enable mid-session; resumes ON automatically next new session (or after the 2h backstop)."
+          "cannot enable: no session pointer found for this project (the per-turn hook has not fired yet). Enable records are session-keyed only; send one prompt first, or check wiring with `subagent-mcp doctor`."
         );
       }
+      if (!orchestrationMarker.isSessionScopedKey(key)) {
+        return errorResult(
+          "cannot enable: this host supplies no session identity (no session_id/transcript_path in hook payloads) and enable records are session-keyed only. Orchestration remains fail-safe ON for this anonymous host."
+        );
+      }
+      orchestrationMarker.removeDisable(key);
+      orchestrationMarker.writeEnable(key);
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify({
               orchestration_mode: "ON",
-              message: "orchestration is ON by default.",
+              message: "orchestration is ON for this session.",
             }),
           },
         ],
@@ -2013,14 +2041,14 @@ server.tool(
             text: JSON.stringify({
               orchestration_mode: "disabled-this-session",
               message:
-                "orchestration disabled for THIS session only; the next new session resumes ON automatically (or after the 2h backstop); no mid-session re-enable.",
+                "orchestration disabled for THIS session only; this opt-out overrides the 15% latch and metering fail-safe until the next new session or the 2h backstop.",
             }),
           },
         ],
       };
     }
     // enabled === undefined -> query only; no marker mutation.
-    const active = orchestrationMarker.isActive(cwd, key);
+    const active = computeEffectiveOrchestrationActive(cwd, key);
     return {
       content: [
         {
@@ -2067,6 +2095,74 @@ server.tool(
         },
       ],
     };
+  })
+);
+
+// Verbatim handoff post-write response (plan Section 1.1). Defined as a
+// top-level string constant here so mirror-fragments.test.mjs can assert
+// byte-identity against handoff.md via source-text regex. Kept in lockstep
+// with handoff.HANDOFF_WRITE_SUCCESS (single verbatim string, two surfaces).
+const HANDOFF_WRITE_SUCCESS_MESSAGE =
+  "We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `handoff-resume skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.";
+
+// Tool 10: handoff-write
+server.tool(
+  "handoff-write",
+  "Write a handoff for this working directory so the NEXT session can resume cleanly. UNLOCKS only at >=50% context utilization with readable metering; below that, or if context size is undetectable, this tool returns an affirmative unavailable error (never silent). BEFORE calling, ask the user 10 clarifying questions via the structured-question tool to build a /goal prompt for the next session. content <=4000 chars; use overflow (<=8000 more chars) for anything beyond that, referenced by full path inside content. On success, relay the tool's exact response to the user verbatim.",
+  {
+    content: z.string().min(1),
+    overflow: z.string().optional(),
+  },
+  withMaintenance(async (params: any) => {
+    const cwd = process.cwd();
+    const key = orchestrationMarker.readCurrentSession(cwd);
+    if (!key) return errorResult(handoff.UNAVAILABLE_NO_METERING);
+    const result = handoff.writeHandoffIfAvailable(
+      cwd,
+      {
+        content: params.content,
+        overflowContent: params.overflow,
+        createdBySession: key,
+      },
+      metering.readMetering(key)
+    );
+    if (!result.ok) return errorResult(result.error);
+    return textResult(HANDOFF_WRITE_SUCCESS_MESSAGE);
+  })
+);
+
+// Tool 11: handoff-read
+server.tool(
+  "handoff-read",
+  "Read the saved handoff for this working directory (if any). BEFORE calling, confirm the user's intent via EXACTLY 5 structured questions (proves legitimacy, clears ambiguity). If found, this session becomes the ONLY session that gets the handoff re-appended to its periodic LONG reminders. If none is saved, explains that the previous session must write one first.",
+  {},
+  withMaintenance(async () => {
+    const cwd = process.cwd();
+    const key = orchestrationMarker.readCurrentSession(cwd);
+    const record = handoff.readHandoff(cwd);
+    if (record === null) return errorResult(handoff.NO_HANDOFF_FOUND);
+    const marked = key ? handoff.markRead(cwd, key) ?? record : record;
+    const overflowLine = marked.overflow_path
+      ? `\n\nOverflow file: ${marked.overflow_path}`
+      : "";
+    return textResult(
+      [
+        "Saved handoff:",
+        marked.content + overflowLine,
+        "Before using this handoff, confirm the user's intent via EXACTLY 5 structured questions. Confirm: resume objective, current blocker, files/state to preserve, next concrete action, and permission to proceed in this session.",
+      ].join("\n\n")
+    );
+  })
+);
+
+// Tool 12: handoff-clear
+server.tool(
+  "handoff-clear",
+  "Delete the saved handoff for this working directory, including any overflow file. The write/read/clear cycle repeats at each successor session's own 50% threshold.",
+  {},
+  withMaintenance(async () => {
+    handoff.clearHandoff(process.cwd());
+    return textResult("handoff cleared for this directory.");
   })
 );
 

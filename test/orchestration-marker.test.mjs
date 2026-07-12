@@ -11,11 +11,14 @@ import {
   cwdHash,
   markerPath,
   disablePath,
+  enablePath,
   sessionPointerPath,
   serverSessionPointerPath,
   enable,
   writeDisable,
   removeDisable,
+  writeEnable,
+  removeEnable,
   writeCurrentSession,
   readCurrentSession,
   isActive,
@@ -92,14 +95,17 @@ test("markerPath: stable across calls and lives under tmp/subagent-mcp", () => {
   assert.ok(p1.includes("orch-"));
 });
 
-test("default ON; session disable records are isolated and TTL-GC'd", () => {
+test("default OFF; session disable records are isolated and TTL-GC'd", () => {
   const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
   const sessA = `sessA-${cwdHash(dir)}`;
   const sessB = `sessB-${cwdHash(dir)}`;
   const expiredSess = `expired-${cwdHash(dir)}`;
   try {
     assert.equal(isActive(dir), true, "fresh keyless check is active");
-    assert.equal(isActive(dir, sessA), true, "fresh session key starts active");
+    assert.equal(isActive(dir, sessA), false, "fresh session key starts inactive");
+    writeEnable(sessA);
+    writeEnable(sessB);
+    assert.equal(isActive(dir, sessA), true, "enabled session key starts active");
     writeDisable(sessA);
     assert.equal(isActive(dir, sessA), false, "session-keyed disable affects that session");
     assert.equal(isActive(dir, sessB), true, "different session key remains active");
@@ -108,12 +114,58 @@ test("default ON; session disable records are isolated and TTL-GC'd", () => {
     writeFileSync(disablePath(expiredSess), JSON.stringify({
       disabled_at: Date.now() - ORCH_DISABLE_TTL_MS - 1,
     }));
-    assert.equal(isActive(dir, expiredSess), true, "expired disable record is ignored");
+    writeEnable(expiredSess);
+    assert.equal(isActive(dir, expiredSess), true, "expired disable record is ignored when enable is active");
     assert.equal(existsSync(disablePath(expiredSess)), false, "expired disable record is GC'd");
   } finally {
     removeDisable(sessA);
     removeDisable(sessB);
     removeDisable(expiredSess);
+    removeEnable(sessA);
+    removeEnable(sessB);
+    removeEnable(expiredSess);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("session enable records activate, expire, and are removable", () => {
+  const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
+  const sessA = `sessA-${cwdHash(dir)}`;
+  const sessB = `sessB-${cwdHash(dir)}`;
+  const expiredSess = `expired-enable-${cwdHash(dir)}`;
+  try {
+    assert.equal(isActive(dir, sessA), false, "fresh session key starts inactive");
+    writeEnable(sessA);
+    assert.equal(isActive(dir, sessA), true, "session-keyed enable affects that session");
+    assert.equal(isActive(dir, sessB), false, "different session key remains inactive");
+
+    removeEnable(sessA);
+    assert.equal(isActive(dir, sessA), false, "removed enable record returns session to inactive");
+
+    writeFileSync(enablePath(expiredSess), JSON.stringify({
+      enabled_at: Date.now() - ORCH_DISABLE_TTL_MS - 1,
+    }));
+    assert.equal(isActive(dir, expiredSess), false, "expired enable record is ignored");
+    assert.equal(existsSync(enablePath(expiredSess)), false, "expired enable record is GC'd");
+  } finally {
+    removeEnable(sessA);
+    removeEnable(sessB);
+    removeEnable(expiredSess);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("disable record wins over enable record", () => {
+  const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
+  const sess = `sess-${cwdHash(dir)}`;
+  try {
+    writeEnable(sess);
+    assert.equal(isActive(dir, sess), true, "enable activates the session");
+    writeDisable(sess);
+    assert.equal(isActive(dir, sess), false, "disable wins when both records are present");
+  } finally {
+    removeDisable(sess);
+    removeEnable(sess);
     rmSync(dir, { recursive: true, force: true });
   }
 });

@@ -11,6 +11,10 @@ import { dirname, isAbsolute, join } from "node:path";
 
 import * as marker from "./marker.js";
 import * as reminder from "./reminder.js";
+import * as handoff from "./handoff.js";
+import * as latch from "./latch.js";
+import * as metering from "./metering.js";
+import * as template from "./template.js";
 import {
   cullStaleSlots,
   slotDir,
@@ -63,6 +67,11 @@ export interface HookPayload {
 export interface ProviderAdapter {
   isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean;
   currentTurn(transcriptPath: string | undefined): number;
+  liftUsage(
+    payload: HookPayload,
+    env: NodeJS.ProcessEnv,
+    transcriptPath: string | undefined
+  ): LiftUsageResult | null;
   anonScope: string;
   fullDirectiveFile: string;
   shortOnFile: string;
@@ -78,6 +87,22 @@ export interface ProviderAdapter {
   // provider-neutral.
   reminderOnFile: string;
   reminderOffFile: string;
+}
+
+export interface LiftUsageResult {
+  harness: metering.MeteringHarness;
+  model: string;
+  source_ref: string;
+  usage: Partial<metering.MeteringUsage> | null;
+  harnessPercentage?: number | null;
+}
+
+type TagKind = "directive" | "reminder" | "carryover" | "carrier";
+
+interface Emission {
+  body: string;
+  kind: TagKind;
+  isLong: boolean;
 }
 
 /**
@@ -324,10 +349,165 @@ function cadenceEmit(
   shortFile: string,
   count: number,
   persisted: boolean
+): Emission {
+  const isLong = !persisted || count % REMINDER_PERIOD === 0;
+  return {
+    body: bodyFromDirective(readDirective(env, isLong ? longFile : shortFile)),
+    kind: isLong ? "reminder" : "carrier",
+    isLong,
+  };
+}
+
+function bodyFromDirective(raw: string): string {
+  return raw
+    .replace(/<subagent-mcp\b[^>]*>/g, "")
+    .replace(/<\/subagent-mcp>/g, "")
+    .trim();
+}
+
+function appendReadHandoffForLong(
+  body: string,
+  cwd: string,
+  current: string,
+  isLong: boolean
 ): string {
-  return !persisted || count % REMINDER_PERIOD === 0
-    ? readDirective(env, longFile)
-    : readDirective(env, shortFile);
+  if (!isLong) return body;
+  const record = handoff.readHandoff(cwd);
+  if (record?.read_by_session !== current) return body;
+  const overflowLine = record.overflow_path
+    ? `\nOverflow path: ${record.overflow_path}`
+    : "";
+  return `${body}\n${record.content}${overflowLine}`;
+}
+
+function composeInjection(
+  emission: Emission,
+  effectiveActive: boolean,
+  phase: metering.MeteringPhase,
+  usedPercentage: number | null
+): string | null {
+  // Fail-safe: an unreadable/empty directive body injects NOTHING rather than a
+  // hollow tag (preserves the pre-template missing-directive contract).
+  if (emission.body.trim() === "") return null;
+  const tag = template.composeTag({
+    state: effectiveActive ? "on" : "off",
+    kind: emission.kind,
+    phase,
+    utilization:
+      usedPercentage === null ? "unknown" : `${Math.round(usedPercentage)}%`,
+  });
+  const footer = template.composeFooter(
+    usedPercentage === null ? null : Math.round(100 - usedPercentage)
+  );
+  return `${tag}\n${emission.body}\n</subagent-mcp>${footer ? `\n${footer}` : ""}`;
+}
+
+function composeHookUpdateNotice(
+  env: NodeJS.ProcessEnv,
+  updateNoticeSessionId: string | undefined,
+  emission: Emission,
+  effectiveActive: boolean,
+  phase: metering.MeteringPhase,
+  usedPercentage: number | null
+): string {
+  const injected = composeInjection(
+    emission,
+    effectiveActive,
+    phase,
+    usedPercentage
+  );
+  if (injected === null) return "";
+  return appendHookUpdateNotice(injected, updateNoticeSessionId, env);
+}
+
+function readMeteringState(current: string): {
+  usedPercentage: number | null;
+  phase: metering.MeteringPhase;
+} {
+  const record = metering.readMetering(current);
+  const usedPercentage = record?.used_percentage ?? null;
+  return {
+    usedPercentage,
+    phase: metering.phaseFor(usedPercentage),
+  };
+}
+
+/**
+ * Lift this turn's usage, persist the metering record, and report whether
+ * metering is undetectable (fail-safe ON) for THIS turn.
+ *
+ * One-turn lag (accepted by design, see context-metering.md): the transcript
+ * only carries the PRIOR assistant turn's usage, so the metering data reflects
+ * the last COMPLETED turn, not the in-flight one. Thresholds therefore trip one
+ * turn late, which is harmless. Turn <= 1 has no completed turn yet, so it is a
+ * grace window: no metering is expected and the session is NOT fail-safed.
+ */
+function updateMeteringForTurn(
+  payload: HookPayload,
+  env: NodeJS.ProcessEnv,
+  adapter: ProviderAdapter,
+  current: string,
+  turnIndex: number
+): boolean {
+  if (turnIndex <= 1) return false;
+  const lifted = adapter.liftUsage(payload, env, payload.transcript_path);
+  if (lifted === null) return true;
+  // A valid harness-reported percentage stands on its own: it does not require
+  // the static model->window map, so an unknown model is NOT undetectable when a
+  // percentage was supplied. Only fall back to requiring window resolution when
+  // no harness percentage is available.
+  const hasHarnessPercentage =
+    typeof lifted.harnessPercentage === "number" &&
+    Number.isFinite(lifted.harnessPercentage);
+  if (
+    !hasHarnessPercentage &&
+    metering.resolveContextWindow(lifted.harness, lifted.model) === null
+  ) {
+    return true;
+  }
+  const record = metering.buildMeteringRecord({
+    session_id: current,
+    harness: lifted.harness,
+    model: lifted.model,
+    source_ref: lifted.source_ref,
+    usage: lifted.usage,
+    event:
+      typeof payload.hook_event_name === "string"
+        ? payload.hook_event_name
+        : "UserPromptSubmit",
+    harnessPercentage: lifted.harnessPercentage,
+  });
+  metering.writeMetering(current, record);
+  return false;
+}
+
+function providerDirectiveFile(adapter: ProviderAdapter, prefix: string): string {
+  return `${prefix}-${adapter.anonScope}.md`;
+}
+
+/**
+ * Single source of truth for the effective ON/OFF decision. Shared by runHook,
+ * the Codex SessionStart dispatcher, and the orchestration-mode MCP tool so all
+ * three agree on the same turn (no drift between the hook tag and the tool).
+ *
+ * An explicit session disable always wins (2h TTL, user-only). Otherwise the
+ * session is ON when the marker is active, the 15% latch has tripped, or
+ * metering is undetectable (fail-safe ON). `meteringUndetectableFailSafe` is
+ * supplied by the caller because only the caller knows its own turn context: the
+ * hook honors the turn-1 grace window (no completed turn yet, so early turns are
+ * NOT fail-safed), and the tool derives it from the persisted metering record.
+ */
+export function computeEffectiveActive(
+  cwd: string,
+  current: string | undefined,
+  now: number,
+  meteringUndetectableFailSafe: boolean
+): boolean {
+  if (current !== undefined && marker.isSessionDisabled(current, now)) {
+    return false;
+  }
+  const latched = current !== undefined && latch.isLatchActive(current, now);
+  return marker.isActive(cwd, current) || latched || meteringUndetectableFailSafe;
 }
 
 /**
@@ -347,7 +527,12 @@ export function claimAndEmit(
   m: marker.MarkerState,
   kind: ClaimKind,
   env: NodeJS.ProcessEnv,
-  adapter: ProviderAdapter
+  adapter: ProviderAdapter,
+  effectiveActive = true,
+  phase: metering.MeteringPhase = "normal",
+  usedPercentage: number | null = null,
+  updateNoticeSessionId?: string,
+  fullBodyFile?: string
 ): string {
   const firstCarryover = kind === "carryover" && !m.carryover_ack;
   claimOwner(m, current, turn, Date.now());
@@ -357,12 +542,37 @@ export function claimAndEmit(
   }
   marker.writeMarker(cwd, m);
   reminder.rebase(cwd, current, 0);
-  const full =
-    readDirective(env, adapter.fullDirectiveFile) +
-    readDirective(env, adapter.reminderOnFile);
-  return firstCarryover
-    ? readDirective(env, adapter.carryoverDirectiveFile) + full
-    : full;
+  const full = fullBodyFile
+    ? bodyFromDirective(readDirective(env, fullBodyFile))
+    : bodyFromDirective(readDirective(env, adapter.fullDirectiveFile)) +
+      "\n" +
+      bodyFromDirective(readDirective(env, adapter.reminderOnFile));
+  const handoffBody =
+    phase === "handoff"
+      ? "\n" +
+        bodyFromDirective(readDirective(env, providerDirectiveFile(adapter, "handoff")))
+      : "";
+  // The CARRYOVER notice must be emitted on the SAME turn that burns
+  // carryover_ack (set above), even when a FULL-body override (e.g. the
+  // just-tripped latch coaching) also fires this turn. Prepend it ahead of that
+  // body rather than dropping it, or the once-per-marker notice is lost.
+  const emission: Emission = {
+    body: (firstCarryover
+      ? bodyFromDirective(readDirective(env, adapter.carryoverDirectiveFile)) +
+        "\n" +
+        full
+      : full) + handoffBody,
+    kind: firstCarryover ? "carryover" : "directive",
+    isLong: true,
+  };
+  return composeHookUpdateNotice(
+    env,
+    updateNoticeSessionId,
+    emission,
+    effectiveActive,
+    phase,
+    usedPercentage
+  );
 }
 
 function hookCullDeps(env: NodeJS.ProcessEnv = process.env): CullDeps {
@@ -431,41 +641,127 @@ export function runHook(
       typeof payload.session_id === "string" ? payload.session_id : undefined;
 
     marker.writeCurrentSession(cwd, current);
-    if (!marker.isActive(cwd, current)) {
-      // OFF: no claim machinery — just the per-prompt reminder cadence.
+    const now = Date.now();
+    const turnIndex = adapter.currentTurn(payload.transcript_path);
+    const meteringUndetectableFailSafe = updateMeteringForTurn(
+      payload,
+      env,
+      adapter,
+      current,
+      turnIndex
+    );
+    const meteringState = readMeteringState(current);
+    const wasLatched = latch.isLatchActive(current, now);
+    if (meteringState.phase !== "normal" || wasLatched) {
+      latch.tripLatch(current, now);
+    }
+    const isLatched = latch.isLatchActive(current, now);
+    const justTrippedLatch = !wasLatched && isLatched;
+    const effectiveActive = computeEffectiveActive(
+      cwd,
+      current,
+      now,
+      meteringUndetectableFailSafe
+    );
+
+    if (!effectiveActive) {
       const r = reminder.advance(cwd, current);
-      return appendHookUpdateNotice(cadenceEmit(
+      // A session that has already read a handoff re-appends the saved content
+      // to EVERY LONG reminder (spec), regardless of ON/OFF cadence.
+      const offEmission = cadenceEmit(
         env,
         adapter,
         adapter.reminderOffFile,
         adapter.shortOffFile,
         r.count,
         r.persisted
-      ), updateNoticeSessionId, env);
+      );
+      return composeHookUpdateNotice(
+        env,
+        updateNoticeSessionId,
+        {
+          ...offEmission,
+          body: appendReadHandoffForLong(
+            offEmission.body,
+            cwd,
+            current,
+            offEmission.isLong
+          ),
+        },
+        effectiveActive,
+        meteringState.phase,
+        meteringState.usedPercentage
+      );
     }
 
     const m = marker.readMarker(cwd);
     const kind = classifyOwnerClaim(m, current);
 
     if (kind === "fresh" || kind === "carryover") {
-      const turn = adapter.currentTurn(payload.transcript_path);
-      return appendHookUpdateNotice(
-        claimAndEmit(cwd, current, turn, m, kind, env, adapter),
+      return claimAndEmit(
+        cwd,
+        current,
+        turnIndex,
+        m,
+        kind,
+        env,
+        adapter,
+        effectiveActive,
+        meteringState.phase,
+        meteringState.usedPercentage,
         updateNoticeSessionId,
-        env
+        meteringState.phase === "plan" && justTrippedLatch
+          ? providerDirectiveFile(adapter, "latch")
+          : undefined
       );
     }
 
-    // SAME-SESSION: per-prompt reminder cadence, ON variant.
     const r = reminder.advance(cwd, current);
-    return appendHookUpdateNotice(cadenceEmit(
+    let emission = cadenceEmit(
       env,
       adapter,
       adapter.reminderOnFile,
       adapter.shortOnFile,
       r.count,
       r.persisted
-    ), updateNoticeSessionId, env);
+    );
+    emission = {
+      ...emission,
+      body: appendReadHandoffForLong(
+        emission.body,
+        cwd,
+        current,
+        emission.isLong
+      ),
+    };
+    if (meteringState.phase === "plan" && justTrippedLatch) {
+      emission = {
+        body: bodyFromDirective(
+          readDirective(env, providerDirectiveFile(adapter, "latch"))
+        ),
+        kind: "directive",
+        isLong: true,
+      };
+    }
+    if (meteringState.phase === "handoff") {
+      emission = {
+        ...emission,
+        body:
+          emission.body +
+          "\n" +
+          bodyFromDirective(
+            readDirective(env, providerDirectiveFile(adapter, "handoff"))
+          ),
+      };
+    }
+    return composeHookUpdateNotice(
+      env,
+      updateNoticeSessionId,
+      emission,
+      effectiveActive,
+      meteringState.phase,
+      meteringState.usedPercentage
+    );
   } catch {
     // Any failure -> inject nothing. Never crash or stall the host turn.
     return "";

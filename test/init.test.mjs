@@ -64,7 +64,7 @@ await test("upsert: inserts after first H1 and is idempotent", () => {
     assert.equal(first.status, "added");
     assert.equal(first.changed, true);
     const body = readFileSync(file, "utf8");
-    assert.match(body, /^# Project\n\n<!-- subagent-mcp:managed:begin schema=3 -->/);
+    assert.match(body, /^# Project\n\n<!-- subagent-mcp:managed:begin schema=4 -->/);
     assert.match(body, /\nExisting rules\.\n$/);
     assert.equal(readdirSync(root).filter((f) => f.includes(".bak-init-")).length, 1);
 
@@ -98,7 +98,7 @@ await test("upsert: replaces older managed block without changing user content",
     const result = upsertInitBlock(file);
     assert.equal(result.status, "updated");
     const body = readFileSync(file, "utf8");
-    assert.match(body, /<!-- subagent-mcp:managed:begin schema=3 -->/);
+    assert.match(body, /<!-- subagent-mcp:managed:begin schema=4 -->/);
     // legacy marker fully migrated away
     assert.doesNotMatch(body, /subagent-mcp:begin old-version/);
     assert.doesNotMatch(body, /old text/);
@@ -122,7 +122,7 @@ await test("upsert: preserves BOM and CRLF endings", () => {
     assert.equal(result.status, "updated");
     const body = readFileSync(file, "utf8");
     assert.equal(body.charCodeAt(0), 0xfeff);
-    assert.match(body, /\r\n<!-- subagent-mcp:managed:begin schema=3 -->\r\n/);
+    assert.match(body, /\r\n<!-- subagent-mcp:managed:begin schema=4 -->\r\n/);
     assert.doesNotMatch(body, /(?<!\r)\n/);
   } finally {
     rmSync(root, { recursive: true, force: true });

@@ -92,6 +92,42 @@ test("claude currentTurn: skips blank and unparseable lines without throwing", (
   }
 });
 
+test("claude liftUsage: extracts latest assistant usage with one-turn lag", () => {
+  const { dir, file } = writeJsonl([
+    { type: "user", text: "first" },
+    {
+      type: "assistant",
+      message: {
+        model: "claude-sonnet-4-5",
+        usage: {
+          input_tokens: 100,
+          output_tokens: 20,
+          cache_creation_input_tokens: 7,
+          cache_read_input_tokens: 13,
+        },
+      },
+    },
+    { type: "user", text: "current prompt after the completed assistant turn" },
+  ]);
+  try {
+    assert.equal(typeof claudeAdapter.liftUsage, "function");
+    assert.deepEqual(claudeAdapter.liftUsage({}, {}, file), {
+      harness: "claude",
+      model: "claude-sonnet-4-5",
+      source_ref: file,
+      usage: {
+        input: 100,
+        output: 20,
+        cache_creation: 7,
+        cache_read: 13,
+      },
+      harnessPercentage: null,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Claude adapter: isSubagent signals
 // ---------------------------------------------------------------------------
@@ -170,6 +206,77 @@ test("codex currentTurn: unreadable transcript -> 0", () => {
   assert.equal(codexAdapter.currentTurn(undefined), 0);
 });
 
+test("codex liftUsage: prefers harness percentage when model_context_window is present", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    {
+      type: "token_count",
+      info: {
+        model_context_window: 1000,
+        total_token_usage: {
+          input_tokens: 200,
+          output_tokens: 50,
+          cached_input_tokens: 25,
+          total_tokens: 300,
+        },
+      },
+    },
+  ]);
+  try {
+    assert.equal(typeof codexAdapter.liftUsage, "function");
+    assert.deepEqual(codexAdapter.liftUsage({ cwd: dir }, {}, file), {
+      harness: "codex",
+      model: "gpt-5",
+      source_ref: file,
+      usage: {
+        input: 200,
+        output: 50,
+        cache_creation: 0,
+        cache_read: 25,
+      },
+      harnessPercentage: 30,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex liftUsage: returns static-map-computable usage without harness percentage", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5-codex" },
+    {
+      payload: {
+        type: "token_count",
+        info: {
+          total_token_usage: {
+            input_tokens: 1000,
+            output_tokens: 500,
+            cached_input_tokens: 250,
+            total_tokens: 1750,
+          },
+        },
+      },
+    },
+  ]);
+  try {
+    assert.equal(typeof codexAdapter.liftUsage, "function");
+    assert.deepEqual(codexAdapter.liftUsage({ cwd: dir }, {}, file), {
+      harness: "codex",
+      model: "gpt-5-codex",
+      source_ref: file,
+      usage: {
+        input: 1000,
+        output: 500,
+        cache_creation: 0,
+        cache_read: 250,
+      },
+      harnessPercentage: null,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Codex adapter: isSubagent signals
 // ---------------------------------------------------------------------------
@@ -210,8 +317,14 @@ test("codex SessionStart: active + not subagent -> FULL + ON reminder, counter r
   try {
     enable(cwd);
     const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, env);
-    assert.equal(out, "CODEX-FULL" + "CODEX-REM-ON",
-      "SessionStart emits FULL plus the ON reminder block when active (turn 0)");
+    assert.match(
+      out,
+      /^<subagent-mcp state="on" kind="directive" phase="normal" utilization="unknown">\n/,
+      "SessionStart emits the templated ON tag when active (turn 0)"
+    );
+    assert.ok(
+      out.includes("\nCODEX-FULL\nCODEX-REM-ON\n</subagent-mcp>"),
+      "SessionStart body is FULL plus the ON reminder block");
     const owner = anonKey(cwd, "codex");
     assert.equal(readReminder(cwd).counts[owner], 0,
       "SessionStart re-baselines the session's reminder count to 0 (claim IS a LONG turn)");
