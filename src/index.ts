@@ -547,10 +547,13 @@ function withMaintenance<P>(
 
 export function classifyFailureReason(reason: string, stderr: string): FailureType {
   const text = `${reason}\n${stderr}`;
-  return /\b429\b|\b5\d{2}\b|quota|usage.?cap|rate.?limit|timeout|connection.?reset|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i.test(text)
+  return TRANSIENT_FAILURE_RE.test(text)
     ? "transient_provider"
     : "permanent";
 }
+
+const TRANSIENT_FAILURE_RE =
+  /\b429\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*5\d{2}\b|quota|usage.?cap|rate.?limit|timeout|connection.?reset|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
 
 function buildFailoverNote(
   skipped: { provider: string; model: string; effort: string; failure_type: string }[],
@@ -615,10 +618,9 @@ export function isClaudeBackgroundWakeLine(line: string): boolean {
     if (marker.includes("task_notification") || marker.includes("task-notification")) return true;
     if (marker.includes("background") && marker.includes("complete")) return true;
     if (marker.includes("taskoutput") && marker.includes("complete")) return true;
-    // No concrete Claude bg-task-complete JSONL fixture exists in-repo. As a
-    // backstop, any non-result JSONL activity after a finished turn means the
-    // still-live SDK stream observed something new and needs a nudge.
-    return true;
+    // Only concrete Claude bg-task-complete markers should wake the parked SDK
+    // loop; unrelated post-turn JSONL activity is not a resume signal.
+    return false;
   } catch {
     return false;
   }

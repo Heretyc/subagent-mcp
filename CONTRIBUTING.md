@@ -83,6 +83,10 @@ fails before any test logic), then `check:prose`, the ~40 test files under
 - `test/rag-pointers.test.mjs` : asserts the RAG retrieval map (`retrieval-map.md`)
   and doc cross-pointers stay valid (every indexed path exists).
 
+Mock driver seams (`SUBAGENT_MOCK_CLAUDE_DRIVER`,
+`SUBAGENT_MOCK_CODEX_DRIVER`, and `SUBAGENT_MOCK_DRIVER_SCRIPT`) are test-only.
+They require `NODE_ENV=test` or `SUBAGENT_MCP_ENABLE_TEST_SEAMS=1`.
+
 ## Contribution Workflow
 
 1. Inspect `git status --short --branch` before work.

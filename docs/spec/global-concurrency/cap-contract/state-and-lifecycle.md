@@ -20,23 +20,26 @@ Config and live state are distinct: `global-subagent-mcp-config.jsonc` travels w
 package install; slot files travel with the machine.
 
 ## Shared State
-The live count is a lock-free directory of `slot-<uuid>.json` marker files.
-Reservation writes the marker, recounts, and rolls back if the count exceeds
-the cap.
+The live count is a lock-free directory of numbered marker files:
+`slot-000001.json` through `slot-<max>.json`. Reservation claims exactly one
+numbered slot with exclusive file creation (`O_EXCL` / Node `wx`); if every
+numbered slot already exists after stale-slot culling, admission is rejected.
 
 ```typescript
 reserveSlot(agentId, max, dir = slotDir()):
   mkdir dir
   cullStaleSlots(dir)
-  write slot-<agentId>.json
-  n = count slot-* files
-  if n > max: unlink own slot; reject with current = n - 1
-  else accept
+  for i in 1..max:
+    try create slot-<i>.json with exclusive create
+    if created: accept
+    if exists: continue
+    if other error: fail-open accept without a slot
+  reject with current = count slot-* files
 ```
 
-The algorithm may over-reject under contention, but never over-admits: the last
-surviving recount observes all surviving markers and only survives if count is
-`<= max`.
+Because slot numbers are finite and each claim uses exclusive creation, the cap
+cannot be exceeded under contention. At cap, `launch_agent` still rejects
+immediately and never queues.
 
 No lock is used. A stuck lock can wedge every launch; a stale marker only
 rejects slightly early, and culling now removes stale markers opportunistically.
@@ -58,7 +61,7 @@ base dir is created mode `0o1777`; the per-user `slotDir()` is created **owner-o
 `0o700`** (POSIX); file mode is `0o600`. `countSlots` reads only the current user's
 `slotDir()`, so **only that user's slots count toward the cap** and legacy flat
 slot files written directly under the base dir are ignored. Slot filenames carry
-only the UUID. Slot contents are metadata for culling and diagnostics:
+only the slot number. Slot contents are metadata for culling and diagnostics:
 `agent_id`, `server_pid`, `child_pid`, `cwd`, `started_at`, `started_at_ms`,
 `last_activity_ms`, and `status`.
 

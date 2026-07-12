@@ -329,6 +329,7 @@ function makeRulesetTempEnv(initialMode) {
       SUBAGENT_SPAWN_GRACE_MS: "0",
       SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
       SUBAGENT_MOCK_CODEX_DRIVER: "jsonl",
+      SUBAGENT_MCP_ENABLE_TEST_SEAMS: "1",
       SUBAGENT_MOCK_DRIVER_SCRIPT: mockDriverScript,
       SUBAGENT_RULESET_PYTHON: process.execPath,
       // Forward slashes: node's NODE_OPTIONS parser treats backslash as an

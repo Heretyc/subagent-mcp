@@ -8,8 +8,10 @@ export type Provider = "claude" | "codex";
 export function mapModel(provider: Provider, model: string): string {
   if (provider === "claude") {
     if (model === "opus" || model === "opus-4-8") return "claude-opus-4-8";
+    if (model === "sonnet") return "claude-sonnet-4-6";
+    if (model === "haiku") return "claude-haiku-4-5";
     if (model === "fable") return "claude-fable-5";
-    return model; // haiku, sonnet as-is
+    return model;
   } else {
     return model; // gpt-5.5
   }
@@ -85,25 +87,9 @@ export function buildCommand(
       const ucSettingsPath = join(ucSettingsDir, "settings.json");
       writeFileSync(ucSettingsPath, '{"ultracode":true}', { mode: 0o600 });
       args.push("--settings", ucSettingsPath);
-      args.push(
-        "--permission-mode",
-        "bypassPermissions",
-        "--tools",
-        "default",
-        "--max-turns",
-        "50"
-      );
       return { args, ucSettingsPath, ucSettingsDir };
     }
 
-    args.push(
-      "--permission-mode",
-      "bypassPermissions",
-      "--tools",
-      "default",
-      "--max-turns",
-      "50"
-    );
     return { args };
   } else {
     // codex

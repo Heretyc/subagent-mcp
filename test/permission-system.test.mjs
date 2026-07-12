@@ -19,6 +19,8 @@ import { selectUnreportedPermissionRequested } from "../dist/wait-helpers.js";
 import { reconcilePermissionStatus } from "../dist/status-helpers.js";
 import { shouldReapTerminalButAlive } from "../dist/zombie.js";
 
+const PENDING_PERMISSION_HISTORY_CAP_UNDER_TEST = 200;
+
 let passed = 0;
 let failed = 0;
 let skipped = 0;
@@ -380,6 +382,47 @@ await test("pendingForAgent records are JSON-serializable (no live timer leak)",
   assert.equal("timer" in records[0], false, "public record must not carry the live timer");
   assert.equal("resolve" in records[0], false, "public record must not carry the resolve closure");
   assert.doesNotThrow(() => JSON.stringify(records), "pending record must round-trip through JSON");
+});
+
+await test("pending permission history is capped to recent finished records", async () => {
+  const manager = new PendingPermissionManager();
+  const total = PENDING_PERMISSION_HISTORY_CAP_UNDER_TEST + 7;
+
+  for (let i = 0; i < total; i++) {
+    const record = manager.create({
+      agent_id: `history-agent-${i}`,
+      harness_channel: "codex-app-server",
+      tool_name_or_method: "item/commandExecution/requestApproval",
+      action: { command: "whoami" },
+      correlation_id: i,
+      resolve: () => {},
+    });
+    await manager.respond(record.agent_id, record.request_id, "deny", "test cleanup");
+  }
+
+  assert.equal(manager.history.length, PENDING_PERMISSION_HISTORY_CAP_UNDER_TEST);
+  assert.equal(manager.history[0].correlation_id, total - PENDING_PERMISSION_HISTORY_CAP_UNDER_TEST);
+  assert.equal(manager.history.at(-1).correlation_id, total - 1);
+});
+
+await test("closeAgent clears pending permission ask counts for that agent", async () => {
+  const manager = new PendingPermissionManager();
+  const agentId = "asked-count-agent";
+  for (let i = 0; i < 2; i++) {
+    manager.create({
+      agent_id: agentId,
+      harness_channel: "codex-app-server",
+      tool_name_or_method: "item/commandExecution/requestApproval",
+      action: { command: "whoami" },
+      correlation_id: i,
+      resolve: () => {},
+    });
+  }
+
+  assert.equal(manager.askedCountByAgent.get(agentId), 2);
+  await manager.closeAgent(agentId, "agent stopped by operator");
+  assert.equal(manager.pendingCount(agentId), 0);
+  assert.equal(manager.askedCountByAgent.has(agentId), false);
 });
 
 await test("reconcilePermissionStatus recovers a park whose queue event fired before registration", () => {

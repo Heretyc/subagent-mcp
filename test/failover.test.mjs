@@ -281,6 +281,7 @@ function makeFailoverEnv(codexMode, graceMs, options = {}) {
       SUBAGENT_SPAWN_GRACE_MS: String(graceMs),
       SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
       SUBAGENT_MOCK_CODEX_DRIVER: "jsonl",
+      SUBAGENT_MCP_ENABLE_TEST_SEAMS: "1",
       SUBAGENT_MOCK_DRIVER_SCRIPT: mockDriverScript,
       SUBAGENT_RULESET_PYTHON: process.execPath,
       NODE_OPTIONS: nodeOptions,
@@ -393,6 +394,8 @@ await test("transient pre-start hook: quota/429 class failure fails over with tr
 
 await test("transient classification: HTTP 5xx launch failures are transient_provider", async () => {
   assert.equal(classifyFailureReason("process exited (code 1) within 600ms of spawn: HTTP 503 service unavailable", ""), "transient_provider");
+  assert.equal(classifyFailureReason("provider failed with status 502", ""), "transient_provider");
+  assert.equal(classifyFailureReason("log line 523 in worker output", ""), "permanent");
 });
 
 await test("transient classification: network timeout and reset launch failures are transient_provider", async () => {
@@ -554,7 +557,7 @@ await test("failover_note identifies rank-1 failure and selected winner", async 
 
 await test("classifyFailureReason covers transient and permanent patterns", () => {
   assert.equal(classifyFailureReason("process exited with 429", ""), "transient_provider");
-  assert.equal(classifyFailureReason("process exited with 503", ""), "transient_provider");
+  assert.equal(classifyFailureReason("process exited with status 503", ""), "transient_provider");
   assert.equal(classifyFailureReason("quota exceeded", ""), "transient_provider");
   assert.equal(classifyFailureReason("rate limit", ""), "transient_provider");
   assert.equal(classifyFailureReason("capacity overloaded", ""), "transient_provider");

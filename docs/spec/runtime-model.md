@@ -28,6 +28,9 @@ normative interactive-only driver model.
 - Driver: Claude Agent SDK `query()` with an async input stream.
 - Launch enqueues the prompt as the first user input; `send_message` enqueues later inputs into the same SDK stream.
 - SDK events are captured as JSONL in `agentState.stdout` and parsed with per-agent line buffering. Parsed visible items refresh `lastActivity`; provider-internal thinking blocks do not.
+- Background wake detection is marker-only: only `task_notification` carrying
+  `background-complete` resumes a waiting Claude turn; other post-turn JSONL is
+  captured without resuming.
 - If the SDK is unavailable or lacks the streaming API, launch fails loudly. There is no raw CLI one-shot fallback.
 
 ### Codex

@@ -73,6 +73,7 @@ interface StoredPendingPermission extends PendingPermissionRecord {
 
 const PARK_TIMEOUT_MS = 5 * 60 * 1000;
 const PER_AGENT_FIFO_CAP = 16;
+const PENDING_PERMISSION_HISTORY_CAP = 200;
 
 function publicRecord(record: PendingPermissionRecord): PendingPermissionRecord {
   // record may be a StoredPendingPermission at runtime, which carries a live
@@ -141,7 +142,7 @@ export class PendingPermissionManager {
         answer_reason: "pending-queue cap reached",
       };
       this.telemetry.cap_overflow_auto_denies += 1;
-      this.history.push(publicRecord(record));
+      this.remember(record);
       console.error(
         `[permissions] auto-deny ${record.request_id} for agent ${record.agent_id}: pending-queue cap reached`
       );
@@ -219,6 +220,7 @@ export class PendingPermissionManager {
       const record = this.pendingById.get(id);
       if (record) closed.push(await this.finish(record, "deny", reason));
     }
+    this.askedCountByAgent.delete(agentId);
     return closed;
   }
 
@@ -240,7 +242,10 @@ export class PendingPermissionManager {
     this.pendingById.delete(record.request_id);
     const queue = (this.pendingByAgent.get(record.agent_id) ?? []).filter((id) => id !== record.request_id);
     if (queue.length > 0) this.pendingByAgent.set(record.agent_id, queue);
-    else this.pendingByAgent.delete(record.agent_id);
+    else {
+      this.pendingByAgent.delete(record.agent_id);
+      this.askedCountByAgent.delete(record.agent_id);
+    }
 
     record.state = autoRule ? "auto_answered" : "answered";
     record.auto_answer_rule = autoRule;
@@ -258,9 +263,16 @@ export class PendingPermissionManager {
       record.state = "errored";
       record.answer_reason = e instanceof Error ? e.message : String(e);
     }
-    this.history.push(publicRecord(record));
+    this.remember(record);
     this.emitQueue(record.agent_id);
     return publicRecord(record);
+  }
+
+  private remember(record: PendingPermissionRecord): void {
+    this.history.push(publicRecord(record));
+    if (this.history.length > PENDING_PERMISSION_HISTORY_CAP) {
+      this.history.splice(0, this.history.length - PENDING_PERMISSION_HISTORY_CAP);
+    }
   }
 
   private emitQueue(agentId: string): void {

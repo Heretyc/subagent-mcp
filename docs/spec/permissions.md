@@ -137,6 +137,7 @@ resolve path, keyed to a server-generated `request_id`.
   indefinitely absent this. Also bounds slot-squatting.
 - **Per-agent FIFO cap 16** `PER_AGENT_FIFO_CAP` : overflow auto-denied
   (`pending-queue cap reached`), counted separately from park-timeout in telemetry.
+- **Pending-permission history cap 200**: answered/auto-answered/errored records are retained FIFO; per-agent asked counts clear on agent close.
 - **kill_agent** closes pendings as `deny('agent stopped by operator')` before the
   kill path; exit reconciliation stays first and authoritative.
 - **`send_message`** is rejected while any request is pending.
@@ -192,8 +193,7 @@ answered | auto_answered | errored` : code adds `errored`.
   tool_result vs turn-prefix notice).
 
 ## 8. Child lockout
-Children (`SUBAGENT_MCP_SUBAGENT=1`) get **no** `respond_permission` tool : the
-registration is gated on the env var (`index.ts`). A child cannot approve another
+Children (`SUBAGENT_MCP_SUBAGENT=1`) get **no** `respond_permission` tool : registration is gated on the env var (`index.ts`). A child cannot approve another
 child's requests; a child's own config resolution runs through the same
 DANGER-floor/config self-protection path as its parent.
 ## 9. See also

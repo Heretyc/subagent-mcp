@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir, platform, userInfo } from "node:os";
 import { dirname, join, parse as parsePath, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -118,7 +118,45 @@ export function clampCap(raw: unknown): number {
 }
 
 export function stripJsoncComments(text: string): string {
-  return text.replace(/^\uFEFF/, "").replace(/^\s*\/\/.*$/gm, "");
+  let out = "";
+  let inString = false;
+  let quote: "\"" | "'" | null = null;
+  let escaped = false;
+  for (let i = text.startsWith("\uFEFF") ? 1 : 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inString) {
+      out += ch;
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === quote) {
+        inString = false;
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === "\"" || ch === "'") {
+      inString = true;
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (ch === "/" && next === "/") {
+      while (i < text.length && text[i] !== "\n" && text[i] !== "\r") i++;
+      i--;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      i += 2;
+      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      if (i < text.length) i++;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
 }
 
 function parseJsonObject(text: string): Record<string, unknown> {
@@ -702,6 +740,68 @@ export function countSlots(dir: string = slotDir()): number {
   }
 }
 
+function slotPathForIndex(dir: string, index: number): string {
+  return join(dir, `slot-${index}.json`);
+}
+
+function slotMetadataJson(agentId: string): string {
+  const now = Date.now();
+  return JSON.stringify({
+    schema_version: 1,
+    agent_id: agentId,
+    server_pid: process.pid,
+    child_pid: null,
+    cwd: process.cwd(),
+    started_at: new Date(now).toISOString(),
+    started_at_ms: now,
+    last_activity_ms: now,
+    status: null,
+  });
+}
+
+function claimSlotPath(dir: string, agentId: string, max: number): string | null {
+  let existing: string[];
+  try {
+    existing = readdirSync(dir).filter((f) => f.startsWith("slot-"));
+  } catch {
+    existing = [];
+  }
+  if (existing.length >= max) return null;
+  const occupied = new Set(existing);
+  const candidateCount = max - existing.length;
+  const candidates: string[] = [];
+  for (let i = 0; i < max && candidates.length < candidateCount; i++) {
+    const name = `slot-${i}.json`;
+    if (!occupied.has(name)) candidates.push(slotPathForIndex(dir, i));
+  }
+  for (const path of candidates) {
+    let fd: number | null = null;
+    try {
+      fd = openSync(path, "wx", 0o600);
+      writeFileSync(fd, slotMetadataJson(agentId));
+      return path;
+    } catch (e) {
+      if (fd !== null) {
+        try {
+          closeSync(fd);
+        } catch {}
+        fd = null;
+        try {
+          unlinkSync(path);
+        } catch {}
+      }
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+    } finally {
+      if (fd !== null) {
+        try {
+          closeSync(fd);
+        } catch {}
+      }
+    }
+  }
+  return null;
+}
+
 export function scheduleForceKill(ms: number, kill: () => void): void {
   const timer = setTimeout(kill, ms);
   timer.unref();
@@ -725,20 +825,10 @@ export function reserveSlot(
       mkdirSync(dir, { recursive: true, mode: 0o700 });
     }
     cullStaleSlots(dir, cullDeps);
-    const slotPath = slotPathForAgent(dir, agentId);
-    const before = countSlots(dir);
-    if (before >= max) {
-      return { ok: false, current: before, max };
-    }
-    // ponytail: count->write->recount narrows the TOCTOU; a cross-process lock would close it fully.
-    writeSlotMetadata(slotPath, { agent_id: agentId });
+    // ponytail: numbered O_EXCL slot claims make admission atomic without queues or a process-wide lock.
+    const slotPath = claimSlotPath(dir, agentId, max);
+    if (!slotPath) return { ok: false, current: countSlots(dir), max };
     const after = countSlots(dir);
-    if (after > max) {
-      try {
-        unlinkSync(slotPath);
-      } catch {}
-      return { ok: false, current: countSlots(dir), max };
-    }
     return { ok: true, slotPath, current: after, max };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);

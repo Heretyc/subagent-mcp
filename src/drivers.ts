@@ -64,6 +64,9 @@ export function isClaudeSessionLimit(text: string): boolean {
   return CLAUDE_SESSION_LIMIT.test(text);
 }
 
+const TRANSIENT_FAILURE_RE =
+  /\b429\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*5\d{2}\b|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
+
 export function claudeMessageText(message: any): string | null {
   if (message?.type === "assistant") {
     const content = message.message?.content;
@@ -213,7 +216,12 @@ function isElicitationMethod(method: string): boolean {
 // Shape the `result` payload for an elicitation reply. When the RPC offered a
 // discrete option set, select only an exact case-insensitive label match and
 // echo its identifier; otherwise pass the answer through as text.
-function buildElicitationResult(options: JsonObject[] | undefined, answer: string): JsonObject {
+function buildElicitationResult(
+  options: JsonObject[] | undefined,
+  answer: string,
+  action: "answer" | "decline" = "answer"
+): JsonObject {
+  if (action === "decline") return { action: "decline" };
   if (options && options.length > 0) {
     const norm = answer.trim().toLowerCase();
     const chosen = options.find((opt) => {
@@ -866,7 +874,8 @@ export class CodexAppServerDriver implements ProviderDriver {
       typeof message.method === "string" &&
       isElicitationMethod(message.method)
     ) {
-      void this.replyJsonRpc(message.id, buildElicitationResult(undefined, ""));
+      console.error(`[codex app-server driver] declining unhandled elicitation method: ${message.method}`);
+      void this.replyJsonRpc(message.id, buildElicitationResult(undefined, "", "decline"));
     }
 
     if (message.method === "turn/started" && message.params && typeof message.params === "object") {
@@ -951,7 +960,7 @@ export class CodexAppServerDriver implements ProviderDriver {
 
   private fail(error: Error): void {
     const msg = error.message;
-    const transient = /\b429\b|\b5\d{2}\b|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i.test(msg);
+    const transient = TRANSIENT_FAILURE_RE.test(msg);
     this._definitelyStartedReject(transient ? new ProviderTransientError(msg) : error);
     (this.process as LogicalProcess).fail(error);
     this.rejectPending(error);
@@ -1176,7 +1185,7 @@ export class ClaudeSdkDriver implements ProviderDriver {
     } catch (error) {
       if (!this.process.killed) {
         const msg = error instanceof Error ? error.message : String(error);
-        const transient = /\b429\b|\b5\d{2}\b|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i.test(msg);
+        const transient = TRANSIENT_FAILURE_RE.test(msg);
         this._definitelyStartedReject(transient ? new ProviderTransientError(msg) : new Error(msg));
         this.closedFlag = true;
         this.process.stderr.write(msg);
@@ -1187,10 +1196,14 @@ export class ClaudeSdkDriver implements ProviderDriver {
 }
 
 export async function createProviderDriver(options: DriverLaunchOptions): Promise<ProviderDriver> {
+  const testSeamsEnabled =
+    process.env.NODE_ENV === "test" || process.env.SUBAGENT_MCP_ENABLE_TEST_SEAMS === "1";
   if (
-    (options.provider === "claude" && process.env.SUBAGENT_MOCK_CLAUDE_DRIVER === "jsonl") ||
-    (options.provider === "codex" && process.env.SUBAGENT_MOCK_CODEX_DRIVER === "jsonl")
+    testSeamsEnabled &&
+    ((options.provider === "claude" && process.env.SUBAGENT_MOCK_CLAUDE_DRIVER === "jsonl") ||
+      (options.provider === "codex" && process.env.SUBAGENT_MOCK_CODEX_DRIVER === "jsonl"))
   ) {
+    // Test seam: never honor mock-driver script env vars in production by default.
     const mockScript = process.env.SUBAGENT_MOCK_DRIVER_SCRIPT;
     const child = mockScript
       ? spawn(process.execPath, [mockScript, options.provider], {
@@ -1200,10 +1213,10 @@ export async function createProviderDriver(options: DriverLaunchOptions): Promis
           windowsHide: true,
         })
       : spawn(options.command, [], {
-      cwd: options.cwd,
-      env: options.env,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
+          cwd: options.cwd,
+          env: options.env,
+          stdio: ["pipe", "pipe", "pipe"],
+          windowsHide: true,
         });
     return new MockJsonlDriver(child, options.provider);
   }

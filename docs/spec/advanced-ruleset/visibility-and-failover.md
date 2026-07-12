@@ -105,9 +105,10 @@ Contract:
    launch-time failure.
 3a. The failure `reason` and last stderr line are passed to
    `classifyFailureReason(reason, stderr)` to produce a `failure_type` label:
-   `"transient_provider"` (usage caps, quota 429, HTTP 5xx, network timeouts,
-   connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"` (everything else:
-   ENOENT, EACCES, bad option, missing config). This label travels with the
+   `"transient_provider"` (usage caps, quota 429, HTTP-status 5xx, network
+   timeouts, connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"`
+   (everything else: ENOENT, EACCES, bad option, missing config, and bare
+   three-digit numbers without HTTP-status context). This label travels with the
    skipped-candidate entry (`{model,effort,provider,reason,failure_type}`) and
    surfaces in the success payload's `failover_from[]` array, in `poll_agent`'s
    `failover_from[]`, and in `ERR_ALL_FAILED`'s numbered list

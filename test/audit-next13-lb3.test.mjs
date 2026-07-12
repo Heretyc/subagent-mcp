@@ -73,6 +73,11 @@ await test("Claude bg-task completion after turn finish resumes exactly once", a
   assert.equal(agent.exitedAt, null);
 });
 
+await test("unrecognized post-turn JSONL does not wake Claude bg-task resume", () => {
+  const line = JSON.stringify({ type: "assistant", message: { content: [] } });
+  assert.equal(isClaudeBackgroundWakeLine(line), false);
+});
+
 await test("Claude bg-task completion does not resume exited agents", async () => {
   const { agent, sends } = makeAgent({ closed: true });
   assert.equal(await maybeResumeAfterBackgroundTask(agent, 2100), false);
