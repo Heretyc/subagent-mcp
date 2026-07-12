@@ -39,9 +39,14 @@ const reminderOffCodex = readFileSync(join(directivesDir, "reminder-off-codex.md
 const initSource = readFileSync(join(srcDir, "init.ts"), "utf8");
 const indexSource = readFileSync(join(srcDir, "index.ts"), "utf8");
 
-// The single authority tag of the schema=3 design.
-const TAG_OPEN_RE = /<subagent-mcp state="(on|off)" kind="(directive|reminder|carryover|carrier)">/;
-const TAG_CLOSE = "</subagent-mcp>";
+// Hook-owned authority tags are injected at runtime as their OWN wrapper lines:
+// an opening `<subagent-mcp state=...>` line and a closing `</subagent-mcp>`
+// line. In-body prose references (e.g. "follow the MOST RECENT <subagent-mcp
+// state="off"> tag") are legitimate routing cues, NOT file-resident wrappers, so
+// these regexes match ONLY wrapper-SHAPED lines (a whole line that is the tag),
+// never mid-sentence mentions.
+const WRAPPER_OPEN_LINE_RE = /^\s*<subagent-mcp\s+state="(?:on|off)"[^>]*>\s*$/;
+const WRAPPER_CLOSE_LINE_RE = /^\s*<\/subagent-mcp>\s*$/;
 
 // Legacy constructs the redesign intentionally removed — these must be ABSENT.
 const LEGACY_TAGS = [
@@ -62,6 +67,8 @@ const ALL = [
   ["short-on", shortOn, "on", "carrier"],
   ["short-off", shortOff, "off", "carrier"],
 ];
+
+const REQUEST_USER_INPUT_RE = /request[-_]user[-_]input/;
 
 const BANNED_ORCHESTRATION_LEXICON_RE = new RegExp(
   "co-" + "supreme|maximally " + "critical",
@@ -154,20 +161,16 @@ test("no directive or canonical instruction source contains banned orchestration
 // correct state/kind. Any legacy split tag or any "5-call" cue reappearing is
 // the regression this guards against.
 // ---------------------------------------------------------------------------
-test("every directive carries exactly one schema=3 <subagent-mcp> tag with correct state/kind", () => {
-  for (const [name, body, state, kind] of ALL) {
-    const m = body.match(TAG_OPEN_RE);
-    assert.ok(m, `${name} must open with the single <subagent-mcp state=... kind=...> tag`);
-    assert.equal(m[1], state, `${name} must declare state="${state}"`);
-    assert.equal(m[2], kind, `${name} must declare kind="${kind}"`);
-    // Exactly one STRUCTURAL (kind-bearing) open tag; inline bare-tag
-    // references like "the MOST RECENT <subagent-mcp state=\"on\">" don't count.
-    assert.equal((body.match(/<subagent-mcp state="(?:on|off)" kind="/g) ?? []).length, 1,
-      `${name} must contain exactly one structural open tag`);
-    assert.equal((body.match(/<\/subagent-mcp>/g) ?? []).length, 1,
-      `${name} must contain exactly one close tag`);
-    assert.ok(body.indexOf("<subagent-mcp ") < body.indexOf(TAG_CLOSE),
-      `${name} must open the tag before closing it`);
+test("directive bodies contain zero literal hook authority tags", () => {
+  for (const [name, body] of DIRECTIVE_FILES) {
+    if (name === "tag-template.md") continue;
+    const lines = body.split(/\r?\n/);
+    const openWrapperLines = lines.filter((l) => WRAPPER_OPEN_LINE_RE.test(l));
+    const closeWrapperLines = lines.filter((l) => WRAPPER_CLOSE_LINE_RE.test(l));
+    assert.equal(openWrapperLines.length, 0,
+      `${name} must not contain a file-resident <subagent-mcp state=...> wrapper line`);
+    assert.equal(closeWrapperLines.length, 0,
+      `${name} must not contain a file-resident </subagent-mcp> wrapper line`);
   }
 });
 
@@ -202,29 +205,43 @@ test("every directive carries the first-line parent-process exemption", () => {
 // OFF reminders encode the NEW upgrade trigger: cumulative >200-line context
 // footprint, asked every qualifying turn (replaces the deleted 5-call trigger).
 // ---------------------------------------------------------------------------
-test("OFF reminders carry the 200-line footprint upgrade trigger", () => {
+test("OFF reminders mention the 15% latch doctrine", () => {
   for (const [name, body] of [
     ["reminder-off-claude", reminderOffClaude],
     ["reminder-off-codex", reminderOffCodex],
   ]) {
-    assert.match(body, /200 lines/,
-      `${name} must state the 200-line footprint threshold`);
-    assert.match(body, /EVERY qualifying turn/i,
-      `${name} must ask on every qualifying turn`);
+    assert.match(body, /15%|latch/i,
+      `${name} must state the 15% latch replacement doctrine`);
     assert.match(body, /subagent-mcp/i,
       `${name} must preserve the subagent-mcp routing cue while OFF`);
   }
 });
 
-test("OFF reminders are provider-split on the question tool", () => {
-  assert.ok(reminderOffClaude.includes("AskUserQuestion"),
-    "reminder-off-claude must name the AskUserQuestion tool");
-  assert.ok(!reminderOffClaude.includes("request-user-input"),
-    "reminder-off-claude must NOT leak the Codex request-user-input tool");
-  assert.ok(reminderOffCodex.includes("request-user-input"),
-    "reminder-off-codex must name the request-user-input tool");
-  assert.ok(!reminderOffCodex.includes("AskUserQuestion"),
-    "reminder-off-codex must NOT leak the Claude AskUserQuestion tool");
+test("latch and handoff directives carry provider-specific coaching counts", () => {
+  const latchClaude = readFileSync(join(directivesDir, "latch-claude.md"), "utf8");
+  const latchCodex = readFileSync(join(directivesDir, "latch-codex.md"), "utf8");
+  const handoffClaude = readFileSync(join(directivesDir, "handoff-claude.md"), "utf8");
+  const handoffCodex = readFileSync(join(directivesDir, "handoff-codex.md"), "utf8");
+
+  assert.match(latchClaude, /EXACTLY 5/i, "latch-claude must require exactly 5 questions");
+  assert.match(latchClaude, /AskUserQuestion/, "latch-claude must name AskUserQuestion");
+  assert.ok(!REQUEST_USER_INPUT_RE.test(latchClaude), "latch-claude must not name the Codex question tool");
+
+  assert.match(latchCodex, /EXACTLY 5/i, "latch-codex must require exactly 5 questions");
+  assert.match(latchCodex, REQUEST_USER_INPUT_RE, "latch-codex must name the Codex question tool");
+  assert.ok(!latchCodex.includes("AskUserQuestion"), "latch-codex must not name AskUserQuestion");
+
+  for (const [name, body] of [["handoff-claude", handoffClaude], ["handoff-codex", handoffCodex]]) {
+    assert.match(body, /handoff-write[\s\S]{0,160}10/i,
+      `${name} must mention 10 questions near handoff-write`);
+    assert.match(body, /handoff-read[\s\S]{0,160}5/i,
+      `${name} must mention 5 questions near handoff-read`);
+  }
+
+  assert.match(handoffClaude, /AskUserQuestion/, "handoff-claude must name AskUserQuestion");
+  assert.ok(!REQUEST_USER_INPUT_RE.test(handoffClaude), "handoff-claude must not name the Codex question tool");
+  assert.match(handoffCodex, REQUEST_USER_INPUT_RE, "handoff-codex must name the Codex question tool");
+  assert.ok(!handoffCodex.includes("AskUserQuestion"), "handoff-codex must not name AskUserQuestion");
 });
 
 // ---------------------------------------------------------------------------
@@ -293,7 +310,7 @@ test("both carryover notices carry the notify/ask/advise intent", () => {
 // Lean-directive cap: every directive file stays <= 200 lines
 // ---------------------------------------------------------------------------
 test("all directive files stay <= 200 lines", () => {
-  for (const [name, body] of ALL) {
+  for (const [name, body] of DIRECTIVE_FILES) {
     const lineCount = body.split("\n").length;
     assert.ok(lineCount <= 200,
       `${name} directive must stay <= 200 lines (was ${lineCount})`);

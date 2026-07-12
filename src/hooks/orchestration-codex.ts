@@ -1,17 +1,31 @@
-import { realpathSync } from "node:fs";
+import {
+  closeSync,
+  openSync,
+  readFileSync,
+  readSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { pathToFileURL } from "node:url";
 
 import {
   claimAndEmit,
   classifyOwnerClaim,
+  computeEffectiveActive,
   countJsonlType,
   cullHookZombies,
   ownerKey,
   runHook,
+  TRANSCRIPT_READ_CAP,
   type HookPayload,
   type ProviderAdapter,
 } from "../orchestration/hook-core.js";
 import * as marker from "../orchestration/marker.js";
+import {
+  resolveContextWindow,
+  type MeteringHarness,
+  type MeteringUsage,
+} from "../orchestration/metering.js";
 import { hasParentMarker } from "../launch-prompt.js";
 
 /**
@@ -33,7 +47,161 @@ const SUBAGENT_SOURCE_STRINGS = new Set([
   "subAgentOther",
 ]);
 
-export const codexAdapter: ProviderAdapter = {
+export interface LiftedUsage {
+  harness: MeteringHarness;
+  model: string;
+  source_ref: string;
+  usage: MeteringUsage;
+  harnessPercentage?: number | null;
+}
+
+type CodexAdapter = ProviderAdapter & {
+  liftUsage(
+    payload: HookPayload,
+    env: NodeJS.ProcessEnv,
+    transcriptPath: string | undefined
+  ): LiftedUsage | null;
+};
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function tailJsonlLines(transcriptPath: string | undefined): string[] {
+  if (!transcriptPath) return [];
+  let fd: number | undefined;
+  try {
+    const size = statSync(transcriptPath).size;
+    let raw: string;
+    let droppedPartialHead = false;
+
+    if (size <= TRANSCRIPT_READ_CAP) {
+      raw = readFileSync(transcriptPath, "utf8");
+    } else {
+      const start = size - TRANSCRIPT_READ_CAP;
+      const buf = Buffer.allocUnsafe(TRANSCRIPT_READ_CAP);
+      fd = openSync(transcriptPath, "r");
+      let offset = 0;
+      let pos = start;
+      while (offset < TRANSCRIPT_READ_CAP) {
+        const bytes = readSync(fd, buf, offset, TRANSCRIPT_READ_CAP - offset, pos);
+        if (bytes <= 0) break;
+        offset += bytes;
+        pos += bytes;
+      }
+      raw = buf.toString("utf8", 0, offset);
+      droppedPartialHead = true;
+    }
+
+    const lines = raw.split("\n");
+    if (droppedPartialHead) {
+      lines.shift();
+    }
+    return lines.map((line) => line.trim()).filter(Boolean);
+  } catch {
+    return [];
+  } finally {
+    if (fd !== undefined) {
+      try {
+        closeSync(fd);
+      } catch {
+        // Best-effort close; never throw.
+      }
+    }
+  }
+}
+
+function nestedRecord(value: unknown, key: string): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  const child = (value as Record<string, unknown>)[key];
+  return child && typeof child === "object"
+    ? (child as Record<string, unknown>)
+    : null;
+}
+
+function stringField(value: unknown, key: string): string | null {
+  if (!value || typeof value !== "object") return null;
+  const child = (value as Record<string, unknown>)[key];
+  return typeof child === "string" ? child : null;
+}
+
+function isTokenCountLine(obj: Record<string, unknown>): boolean {
+  if (obj.type === "token_count") return true;
+  const payload = nestedRecord(obj, "payload");
+  return payload?.type === "token_count";
+}
+
+function tokenInfo(obj: Record<string, unknown>): Record<string, unknown> | null {
+  const direct = nestedRecord(obj, "info");
+  if (direct) return direct;
+  return nestedRecord(nestedRecord(obj, "payload"), "info");
+}
+
+function modelFromTurnContext(obj: Record<string, unknown>): string | null {
+  if (obj.type !== "turn_context") return null;
+  return stringField(obj, "model") ?? stringField(nestedRecord(obj, "payload"), "model");
+}
+
+function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUsage | null {
+  let latestTokenInfo: Record<string, unknown> | null = null;
+  let latestModel: string | null = null;
+
+  const lines = tailJsonlLines(transcriptPath);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const obj = JSON.parse(lines[i]) as unknown;
+      if (!obj || typeof obj !== "object") continue;
+      const record = obj as Record<string, unknown>;
+      if (!latestTokenInfo && isTokenCountLine(record)) {
+        latestTokenInfo = tokenInfo(record);
+      }
+      if (!latestModel) {
+        latestModel = modelFromTurnContext(record);
+      }
+      if (latestTokenInfo && latestModel) break;
+    } catch {
+      // Skip unparseable lines; never throw.
+    }
+  }
+
+  const total = nestedRecord(latestTokenInfo, "total_token_usage");
+  if (!total || !latestModel || !transcriptPath) return null;
+
+  const input = total.input_tokens;
+  const output = total.output_tokens;
+  const cacheRead = total.cached_input_tokens;
+  if (!finiteNumber(input) || !finiteNumber(output) || !finiteNumber(cacheRead)) {
+    return null;
+  }
+
+  const modelContextWindow = latestTokenInfo?.model_context_window;
+  const totalTokens = total.total_tokens;
+  const harnessPercentage =
+    finiteNumber(modelContextWindow) &&
+    modelContextWindow > 0 &&
+    finiteNumber(totalTokens)
+      ? (totalTokens / modelContextWindow) * 100
+      : null;
+
+  if (harnessPercentage === null && resolveContextWindow("codex", latestModel) === null) {
+    return null;
+  }
+
+  return {
+    harness: "codex",
+    model: latestModel,
+    source_ref: transcriptPath,
+    usage: {
+      input,
+      output,
+      cache_creation: 0,
+      cache_read: cacheRead,
+    },
+    harnessPercentage,
+  };
+}
+
+export const codexAdapter: CodexAdapter = {
   isSubagent(payload: HookPayload, env: NodeJS.ProcessEnv): boolean {
     // subagent-mcp-spawned children inherit this guard and must not claim/nag.
     if (env.SUBAGENT_MCP_SUBAGENT === "1") {
@@ -63,6 +231,17 @@ export const codexAdapter: ProviderAdapter = {
   // and unaffected). Read on claim turns only.
   currentTurn(transcriptPath: string | undefined): number {
     return countJsonlType(transcriptPath, "turn_context");
+  },
+
+  liftUsage(
+    _payload: HookPayload,
+    _env: NodeJS.ProcessEnv,
+    transcriptPath: string | undefined
+  ): LiftedUsage | null {
+    // Provider-specific lift ONLY. hook-core is the sole writer of the metering
+    // record (matching the Claude adapter contract); the adapter must not also
+    // self-write, or the same turn would persist the record twice.
+    return liftCodexUsageFromRollout(transcriptPath);
   },
 
   anonScope: "codex",
@@ -101,7 +280,13 @@ export function runCodexHook(
       const cwd = payload.cwd || process.cwd();
       const current = ownerKey(payload, cwd, adapter);
       marker.writeCurrentSession(cwd, current);
-      if (!marker.isActive(cwd, current)) {
+      // Gate on the SAME effective-active computation runHook uses (disable /
+      // enable / latch / metering fail-safe), not the bare marker. SessionStart
+      // is turn 0 (grace window), so no metering fail-safe applies yet; passing
+      // false keeps a never-pre-enabled real session eligible for its turn-0
+      // directive via the latch/enable paths just like the UserPromptSubmit
+      // cadence would.
+      if (!computeEffectiveActive(cwd, current, Date.now(), false)) {
         return "";
       }
 

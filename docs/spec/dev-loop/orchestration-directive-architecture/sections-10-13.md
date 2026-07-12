@@ -59,6 +59,28 @@
   session-keyed disable-record above. Keyless hosts get only the one-time,
   non-persisted conversational opt-out. The carryover directives reference this
   backstop when explaining when ON resumes.
+- **Latch persistence (plan-phase force-enable).** When provider-metered context
+  usage crosses `PLAN_LATCH_THRESHOLD_PCT` (15%), the hook writes a session-keyed
+  `latch-<hash>.json` record (`{ latched: true, latched_at, session_id }`) once
+  and force-enables orchestration for the remainder of that session. The latch
+  PERSISTS through the 50% handoff phase and does not re-trigger its own coaching
+  once tripped (no per-turn re-ask, unlike the retired OFF-mode upgrade-ask). It
+  never silently expires mid-session (no `ORCH_DISABLE_TTL_MS` expiry applies to
+  it); only a brand-new session (new owner key) starts latch-free, per
+  default-OFF-per-session semantics. An explicit user `orchestration-mode
+  enabled:false` disable-record (2h TTL, session-keyed) is STILL honored after
+  the latch trips and wins over the latch, so the disable-check precedes the
+  latch OR in the effective-active computation. See `context-metering.md` and
+  `sections-00-04.md` (phase thresholds).
+- **Handoff persistence (cwd-keyed, cross-session cycle).** A handoff record
+  (`handoff-<cwdHash>.json`) is keyed by cwd, not session, so a successor session
+  working in the same directory can read what its predecessor wrote via
+  handoff-write. The write/read/clear cycle repeats at EACH successor session's
+  50% crossing: the next session again winds down and may write a fresh handoff
+  at its own 50% phase, which resets any prior reader binding (`read_by_session`,
+  `read_at`) and replaces the prior record. Only the session that ran
+  handoff-read (`read_by_session === current`) re-appends the saved content
+  verbatim to its LONG reminders. See `handoff.md`.
 - **Atomic state writes.** Every marker/state file (`orch-<cwdHash>.flag`, the
   session-keyed disable-record, and both session pointers) is written through
   `atomicWriteFile`/`atomicWriteJson` (`src/orchestration/atomic-write.ts`):
@@ -115,3 +137,17 @@
 | Shared | (per active provider) | `reminder-on.md`, `short-on.md`, `short-off.md` |
 
 ProviderAdapter filenames are unchanged (hook-core contract preserved).
+
+### 13.1 Coaching structured-question map (metered lifecycle)
+
+The metered latch/handoff coaching mandates exact question counts and call
+splits per harness. These three rows are binding.
+
+| Coaching trigger | Questions | Claude call shape | Codex call shape |
+|---|---|---|---|
+| 15% latch (plan phase) | 5 | 4 questions in one `AskUserQuestion` call + 1 question in a second `AskUserQuestion` call (four-plus-one, two calls; NEVER 5-in-one-call, NEVER any other split) | a single `request-user-input` call carrying all 5 questions (NOT split) |
+| handoff-write pre-write (>=50%) | 10 | three `AskUserQuestion` calls (4+4+2; each call takes at most 4 questions) | one `request-user-input` call carrying all 10 |
+| handoff-read pre-act | 5 | one call | one call |
+
+Latch coaching bodies live in `directives/latch-claude.md` / `latch-codex.md`;
+handoff coaching bodies in `directives/handoff-claude.md` / `handoff-codex.md`.

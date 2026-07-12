@@ -15,10 +15,13 @@ import { atomicWriteJson } from "./atomic-write.js";
  * the MCP tool (src/index.ts) and the hook entrypoints (src/hooks/*.ts).
  *
  * The marker is a per-project temp file keyed by a hash of the normalized
- * working directory. Orchestration is default ON; marker presence is retained
- * only as legacy claim/carryover state. OFF is represented only by a
- * session-keyed disable record. Anonymous owner keys carry cadence state only
- * and never authorize disable records.
+ * working directory. Orchestration is default OFF per session (hook-covered
+ * hosts only); ON requires an explicit enable record, an active 15% latch, or a
+ * metering-undetectable fail-safe. OFF is never represented by a disable record
+ * alone anymore; disable records now serve as a post-enable/post-latch opt-out
+ * (2h TTL), same mechanism, inverted role. Anonymous owner keys are unchanged:
+ * always fail-safe ON, never enable/disable-able (this is the desktop/no-hook
+ * carve-out, out of scope for this redesign).
  *
  * FAIL-SAFE: every filesystem operation is wrapped so this module NEVER throws
  * to its caller. Reads that fail return safe defaults. A hook that cannot read
@@ -102,6 +105,10 @@ export function disablePath(sessionKey: string): string {
   return join(stateDir, `orch-disable-${hashKey(sessionKey)}.json`);
 }
 
+export function enablePath(sessionKey: string): string {
+  return join(stateDir, `orch-enable-${hashKey(sessionKey)}.json`);
+}
+
 function cwdDisablePath(cwd: string): string {
   return join(stateDir, `orch-disable-${cwdHash(cwd)}.json`);
 }
@@ -169,6 +176,27 @@ export function removeDisable(sessionKey: string): void {
   }
 }
 
+export function writeEnable(sessionKey: string): void {
+  if (!isSessionScopedKey(sessionKey)) return;
+  try {
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    atomicWriteJson(enablePath(sessionKey), { enabled_at: Date.now() }, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+  } catch {
+    // Fail-safe: never throw to the caller.
+  }
+}
+
+export function removeEnable(sessionKey: string): void {
+  try {
+    unlinkSync(enablePath(sessionKey));
+  } catch {
+    // Fail-safe: never throw to the caller.
+  }
+}
+
 export function writeCurrentSession(
   cwd: string,
   sessionKey: string,
@@ -225,10 +253,38 @@ function isDisableActive(path: string, now: number): boolean {
   return false;
 }
 
+function isEnableActive(path: string, now: number): boolean {
+  if (!existsSync(path)) {
+    return false;
+  }
+  const raw = readFileSync(path, "utf8");
+  const parsed = JSON.parse(raw) as { enabled_at?: unknown };
+  if (typeof parsed.enabled_at !== "number") {
+    return false;
+  }
+  if (now - parsed.enabled_at <= ORCH_DISABLE_TTL_MS) {
+    return true;
+  }
+  // Lazy GC side-effect: the enable has expired, so remove it.
+  unlinkSync(path);
+  return false;
+}
+
+export function isSessionDisabled(sessionKey: string, now: number = Date.now()): boolean {
+  try {
+    if (!isSessionScopedKey(sessionKey)) return false;
+    return isDisableActive(disablePath(sessionKey), now);
+  } catch {
+    return false;
+  }
+}
+
 export function isActive(cwd: string, sessionKey?: string): boolean {
   try {
     if (sessionKey === undefined || !isSessionScopedKey(sessionKey)) return true;
-    return !isDisableActive(disablePath(sessionKey), Date.now());
+    const now = Date.now();
+    if (isDisableActive(disablePath(sessionKey), now)) return false;
+    return isEnableActive(enablePath(sessionKey), now);
   } catch {
     return true;
   }

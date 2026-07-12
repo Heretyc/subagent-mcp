@@ -67,9 +67,10 @@ format/EOL/tooling fragility for no safety gain over convention + CI.
 - **Stale MCP instructions (S9):** the `instructions` string refreshes only on
   client reconnect. The FAT INIT_BLOCK (S10) is the per-session safety net that
   covers a stale-instructions window.
-- **OFF-mode footprint self-estimation (D3/D27):** the >200-line cumulative
-  footprint is **model self-estimated**; there is no hook-side line counter. A
-  future hook-side counter (D30 candidate) would harden it to deterministic.
+- **OFF-mode footprint metering (D3/D27):** OFF-mode footprint is now
+  provider-metered (context-metering.md) and is never estimated by the model;
+  the D3/D27 self-estimation note is RETIRED. Hooks lift provider-reported
+  usage only and never count lines hook-side.
 - **Mirror test non-gating (S4 vs S7):** byte-identity drift between the two
   A2 occurrences would not block merge, only surface on the next CI run.
 
@@ -170,28 +171,39 @@ reads; the orchestrator **NEVER** reads those files.
 
 ## section 4 : Orchestration OFF Model (B / D3 / D4 / D11 / D15 / D24 / D27)
 
-When OFF you work solo, **but** you run a per-turn upgrade check.
+Orchestration starts **OFF by default** every session (hook-covered hosts). It
+turns ON only via an explicit user enable, an active 15% latch, or the
+metering-undetectable fail-safe. When OFF you work solo.
 
-- **Definition (D3):** a *long-horizon task* = any task whose **TOTAL CONTEXT
-  FOOTPRINT** (input you read **+** output you produce) exceeds **200 lines** of
-  text.
-- **Measurement (D27):** maintain a **CUMULATIVE** count of that footprint,
-  accumulated **across turns since your last upgrade ask**.
-- **Cadence (D4 / D15):** after **EVERY** user turn, evaluate the cumulative
-  count; if it qualifies, **STOP and ASK** the user via the structured-question
-  tool whether to switch ON. Ask on **EVERY** qualifying turn; a decline does
-  **NOT** latch or suppress future asks.
-- **Reset:** reset the cumulative counter to zero **ONLY** when you actually
-  ask (stated identically in INIT_BLOCK and the OFF directives, so the reset is
-  not asymmetric).
-- **You never assert ON yourself in OFF mode** : you only ask; state is
-  authoritative from the hook.
+- **Provider-metered footprint (D3/D27):** OFF-mode footprint is now
+  provider-metered (context-metering.md) and is never estimated by the model;
+  the D3/D27 self-estimation note is RETIRED. Hooks lift provider-reported
+  usage only and never tokenize or count lines hook-side.
+- **Metering-undetectable fail-safe (D4 / D15):** when context usage cannot be
+  measured for the session (no recognized model window, or no provider usage
+  numbers), the hook fails safe to **ON**. A fail-safe-ON turn still reports
+  `phase=normal`, because phase reflects metering, not enforcement.
+- **Phase definitions (Section 0 constants):** given `used_percentage` (0-100,
+  or `null` when undetectable):
+  - `null` -> **normal**
+  - `used_percentage >= 50` (HANDOFF_UNLOCK_THRESHOLD_PCT) -> **handoff**
+  - `used_percentage >= 15` (PLAN_LATCH_THRESHOLD_PCT) -> **plan**
+  - otherwise -> **normal**
+
+  `near_limit` is true only when `used_percentage` is known and `>= 50`.
+- **plan phase (15%):** a persisted latch force-enables orchestration and
+  coaches a one-time 5-question planning stop (see sections-10-13, R-LATCH-15).
+- **handoff phase (50%):** the hook warns every turn to wind down and unlocks
+  the handoff-write/read/clear tools (see handoff.md, R-HANDOFF-50).
+- **You never assert ON yourself in OFF mode** : you only work solo or ask;
+  state is authoritative from the hook.
 
 **THE 5-CALL RULE IS DELETED (D11 / D24).** It is gone from the INIT_BLOCK, MCP
 `instructions`, both tool descriptions, all nine directive files, and
 `hook-core.ts` source comments; the repo managed blocks purge it automatically
-on re-upsert. The OFF >200-line cumulative footprint check **silently replaces**
-it. A permanent grep gate (`test/no-five-call.test.mjs`, section 11) keeps it gone.
+on re-upsert. The provider-metered phase model (context-metering.md)
+**silently replaces** it. A permanent grep gate (`test/no-five-call.test.mjs`,
+section 11) keeps it gone.
 
 ---
 

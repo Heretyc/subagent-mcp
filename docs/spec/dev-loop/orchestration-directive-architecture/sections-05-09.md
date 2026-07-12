@@ -23,9 +23,33 @@ The **sub-agent first-line exemption (section 6) is the ONLY automatic suppresso
 this fail-safe default : it prevents fail-safe-ON from recursing into a
 fork-bomb.
 
+### 5.1 No-hook hosts vs hook-covered hosts (UNCHANGED note)
+
+The context-metered redesign does **NOT** change no-hook host behavior. This
+section 5 fail-safe-ON-when-UNKNOWN rule stays exactly as written above:
+no-hook hosts (Gemini, desktop apps, any session without hook injection)
+cannot report state, cannot be metered, and therefore keep the existing
+**default-ON-when-UNKNOWN** doctrine, unchanged.
+
+Distinguish this from the NEW hook-covered-host rule (sections-00-04.md,
+context-metering.md): on hosts that DO fire hooks, orchestration now starts
+**default-OFF per session**, and ON is reached only by an explicit enable
+record, an active 15% latch, or the **metering-undetectable fail-safe**. That
+metering fail-safe is a separate mechanism from this no-hook fail-safe: it
+applies only where hooks fire but provider-reported context size cannot be
+measured. No-hook hosts never reach the metering path at all and remain on the
+unchanged default-ON warning described here.
+
 ---
 
 ## section 6 : Sub-Agent First-Line Exemption + `launch_agent` Upsert (D19 / D20 / S8)
+
+**UNCHANGED by the context-metered redesign.** The first-line exemption (the
+`<this is a request from a parent process>` line-1 SKIP) and the
+`SUBAGENT_MCP_SUBAGENT=1` spawn-env carve-out are preserved exactly as
+specified below. Metering, the 15% latch, and the 50% handoff phase do not
+alter, weaken, or add to these carve-outs; a child session still self-skips the
+ENTIRE init/orchestration regime regardless of any metering phase.
 
 ### 6.1 The exemption (D19)
 
@@ -155,6 +179,48 @@ touched : sequencing, not new information, is the fix. Before making any edit:
 Having the do-not-edit label and the `schema=N` marker in hand *before* the first
 edit is exactly the trigger : do not edit first and produce the adjacent-file
 alternative only after a revert demand.
+
+### 8.5 New state-file records : enable and latch (context-metered redesign)
+
+The redesign adds two new state files under the existing state dir
+(`join(os.tmpdir(), "subagent-mcp")`), written via the existing
+`atomicWriteJson` (dir `0o700`, file `0o600`). Both are session-keyed via the
+existing `hashKey(sessionKey)` function.
+
+**Enable record** (NEW, mirrors the existing `orch-disable-<hash>.json`
+structurally), file name:
+
+```
+orch-enable-<hashKey(sessionKey)>.json
+```
+
+Shape:
+
+```
+{ enabled_at: number }
+```
+
+An enable record is the explicit opt-in that raises a default-OFF hook-covered
+session to ON. It uses the same 2h TTL / lazy-GC pattern as the disable record
+(`ORCH_DISABLE_TTL_MS`). A disable record still wins over an enable record.
+
+**Latch record** (NEW), file name:
+
+```
+latch-<hashKey(sessionKey)>.json
+```
+
+Shape:
+
+```
+{ latched: true, latched_at: number, session_id: string }
+```
+
+The latch record is written when a session first crosses the 15% plan-phase
+threshold (`tripLatch`, idempotent : `latched_at` records the FIRST crossing).
+Unlike the enable/disable records, the latch does NOT expire by time while its
+record exists; it persists through the 50% phase for the life of the session.
+A brand-new session (new `sessionKey`) starts latch-free.
 
 ---
 
