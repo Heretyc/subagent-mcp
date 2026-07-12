@@ -14,6 +14,7 @@ import {
   reserveSlot,
   slotDir,
   slotPathForAgent,
+  stripJsoncComments,
   writeSlotMetadata,
   ZOMBIE_FORCE_GRACE_MS,
   ZOMBIE_LIVE_IDLE_MS,
@@ -83,6 +84,10 @@ test("parseConcurrencyConfig handles shipped template, clamp, missing, malformed
   assert.equal(parseConcurrencyConfig("{}"), 20);
   assert.equal(parseConcurrencyConfig("{not json"), 20);
   assert.equal(parseConcurrencyConfig('// c\n{"globalConcurrentSubagents":50}'), 50);
+  assert.equal(parseConcurrencyConfig('{"globalConcurrentSubagents":50 // inline\n}'), 50);
+  assert.equal(parseConcurrencyConfig('/* block */{"globalConcurrentSubagents":50}'), 50);
+  const stripped = stripJsoncComments('{"url":"https://example.test/a/*b*/c//d"} // trailing');
+  assert.equal(JSON.parse(stripped).url, "https://example.test/a/*b*/c//d");
 });
 
 test("parseCheckForUpdatesConfig defaults true unless explicitly false", () => {

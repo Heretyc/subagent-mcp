@@ -2,8 +2,8 @@
 
 | Alias | Mapped CLI model ID | Provider |
 |-------|-------------------|----------|
-| `haiku` | `haiku` (passed as-is) | claude |
-| `sonnet` | `sonnet` (passed as-is) | claude |
+| `haiku` | `claude-haiku-4-5` | claude |
+| `sonnet` | `claude-sonnet-4-6` | claude |
 | `opus` | `claude-opus-4-8` | claude |
 | `opus-4-8` | `claude-opus-4-8` | claude |
 | `fable` | `claude-fable-5` | claude |

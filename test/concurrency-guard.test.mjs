@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -54,17 +54,14 @@ function runWorker(workerScript, dir, startFile, id, max) {
   });
 }
 
-async function runLostRaceAttempt() {
+async function runAtomicCapAttempt() {
   const dir = tmpSlotDir();
   const workerScript = join(dir, "reserve-worker.mjs");
   const startFile = join(dir, "start");
-  const max = 2;
+  const max = 3;
   const contenderCount = 24;
   try {
-    seedSlots(dir, max - 1);
-    for (let i = 0; i < 2000; i++) {
-      writeFileSync(join(dir, `filler-${i}.txt`), "");
-    }
+    mkdirSync(dir, { recursive: true });
     writeFileSync(
       workerScript,
       `
@@ -87,57 +84,35 @@ process.stdout.write(JSON.stringify({
       "utf8"
     );
 
-    const observedNames = new Set(readdirSync(dir));
-    const watcher = watch(dir, (_, filename) => {
-      if (filename) observedNames.add(String(filename));
-    });
-    const poll = setInterval(() => {
-      for (const name of readdirSync(dir).filter((entry) => entry.startsWith("slot-"))) {
-        observedNames.add(name);
-      }
-    }, 1);
     const workers = Array.from({ length: contenderCount }, (_, i) =>
       runWorker(workerScript, dir, startFile, `race-${i}`, max)
     );
     await new Promise((resolve) => setTimeout(resolve, 150));
     writeFileSync(startFile, "go");
     const results = await Promise.all(workers);
-    clearInterval(poll);
-    watcher.close();
-
-    const failedAfterWriting = results.find(
-      ({ id, result, slotExistsAfterReturn }) =>
-        result.ok === false &&
-        result.current === max &&
-        slotExistsAfterReturn === false &&
-        observedNames.has(`slot-${id}.json`)
-    );
-    return { dir, max, results, failedAfterWriting };
+    return { dir, max, results };
   } catch (error) {
     rmSync(dir, { recursive: true, force: true });
     throw error;
   }
 }
 
-async function assertLostRaceRollback() {
-  let last;
-  for (let attempt = 0; attempt < 20; attempt++) {
-    last = await runLostRaceAttempt();
-    try {
-      if (last.failedAfterWriting) {
-        assert.ok(countSlots(last.dir) <= last.max, "lost-race rollback must not exceed the cap");
-        assert.equal(existsSync(last.failedAfterWriting.slotPath), false, "loser slot must be unlinked");
-        assert.ok(
-          readdirSync(last.dir).filter((entry) => entry.startsWith("slot-")).length <= last.max,
-          "no more than max live slot files should remain after rollback"
-        );
-        return;
-      }
-    } finally {
-      rmSync(last.dir, { recursive: true, force: true });
-    }
+async function assertAtomicCap() {
+  const attempt = await runAtomicCapAttempt();
+  try {
+    const accepted = attempt.results.filter(({ result }) => result.ok);
+    const rejected = attempt.results.filter(({ result }) => !result.ok);
+    assert.equal(accepted.length, attempt.max, "only max contenders should reserve slots");
+    assert.equal(rejected.length, attempt.results.length - attempt.max, "remaining contenders should reject");
+    assert.equal(countSlots(attempt.dir), attempt.max, "live slot count must never exceed cap after contention");
+    assert.equal(
+      readdirSync(attempt.dir).filter((entry) => entry.startsWith("slot-")).length,
+      attempt.max,
+      "no more than max live slot files should remain after contention"
+    );
+  } finally {
+    rmSync(attempt.dir, { recursive: true, force: true });
   }
-  assert.fail("reserveSlot lost-race rollback branch was not observed after 20 barriered attempts");
 }
 
 async function run() {
@@ -179,12 +154,12 @@ async function run() {
     rmSync(contenderDir, { recursive: true, force: true });
   }
 
-  await assertLostRaceRollback();
+  await assertAtomicCap();
 
   // Textual invariant: this is a source-level risk note, not runtime behavior.
   const source = readFileSync(new URL("src/concurrency.ts", repo), "utf8");
-  assert.match(source, /TOCTOU/);
-  assert.match(source, /count->write->recount/);
+  assert.match(source, /ponytail:/);
+  assert.match(source, /O_EXCL/);
 }
 
 try {

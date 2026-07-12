@@ -27,6 +27,12 @@ test("mapModel opus-4-8 -> claude-opus-4-8", () => {
 test("mapModel fable -> claude-fable-5", () => {
   assert.equal(mapModel("claude", "fable"), "claude-fable-5");
 });
+test("mapModel sonnet -> claude-sonnet-4-6", () => {
+  assert.equal(mapModel("claude", "sonnet"), "claude-sonnet-4-6");
+});
+test("mapModel haiku -> claude-haiku-4-5", () => {
+  assert.equal(mapModel("claude", "haiku"), "claude-haiku-4-5");
+});
 
 // 2. (claude, opus, ultracode) buildCommand: args include "--settings"; file exists with {"ultracode":true}; no "--effort"
 test("(claude,opus,ultracode) buildCommand has --settings, no --effort, file contains ultracode:true", () => {
@@ -135,7 +141,9 @@ test("(claude,haiku,high) args do NOT include --effort", () => {
 
 function assertInteractiveClaudeArgs(args, label) {
   assert.ok(args.includes("--model"), `${label}: args should include --model`);
-  assert.ok(args.includes("--permission-mode"), `${label}: args should preserve permissions`);
+  assert.ok(!args.includes("--permission-mode"), `${label}: SDK options own permissions`);
+  assert.ok(!args.includes("--tools"), `${label}: SDK options own tools`);
+  assert.ok(!args.includes("--max-turns"), `${label}: SDK options own max turns`);
   assert.ok(!args.includes("-p"), `${label}: Claude must not use one-shot print mode`);
   assert.ok(!args.includes("--output-format"), `${label}: Claude SDK owns stream transport`);
   assert.ok(!args.includes("stream-json"), `${label}: raw CLI stream-json path is superseded`);

@@ -7,6 +7,8 @@ import { once } from "node:events";
 import {
   ClaudeSdkDriver,
   CodexAppServerDriver,
+  MockJsonlDriver,
+  createProviderDriver,
   killProviderChildProcess,
   providerChildSpawnOptions,
 } from "../dist/drivers.js";
@@ -292,8 +294,7 @@ await test("Claude SDK driver launches, sends multiple turns, and kills", async 
 
 await test("Claude SDK driver maps Opus launch ids to the full SDK model id", async () => {
   // The Claude Agent SDK rejects the short launch ids "opus" / "opus-4-8" with
-  // model_not_found (404). The driver must hand the SDK the full id
-  // "claude-opus-4-8"; fable maps to its full id; other Claude models pass through unchanged.
+  // model_not_found (404). The driver must hand the SDK full Claude ids.
   async function openWith(model) {
     let sdkOptions;
     async function* query(params) {
@@ -314,7 +315,40 @@ await test("Claude SDK driver maps Opus launch ids to the full SDK model id", as
   assert.equal(await openWith("opus"), "claude-opus-4-8");
   assert.equal(await openWith("opus-4-8"), "claude-opus-4-8");
   assert.equal(await openWith("fable"), "claude-fable-5");
-  assert.equal(await openWith("sonnet"), "sonnet");
+  assert.equal(await openWith("sonnet"), "claude-sonnet-4-6");
+  assert.equal(await openWith("haiku"), "claude-haiku-4-5");
+});
+
+await test("mock driver script seam requires test env or explicit opt-in", async () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-mock-seam-"));
+  const oldEnv = {
+    NODE_ENV: process.env.NODE_ENV,
+    SUBAGENT_MOCK_CODEX_DRIVER: process.env.SUBAGENT_MOCK_CODEX_DRIVER,
+    SUBAGENT_MOCK_DRIVER_SCRIPT: process.env.SUBAGENT_MOCK_DRIVER_SCRIPT,
+    SUBAGENT_MCP_ENABLE_TEST_SEAMS: process.env.SUBAGENT_MCP_ENABLE_TEST_SEAMS,
+  };
+  try {
+    const mockScript = join(tempRoot, "mock-driver.mjs");
+    writeFileSync(mockScript, "setInterval(() => {}, 1000);\n", "utf8");
+    process.env.NODE_ENV = "production";
+    process.env.SUBAGENT_MOCK_CODEX_DRIVER = "jsonl";
+    process.env.SUBAGENT_MOCK_DRIVER_SCRIPT = mockScript;
+    delete process.env.SUBAGENT_MCP_ENABLE_TEST_SEAMS;
+    const prodDriver = await createProviderDriver({ ...options("codex"), command: process.execPath });
+    assert.ok(!(prodDriver instanceof MockJsonlDriver), "production env must not use mock seam");
+    prodDriver.kill();
+
+    process.env.SUBAGENT_MCP_ENABLE_TEST_SEAMS = "1";
+    const testDriver = await createProviderDriver({ ...options("codex"), command: process.execPath });
+    assert.ok(testDriver instanceof MockJsonlDriver, "explicit opt-in should enable mock seam");
+    testDriver.kill();
+  } finally {
+    for (const [key, value] of Object.entries(oldEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 await test("Codex app-server driver starts a thread, sends turns, and kills", async () => {
@@ -391,7 +425,7 @@ await test("Codex requestUserInput is answered fail-closed without starting an e
     await waitFor(() => stdout().includes("answered:"), "elicitation completion");
     const log = readLog(logFile);
     const reply = log.find((msg) => msg.id === 900 && msg.result);
-    assert.deepEqual(reply, { jsonrpc: "2.0", id: 900, result: { text: "" } });
+    assert.deepEqual(reply, { jsonrpc: "2.0", id: 900, result: { action: "decline" } });
     assert.equal(readTurnStarts(logFile).length, 1, "auto-answer must not issue turn/start");
 
     await driver.send("second");
@@ -426,7 +460,7 @@ await test("Codex requestUserInput free text path is answered fail-closed", asyn
     assert.deepEqual(reply, {
       jsonrpc: "2.0",
       id: 900,
-      result: { text: "" },
+      result: { action: "decline" },
     });
     assert.equal(readTurnStarts(logFile).length, 1, "auto-answer must not issue turn/start");
 

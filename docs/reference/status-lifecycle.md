@@ -65,6 +65,9 @@ exported as `HEARTBEAT_TIMEOUT_MS = 600000` (10 minutes). Its order is:
    but quiet).
 4. Otherwise unchanged. Provider turn-completion markers (`result` for Claude,
    `turn/completed` for Codex app-server) set `finished` in the stdout handler.
+   Claude background wake is marker-only: `task_notification` with
+   `background-complete` resumes the turn; unrecognized post-turn JSONL is only
+   captured and does not trigger resume.
 
 `setInterval` every 10,000 ms folds each live agent's `process.exitCode` into
 `AgentState` and applies the helper. Tool handlers also run zombie maintenance:

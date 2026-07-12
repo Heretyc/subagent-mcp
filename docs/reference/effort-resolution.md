@@ -1,6 +1,6 @@
 # Effort Resolution and Ultracode Mechanism
 
-The effort-resolution decision logic and the ultracode `--settings` activation
+The effort-resolution decision logic and the ultracode settings activation
 mechanism. Part of the
 [subagent-mcp technical specification](../SPEC.md). See
 [docs/usage.md](../usage.md) for the user-facing model/effort matrix.
@@ -15,10 +15,10 @@ function resolveEffort(provider, model, effort):
   if effort == "ultracode":
     if NOT (provider == "claude" AND model IN ["opus", "opus-4-8"]):
       THROW: "ultracode effort is only available on Opus 4.8+ (got <provider>/<model>). Use xhigh for other models."
-    RETURN { kind: "settings" }   # --> write temp JSON file, pass --settings
+    RETURN { kind: "settings" }   # --> write temp JSON file, pass settings
 
   if provider == "claude" AND model == "haiku":
-    RETURN { kind: "none" }       # --> no --effort flag at all
+    RETURN { kind: "none" }       # --> no effort option
 
   if provider == "claude" AND model IN ["sonnet", "opus", "opus-4-8", "fable"]:
     if effort IN ["medium", "high", "xhigh", "max"]:
@@ -38,7 +38,7 @@ Decision table:
 
 | provider | model | effort | Result |
 |----------|-------|--------|--------|
-| claude | haiku | any | `{ kind: "none" }` -- no `--effort` passed |
+| claude | haiku | any | `{ kind: "none" }` -- no effort option |
 | claude | sonnet | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | opus / opus-4-8 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | opus / opus-4-8 | ultracode | `{ kind: "settings" }` -- temp file path |
@@ -63,8 +63,8 @@ The Claude CLI validates the `--effort` argument against a known enum. `ultracod
 ### How the server activates it headlessly
 
 1. Write `{"ultracode":true}` to a temp file: `<os.tmpdir()>/subagent-uc-<uuid>.json`
-2. Pass `--settings <path>` to the `claude` CLI instead of `--effort`
-3. The Claude CLI reads the settings file and activates ultracode mode
+2. Pass the settings path through the Claude Agent SDK driver instead of an effort option
+3. The Claude session reads the settings file and activates ultracode mode
 4. On agent exit (any path: `close` event, `kill_agent`, spawn error), delete the temp file
 
 This behavior is verified working on `claude-opus-4-8`. `--effort xhigh` alone does NOT activate ultracode.

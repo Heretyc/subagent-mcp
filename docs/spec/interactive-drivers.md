@@ -45,6 +45,10 @@ in the driver's `pendingApprovals` map and are answered only via
 `respond_permission`. Unsupported startup or protocol failures fail the MCP call
 loudly. See [permissions.md](permissions.md).
 
+Codex elicitation JSON-RPC requests are handled only for recognized approval
+flows. Unrecognized elicitation requests are declined and logged instead of
+being auto-answered with empty data.
+
 ## Lifecycle
 
 Provider output is normalized into the existing stdout/stderr capture and

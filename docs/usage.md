@@ -27,9 +27,11 @@ the server auto-selects): see [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_IN
 ## Provider Startup
 
 **Claude:** launch creates a long-lived Claude Agent SDK `query()` session using
-the local Claude executable, `cwd`, model, permission mode, tools, and max-turns
+the local Claude executable, `cwd`, model, and SDK-owned permission/tool/turn
 settings. The initial prompt is enqueued as the first SDK user message, and
-`send_message` enqueues later user messages to the same session.
+`send_message` enqueues later user messages to the same session. The Claude
+command builder does not emit `--permission-mode`, `--tools`, or `--max-turns`
+CLI args.
 
 Non-ultracode options:
 ```

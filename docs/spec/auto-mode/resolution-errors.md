@@ -101,8 +101,9 @@ Error: all <N> candidate launches failed for task_category <task_category>:
 ```
 
 Each numbered line carries the `failure_type` label in brackets :
-`[transient_provider]` (usage caps, quota 429, HTTP 5xx, network timeouts,
-ETIMEDOUT/ECONNRESET) or `[permanent]` (everything else) : from
+`[transient_provider]` (usage caps, quota 429, HTTP-status 5xx, network
+timeouts, ETIMEDOUT/ECONNRESET) or `[permanent]` (everything else, including
+bare three-digit numbers without HTTP-status context) : from
 `classifyFailureReason(reason, stderr)`. Exhaustion is `ERR_ALL_FAILED`
 regardless of classification; it carries no `failover_occurred` field (it is an
 error, not a success).

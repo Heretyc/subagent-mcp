@@ -152,9 +152,10 @@ For each candidate in order (best→worst):
    `{model,effort,provider,reason,failure_type}`, SILENTLY advance to the next
    candidate. Do not surface intermediate failures to the caller.
    - `failure_type` is `classifyFailureReason(reason, stderr)` →
-     `"transient_provider"` (usage caps, quota 429, HTTP 5xx, network timeouts,
-     connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"` (everything
-     else: ENOENT, EACCES, bad option, missing config). It is a label only;
+     `"transient_provider"` (usage caps, quota 429, HTTP-status 5xx, network
+     timeouts, connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"`
+     (everything else: ENOENT, EACCES, bad option, missing config, and bare
+     three-digit numbers without HTTP-status context). It is a label only;
      auto mode advances to the next candidate either way (same-call failover).
 4. On the FIRST successful driver start: register the agent with `AgentState`,
    stdout/stderr handlers, close handler, and `agents.set`, then return the

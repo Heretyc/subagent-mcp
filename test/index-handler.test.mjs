@@ -619,6 +619,7 @@ function makeTempEnv() {
       SUBAGENT_SPAWN_GRACE_MS: "0",
       SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
       SUBAGENT_MOCK_CODEX_DRIVER: "jsonl",
+      SUBAGENT_MCP_ENABLE_TEST_SEAMS: "1",
       SUBAGENT_MOCK_DRIVER_SCRIPT: mockDriverScript,
       SUBAGENT_RULESET_PYTHON: process.execPath,
       NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require "${preloadPath.replace(/\\/g, "/")}"`]

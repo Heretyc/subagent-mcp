@@ -6,7 +6,7 @@
 - See `docs/spec/permissions.md` section 4 for the 2.12.5 rename; `global-concurrency.jsonc` is a deprecated fallback.
 - Default: `20`; minimum valid: `10`.
 - Re-read on every `launch_agent`; no restart and no cache.
-- JSONC supports whole-line `//` comments only.
+- JSONC supports inline `//` comments and block `/* ... */` comments.
 
 `checkForUpdates` defaults true on missing, invalid, or unreadable config. False
 skips the startup npmjs metadata fetch and suppresses hook update notices.
