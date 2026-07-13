@@ -514,8 +514,18 @@ test("transcript_path fallback normalizes slash and case variants before hashing
     const slashVariant = "C:\\tmp\\subagent\\transcript.jsonl";
     const caseVariant = "c:/TMP/subagent/TRANSCRIPT.jsonl";
 
+    // Slash normalization is platform-independent: backslashes collapse to
+    // forward slashes on every OS, so these must always hash equal.
     assert.equal(sessionKey({ transcript_path: lower }), sessionKey({ transcript_path: slashVariant }));
-    assert.equal(sessionKey({ transcript_path: lower }), sessionKey({ transcript_path: caseVariant }));
+    // Case-insensitive normalization applies only on Windows, where the
+    // filesystem is case-insensitive. POSIX paths are case-sensitive, so the
+    // production code (correctly) lowercases only on win32 and the case variant
+    // must hash differently there.
+    if (process.platform === "win32") {
+      assert.equal(sessionKey({ transcript_path: lower }), sessionKey({ transcript_path: caseVariant }));
+    } else {
+      assert.notEqual(sessionKey({ transcript_path: lower }), sessionKey({ transcript_path: caseVariant }));
+    }
     assert.equal(
       ownerKey({ cwd, session_id: "host-session", transcript_path: caseVariant }, cwd, adapter),
       "host-session",
