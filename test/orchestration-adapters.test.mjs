@@ -133,9 +133,63 @@ test("claude liftUsage: extracts latest assistant usage with one-turn lag", () =
         cache_read: 13,
       },
       harnessPercentage: null,
+      longContextHint: null,
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: skips sidechain assistant usage and reads long hint", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "orch-claude-cwd-"));
+  mkdirSync(join(cwd, ".claude"), { recursive: true });
+  writeFileSync(join(cwd, ".claude", "settings.json"), JSON.stringify({
+    model: "claude-fable-5[1m]",
+  }), "utf8");
+  const { dir, file } = writeJsonl([
+    {
+      type: "assistant",
+      message: {
+        model: "claude-opus-4-8",
+        usage: {
+          input_tokens: 100,
+          output_tokens: 20,
+          cache_creation_input_tokens: 7,
+          cache_read_input_tokens: 13,
+        },
+      },
+    },
+    {
+      type: "assistant",
+      isSidechain: true,
+      message: {
+        model: "gpt-5.5",
+        usage: {
+          input_tokens: 900000,
+          output_tokens: 1,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    },
+  ]);
+  try {
+    assert.deepEqual(claudeAdapter.liftUsage({ cwd }, {}, file), {
+      harness: "claude",
+      model: "claude-opus-4-8",
+      source_ref: file,
+      usage: {
+        input: 100,
+        output: 20,
+        cache_creation: 7,
+        cache_read: 13,
+      },
+      harnessPercentage: null,
+      longContextHint: true,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
   }
 });
 
@@ -240,7 +294,7 @@ test("codex liftUsage: prefers harness percentage when model_context_window is p
       model: "gpt-5",
       source_ref: file,
       usage: {
-        input: 200,
+        input: 175,
         output: 50,
         cache_creation: 0,
         cache_read: 25,
@@ -276,7 +330,7 @@ test("codex liftUsage: returns static-map-computable usage without harness perce
       model: "gpt-5-codex",
       source_ref: file,
       usage: {
-        input: 1000,
+        input: 750,
         output: 500,
         cache_creation: 0,
         cache_read: 250,

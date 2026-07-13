@@ -67,17 +67,19 @@
   the session state machine.
 - **Latch persistence (plan-phase force-enable).** When provider-metered context
   usage crosses `PLAN_LATCH_THRESHOLD_PCT` (15%), the hook writes a session-keyed
-  `latch-<hash>.json` record (`{ latched: true, latched_at, session_id }`) once
-  and force-enables orchestration for the remainder of that session. The latch
-  PERSISTS through the 50% handoff phase and does not re-trigger its own coaching
-  once tripped (no per-turn re-ask, unlike the retired OFF-mode upgrade-ask). It
-  never silently expires mid-session (no `ORCH_DISABLE_TTL_MS` expiry applies to
-  it); only a brand-new session (new owner key) starts latch-free, per
-  default-OFF-per-session semantics. An explicit user `orchestration-mode
-  enabled:false` disable-record (2h TTL, session-keyed) is STILL honored after
-  the latch trips and wins over the latch, so the disable-check precedes the
-  latch OR in the effective-active computation. See `context-metering.md` and
-  `sections-00-04.md` (phase thresholds).
+  `latch-<hash>.json` record (`{ rev: 2, latched: true, latched_at, session_id }`)
+  once and force-enables orchestration for the remainder of that session. Records
+  without the current `LATCH_REV` are treated inactive and best-effort unlinked on
+  read; this lazily drops bug-era latches derived from stale context-window
+  arithmetic. The latch PERSISTS through the 50% handoff phase and does not
+  re-trigger its own coaching once tripped (no per-turn re-ask, unlike the
+  retired OFF-mode upgrade-ask). It never silently expires mid-session (no
+  `ORCH_DISABLE_TTL_MS` expiry applies to it); only a brand-new session (new
+  owner key) starts latch-free, per default-OFF-per-session semantics. An explicit
+  user `orchestration-mode enabled:false` disable-record (2h TTL, session-keyed)
+  is STILL honored after the latch trips and wins over the latch, so the
+  disable-check precedes the latch OR in the effective-active computation. See
+  `context-metering.md` and `sections-00-04.md` (phase thresholds).
 - **Handoff persistence (cwd-keyed, cross-session cycle).** A handoff record
   (`handoff-<cwdHash>.json`) is keyed by cwd, not session, so a successor session
   working in the same directory can read what its predecessor wrote via

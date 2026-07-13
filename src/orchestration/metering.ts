@@ -5,6 +5,7 @@ import {
   unlinkSync,
 } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { atomicWriteJson } from "./atomic-write.js";
 import {
   hashKey,
@@ -17,34 +18,16 @@ export const HANDOFF_UNLOCK_THRESHOLD_PCT = 50;
 export const DEFAULT_CONTEXT_WINDOW = 200000;
 export const LONG_CONTEXT_WINDOW = 1000000;
 
-export const CODEX_KNOWN_MODEL_IDS = [
-  "gpt-5",
-  "gpt-5-codex",
-  "gpt-5.5",
-  "o3",
-  "o3-mini",
-  "o4-mini",
-] as const;
-
-export const CODEX_CONTEXT_WINDOW_BY_MODEL_ID: Record<
-  (typeof CODEX_KNOWN_MODEL_IDS)[number],
-  number
-> = {
-  "gpt-5": DEFAULT_CONTEXT_WINDOW,
-  "gpt-5-codex": DEFAULT_CONTEXT_WINDOW,
-  "gpt-5.5": DEFAULT_CONTEXT_WINDOW,
-  o3: DEFAULT_CONTEXT_WINDOW,
-  "o3-mini": DEFAULT_CONTEXT_WINDOW,
-  "o4-mini": DEFAULT_CONTEXT_WINDOW,
-};
-
-export const CLAUDE_CONTEXT_WINDOW_BY_KIND = {
-  default: DEFAULT_CONTEXT_WINDOW,
-  long: LONG_CONTEXT_WINDOW,
-} as const;
-
 export type MeteringHarness = "claude" | "codex";
 export type MeteringPhase = "normal" | "plan" | "handoff";
+export type WindowSource =
+  | "mapping"
+  | "hint"
+  | "ratchet"
+  | "prior"
+  | "family-default"
+  | "contradiction"
+  | null;
 
 export interface MeteringUsage {
   input: number;
@@ -59,6 +42,8 @@ export interface MeteringRecord {
   model: string;
   source_ref: string;
   context_window_size: number | null;
+  window_source?: WindowSource;
+  window_floor?: number | null;
   usage: MeteringUsage;
   used_tokens: number | null;
   used_percentage: number | null;
@@ -75,12 +60,37 @@ export interface BuildMeteringRecordInput {
   usage?: Partial<MeteringUsage> | null;
   event: string;
   harnessPercentage?: number | null;
+  longContextHint?: boolean | null;
+  priorWindow?: number | null;
+  priorWindowSource?: WindowSource;
+  priorWindowFloor?: number | null;
 }
 
 export interface UsedPercentageInput {
   context_window_size: number | null;
   used_tokens: number | null;
   harnessPercentage?: number | null;
+}
+
+interface ContextWindowEntry {
+  default: number;
+  long: number | null;
+}
+
+interface ContextWindowTable {
+  schema_version: 1;
+  family_defaults?: {
+    claude?: ContextWindowEntry;
+  };
+  claude: Record<string, ContextWindowEntry>;
+  codex: Record<string, ContextWindowEntry>;
+}
+
+export interface WindowResolution {
+  window: number | null;
+  source: WindowSource;
+  window_floor: number | null;
+  contradiction: boolean;
 }
 
 const EMPTY_USAGE: MeteringUsage = {
@@ -90,16 +100,97 @@ const EMPTY_USAGE: MeteringUsage = {
   cache_read: 0,
 };
 
+let cachedWindowTable: ContextWindowTable | null | undefined;
+let contextWindowsPathOverride: string | null = null;
+
 function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) > 0;
+}
+
+function isContextWindowEntry(value: unknown): value is ContextWindowEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Partial<ContextWindowEntry>;
+  return (
+    isPositiveInteger(record.default) &&
+    (record.long === null ||
+      (isPositiveInteger(record.long) && record.long > record.default))
+  );
+}
+
+function isContextWindowMap(value: unknown): value is Record<string, ContextWindowEntry> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.values(value).every(isContextWindowEntry);
+}
+
+function isContextWindowTable(value: unknown): value is ContextWindowTable {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Partial<ContextWindowTable>;
+  const familyDefaults = record.family_defaults;
+  const claudeFamilyDefault =
+    !familyDefaults ||
+    (typeof familyDefaults === "object" &&
+      familyDefaults !== null &&
+      !Array.isArray(familyDefaults) &&
+      (familyDefaults as ContextWindowTable["family_defaults"])?.claude !== undefined &&
+      isContextWindowEntry((familyDefaults as ContextWindowTable["family_defaults"])?.claude));
+  return (
+    record.schema_version === 1 &&
+    claudeFamilyDefault &&
+    isContextWindowMap(record.claude) &&
+    isContextWindowMap(record.codex)
+  );
+}
+
+function contextWindowsPath(): string {
+  return (
+    contextWindowsPathOverride ??
+    fileURLToPath(new URL("../context-windows.json", import.meta.url))
+  );
+}
+
+export function setContextWindowsPathForTest(path: string | null): void {
+  contextWindowsPathOverride = path;
+  cachedWindowTable = undefined;
+}
+
+function loadContextWindowTable(): ContextWindowTable | null {
+  if (cachedWindowTable !== undefined) return cachedWindowTable;
+  try {
+    const parsed = JSON.parse(readFileSync(contextWindowsPath(), "utf8").replace(/^\uFEFF/, "")) as unknown;
+    cachedWindowTable = isContextWindowTable(parsed) ? parsed : null;
+  } catch {
+    cachedWindowTable = null;
+  }
+  return cachedWindowTable;
+}
+
+export function normalizeModelId(modelId: string | null | undefined): {
+  base: string;
+  idMarker: boolean;
+} | null {
+  if (typeof modelId !== "string") return null;
+  let base = modelId.trim().toLowerCase();
+  if (!base) return null;
+  let idMarker = /\[1m\]/i.test(base) || /-1m\b/i.test(base);
+  base = base.replace(/\[[^\]]+\]/g, "");
+  base = base.replace(/-1m\b/g, "");
+  const dated = base.replace(/-(20\d{6})$/, "");
+  base = dated;
+  if (!base) return null;
+  return { base, idMarker };
 }
 
 function normalizeUsage(usage: Partial<MeteringUsage> | null | undefined): {
   usage: MeteringUsage;
   used_tokens: number | null;
+  prompt_side_tokens: number | null;
 } {
   if (usage === null || usage === undefined) {
-    return { usage: { ...EMPTY_USAGE }, used_tokens: null };
+    return { usage: { ...EMPTY_USAGE }, used_tokens: null, prompt_side_tokens: null };
   }
   const normalized: MeteringUsage = {
     input: finiteNumber(usage.input) ? usage.input : 0,
@@ -114,27 +205,134 @@ function normalizeUsage(usage: Partial<MeteringUsage> | null | undefined): {
       normalized.output +
       normalized.cache_creation +
       normalized.cache_read,
+    prompt_side_tokens:
+      normalized.input + normalized.cache_creation + normalized.cache_read,
   };
+}
+
+function usablePriorFloor(
+  priorWindow: number | null | undefined,
+  priorSource: WindowSource | undefined,
+  priorWindowFloor: number | null | undefined,
+): number | null {
+  // The monotonic floor tracks the highest OBSERVED prompt-side token count,
+  // never the resolved window size. window_source gating lives in how
+  // priorWindowFloor is produced: hint-only turns record their observed tokens
+  // (not the 1M hint window), so a hint window never becomes sticky, while a
+  // ratcheted/prior turn carries the real observed floor forward.
+  void priorWindow;
+  void priorSource;
+  return finiteNumber(priorWindowFloor) ? priorWindowFloor : null;
+}
+
+function maybeApplyLong(
+  candidate: number,
+  source: WindowSource,
+  long: number | null,
+  enabled: boolean,
+): { candidate: number; source: WindowSource } {
+  if (enabled && long !== null && candidate < long) {
+    return { candidate: long, source: "hint" };
+  }
+  return { candidate, source };
+}
+
+export function resolveContextWindowDetailed(input: {
+  harness: string;
+  modelId: string | null | undefined;
+  longContextHint?: boolean | null;
+  promptSideTokens?: number | null;
+  priorWindow?: number | null;
+  priorWindowSource?: WindowSource;
+  priorWindowFloor?: number | null;
+}): WindowResolution {
+  const normalized = normalizeModelId(input.modelId);
+  if (normalized === null) {
+    return { window: null, source: null, window_floor: null, contradiction: false };
+  }
+  const table = loadContextWindowTable();
+  if (table === null) {
+    return { window: null, source: null, window_floor: null, contradiction: false };
+  }
+
+  const promptSideTokens = finiteNumber(input.promptSideTokens)
+    ? input.promptSideTokens
+    : null;
+  const priorFloor = usablePriorFloor(
+    input.priorWindow,
+    input.priorWindowSource,
+    input.priorWindowFloor,
+  );
+  const observedFloor = Math.max(promptSideTokens ?? 0, priorFloor ?? 0);
+  const window_floor = observedFloor > 0 ? observedFloor : null;
+
+  if (input.harness === "claude") {
+    if (!/^claude-/i.test(normalized.base)) {
+      return { window: null, source: null, window_floor, contradiction: false };
+    }
+    const entry = table.claude[normalized.base] ?? table.family_defaults?.claude ?? null;
+    if (entry === null) {
+      return { window: null, source: null, window_floor, contradiction: false };
+    }
+    const mapped = Object.prototype.hasOwnProperty.call(table.claude, normalized.base);
+    let candidate = entry.default;
+    let source: WindowSource = mapped ? "mapping" : "family-default";
+    const hinted = normalized.idMarker || input.longContextHint === true;
+    ({ candidate, source } = maybeApplyLong(candidate, source, entry.long, hinted));
+    if (promptSideTokens !== null && promptSideTokens > candidate) {
+      if (entry.long !== null && promptSideTokens <= entry.long) {
+        candidate = entry.long;
+        source = "ratchet";
+      } else {
+        return { window: null, source: "contradiction", window_floor, contradiction: true };
+      }
+    }
+    if (priorFloor !== null && priorFloor > candidate) {
+      if (entry.long !== null && priorFloor <= entry.long) {
+        candidate = entry.long;
+        source = "prior";
+      } else {
+        return { window: null, source: "contradiction", window_floor, contradiction: true };
+      }
+    }
+    return { window: candidate, source, window_floor, contradiction: false };
+  }
+
+  if (input.harness === "codex") {
+    const entry = table.codex[normalized.base] ?? null;
+    if (entry === null) {
+      return { window: null, source: null, window_floor, contradiction: false };
+    }
+    let candidate = entry.default;
+    let source: WindowSource = "mapping";
+    ({ candidate, source } = maybeApplyLong(candidate, source, entry.long, normalized.idMarker));
+    if (promptSideTokens !== null && promptSideTokens > candidate) {
+      if (entry.long !== null && promptSideTokens <= entry.long) {
+        candidate = entry.long;
+        source = "ratchet";
+      } else {
+        return { window: null, source: "contradiction", window_floor, contradiction: true };
+      }
+    }
+    if (priorFloor !== null && priorFloor > candidate) {
+      if (entry.long !== null && priorFloor <= entry.long) {
+        candidate = entry.long;
+        source = "prior";
+      } else {
+        return { window: null, source: "contradiction", window_floor, contradiction: true };
+      }
+    }
+    return { window: candidate, source, window_floor, contradiction: false };
+  }
+
+  return { window: null, source: null, window_floor, contradiction: false };
 }
 
 export function resolveContextWindow(
   harness: string,
   modelId: string | null | undefined,
 ): number | null {
-  if (!modelId) return null;
-  if (harness === "claude") {
-    if (!/^claude-/i.test(modelId)) return null;
-    if (/\[1m\]/i.test(modelId)) return LONG_CONTEXT_WINDOW;
-    return DEFAULT_CONTEXT_WINDOW;
-  }
-  if (harness === "codex") {
-    if (!CODEX_KNOWN_MODEL_IDS.includes(modelId as (typeof CODEX_KNOWN_MODEL_IDS)[number])) {
-      return null;
-    }
-    if (/-1m\b|\[1m\]/i.test(modelId)) return LONG_CONTEXT_WINDOW;
-    return CODEX_CONTEXT_WINDOW_BY_MODEL_ID[modelId as (typeof CODEX_KNOWN_MODEL_IDS)[number]];
-  }
-  return null;
+  return resolveContextWindowDetailed({ harness, modelId }).window;
 }
 
 export function meteringPath(sessionKey: string, stateDirOverride = stateDir): string {
@@ -143,8 +341,6 @@ export function meteringPath(sessionKey: string, stateDirOverride = stateDir): s
 
 export function computeUsedPercentage(record: UsedPercentageInput): number | null {
   if (finiteNumber(record.harnessPercentage)) {
-    // Clamp to [0,100] like the computed path: a harness could report a
-    // transiently out-of-range percentage, and phase/footer math assumes 0-100.
     return Math.min(100, Math.max(0, record.harnessPercentage));
   }
   if (record.used_tokens === null || record.context_window_size === null) {
@@ -164,10 +360,18 @@ export function phaseFor(usedPercentage: number | null): MeteringPhase {
 }
 
 export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRecord {
-  const context_window_size = resolveContextWindow(input.harness, input.model);
   const normalized = normalizeUsage(input.usage);
+  const resolution = resolveContextWindowDetailed({
+    harness: input.harness,
+    modelId: input.model,
+    longContextHint: input.longContextHint,
+    promptSideTokens: normalized.prompt_side_tokens,
+    priorWindow: input.priorWindow,
+    priorWindowSource: input.priorWindowSource,
+    priorWindowFloor: input.priorWindowFloor,
+  });
   const used_percentage = computeUsedPercentage({
-    context_window_size,
+    context_window_size: resolution.window,
     used_tokens: normalized.used_tokens,
     harnessPercentage: input.harnessPercentage,
   });
@@ -176,7 +380,9 @@ export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRe
     harness: input.harness,
     model: input.model,
     source_ref: input.source_ref,
-    context_window_size,
+    context_window_size: resolution.window,
+    window_source: resolution.source,
+    window_floor: resolution.window_floor,
     usage: normalized.usage,
     used_tokens: normalized.used_tokens,
     used_percentage,

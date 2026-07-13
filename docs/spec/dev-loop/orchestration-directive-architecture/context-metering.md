@@ -2,101 +2,137 @@
 
 ## context-metering.md : Provider-Metered Context Tracking
 
-This leaf is the full normative spec for context metering: how hook code
-learns how much of a session's context window is used, how that number is
-persisted, and how it drives the phase model (`normal` / `plan` / `handoff`)
-consumed elsewhere in this architecture (sections-00-04.md section 4,
-handoff.md, derivation-map.md R-START-OFF / R-LATCH-15 / R-HANDOFF-50).
+This leaf specifies how hooks lift provider usage, resolve the context window,
+persist the record, and drive the `normal` / `plan` / `handoff` phase model
+used by sections-00-04.md, handoff.md, and derivation-map.md.
 
-### 1. Core principle : lift, never tokenize
+### 1. Core Principle : Lift, Never Tokenize
 
-Hooks LIFT provider-reported usage numbers that the harness already computed
-and already wrote to its own transcript/rollout file. Hooks never run a
-tokenizer, never estimate token counts from raw text, and never ask the
-model to self-report a percentage. If no provider-reported number can be
-found for a given turn, the result is `null` (undetectable), not a guess.
-This is a hard rule : any code path that introduces token-counting (tiktoken
-or otherwise) to fabricate a number is a bug, not an enhancement.
+Hooks lift provider-reported usage numbers already computed by the harness and
+written to its transcript or rollout file. Hooks never tokenize, estimate token
+counts from raw text, or ask the model to self-report a percentage. A settings
+hint reads a declared tier value. A ratchet compares provider-reported
+prompt-side tokens to a candidate window. Neither path estimates usage.
 
-### 2. Metering record (state shape, copied verbatim from the plan's Section 0)
+If usage or a resolvable window cannot be found, the result is `null`.
+Undetectable metering fails safe to orchestration ON.
+
+### 2. Metering Record
 
 ```
 {
   session_id: string,
   harness: "claude" | "codex",
   model: string,
-  source_ref: string,            // transcript_path (Claude) or rollout path (Codex)
+  source_ref: string,
   context_window_size: number | null,
+  window_source: "mapping" | "hint" | "ratchet" | "prior" | "family-default" | "contradiction" | null,
+  window_floor: number | null,
   usage: { input: number, output: number, cache_creation: number, cache_read: number },
-  used_tokens: number | null,    // sum of usage fields, or null if undetectable
-  used_percentage: number | null,// harness-reported percentage preferred, else computed
+  used_tokens: number | null,
+  used_percentage: number | null,
   near_limit: boolean,
-  event: string,                 // hook event name that produced this record
-  updated_at: number             // epoch ms
+  event: string,
+  updated_at: number
 }
 ```
 
-`used_tokens` is the sum of the four `usage` fields, or `null` if usage is
-entirely absent for the turn. `used_percentage` prefers a harness-reported
-percentage when the adapter supplies one; otherwise it is computed as
-`used_tokens / context_window_size * 100`, clamped to 100, or `null` if
-either operand is `null`. `near_limit` is `used_percentage !== null &&
-used_percentage >= 50` (HANDOFF_UNLOCK_THRESHOLD_PCT).
+`used_tokens` is the sum of the usage fields, or `null` when usage is absent.
+`prompt_side_tokens` is the non-persisted resolver input
+`input + cache_creation + cache_read`; output is excluded because a completion
+can push total used tokens over a real window even when the prompt fit.
 
-### 3. Phase computation
+`context_window_size: null` with non-null usage is valid for unknown models,
+corrupt mapping data, or contradictions. Such records are still written.
 
-Given `used_percentage` (0-100, or `null` if undetectable):
+### 3. Phase Computation
+
+Given `used_percentage`:
 
 ```
 phase = used_percentage === null ? "normal"
-      : used_percentage >= 50 ? "handoff"    // HANDOFF_UNLOCK_THRESHOLD_PCT
-      : used_percentage >= 15 ? "plan"       // PLAN_LATCH_THRESHOLD_PCT
+      : used_percentage >= 50 ? "handoff"
+      : used_percentage >= 15 ? "plan"
       : "normal"
 ```
 
-`used_percentage === null` still resolves to `phase = "normal"`; the
-metering-undetectable fail-safe forces orchestration ON regardless of phase,
-but phase itself only ever reflects measured metering, never enforcement
-state. 15 and 50 are hardcoded named constants (`PLAN_LATCH_THRESHOLD_PCT`,
-`HANDOFF_UNLOCK_THRESHOLD_PCT`); they are not configurable.
+`near_limit` is true only when `used_percentage !== null && used_percentage >= 50`.
+`used_percentage === null` still maps to
+`phase = "normal"`; the metering-undetectable fail-safe is separate
+enforcement and forces orchestration ON.
 
-### 4. resolveContextWindow algorithm (copied verbatim from Section 0)
+### 4. Window Resolution Ladder
 
-```
-resolveContextWindow(harness, modelId):
-  if not modelId: return null                                   // undetectable
-  if harness === "claude":
-    if not /^claude-/i.test(modelId): return null                // unrecognized family
-    if /\[1m\]/i.test(modelId): return 1000000                   // LONG_CONTEXT_WINDOW
-    return 200000                                                 // DEFAULT_CONTEXT_WINDOW
-  if harness === "codex":
-    if modelId not in CODEX_KNOWN_MODEL_IDS: return null
-    if /-1m\b|\[1m\]/i.test(modelId): return 1000000              // LONG_CONTEXT_WINDOW
-    return 200000                                                 // DEFAULT_CONTEXT_WINDOW
-  return null
-```
+The resolver normalizes model ids by trimming, lowercasing, detecting and
+stripping `[1m]` or trailing `-1m`, and stripping one trailing dated suffix
+`-(20YYYYMMDD style)`, implemented as `-(20\d{6})`. The stripped marker is a
+long-tier hint. Mapping data loads from `src/context-windows.json` in source
+and `dist/context-windows.json` in builds. Missing, unreadable, or invalid
+mapping data resolves every lookup to `null`.
 
-`CODEX_KNOWN_MODEL_IDS` is a DECISION DEFAULT, defined here as the single
-source of truth that the code in `src/orchestration/metering.ts` must match
-literally, character for character:
+Claude ladder:
 
-```
-CODEX_KNOWN_MODEL_IDS = ["gpt-5", "gpt-5-codex", "gpt-5.5", "o3", "o3-mini", "o4-mini"]
-```
+1. A harness-reported percentage, if Claude ever supplies one, wins in
+   `computeUsedPercentage` and is clamped to `[0,100]`.
+2. Exact mapping hit supplies `default` and optional `long` tier.
+3. Unknown ids matching `/^claude-/i` use the shipped family default
+   `{ default: 200000, long: 1000000 }` with
+   `window_source: "family-default"`.
+4. Non-Claude ids resolve `null`.
+5. The in-id marker or settings hint upgrades `default` to `long` only when
+   the entry or family default has a non-null long tier. Transcript
+   `message.model` is not expected to carry `[1m]`; logic keyed solely on
+   transcript markers is defective.
+6. Prompt-side ratchet upgrades to `long` when `prompt_side_tokens` exceeds
+   the candidate and fits the long tier.
+7. A prior session floor can keep the window high only when the prior source
+   was `ratchet` or `prior`. Hint-derived windows must re-derive every turn.
+8. If prompt-side tokens or a source-gated prior floor exceed the top tier,
+   the result is `null` with `window_source: "contradiction"`.
 
-This list is extendable over time; any model id not in it falls through to
-`resolveContextWindow` returning `null` (undetectable), which in turn forces
-the metering-undetectable fail-safe. If this array is ever edited in code,
-this leaf must be re-edited to match, and vice versa, so doc and code never
-drift out of lockstep.
+Codex ladder:
 
-### 5. Claude usage-lift mechanics
+1. `token_count.info.model_context_window` plus
+   `total_token_usage.total_tokens` is authoritative and provides a
+   harness-reported percentage for that turn. It has primacy over the mapping.
+2. Static fallback uses exact entries from `context-windows.json`. Values are
+   effective usable windows, not raw catalog maxima.
+3. The in-id marker upgrades to `long` only when the mapping entry has a
+   non-null long tier.
+4. Prompt-side ratchet, source-gated prior floor, contradiction, and `null`
+   behavior match Claude.
+5. Unknown Codex ids have no family default and resolve `null`.
 
-The Claude adapter piggybacks on the existing `UserPromptSubmit` hook event
-(no new hook registration). On each invocation it tails the session
-transcript file (bounded read, reusing the existing capped tail-read helper)
-looking from the end for the LAST JSONL line whose `type === "assistant"`
-and whose `message.usage` object is present. From that line it reads:
+`computeUsedPercentage` clamps a computed percentage only after the resolver
+has ruled out contradictions. Therefore a fabricated `100%` or
+`0% remaining` from an impossible window is forbidden. Contradictions render
+as unknown and fail safe ON.
+
+### 5. Mapping File And Profiler Linkage
+
+`src/context-windows.json` is the source of truth for model windows. The
+published package copies it to `dist/context-windows.json`; the build hard
+fails if the source file is absent. The table contains:
+
+- `schema_version: 1`.
+- `family_defaults.claude` for unknown `claude-*` ids.
+- `claude` entries with `default` and nullable `long`.
+- `codex` entries with effective fallback `default` and nullable `long`.
+
+`scripts/validate_context_windows.mjs` validates shape, normalized keys, and
+window ordering. Each model-profiler run refreshes or validates family-default
+context windows because `scripts/build_routing_table.mjs` invokes it after
+emitting routing artifacts. Routing remains owned by
+`src/routing-table.json`; context-window coverage remains owned by
+`src/context-windows.json`.
+
+### 6. Claude Usage Lift
+
+The Claude adapter tails the transcript for the newest main-chain JSONL line
+where `type === "assistant"` and `message.usage` is present. Lines with
+top-level `isSidechain === true` are skipped because they belong to delegated
+sub-agent contexts and may carry a different model or window. From the selected
+line it reads:
 
 - `usage.input = message.usage.input_tokens`
 - `usage.output = message.usage.output_tokens`
@@ -104,83 +140,61 @@ and whose `message.usage` object is present. From that line it reads:
 - `usage.cache_read = message.usage.cache_read_input_tokens`
 - `model = message.model`
 
-Because `UserPromptSubmit` fires before the current turn's assistant message
-exists, the usage lifted on turn N always reflects the LAST COMPLETED
-assistant turn, i.e. turn N-1. This one-turn lag is accepted and documented
-here as expected behavior, not a bug : metering is always at most one turn
-behind. On turn 1 there is no prior assistant usage to lift; the lift is
-skipped and no fail-safe is triggered purely because of that absence.
+The adapter also reads a Claude long-context tier hint from, in order:
+`ANTHROPIC_MODEL`, `<cwd>/.claude/settings.local.json`,
+`<cwd>/.claude/settings.json`, then
+`${CLAUDE_CONFIG_DIR || ~/.claude}/settings.json`. The first defined string
+`model` value decides. The hint is tier evidence only, not model identity.
+Every read or parse failure returns no hint and never throws.
 
-### 6. Codex usage-lift mechanics
+Because `UserPromptSubmit` fires before the current assistant response exists,
+Claude metering describes the last completed assistant turn. Turn 1 has no
+prior assistant usage and is not treated as an error.
 
-The Codex adapter reads the rollout JSONL file (the same file the existing
-turn-counting logic already reads), tailing from the end for the LAST line
-carrying a `token_count` field, with a nested `info.total_token_usage`
-object providing `input_tokens`, `output_tokens`, and `cached_input_tokens`
-(Codex's cache-read equivalent; Codex has no separate cache-creation
-concept, so `cache_creation` is always recorded as `0`). The model id is
-read from the most recent `turn_context` line's `model` field.
+### 7. Codex Usage Lift
 
-Codex may additionally report a `model_context_window` value alongside the
-token counts on that same line. When present, this is a genuine
-harness-reported context window, and the harness-reported percentage
-(`total_tokens / model_context_window * 100`) is preferred over the static
-`resolveContextWindow` map for that turn, per the general rule that a
-harness-reported percentage always wins over a computed one. When absent,
-`resolveContextWindow(harness, modelId)` supplies the window via the
-`CODEX_KNOWN_MODEL_IDS` map above.
+The Codex adapter tails the rollout JSONL file for the newest `token_count`
+line with `info.total_token_usage`, and reads the model from the newest
+`turn_context.model`. Codex supplies `input_tokens`, `output_tokens`, and
+`cached_input_tokens`; `input_tokens` includes cached input. The adapter stores
+`usage.input = max(0, input_tokens - cached_input_tokens)`,
+`usage.output = output_tokens`, `usage.cache_creation = 0`, and
+`usage.cache_read = cached_input_tokens`, so `used_tokens` matches
+`total_tokens` instead of double-counting cache.
 
-### 7. State-dir path scheme
+When `model_context_window` is present on the token-count line, the adapter
+computes the harness percentage from `total_tokens / model_context_window`.
+That percentage takes precedence over any static mapping window.
 
-All metering state lives under the EXISTING state directory
-`join(os.tmpdir(), "subagent-mcp")` (`stateDir` in `marker.ts`), directory
-mode `0o700`, file mode `0o600`, written via the EXISTING `atomicWriteJson`
-helper from `atomic-write.ts`. No new state directory is introduced.
+### 8. State And Latch Migration
 
-```
-metering record : ctx-<hashKey(sessionKey)>.json
-```
+Metering records live under `join(os.tmpdir(), "subagent-mcp")` as
+`ctx-<hashKey(sessionKey)>.json`, written through `atomicWriteJson`. Reads use
+the existing 2 hour `ORCH_DISABLE_TTL_MS` lazy-GC horizon. Stale metering is
+strictly worse than no metering because it can understate current usage.
 
-`hashKey` is the EXISTING function in `marker.ts`, reused unchanged.
+Plan latches use `LATCH_REV = 2`. Latch records without the current `rev` are
+treated inactive and best-effort unlinked on read. This lazily invalidates
+bug-era latches produced by the old 200k assumption. Latches are derived
+state: if corrected metering still justifies a latch, the hook re-trips it in
+the same invocation.
 
-### 8. TTL cleanup
+### 9. Display And Consumers
 
-Metering records are garbage-collected using the same lazy-GC pattern the
-existing marker code already uses for disable records : on read, if
-`Date.now() - record.updated_at > ORCH_DISABLE_TTL_MS` (2 hours, the
-EXISTING constant, unchanged), the file is unlinked and the read returns
-`null`. Stale metering is treated as strictly worse than no metering, since
-an old percentage could understate current usage and suppress a latch or
-handoff that should have fired.
+Hook code is the only writer of metering records. Internal consumers are
+hook-core tag/footer composition and handoff gating. No MCP tool exposes raw
+metering data.
 
-### 9. Hooks WRITE, MCP READS : no public usage tool
+Visible injection surfaces are limited to the tag utilization attribute and
+the footer. Known percentages render as `utilization="NN%"` plus
+`Remaining Context=NN%`. Unknown percentages render as
+`utilization="unknown"` and suppress the footer. `Remaining Context=0%` is
+allowed only when a resolved window or harness percentage honestly reaches the
+clamp.
 
-Metering data flows in exactly one direction. Hook code (Claude and Codex
-adapters, via `hook-core.ts`) is the ONLY writer of metering records. The
-metering record is read back by two internal consumers only:
+### 10. One-Turn Lag
 
-1. `hook-core.ts`'s own tag composition, to compute `phase` and
-   `utilization` for the injected `<subagent-mcp>` tag and footer.
-2. The handoff gating logic (handoff.md), to decide whether
-   handoff-write is unlocked (>=50% with readable metering).
-
-No MCP tool exposes metering data directly to the model or the user. There
-is no "get context usage" tool and none should be added; the only surfaces
-by which a used-percentage figure becomes visible are the hook-injected tag
-(`utilization="NN%"` or `"unknown"`) and the footer
-(`Remaining Context=NN%`), both of which are internal to the hook injection
-pipeline described in template.ts / hook-core.ts.
-
-### 10. Off-by-one / one-turn-lag caveat, accepted
-
-Both adapters lift usage that describes the PRIOR completed turn, never the
-turn currently in progress (see sections 5 and 6 above). This means the
-`used_percentage` seen on a given turn's injected tag can undercount actual
-current usage by roughly one turn's worth of tokens. This is a deliberate,
-accepted tradeoff, not a defect to fix : provider-reported usage is only
-ever available after a turn completes, so any same-turn number would have
-to be estimated, which section 1 forbids. Downstream consumers (latch,
-handoff gating) must not assume `used_percentage` is exactly current; they
-treat crossing a threshold on a one-turn-lagged reading as sufficient to
-trip, since the lag only delays detection by a single turn, never prevents
-it.
+Both adapters lift usage for the prior completed turn. Same-turn usage would
+require estimation, which section 1 forbids. Threshold consumers treat a
+one-turn-lagged crossing as sufficient to trip; the lag can delay detection by
+one turn, but does not fabricate a percentage.

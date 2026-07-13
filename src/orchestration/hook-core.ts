@@ -95,6 +95,7 @@ export interface LiftUsageResult {
   source_ref: string;
   usage: Partial<metering.MeteringUsage> | null;
   harnessPercentage?: number | null;
+  longContextHint?: boolean | null;
 }
 
 type TagKind = "directive" | "reminder" | "carryover" | "carrier";
@@ -452,19 +453,7 @@ function updateMeteringForTurn(
   if (turnIndex <= 1) return false;
   const lifted = adapter.liftUsage(payload, env, payload.transcript_path);
   if (lifted === null) return true;
-  // A valid harness-reported percentage stands on its own: it does not require
-  // the static model->window map, so an unknown model is NOT undetectable when a
-  // percentage was supplied. Only fall back to requiring window resolution when
-  // no harness percentage is available.
-  const hasHarnessPercentage =
-    typeof lifted.harnessPercentage === "number" &&
-    Number.isFinite(lifted.harnessPercentage);
-  if (
-    !hasHarnessPercentage &&
-    metering.resolveContextWindow(lifted.harness, lifted.model) === null
-  ) {
-    return true;
-  }
+  const prior = metering.readMetering(current);
   const record = metering.buildMeteringRecord({
     session_id: current,
     harness: lifted.harness,
@@ -476,9 +465,20 @@ function updateMeteringForTurn(
         ? payload.hook_event_name
         : "UserPromptSubmit",
     harnessPercentage: lifted.harnessPercentage,
+    longContextHint: lifted.longContextHint,
+    priorWindow: prior?.context_window_size ?? null,
+    priorWindowSource: prior?.window_source ?? null,
+    priorWindowFloor: prior?.window_floor ?? null,
   });
   metering.writeMetering(current, record);
-  return false;
+
+  // A valid harness-reported percentage stands on its own. Without one, a null
+  // window means the host is undetectable for this turn, even though the record
+  // is still persisted for observability and same-turn fail-safe agreement.
+  const hasHarnessPercentage =
+    typeof lifted.harnessPercentage === "number" &&
+    Number.isFinite(lifted.harnessPercentage);
+  return !hasHarnessPercentage && record.context_window_size === null;
 }
 
 function providerDirectiveFile(adapter: ProviderAdapter, prefix: string): string {

@@ -7,8 +7,8 @@ document exists so a future implementer has a normative, non-ambiguous
 contract to build against, without re-deriving window/usage source fields
 from scratch.
 
-The shared metering record shape, `resolveContextWindow` algorithm shape, and
-the `used_percentage` / `near_limit` / `phase` formulas defined in
+The shared metering record shape, window-resolution ladder, and
+`used_percentage` / `near_limit` / `phase` formulas defined in
 context-metering.md apply unchanged to any future adapter for these four
 harnesses. This leaf only pins down, per harness, WHERE the window size and
 usage numbers come from.
