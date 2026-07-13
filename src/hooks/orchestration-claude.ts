@@ -54,6 +54,14 @@ function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isRealClaudeModel(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.trim() !== "" &&
+    value.trim() !== "<synthetic>"
+  );
+}
+
 function readTranscriptTail(transcriptPath: string | undefined): string | null {
   if (!transcriptPath) return null;
   let fd: number | undefined;
@@ -114,11 +122,11 @@ function liftClaudeUsageFromTranscript(transcriptPath: string | undefined): Usag
       };
       if (msg.isSidechain === true) continue;
       if (msg.type !== "assistant" || !msg.message?.usage) continue;
-      if (typeof msg.message.model !== "string") return null;
+      if (!isRealClaudeModel(msg.message.model)) continue;
       const usage = msg.message.usage;
       return {
         harness: "claude",
-        model: msg.message.model,
+        model: msg.message.model.trim(),
         source_ref: transcriptPath,
         usage: {
           input: finiteNumber(usage.input_tokens) ? usage.input_tokens : 0,
@@ -130,6 +138,9 @@ function liftClaudeUsageFromTranscript(transcriptPath: string | undefined): Usag
             ? usage.cache_read_input_tokens
             : 0,
         },
+        // Claude Code statusline receives context_window.used_percentage on its
+        // own stdin payload. Recent hook transcripts do not expose that object,
+        // so this adapter cannot pass it through without a hook-readable signal.
         harnessPercentage: null,
       };
     } catch {

@@ -31,11 +31,10 @@ usage numbers come from.
 - Context window source: LiteLLM's `model_cost` map, field
   `max_input_tokens`. If that field is missing or zero for the active model,
   the adapter MUST fall back to a guard value of 4096 tokens rather than
-  treating the window as unknown or undetectable. This fallback is a
-  deliberate exception to the general "missing window data => null /
-  undetectable" rule used elsewhere, because LiteLLM's `model_cost` map is
-  frequently incomplete for newer or custom models and a small guard value
-  is safer than silently disabling metering for those models.
+  using the shared 200000 assumed default. This stricter fallback is a
+  deliberate exception because LiteLLM's `model_cost` map is frequently
+  incomplete for newer or custom models, and a small guard value is safer for
+  that adapter than the generic unknown-window assumption.
 - Usage source: the token counts LiteLLM's `CustomLogger` callback receives
   for the completed request.
 
@@ -63,9 +62,10 @@ covers all three backends.
   signal. Treat context size as unverified for OpenClaw at all times.
 - A future adapter MUST report an honest "unavailable" state, using the
   same shape as the existing `UNAVAILABLE_NO_METERING` condition documented
-  in context-metering.md and handoff.md (context_window_size: null,
-  used_tokens: null, used_percentage: null) -- never a fabricated or guessed
-  number.
+  in context-metering.md and handoff.md (`context_window_size: null`,
+  `used_tokens: null`, `used_percentage: null`) only when usage itself is
+  unavailable. If usage exists but only the window is missing, the shared
+  assumed-default ladder applies.
 - A future adapter MUST NEVER fall back to local tokenization (tiktoken or
   any other tokenizer library) to estimate or fake a usage number for
   OpenClaw. Local re-tokenization does not match the harness's actual

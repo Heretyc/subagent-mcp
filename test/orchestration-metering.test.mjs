@@ -40,7 +40,7 @@ function test(name, fn) {
 }
 
 test("resolveContextWindow covers claude and codex known/unknown branches", () => {
-  assert.equal(resolveContextWindow("claude", "not-claude"), null);
+  assert.equal(resolveContextWindow("claude", "not-claude"), DEFAULT_CONTEXT_WINDOW);
   assert.equal(resolveContextWindow("claude", "claude-sonnet-4-5"), DEFAULT_CONTEXT_WINDOW);
   assert.equal(resolveContextWindow("claude", "claude-sonnet-4-5[1m]"), LONG_CONTEXT_WINDOW);
   assert.equal(resolveContextWindow("claude", "Claude-Fable-5"), DEFAULT_CONTEXT_WINDOW);
@@ -51,7 +51,7 @@ test("resolveContextWindow covers claude and codex known/unknown branches", () =
     modelId: "claude-brand-new-model",
   }).source, "family-default");
   assert.equal(resolveContextWindow("claude", "claude-brand-new-model"), DEFAULT_CONTEXT_WINDOW);
-  assert.equal(resolveContextWindow("codex", "unknown-model"), null);
+  assert.equal(resolveContextWindow("codex", "unknown-model"), DEFAULT_CONTEXT_WINDOW);
   assert.equal(resolveContextWindow("codex", "gpt-5"), 258400);
   assert.equal(resolveContextWindow("codex", "gpt-5.3-codex-spark"), 121600);
 });
@@ -153,7 +153,7 @@ test("resolveContextWindowDetailed applies hint, ratchet, prior floor, and contr
     modelId: "claude-haiku-4-5",
     promptSideTokens: 250000,
   }), {
-    window: null,
+    window: DEFAULT_CONTEXT_WINDOW,
     source: "contradiction",
     window_floor: 250000,
     contradiction: true,
@@ -246,7 +246,7 @@ test("full 200k prompt plus output clamps honestly without false ratchet", () =>
   assert.equal(record.used_percentage, 100);
 });
 
-test("unknown non-claude and contradictions persist unknown percentages", () => {
+test("unknown non-claude and contradictions produce numeric percentages", () => {
   const unknown = buildMeteringRecord({
     session_id: "s-unknown-codex",
     harness: "codex",
@@ -255,8 +255,9 @@ test("unknown non-claude and contradictions persist unknown percentages", () => 
     usage: { input: 1, output: 1 },
     event: "UserPromptSubmit",
   });
-  assert.equal(unknown.context_window_size, null);
-  assert.equal(unknown.used_percentage, null);
+  assert.equal(unknown.context_window_size, DEFAULT_CONTEXT_WINDOW);
+  assert.equal(unknown.window_source, "assumed-default");
+  assert.equal(unknown.used_percentage, 0.001);
 
   const contradiction = buildMeteringRecord({
     session_id: "s-contradiction",
@@ -267,18 +268,69 @@ test("unknown non-claude and contradictions persist unknown percentages", () => 
     event: "UserPromptSubmit",
     longContextHint: true,
   });
-  assert.equal(contradiction.context_window_size, null);
+  assert.equal(contradiction.context_window_size, LONG_CONTEXT_WINDOW);
   assert.equal(contradiction.window_source, "contradiction");
-  assert.equal(contradiction.used_percentage, null);
+  assert.equal(contradiction.used_percentage, 100);
 });
 
-test("missing or corrupt context window asset fails safe to null", () => {
+test("unknown model with large floor promotes assumed default to floor", () => {
+  const record = buildMeteringRecord({
+    session_id: "s-unknown-floor",
+    harness: "codex",
+    model: "gpt-new-unknown",
+    source_ref: "rollout.jsonl",
+    usage: { input: 1, output: 1 },
+    event: "UserPromptSubmit",
+    priorWindowFloor: 500000,
+  });
+  assert.equal(record.context_window_size, 500000);
+  assert.equal(record.window_source, "assumed-default+floor");
+  assert.equal(record.window_floor, 500000);
+  assert.ok(Math.abs(record.used_percentage - 0.0004) < 1e-12);
+});
+
+test("current claude-fable session regression ratchets from prior floor to 1M", () => {
+  const record = buildMeteringRecord({
+    session_id: "s-current-fable-regression",
+    harness: "claude",
+    model: "claude-fable-5",
+    source_ref: "transcript.jsonl",
+    usage: {
+      input: 2,
+      output: 60,
+      cache_creation: 6894,
+      cache_read: 669235,
+    },
+    event: "UserPromptSubmit",
+    priorWindowFloor: 641173,
+  });
+  assert.equal(record.context_window_size, LONG_CONTEXT_WINDOW);
+  assert.equal(record.window_source, "ratchet");
+  assert.ok(record.used_percentage > 60 && record.used_percentage < 70);
+});
+
+test("haiku above top known tier resolves contradiction to 200k and clamps", () => {
+  const record = buildMeteringRecord({
+    session_id: "s-haiku-contradiction",
+    harness: "claude",
+    model: "claude-haiku-4-5",
+    source_ref: "transcript.jsonl",
+    usage: { input: 250000, output: 1, cache_creation: 0, cache_read: 0 },
+    event: "UserPromptSubmit",
+    longContextHint: true,
+  });
+  assert.equal(record.context_window_size, DEFAULT_CONTEXT_WINDOW);
+  assert.equal(record.window_source, "contradiction");
+  assert.equal(record.used_percentage, 100);
+});
+
+test("missing or corrupt context window asset falls back to assumed default", () => {
   const dir = mkdtempSync(join(tmpdir(), "orch-metering-map-"));
   const bad = join(dir, "bad.json");
   try {
     writeFileSync(bad, "{", "utf8");
     setContextWindowsPathForTest(bad);
-    assert.equal(resolveContextWindow("claude", "claude-fable-5"), null);
+    assert.equal(resolveContextWindow("claude", "claude-fable-5"), DEFAULT_CONTEXT_WINDOW);
   } finally {
     setContextWindowsPathForTest(null);
     rmSync(dir, { recursive: true, force: true });

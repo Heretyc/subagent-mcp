@@ -528,9 +528,10 @@ function updateMeteringForTurn(
   });
   metering.writeMetering(current, record);
 
-  // A valid harness-reported percentage stands on its own. Without one, a null
-  // window means the host is undetectable for this turn, even though the record
-  // is still persisted for observability and same-turn fail-safe agreement.
+  // A valid harness-reported percentage stands on its own. Without one, we fall
+  // back to the window: context_window_size is always numeric under the
+  // assumed-default ladder, so the null guard remains as a dead-man fallback only
+  // (the record is still persisted for observability and same-turn fail-safe agreement).
   const hasHarnessPercentage =
     typeof lifted.harnessPercentage === "number" &&
     Number.isFinite(lifted.harnessPercentage);
