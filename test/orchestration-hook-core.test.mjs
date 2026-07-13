@@ -40,7 +40,6 @@ import {
   REMINDER_PERIOD,
 } from "../dist/orchestration/hook-core.js";
 import {
-  enable,
   markerPath,
   isActive,
   readMarker,
@@ -52,6 +51,8 @@ import {
   anonKey,
 } from "../dist/orchestration/marker.js";
 import {
+  advance,
+  rebase,
   readReminder,
   reminderPath,
 } from "../dist/orchestration/reminder.js";
@@ -146,6 +147,17 @@ function makeAdapter({ subagent = false, turn = 0, liftUsage = () => null } = {}
 // A unique temp cwd per test keeps marker AND reminder state isolated.
 function makeCwd() {
   return mkdtempSync(join(tmpdir(), "orch-hc-cwd-"));
+}
+
+function writeFreshMarker(cwd) {
+  writeMarker(cwd, {
+    owner_session: null,
+    baseline_turn: null,
+    claimed_at: null,
+    owners: {},
+    provenance: "user-enabled",
+    carryover_ack: false,
+  });
 }
 
 function cleanup(cwd, root) {
@@ -272,6 +284,36 @@ test("OFF: a new session starts its own count without disturbing others", () => 
     removeDisable(sessionA);
     removeDisable(sessionB);
     cleanup(cwd, root);
+  }
+});
+
+test("reminder owner cap evicts one prior owner, not the whole counts map", () => {
+  const cwd = makeCwd();
+  try {
+    for (let i = 0; i < 8; i++) {
+      const r = advance(cwd, `owner-${i}`);
+      assert.equal(r.persisted, true);
+    }
+    let counts = readReminder(cwd).counts;
+    assert.equal(Object.keys(counts).length, 8, "precondition: cap is full");
+
+    const added = advance(cwd, "owner-8");
+    assert.equal(added.persisted, true);
+    counts = readReminder(cwd).counts;
+    assert.equal(Object.keys(counts).length, 8, "overflow keeps the map capped");
+    assert.equal(counts["owner-0"], undefined, "one prior owner is evicted");
+    assert.equal(counts["owner-1"], 1, "other prior owners are preserved");
+    assert.equal(counts["owner-8"], 1, "new owner is counted");
+
+    rebase(cwd, "owner-9", 0);
+    counts = readReminder(cwd).counts;
+    assert.equal(Object.keys(counts).length, 8, "rebase overflow also keeps the map capped");
+    assert.equal(counts["owner-9"], 0, "rebased owner is retained");
+    assert.equal(counts["owner-1"], undefined, "rebase evicts one additional prior owner");
+    assert.equal(counts["owner-8"], 1, "unrelated owners are not wiped");
+  } finally {
+    rmSync(reminderPath(cwd), { force: true });
+    rmSync(cwd, { recursive: true, force: true });
   }
 });
 
@@ -423,7 +465,6 @@ test("keyless payload resolves to anonymous owner and converges within TTL", () 
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd);
     writeMarker(cwd, { owner_session: "prev", baseline_turn: 12 });
     const owner = anonKey(cwd, "test");
     const out = runHook({ cwd, transcript_path: undefined }, env,
@@ -463,7 +504,6 @@ test("anonymous owner claim re-anchors after TTL and then returns to cadence", (
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd);
     const owner = anonKey(cwd, "test");
     writeMarker(cwd, {
       owner_session: owner,
@@ -525,7 +565,7 @@ test("subagent adapter -> '' AND the reminder counter does not advance", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   try {
-    enable(cwd); // marker ON, but subagent must still suppress.
+    writeFreshMarker(cwd);
     const out = runHook({ cwd, transcript_path: undefined }, env,
       makeAdapter({ subagent: true, turn: 0 }));
     assert.equal(out, "", "subagent sessions emit nothing even when active");
@@ -547,14 +587,34 @@ test("missing directive files -> '' (fail-safe read, never throws)", () => {
   // Directives dir exists but FULL and the ON reminder are absent.
   const { root, env } = makeDirectivesEnv({ withFull: false, withReminderOn: false });
   try {
-    enable(cwd);
+    writeFreshMarker(cwd);
     const out = runHook({ cwd, transcript_path: undefined }, env,
       makeAdapter({ turn: 0 }));
     assert.equal(out, "", "unreadable directives yield '' rather than throwing");
-    // Baseline is still stamped (claim happened before the read).
-    assert.equal(readMarker(cwd).baseline_turn, 0);
+    assert.equal(readMarker(cwd).baseline_turn, null,
+      "claim state is not mutated before a readable directive body exists");
+    assert.equal(Object.keys(readReminder(cwd).counts).length, 0,
+      "claim failure does not re-baseline the reminder counter");
   } finally {
     cleanup(cwd, root);
+  }
+});
+
+test("invalid directives root -> '' from runHook instead of escaping readDirective", () => {
+  const cwd = makeCwd();
+  const badRoot = join(tmpdir(), "orch-root-missing-directives");
+  try {
+    writeFreshMarker(cwd);
+    const out = runHook(
+      { cwd, session_id: "sess-bad-root", transcript_path: undefined },
+      { PLUGIN_ROOT: badRoot },
+      makeAdapter({ turn: 0 })
+    );
+    assert.equal(out, "", "resolver errors are contained by readDirective");
+    assert.equal(readMarker(cwd).baseline_turn, null,
+      "failed directive resolution does not claim the marker");
+  } finally {
+    cleanup(cwd, badRoot);
   }
 });
 

@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 import { atomicWriteJson } from "./atomic-write.js";
@@ -30,8 +30,10 @@ export interface ReminderState {
 }
 
 /** Bound the per-owner map so a busy multi-session cwd cannot grow it without
- * limit; evicting ALL entries on overflow is crude but rare and self-heals. */
+ * limit; on overflow, evict one existing owner instead of resetting all counts. */
 const OWNER_CAP = 8;
+const LOCK_RETRIES = 25;
+const LOCK_BACKOFF_MS = 2;
 
 function ownerKey(current: string | undefined): string {
   return current ?? "null";
@@ -63,7 +65,7 @@ export function readReminder(cwd: string): ReminderState {
 /** Persist the state. Returns true on success, false on any write failure. */
 export function writeReminder(cwd: string, obj: ReminderState): boolean {
   try {
-    // Owner-only perms (see marker.enable()): the state persists session keys.
+    // Owner-only perms on the state file: the state persists session keys.
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
     atomicWriteJson(reminderPath(cwd), obj, {
       encoding: "utf8",
@@ -76,6 +78,55 @@ export function writeReminder(cwd: string, obj: ReminderState): boolean {
   }
 }
 
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function withReminderLock<T>(cwd: string, fn: () => T): T | null {
+  const lockDir = reminderPath(cwd) + ".lock";
+  for (let attempt = 0; attempt < LOCK_RETRIES; attempt++) {
+    try {
+      mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+      mkdirSync(lockDir);
+      try {
+        return fn();
+      } finally {
+        rmSync(lockDir, { recursive: true, force: true });
+      }
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException)?.code;
+      if (code !== "EEXIST") return null;
+      sleepSync(LOCK_BACKOFF_MS);
+    }
+  }
+  return null;
+}
+
+function evictOneOwner(counts: Record<string, number>, protectedOwner: string): void {
+  for (const owner of Object.keys(counts)) {
+    if (owner !== protectedOwner) {
+      delete counts[owner];
+      return;
+    }
+  }
+}
+
+function mutateReminder(
+  cwd: string,
+  mutate: (state: ReminderState) => number
+): { count: number; persisted: boolean } {
+  const locked = withReminderLock(cwd, () => {
+    const state = readReminder(cwd);
+    const count = mutate(state);
+    return { count, persisted: writeReminder(cwd, state) };
+  });
+  if (locked !== null) return locked;
+
+  const state = readReminder(cwd);
+  const count = mutate(state);
+  return { count, persisted: false };
+}
+
 /**
  * Count one user prompt for the current session and persist. Returns the
  * session's advanced count plus whether the state persisted (persisted=false
@@ -86,14 +137,14 @@ export function advance(
   current: string | undefined
 ): { count: number; persisted: boolean } {
   const owner = ownerKey(current);
-  const state = readReminder(cwd);
-  if (!(owner in state.counts) && Object.keys(state.counts).length >= OWNER_CAP) {
-    state.counts = {};
-  }
-  const count = (state.counts[owner] ?? 0) + 1;
-  state.counts[owner] = count;
-  const persisted = writeReminder(cwd, state);
-  return { count, persisted };
+  return mutateReminder(cwd, (state) => {
+    if (!(owner in state.counts) && Object.keys(state.counts).length >= OWNER_CAP) {
+      evictOneOwner(state.counts, owner);
+    }
+    const count = (state.counts[owner] ?? 0) + 1;
+    state.counts[owner] = count;
+    return count;
+  });
 }
 
 /**
@@ -101,7 +152,12 @@ export function advance(
  * IS a LONG turn, so the next LONG fires exactly REMINDER_PERIOD prompts on).
  */
 export function rebase(cwd: string, current: string | undefined, count: number): void {
-  const state = readReminder(cwd);
-  state.counts[ownerKey(current)] = count;
-  writeReminder(cwd, state);
+  mutateReminder(cwd, (state) => {
+    const owner = ownerKey(current);
+    if (!(owner in state.counts) && Object.keys(state.counts).length >= OWNER_CAP) {
+      evictOneOwner(state.counts, owner);
+    }
+    state.counts[owner] = count;
+    return count;
+  });
 }

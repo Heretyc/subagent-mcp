@@ -46,7 +46,8 @@
 - **Carryover (`kind="carryover"`).** A new owner may inherit a marker an
   earlier owner left ON. The hook classifies FRESH / CARRYOVER / SAME-OWNER from
   the per-owner claim map (`owners`, cap 8, evict oldest `claimed_at`) plus
-  legacy mirror fields (`owner_session`, `baseline_turn`, `claimed_at`). On
+  legacy mirror fields (`owner_session`, `baseline_turn`, `claimed_at`). Owner
+  cap overflow evicts one oldest entry; it never wipes the whole map. On
   CARRYOVER it emits the provider notice (notify + ask-to-remain + advise-fit)
   prepended to FULL, sets `carryover_ack = true`, records this owner, and
   mirrors it to the legacy fields. The `carryover_ack` latch makes the notice
@@ -59,6 +60,11 @@
   session-keyed disable-record above. Keyless hosts get only the one-time,
   non-persisted conversational opt-out. The carryover directives reference this
   backstop when explaining when ON resumes.
+- **Directive read before claim mutation.** Hook code reads the directive body
+  before it mutates marker, owner, or reminder-counter state. If directive-dir
+  resolution or directive read fails, the turn does not consume a claim or
+  counter update; the hook fails safe for that injection instead of aborting
+  the session state machine.
 - **Latch persistence (plan-phase force-enable).** When provider-metered context
   usage crosses `PLAN_LATCH_THRESHOLD_PCT` (15%), the hook writes a session-keyed
   `latch-<hash>.json` record (`{ latched: true, latched_at, session_id }`) once
@@ -82,7 +88,8 @@
   handoff-read (`read_by_session === current`) re-appends the saved content
   verbatim to its LONG reminders. See `handoff.md`.
 - **Atomic state writes.** Every marker/state file (`orch-<cwdHash>.flag`, the
-  session-keyed disable-record, and both session pointers) is written through
+  session-keyed disable-record, reminder counters, and both session pointers)
+  is written through
   `atomicWriteFile`/`atomicWriteJson` (`src/orchestration/atomic-write.ts`):
   write to a unique sibling `.<name>.<pid>.<time>.<rand>.tmp`, then `rename`
   onto the target so a concurrent reader sees either the whole old file or the
@@ -90,6 +97,8 @@
   an existing target, it unlinks the target and retries; on any write/rename
   failure it best-effort unlinks the temp so no `.tmp` litter is left behind.
   This preserves the module's fail-safe contract (never throws to the hook).
+  Reminder-counter updates are also serialized under the process-local cwd lock
+  before the atomic temp-file write and rename.
 - **Fail-safe ON is NOT the same as default ON.** Default ON is the normal
   hook-bearing state (no active disable-record). Fail-safe ON is the separate
   hookless / no-tag case (Gemini, desktop) where no state channel exists and

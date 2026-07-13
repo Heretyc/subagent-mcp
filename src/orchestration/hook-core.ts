@@ -142,8 +142,8 @@ export function readDirective(
   env: NodeJS.ProcessEnv,
   fileName: string
 ): string {
-  const directivesDir = resolveDirectivesDir(env);
   try {
+    const directivesDir = resolveDirectivesDir(env);
     return readFileSync(join(directivesDir, fileName), "utf8");
   } catch {
     return "";
@@ -535,13 +535,6 @@ export function claimAndEmit(
   fullBodyFile?: string
 ): string {
   const firstCarryover = kind === "carryover" && !m.carryover_ack;
-  claimOwner(m, current, turn, Date.now());
-  if (kind === "carryover") {
-    m.provenance = "carried-over";
-    m.carryover_ack = true;
-  }
-  marker.writeMarker(cwd, m);
-  reminder.rebase(cwd, current, 0);
   const full = fullBodyFile
     ? bodyFromDirective(readDirective(env, fullBodyFile))
     : bodyFromDirective(readDirective(env, adapter.fullDirectiveFile)) +
@@ -565,6 +558,14 @@ export function claimAndEmit(
     kind: firstCarryover ? "carryover" : "directive",
     isLong: true,
   };
+  if (emission.body.trim() === "") return "";
+  claimOwner(m, current, turn, Date.now());
+  if (kind === "carryover") {
+    m.provenance = "carried-over";
+    m.carryover_ack = true;
+  }
+  marker.writeMarker(cwd, m);
+  reminder.rebase(cwd, current, 0);
   return composeHookUpdateNotice(
     env,
     updateNoticeSessionId,

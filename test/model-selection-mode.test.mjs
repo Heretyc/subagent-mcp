@@ -87,6 +87,12 @@ test("(b) smart mode rejects each selector with the exact message; overrides all
   assert.equal(effort.message, SELECTOR_REJECTION_MESSAGE,
     "effort rejection uses the same canonical message");
 
+  const emptyModel = gateLaunch(cwd, { model: "" }, t0);
+  assert.equal(emptyModel.allowed, false,
+    "smart must reject a present-but-empty model selector");
+  assert.equal(emptyModel.message, SELECTOR_REJECTION_MESSAGE,
+    "empty-string selector rejection uses the same canonical message");
+
   // No selectors -> allowed even in smart (smart only blocks MANUAL selection).
   const none = gateLaunch(cwd, {}, t0);
   assert.equal(none.allowed, true, "smart must allow a launch with no selectors");

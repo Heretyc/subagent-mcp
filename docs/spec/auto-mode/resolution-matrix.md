@@ -6,9 +6,11 @@ validation. Exact error text lives in
 
 ## Presence matrix
 
-`P`=provider, `M`=model, `E`=effort present. `launchable valid` means one
-of the 14 taxonomy categories other than `fallback_default`. `fallback_default`
-is a valid category sentinel, but resolver-backed modes cannot launch it.
+`P`=provider, `M`=model, `E`=effort present. Present means
+`value !== undefined`; an empty string still counts as present. `launchable
+valid` means one of the 14 taxonomy categories other than `fallback_default`.
+`fallback_default` is a valid category sentinel, but resolver-backed modes
+cannot launch it.
 
 | C | P | M | E | Outcome |
 |---|---|---|---|---|

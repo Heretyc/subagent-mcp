@@ -160,6 +160,8 @@ async function run() {
   const source = readFileSync(new URL("src/concurrency.ts", repo), "utf8");
   assert.match(source, /ponytail:/);
   assert.match(source, /O_EXCL/);
+  assert.match(source, /FIRST_REPO_DIGEST_LIMIT = 100/);
+  assert.match(source, /process-local only/);
 }
 
 try {

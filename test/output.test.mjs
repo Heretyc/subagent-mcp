@@ -45,6 +45,20 @@ test("claude object-with-result returns the result string", () => {
   assert.equal(extractFinalTurn("claude", stdout), "The final answer is 42.");
 });
 
+test("claude pretty object-with-result still parses as one object", () => {
+  const stdout = JSON.stringify(
+    {
+      type: "result",
+      subtype: "success",
+      result: "pretty final answer",
+      is_error: false,
+    },
+    null,
+    2
+  );
+  assert.equal(extractFinalTurn("claude", stdout), "pretty final answer");
+});
+
 // --- claude: array form, last element with type result ---
 // WHY: some output-format variants emit an array of events; the final
 // assistant message is the last `result`-bearing element.
@@ -69,6 +83,17 @@ test("claude stream-json returns the final result event text", () => {
     JSON.stringify({ type: "result", subtype: "success", result: "stream final answer" }),
   ].join("\n");
   assert.equal(extractFinalTurn("claude", stdout), "stream final answer");
+});
+
+test("claude stream-json result still wins over later assistant text", () => {
+  const stdout = [
+    JSON.stringify({ type: "result", subtype: "success", result: "stream result answer" }),
+    JSON.stringify({
+      type: "assistant",
+      message: { content: [{ type: "text", text: "later assistant text" }] },
+    }),
+  ].join("\n");
+  assert.equal(extractFinalTurn("claude", stdout), "stream result answer");
 });
 
 test("claude stream-json with no result event falls back to last assistant text", () => {

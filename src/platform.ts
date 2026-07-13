@@ -5,6 +5,7 @@ export type SupportedProvider = "claude" | "codex";
 export interface ResolveDeps {
   existsSync(p: string): boolean;
   npmPrefix(): string;
+  arch?(): NodeJS.Architecture;
 }
 
 /**
@@ -40,7 +41,11 @@ export function resolveExeFor(
       );
       if (deps.existsSync(exe)) return exe;
     } else {
-      // codex
+      const arch = deps.arch?.() ?? process.arch;
+      const codexWin32 =
+        arch === "arm64"
+          ? { packageName: "codex-win32-arm64", vendorTriple: "aarch64-pc-windows-msvc" }
+          : { packageName: "codex-win32-x64", vendorTriple: "x86_64-pc-windows-msvc" };
       const exe = join(
         prefix,
         "node_modules",
@@ -48,9 +53,9 @@ export function resolveExeFor(
         "codex",
         "node_modules",
         "@openai",
-        "codex-win32-x64",
+        codexWin32.packageName,
         "vendor",
-        "x86_64-pc-windows-msvc",
+        codexWin32.vendorTriple,
         "bin",
         "codex.exe"
       );

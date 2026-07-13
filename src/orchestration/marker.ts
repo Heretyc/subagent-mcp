@@ -55,16 +55,16 @@ export const stateDir = markerDir;
 
 /**
  * Canonicalize a working directory so two spellings of the same path hash
- * identically. Strip a leading Windows \\?\ extended-length prefix FIRST (on
- * the raw input) — resolve() canonicalizes that prefix away, so stripping after
- * resolve is dead code and an extended-length cwd would otherwise hash
- * differently from its plain form. Then resolve() to an absolute path; use
- * forward slashes; lowercase on win32 (the FS is case-insensitive there); drop
- * a trailing slash.
+ * identically. Strip Windows extended-length prefixes first on the raw input.
+ * Handle \\?\UNC\ before the generic \\?\ form so UNC paths keep their network
+ * root. Then resolve() to an absolute path; use forward slashes; lowercase on
+ * win32 (the FS is case-insensitive there); drop a trailing slash.
  */
 export function normalizeCwd(cwd: string): string {
   let raw = cwd;
-  if (raw.startsWith("\\\\?\\")) {
+  if (raw.startsWith("\\\\?\\UNC\\")) {
+    raw = "\\\\" + raw.slice(8);
+  } else if (raw.startsWith("\\\\?\\")) {
     raw = raw.slice(4);
   }
   let p = resolve(raw);
@@ -109,50 +109,12 @@ export function enablePath(sessionKey: string): string {
   return join(stateDir, `orch-enable-${hashKey(sessionKey)}.json`);
 }
 
-function cwdDisablePath(cwd: string): string {
-  return join(stateDir, `orch-disable-${cwdHash(cwd)}.json`);
-}
-
 export function sessionPointerPath(cwd: string): string {
   return join(stateDir, `orch-session-${cwdHash(cwd)}.json`);
 }
 
 export function serverSessionPointerPath(cwd: string, serverKey: string | number = process.ppid): string {
   return join(stateDir, `orch-session-${cwdHash(cwd)}-${hashKey(String(serverKey))}.json`);
-}
-
-/**
- * Enable orchestration for cwd. ALWAYS overwrites — re-enabling re-baselines by
- * clearing owner_session/baseline_turn back to null so the next hook turn
- * re-claims and re-baselines.
- */
-export function enable(cwd: string): void {
-  try {
-    // Restrictive POSIX perms: the marker dir/file live in the shared,
-    // world-readable /tmp on Linux/macOS and persist a session_id. mode 0o700/
-    // 0o600 keeps them owner-only so other local users cannot read the
-    // session_id or enumerate which projects have orchestration enabled. mode is
-    // ignored on Windows (harmless; tmpdir is already per-user there).
-    mkdirSync(markerDir, { recursive: true, mode: 0o700 });
-    const state: MarkerState = {
-      owner_session: null,
-      baseline_turn: null,
-      claimed_at: null,
-      owners: {},
-      provenance: "user-enabled",
-      carryover_ack: false,
-    };
-    atomicWriteJson(markerPath(cwd), state, { encoding: "utf8", mode: 0o600 });
-    try {
-      unlinkSync(cwdDisablePath(cwd));
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") {
-        // Fail-safe: enable still succeeds if stale disable cleanup fails.
-      }
-    }
-  } catch {
-    // Fail-safe: never throw to the caller.
-  }
 }
 
 export function writeDisable(sessionKey: string): void {
@@ -356,7 +318,7 @@ export function readMarker(cwd: string): MarkerState {
 
 export function writeMarker(cwd: string, obj: MarkerState): void {
   try {
-    // Owner-only perms (see enable()): the marker persists owner_session.
+    // Owner-only perms: the marker persists owner_session.
     mkdirSync(markerDir, { recursive: true, mode: 0o700 });
     atomicWriteJson(markerPath(cwd), obj, { encoding: "utf8", mode: 0o600 });
   } catch {
