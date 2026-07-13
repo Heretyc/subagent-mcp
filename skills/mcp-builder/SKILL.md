@@ -1,13 +1,16 @@
 ---
 name: mcp-builder
+version: 1.0.0
 description: Build, package, install, configure, debug, and optimize Model Context Protocol (MCP) servers for Claude (Desktop, Code CLI) and Codex CLI on Windows and macOS. Use when building MCP tools, creating AI tool integrations, give Claude access to database or API or filesystem, connect AI agent to external tools or services, packaging stdio or HTTP servers, configuring mcpServers JSON or TOML, troubleshooting spawn ENOENT or connection errors, designing tool/resource/prompt schemas, implementing JSON-RPC handlers, publishing npm or Python MCP packages, setting up uvx or npx installable servers, debugging tool not appearing in Claude or Codex, writing secure MCP server code, server architecture review, MCP protocol compliance, FastMCP, @modelcontextprotocol/sdk, mcp Python library, MCP Inspector usage, Claude Desktop config, Claude Code CLI mcp add command, Codex config.toml, MCP server security, rate limiting MCP tools, MCP over SSE or HTTP transport, stdio transport pitfalls, environment variable injection for MCP, cross-platform MCP deployment, MCP server instructions field, tool search optimization, alwaysLoad, server descriptions for AI discovery, mcpb Desktop Extensions.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: May 2025
+updated: 2026-07-13
 ---
 
 # MCP Builder
 
 Build and ship MCP servers for Claude and Codex. Load `references/retrieval-map.md` first to find the right leaf doc for any task.
+This is generic MCP-server-building guidance for arbitrary servers; it does not apply to subagent-mcp's own no-API-key architecture.
 
 ## Quick Decision Tree
 

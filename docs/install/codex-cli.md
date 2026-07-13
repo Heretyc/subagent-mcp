@@ -135,7 +135,7 @@ disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "l
 ## Verification
 
 1. **Build present:** confirm `dist/index.js` and
-   `dist/hooks/orchestration-codex.js` exist (Node >= 18).
+   `dist/hooks/orchestration-codex.js` exist (Node >= 20).
 2. **Directive assets resolve:** confirm `directives/orchestration-codex.md`,
    `short-on.md`, `short-off.md`, and `carryover-codex.md` exist at `directives/`.
 3. **Server + tools:** `codex mcp list` (or `/mcp` in a session) shows

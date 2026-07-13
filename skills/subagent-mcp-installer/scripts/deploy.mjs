@@ -4,7 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve, dirname, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
-// subagent-mcp standalone deployer. Zero-dependency ESM (Node >= 18).
+// subagent-mcp standalone deployer. Zero-dependency ESM (Node >= 20).
 // Builds a DECOUPLED copy of the addon and installs it to the PERMANENT global
 // npm location, then prints (and optionally wires) the standards-compliant
 // vendor config. Hard-refuses to install from a worktree/temp/Downloads source.

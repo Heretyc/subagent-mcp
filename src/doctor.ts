@@ -15,10 +15,10 @@ export async function runDoctor(): Promise<number> {
 
   const major = Number(process.versions.node.split(".")[0]);
   console.log(
-    `  ${major >= 18 ? "PASS" : "FAIL"}  node version — ${process.versions.node}` +
-      (major >= 18 ? "" : " (Node >= 18 required)")
+    `  ${major >= 20 ? "PASS" : "FAIL"}  node version — ${process.versions.node}` +
+      (major >= 20 ? "" : " (Node >= 20 required)")
   );
-  let failed = major < 18 ? 1 : 0;
+  let failed = major < 20 ? 1 : 0;
 
   for (const r of verifyWiring(undefined, true)) {
     console.log(`  ${r.ok ? "PASS" : "FAIL"}  ${r.label} — ${r.detail}`);

@@ -910,8 +910,8 @@ export async function runSetup(): Promise<void> {
   console.log(`Install root: ${INSTALL_ROOT}\n`);
 
   const major = Number(process.versions.node.split(".")[0]);
-  if (major < 18) {
-    console.error(`ERROR: Node ${process.versions.node} is too old — Node >= 18 required.`);
+  if (major < 20) {
+    console.error(`ERROR: Node ${process.versions.node} is too old. Node >= 20 required.`);
     process.exit(1);
   }
 

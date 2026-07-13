@@ -34,7 +34,7 @@ MCP Host (Claude Code / Codex / Gemini CLI)
 - **Transport:** stdio (MCP spec 2025-06-18)
 - **SDK:** `@modelcontextprotocol/sdk` + `zod`; Claude sessions use `@anthropic-ai/claude-agent-sdk`
 - **Platforms:** macOS, Linux, Windows
-- **Runtime:** Node.js >= 18 (ESM module)
+- **Runtime:** Node.js >= 20 (ESM module)
 - **Entry point:** `dist/index.js` (compiled from `src/index.ts`)
 - **Server name announced to MCP host:** `subagent-mcp`
 

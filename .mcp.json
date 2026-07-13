@@ -3,11 +3,6 @@
     "subagent-mcp": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT:-.}/dist/index.js"]
-    },
-    "graphify": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["-m", "graphify.serve", "graphify-out/graph.json"]
     }
   }
 }
