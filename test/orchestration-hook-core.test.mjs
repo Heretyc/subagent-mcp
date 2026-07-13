@@ -57,6 +57,7 @@ import {
   reminderPath,
 } from "../dist/orchestration/reminder.js";
 import { clearLatch } from "../dist/orchestration/latch.js";
+import { readMetering } from "../dist/orchestration/metering.js";
 import {
   clearHandoff,
   markRead,
@@ -837,6 +838,40 @@ test("metering-undetectable fail-safe does not override an explicit session disa
     });
   } finally {
     removeDisable(session);
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("metering contradiction writes unknown record and fail-safes same turn", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-contradiction:${cwd}`;
+  const adapter = makeAdapter({
+    turn: 2,
+    liftUsage: () => ({
+      harness: "claude",
+      model: "claude-haiku-4-5",
+      source_ref: "synthetic-transcript",
+      usage: { input: 250000, output: 1, cache_creation: 0, cache_read: 0 },
+      harnessPercentage: null,
+      longContextHint: true,
+    }),
+  });
+  try {
+    const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(out, {
+      state: "on",
+      kind: "directive",
+      phase: "normal",
+      utilization: "unknown",
+      body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
+    });
+    const record = readMetering(session);
+    assert.equal(record?.context_window_size, null);
+    assert.equal(record?.used_percentage, null);
+    assert.equal(record?.window_source, "contradiction");
+  } finally {
     clearLatch(session);
     cleanup(cwd, root);
   }

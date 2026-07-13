@@ -22,7 +22,6 @@ import {
 } from "../orchestration/hook-core.js";
 import * as marker from "../orchestration/marker.js";
 import {
-  resolveContextWindow,
   type MeteringHarness,
   type MeteringUsage,
 } from "../orchestration/metering.js";
@@ -53,6 +52,7 @@ export interface LiftedUsage {
   source_ref: string;
   usage: MeteringUsage;
   harnessPercentage?: number | null;
+  longContextHint?: boolean | null;
 }
 
 type CodexAdapter = ProviderAdapter & {
@@ -173,6 +173,7 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
   if (!finiteNumber(input) || !finiteNumber(output) || !finiteNumber(cacheRead)) {
     return null;
   }
+  const nonCachedInput = Math.max(0, input - cacheRead);
 
   const modelContextWindow = latestTokenInfo?.model_context_window;
   const totalTokens = total.total_tokens;
@@ -183,16 +184,17 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
       ? (totalTokens / modelContextWindow) * 100
       : null;
 
-  if (harnessPercentage === null && resolveContextWindow("codex", latestModel) === null) {
-    return null;
-  }
-
+  // Always return the lift even when neither a harness percentage nor a static
+  // window is available (unknown codex model). hook-core is the sole writer and
+  // persists a null-window "unknown + fail-safe" metering record — matching the
+  // Claude adapter, which likewise never suppresses the record on unresolved
+  // windows. Suppressing here would leave unknown codex models with NO record.
   return {
     harness: "codex",
     model: latestModel,
     source_ref: transcriptPath,
     usage: {
-      input,
+      input: nonCachedInput,
       output,
       cache_creation: 0,
       cache_read: cacheRead,

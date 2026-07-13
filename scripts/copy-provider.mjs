@@ -2,6 +2,8 @@ import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 
 const source = new URL("../src/routing-table.json", import.meta.url);
 const target = new URL("../dist/routing-table.json", import.meta.url);
+const contextWindowsSource = new URL("../src/context-windows.json", import.meta.url);
+const contextWindowsTarget = new URL("../dist/context-windows.json", import.meta.url);
 const scaffoldSource = new URL("../src/advanced-ruleset.py", import.meta.url);
 const scaffoldTarget = new URL("../dist/advanced-ruleset.py", import.meta.url);
 const concurrencySource = new URL("../src/global-subagent-mcp-config.jsonc", import.meta.url);
@@ -16,6 +18,13 @@ if (!existsSync(source)) {
 }
 copyFileSync(source, target);
 console.log("Copied src/routing-table.json to dist/routing-table.json");
+
+if (!existsSync(contextWindowsSource)) {
+  console.error("ERROR src/context-windows.json is absent; refusing to build without context windows");
+  process.exit(1);
+}
+copyFileSync(contextWindowsSource, contextWindowsTarget);
+console.log("Copied src/context-windows.json to dist/context-windows.json");
 
 // The ruleset scaffold is a verified shipped part (deploy/setup verify lists
 // include dist/advanced-ruleset.py), so a missing source HARD-FAILS the build:

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "generated": "2026-07-13",
+  "notes": "Windows are harness-effective defaults. claude.default is the Claude Code standard tier; claude.long is the [1m] tier where available. codex defaults are effective usable windows matching rollout model_context_window when no per-turn harness value is present.",
+  "_comment": "Effective-basis rule: every codex window (default AND long) is stated as the effective usable window = raw_window * 0.95. codex.default 258400 = 272000*0.95; codex.long 950000 = 1000000*0.95. Pairing effective defaults with a raw 1000000 long previously under-stated ratcheted sessions ~5%; both tiers must share the effective basis so percentages stay consistent across a ratchet.",
+  "family_defaults": {
+    "claude": { "default": 200000, "long": 1000000 }
+  },
+  "claude": {
+    "claude-fable-5": { "default": 200000, "long": 1000000 },
+    "claude-mythos-5": { "default": 200000, "long": 1000000 },
+    "claude-sonnet-5": { "default": 200000, "long": 1000000 },
+    "claude-sonnet-4-6": { "default": 200000, "long": 1000000 },
+    "claude-sonnet-4-5": { "default": 200000, "long": 1000000 },
+    "claude-sonnet-4-0": { "default": 200000, "long": 1000000 },
+    "claude-opus-4-8": { "default": 200000, "long": 1000000 },
+    "claude-opus-4-7": { "default": 200000, "long": 1000000 },
+    "claude-opus-4-6": { "default": 200000, "long": 1000000 },
+    "claude-opus-4-5": { "default": 200000, "long": 1000000 },
+    "claude-opus-4-1": { "default": 200000, "long": 1000000 },
+    "claude-opus-4-0": { "default": 200000, "long": 1000000 },
+    "claude-haiku-4-5": { "default": 200000, "long": null }
+  },
+  "codex": {
+    "gpt-5.5": { "default": 258400, "long": null },
+    "gpt-5.4": { "default": 258400, "long": 950000 },
+    "gpt-5.4-mini": { "default": 258400, "long": null },
+    "gpt-5.3-codex-spark": { "default": 121600, "long": null },
+    "gpt-5.2-codex": { "default": 258400, "long": null },
+    "gpt-5-codex": { "default": 258400, "long": null },
+    "gpt-5": { "default": 258400, "long": null },
+    "codex-auto-review": { "default": 258400, "long": 950000 },
+    "o3": { "default": 200000, "long": null },
+    "o3-mini": { "default": 200000, "long": null },
+    "o4-mini": { "default": 200000, "long": null }
+  }
+}

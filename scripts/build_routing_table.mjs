@@ -2057,6 +2057,20 @@ JSON.parse(auditJson);
 renameSync(STAGE_PROVIDER, OUT_PROVIDER);
 renameSync(STAGE_AUDIT, OUT_AUDIT);
 
+// Context-window coverage is owned by src/context-windows.json, not the routing
+// artifacts. Every profiler emission still gates on it so new launchable models
+// cannot refresh routing without refreshing metering windows too.
+const contextWindowValidation = spawnSync(
+  process.execPath,
+  [resolve(ROOT, "scripts/validate_context_windows.mjs")],
+  { cwd: ROOT, encoding: "utf8" },
+);
+if (contextWindowValidation.stdout) process.stdout.write(contextWindowValidation.stdout);
+if (contextWindowValidation.stderr) process.stderr.write(contextWindowValidation.stderr);
+if (contextWindowValidation.status !== 0) {
+  throw new Error("context-window validation failed after routing-table emission");
+}
+
 // ---- report -----------------------------------------------------------------------
 console.log("build_routing_table: emitted");
 console.log("  - src/routing-table.json (lean canonical)");

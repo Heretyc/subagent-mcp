@@ -16,6 +16,7 @@ import {
   type ProviderAdapter,
 } from "../orchestration/hook-core.js";
 import type { MeteringHarness, MeteringUsage } from "../orchestration/metering.js";
+import { readClaudeLongContextHint } from "../orchestration/settings-hint.js";
 import { hasParentMarker } from "../launch-prompt.js";
 
 /**
@@ -46,6 +47,7 @@ interface UsageLiftResult {
   source_ref: string;
   usage: MeteringUsage;
   harnessPercentage: number | null;
+  longContextHint?: boolean | null;
 }
 
 function finiteNumber(value: unknown): value is number {
@@ -99,6 +101,7 @@ function liftClaudeUsageFromTranscript(transcriptPath: string | undefined): Usag
     try {
       const msg = JSON.parse(trimmed) as {
         type?: unknown;
+        isSidechain?: unknown;
         message?: {
           model?: unknown;
           usage?: {
@@ -109,6 +112,7 @@ function liftClaudeUsageFromTranscript(transcriptPath: string | undefined): Usag
           };
         };
       };
+      if (msg.isSidechain === true) continue;
       if (msg.type !== "assistant" || !msg.message?.usage) continue;
       if (typeof msg.message.model !== "string") return null;
       const usage = msg.message.usage;
@@ -168,11 +172,16 @@ export const claudeAdapter: ProviderAdapter & {
   },
 
   liftUsage(
-    _payload: HookPayload,
-    _env: NodeJS.ProcessEnv,
+    payload: HookPayload,
+    env: NodeJS.ProcessEnv,
     transcriptPath: string | undefined,
   ): UsageLiftResult | null {
-    return liftClaudeUsageFromTranscript(transcriptPath);
+    const lifted = liftClaudeUsageFromTranscript(transcriptPath);
+    if (lifted === null) return null;
+    return {
+      ...lifted,
+      longContextHint: readClaudeLongContextHint(payload.cwd, env),
+    };
   },
 
   anonScope: "claude",
