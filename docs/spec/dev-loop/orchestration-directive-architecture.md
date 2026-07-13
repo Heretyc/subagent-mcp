@@ -40,13 +40,14 @@ permission decisions : those run through the shared engine in `src/drivers.ts`.)
 | `.../appendix-a1-a4.md` | A1 INIT_BLOCK (verbatim), A2 read-ladder, A3 MCP `instructions`, A4 supremacy clause | you must COPY a canonical artifact byte-for-byte | you only need prose explanation |
 | `.../appendix-a5-directives.md` | A5 : the 9 `directives/*.md` files, verbatim | editing/regenerating a directive file | you need marker or test specs |
 | `.../appendix-a6-a7.md` | A6 marker spec/MIGRATE_RE/collapse algorithm, A7 `ensureParentMarker` + 7 test cases | implementing init migration or the parent-marker upsert | you need the ON/OFF prose model |
+| `.../statusline-signal.md` | Claude statusLine shim, `sl-*` records, harness percentage/window lift, setup wrapping, sweep | documenting or debugging Claude statusline context metering | you need ON/OFF prose semantics |
 
 ## Topic → leaf index
 
 - single tag `<subagent-mcp state kind>`, no dead values → `sections-00-04.md` (section 1)
 - joint binding, escalate-to-user, tag > user request → `sections-00-04.md` (section 2); verbatim clause → `appendix-a1-a4.md` (A4)
 - ON allowed-tools, sole channel, read-ladder → `sections-00-04.md` (section 3); ladder verbatim → `appendix-a1-a4.md` (A2)
-- OFF metering fail-safe + phase thresholds → `sections-00-04.md` (section 4), `context-metering.md`, `handoff.md`
+- OFF metering fail-safe + phase thresholds → `sections-00-04.md` (section 4), `context-metering.md`, `statusline-signal.md`, `handoff.md`
 - fail-safe ON / UNKNOWN / one-time opt-out → `sections-05-09.md` (section 5)
 - first-line `<this is a request from a parent process>` skip + upsert → `sections-05-09.md` (section 6), `appendix-a6-a7.md` (A7)
 - schema=3 markers, MIGRATE_RE, duplicate collapse → `sections-05-09.md` (section 8), `appendix-a6-a7.md` (A6)
@@ -56,6 +57,7 @@ permission decisions : those run through the shared engine in `src/drivers.ts`.)
 - the 9 directive files verbatim → `appendix-a5-directives.md`
 - permission gating / `permissionsCeiling` / `respond_permission` /
   `permission_requested` (orthogonal to this regime) → `docs/spec/permissions.md`
+- Claude statusLine side channel / `sl-*` records -> `statusline-signal.md`
 
 ## Trigger phrases
 

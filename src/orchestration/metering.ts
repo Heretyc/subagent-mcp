@@ -21,6 +21,7 @@ export const LONG_CONTEXT_WINDOW = 1000000;
 export type MeteringHarness = "claude" | "codex";
 export type MeteringPhase = "normal" | "plan" | "handoff";
 export type WindowSource =
+  | "harness"
   | "mapping"
   | "hint"
   | "ratchet"
@@ -62,6 +63,7 @@ export interface BuildMeteringRecordInput {
   usage?: Partial<MeteringUsage> | null;
   event: string;
   harnessPercentage?: number | null;
+  harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
   priorWindow?: number | null;
   priorWindowSource?: WindowSource;
@@ -264,6 +266,7 @@ export function resolveContextWindowDetailed(input: {
   priorWindow?: number | null;
   priorWindowSource?: WindowSource;
   priorWindowFloor?: number | null;
+  harnessContextWindow?: number | null;
 }): WindowResolution {
   const promptSideTokens = finiteNumber(input.promptSideTokens)
     ? input.promptSideTokens
@@ -275,6 +278,17 @@ export function resolveContextWindowDetailed(input: {
   );
   const observedFloor = Math.max(promptSideTokens ?? 0, priorFloor ?? 0);
   const window_floor = observedFloor > 0 ? observedFloor : null;
+  if (
+    finiteNumber(input.harnessContextWindow) &&
+    input.harnessContextWindow > 0
+  ) {
+    return {
+      window: input.harnessContextWindow,
+      source: "harness",
+      window_floor,
+      contradiction: false,
+    };
+  }
   const normalized = normalizeModelId(input.modelId);
   if (normalized === null) {
     return assumedDefaultResolution(window_floor);
@@ -387,6 +401,7 @@ export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRe
     priorWindow: input.priorWindow,
     priorWindowSource: input.priorWindowSource,
     priorWindowFloor: input.priorWindowFloor,
+    harnessContextWindow: input.harnessContextWindow,
   });
   const used_percentage = computeUsedPercentage({
     context_window_size: resolution.window,

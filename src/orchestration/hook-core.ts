@@ -15,6 +15,7 @@ import * as reminder from "./reminder.js";
 import * as handoff from "./handoff.js";
 import * as latch from "./latch.js";
 import * as metering from "./metering.js";
+import { sweepHookState } from "./state-sweep.js";
 import * as template from "./template.js";
 import {
   cullStaleSlots,
@@ -96,6 +97,7 @@ export interface LiftUsageResult {
   source_ref: string;
   usage: Partial<metering.MeteringUsage> | null;
   harnessPercentage?: number | null;
+  harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
 }
 
@@ -521,6 +523,7 @@ function updateMeteringForTurn(
         ? payload.hook_event_name
         : "UserPromptSubmit",
     harnessPercentage: lifted.harnessPercentage,
+    harnessContextWindow: lifted.harnessContextWindow,
     longContextHint: lifted.longContextHint,
     priorWindow: prior?.context_window_size ?? null,
     priorWindowSource: prior?.window_source ?? null,
@@ -688,6 +691,7 @@ export function runHook(
 ): string {
   try {
     cullHookZombies();
+    sweepHookState();
 
     if (adapter.isSubagent(payload, env)) {
       return "";

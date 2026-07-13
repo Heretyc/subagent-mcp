@@ -22,6 +22,7 @@ import {
   vendorWireSpecs,
   wireMcpServer,
   registrationDetail,
+  reconcileClaudeSettings,
 } from "../dist/setup.js";
 
 let passed = 0;
@@ -59,6 +60,12 @@ const CANON_CLAUDE_ENTRY = { type: "stdio", command: "subagent-mcp", args: [], e
 const STALE_CLAUDE_ENTRY = { type: "stdio", command: "node", args: ["C:/stale/dist/index.js"], env: {} };
 const CANON_CODEX_TOML = `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${P.server}"]\n`;
 const STALE_CODEX_TOML = `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["C:/stale/dist/index.js"]\n`;
+
+function shellQuoteInner(command) {
+  return process.platform === "win32"
+    ? JSON.stringify(command)
+    : `'${command.replace(/'/g, "'\\''")}'`;
+}
 
 function withHome(fn) {
   const home = mkdtempSync(join(tmpdir(), "wire-home-"));
@@ -185,6 +192,39 @@ test("registrationDetail: all four branches", () => {
   assert.equal(registrationDetail(true, true), "repaired");
   assert.equal(registrationDetail(false, true), "not registered; CLI repair failed");
   assert.equal(registrationDetail(false, false), "not registered — run: subagent-mcp doctor");
+});
+
+// ---------------------------------------------------------------------------
+// Claude statusLine wiring stays isolated to parsed settings objects
+// ---------------------------------------------------------------------------
+test("claude settings: empty settings registers statusLine shim", () => {
+  const s = {};
+  const r = reconcileClaudeSettings(s, P.claudeHook);
+  assert.equal(r.status, "added");
+  assert.deepEqual(s.statusLine, {
+    type: "command",
+    command: `node "${P.claudeStatuslineHook}"`,
+  });
+});
+
+test("claude settings: statusLine foreign command wraps once and is idempotent", () => {
+  const s = {
+    hooks: {
+      UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [P.claudeHook] }] }],
+      PreToolUse: [{ hooks: [{ type: "command", command: "node", args: [P.claudePreToolHook], timeout: 5 }] }],
+    },
+    statusLine: { type: "command", command: "starship prompt" },
+  };
+  const first = reconcileClaudeSettings(s, P.claudeHook);
+  const afterFirst = JSON.stringify(s);
+  const second = reconcileClaudeSettings(s, P.claudeHook);
+  assert.equal(first.status, "repaired");
+  assert.deepEqual(s.statusLine, {
+    type: "command",
+    command: `node "${P.claudeStatuslineHook}" ${shellQuoteInner("starship prompt")}`,
+  });
+  assert.equal(second.status, "ok");
+  assert.equal(JSON.stringify(s), afterFirst, "second run must not double-wrap or churn");
 });
 
 // ---------------------------------------------------------------------------

@@ -204,6 +204,7 @@ function verify(install) {
     "dist/index.js",
     "dist/hooks/orchestration-claude.js",
     "dist/hooks/orchestration-claude-pretool.js",
+    "dist/hooks/statusline-claude.js",
     "dist/hooks/orchestration-codex.js",
     "dist/advanced-ruleset.py",
     "dist/global-subagent-mcp-config.jsonc",
@@ -237,6 +238,7 @@ function paths(install) {
     server: `${fwd}/dist/index.js`,
     claudeHook: `${fwd}/dist/hooks/orchestration-claude.js`,
     claudePreToolHook: `${fwd}/dist/hooks/orchestration-claude-pretool.js`,
+    claudeStatuslineHook: `${fwd}/dist/hooks/statusline-claude.js`,
     codexHook: `${fwd}/dist/hooks/orchestration-codex.js`,
   };
 }
@@ -250,6 +252,8 @@ function printConfig(install) {
   console.log(JSON.stringify({ type: "command", command: "node", args: [p.claudeHook] }, null, 2));
   console.log(`# ~/.claude/settings.json -> hooks.PreToolUse[].hooks[]:`);
   console.log(JSON.stringify({ type: "command", command: "node", args: [p.claudePreToolHook], timeout: 5 }, null, 2));
+  console.log(`# ~/.claude/settings.json -> statusLine:`);
+  console.log(JSON.stringify({ type: "command", command: `node "${p.claudeStatuslineHook}"` }, null, 2));
   console.log("\n## Codex CLI");
   console.log(`# ~/.codex/config.toml`);
   console.log(`[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${p.server}"]\nstartup_timeout_sec = 10\ntool_timeout_sec = 60`);
@@ -260,6 +264,62 @@ function printConfig(install) {
 // --- Optional wiring (idempotent, backs up before edit) -------------------
 function backup(file) { const b = `${file}.bak-deploy-${Date.now()}`; try { copyFileSync(file, b); console.error(`  backed up -> ${b}`); } catch { /* new file */ } }
 function readJson(file, def) { try { return JSON.parse(readFileSync(file, "utf8")); } catch { return def; } }
+function statuslineCommand(shimPath, innerCommand = "") {
+  const inner = String(innerCommand).trim();
+  return `node "${shimPath}"${inner ? ` ${quoteStatuslineInnerArg(inner)}` : ""}`;
+}
+function quoteStatuslineInnerArg(command) {
+  if (process.platform === "win32") {
+    return JSON.stringify(command);
+  }
+  return `'${String(command).replace(/'/g, "'\\''")}'`;
+}
+function extractStatuslineInner(command) {
+  const marker = "statusline-claude.js";
+  const idx = String(command).indexOf(marker);
+  if (idx < 0) return null;
+  let restStart = idx + marker.length;
+  if (command[restStart] === "\"") restStart++;
+  const rest = command.slice(restStart).trim();
+  return unquoteStatuslineInnerArg(rest);
+}
+function unquoteStatuslineInnerArg(arg) {
+  if (!arg) return arg;
+  if (process.platform === "win32" && arg.startsWith("\"")) {
+    try {
+      const parsed = JSON.parse(arg);
+      if (typeof parsed === "string") return parsed;
+    } catch {
+      return arg;
+    }
+  }
+  if (process.platform !== "win32" && arg.startsWith("'") && arg.endsWith("'")) {
+    return arg.slice(1, -1).replace(/'\\''/g, "'");
+  }
+  return arg;
+}
+function reconcileStatusLine(settings, shimPath) {
+  const current = settings.statusLine;
+  const currentCommand =
+    current && typeof current === "object" && !Array.isArray(current) && typeof current.command === "string"
+      ? current.command
+      : typeof current === "string"
+        ? current
+        : null;
+  const inner = currentCommand !== null ? extractStatuslineInner(currentCommand) : null;
+  const desired = { type: "command", command: statuslineCommand(shimPath, inner ?? currentCommand ?? "") };
+  if (
+    current &&
+    typeof current === "object" &&
+    !Array.isArray(current) &&
+    current.type === desired.type &&
+    current.command === desired.command
+  ) {
+    return false;
+  }
+  settings.statusLine = desired;
+  return true;
+}
 
 function wireClaude(install) {
   const p = paths(install);
@@ -281,6 +341,7 @@ function wireClaude(install) {
     pre.push({ matcher: "*", hooks: [{ type: "command", command: "node", args: [p.claudePreToolHook], timeout: 5 }] });
     changed = true;
   }
+  if (reconcileStatusLine(s, p.claudeStatuslineHook)) changed = true;
   if (!changed) { console.error("  settings.json hooks already present - left as-is"); return; }
   if (existsSync(sfile)) backup(sfile);
   writeFileSync(sfile, JSON.stringify(s, null, 2));
