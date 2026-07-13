@@ -1,7 +1,8 @@
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, copyFileSync, realpathSync, unlinkSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve, dirname, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 
 // subagent-mcp standalone deployer. Zero-dependency ESM (Node >= 18).
 // Builds a DECOUPLED copy of the addon and installs it to the PERMANENT global
@@ -22,10 +23,55 @@ const WIRE_CLAUDE = flag("--wire-claude");
 const WIRE_CODEX = flag("--wire-codex");
 const CONFIG_FILE = "global-subagent-mcp-config.jsonc";
 const LEGACY_CONFIG_FILE = "global-concurrency.jsonc";
+const PACKAGE_NAME_RE = /^@?[a-z0-9-~][a-z0-9-._~/]*$/;
+const PACKAGE_VERSION_RE = /^[0-9]+[0-9A-Za-z.+~-]*(?:-[0-9A-Za-z.+~-]+)?$/;
 
 function die(msg) { console.error(`deploy: ${msg}`); process.exit(1); }
 function realOrSelf(p) { try { return realpathSync(p); } catch { return resolve(p); } }
 function norm(p) { const r = realOrSelf(p).split("\\").join("/"); return process.platform === "win32" ? r.toLowerCase() : r; }
+export function quoteWinCmdArg(arg) {
+  return `"${String(arg).replace(/"/g, '""').replace(/[&|^<>%]/g, "^$&")}"`;
+}
+
+function runViaCmdExe(cmd, cmdArgs, cwd, opts) {
+  const comspec = process.env.ComSpec || "cmd.exe";
+  const resolved = resolveWinExecutable(cmd, cwd);
+  if (!resolved) throw Object.assign(new Error(`executable not found: ${cmd}`), { code: "ENOENT" });
+  const line = [resolved, ...cmdArgs].map(quoteWinCmdArg).join(" ");
+  return execFileSync(comspec, ["/d", "/s", "/c", `"${line}"`], { ...opts, cwd });
+}
+
+function resolveWinExecutable(cmd, cwd) {
+  if (/[\\/]/.test(cmd) || /\.[A-Za-z0-9]+$/.test(cmd)) return cmd;
+  try {
+    const found = execFileSync("where.exe", [cmd], {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      shell: false,
+    }).split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    return found[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveCmdShimNodeScript(cmdPath) {
+  try {
+    const text = readFileSync(cmdPath, "utf8");
+    const m = text.match(/"%(?:~dp0|dp0%)\\([^"]+\.(?:js|cjs|mjs))"/i);
+    if (!m) return null;
+    const js = join(dirname(cmdPath), m[1]);
+    return existsSync(js) ? js : null;
+  } catch {
+    return null;
+  }
+}
+
+export function validatePackageMetadata(pkg) {
+  if (!PACKAGE_NAME_RE.test(pkg?.name || "")) die(`invalid package name: ${pkg?.name || ""}`);
+  if (!PACKAGE_VERSION_RE.test(pkg?.version || "")) die(`invalid package version: ${pkg?.version || ""}`);
+}
 
 // --- Forbidden-location guard (references/locations.md) -------------------
 function forbiddenReason(p) {
@@ -65,20 +111,28 @@ function addonRoot() {
   die(`no subagent-mcp package.json found at or above --source (${SOURCE})`);
 }
 
-function run(cmd, cmdArgs, cwd) {
+export function run(cmd, cmdArgs, cwd) {
   console.error(`  $ ${cmd} ${cmdArgs.join(" ")}`);
   const stdio = ["ignore", "pipe", "inherit"];
-  // Windows: npm/claude/codex are .cmd shims that execFileSync cannot spawn
-  // directly (ENOENT) — run through the shell, quoting args with whitespace.
-  if (process.platform === "win32") {
-    const line = [cmd, ...cmdArgs.map((a) => (/\s/.test(a) ? `"${a}"` : a))].join(" ");
-    return execSync(line, { cwd, encoding: "utf8", stdio });
+  const opts = { cwd, encoding: "utf8", stdio, shell: false };
+  const exe = process.platform === "win32" ? (resolveWinExecutable(cmd, cwd) || cmd) : cmd;
+  const isWinCmdShim = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(exe);
+  if (isWinCmdShim) {
+    const js = resolveCmdShimNodeScript(exe);
+    if (js) return execFileSync(process.execPath, [js, ...cmdArgs], opts);
   }
-  return execFileSync(cmd, cmdArgs, { cwd, encoding: "utf8", stdio });
+  try {
+    return execFileSync(exe, cmdArgs, opts);
+  } catch (e) {
+    const mayNeedCmdExe = process.platform === "win32" && ["ENOENT", "EINVAL", "UNKNOWN"].includes(e.code);
+    if (!mayNeedCmdExe) throw e;
+    return runViaCmdExe(exe, cmdArgs, cwd, { encoding: "utf8", stdio, shell: false });
+  }
 }
 
 // --- Build + pack + global install ----------------------------------------
 function deploy(root, pkg) {
+  validatePackageMetadata(pkg);
   console.error(`==> build (${root})`);
   run("npm", ["run", "build"], root);
 
@@ -269,15 +323,21 @@ function wireCodex(install) {
 }
 
 // --- Main -----------------------------------------------------------------
-const reason = forbiddenReason(SOURCE);
-if (reason) die(`refusing to install from a forbidden source location (${reason}): ${SOURCE}\n` +
-  `Clone to a permanent path and re-run (see references/locations.md).`);
+function main() {
+  const reason = forbiddenReason(SOURCE);
+  if (reason) die(`refusing to install from a forbidden source location (${reason}): ${SOURCE}\n` +
+    `Clone to a permanent path and re-run (see references/locations.md).`);
 
-const { root, pkg } = addonRoot();
-const install = deploy(root, pkg);
-verify(install);
-printConfig(install);
-if (WIRE_CLAUDE) wireClaude(install);
-if (WIRE_CODEX) wireCodex(install);
-console.error(`\n==> done. Install root: ${install}`);
-if (!WIRE_CLAUDE && !WIRE_CODEX) console.error("(print-only; pass --wire-claude / --wire-codex to apply, or wire by hand from references/)");
+  const { root, pkg } = addonRoot();
+  const install = deploy(root, pkg);
+  verify(install);
+  printConfig(install);
+  if (WIRE_CLAUDE) wireClaude(install);
+  if (WIRE_CODEX) wireCodex(install);
+  console.error(`\n==> done. Install root: ${install}`);
+  if (!WIRE_CLAUDE && !WIRE_CODEX) console.error("(print-only; pass --wire-claude / --wire-codex to apply, or wire by hand from references/)");
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main();
+}

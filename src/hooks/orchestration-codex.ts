@@ -125,6 +125,30 @@ function stringField(value: unknown, key: string): string | null {
   return typeof child === "string" ? child : null;
 }
 
+function isSubagentSourceObject(source: unknown): boolean {
+  if (!source || typeof source !== "object") return false;
+  const record = source as Record<string, unknown>;
+
+  if (Object.prototype.hasOwnProperty.call(record, "subagent")) {
+    return true;
+  }
+
+  for (const kind of SUBAGENT_SOURCE_STRINGS) {
+    if (Object.prototype.hasOwnProperty.call(record, kind)) {
+      return true;
+    }
+  }
+
+  // Local Codex rollouts did not verify the subagent object schema. Accept the
+  // known subagent kind strings if Codex places them in a discriminator field.
+  const kind = record.kind;
+  const type = record.type;
+  return (
+    (typeof kind === "string" && SUBAGENT_SOURCE_STRINGS.has(kind)) ||
+    (typeof type === "string" && SUBAGENT_SOURCE_STRINGS.has(type))
+  );
+}
+
 function isTokenCountLine(obj: Record<string, unknown>): boolean {
   if (obj.type === "token_count") return true;
   const payload = nestedRecord(obj, "payload");
@@ -211,11 +235,9 @@ export const codexAdapter: CodexAdapter = {
     }
     const source = (payload as { source?: unknown }).source;
 
-    // 0.131+: source is an object whose keys name the subagent kind.
-    if (source && typeof source === "object") {
-      if (Object.prototype.hasOwnProperty.call(source, "subagent")) {
-        return true;
-      }
+    // 0.131+: source may be an object whose keys name the subagent kind.
+    if (isSubagentSourceObject(source)) {
+      return true;
     }
 
     // Older: source is a string enum.

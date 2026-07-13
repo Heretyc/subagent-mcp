@@ -41,6 +41,10 @@ vendor changes its spec, update THIS file first, then the vendor guide.
   (`command: "node \"...\""`, no `args`) is valid but the docs reserve it for
   `.cmd`/`.bat` shims; a `.js` run by `node` is a real executable invocation, so
   exec form is the documented-preferred pattern.
+- **Installer subprocesses:** deploy automation must use argument-array process
+  execution (`execFileSync` with `shell:false`). Windows `.cmd` shims may be
+  resolved to their target Node script; unresolved shims may use a quoted
+  `cmd.exe` fallback, not arbitrary shell interpolation.
 - **Timeout:** `UserPromptSubmit` defaults to **30 s** (it blocks the model);
   set `timeout` explicitly only if the hook needs longer.
 
@@ -102,3 +106,6 @@ mandatory first step (`AGENTS.md` Always Enforce).
 - The install root must be **permanent** (see `locations.md`).
 - `directives/` ships beside `dist/` so the hooks' `../../directives` fallback
   resolves with zero env wiring.
+- Env-provided plugin roots (`CLAUDE_PLUGIN_ROOT`, `PLUGIN_ROOT`) are honored
+  only when they resolve under trusted install or plugin-cache prefixes. If not,
+  hooks fall back to the bundled `../../directives` path.

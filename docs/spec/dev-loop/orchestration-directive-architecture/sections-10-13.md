@@ -22,8 +22,12 @@
   its presence/absence no longer gates ON/OFF. `src/orchestration/marker.ts` is
   fail-safe (never throws; failed reads -> default ON).
 - **Identity ladder is total.** Hooks resolve owner identity as
-  `session_id` -> `tp-<hash(transcript_path)>` -> typed anonymous floor
-  `anon-<host>-<cwdHash>`. The ladder degrades to the next-strongest signal,
+  `session_id` -> `tp-<hash(normalized transcript_path)>` -> typed anonymous
+  floor `anon-<host>-<cwdHash>`. A non-empty `session_id` is always preferred.
+  The transcript fallback resolves the path, normalizes slashes, lowercases on
+  Windows, and drops a trailing slash before hashing, so case and separator
+  drift do not create a new owner key. Residual caveat: a genuinely moved
+  transcript still re-keys. The ladder degrades to the next-strongest signal,
   never to a guess and never to `undefined`. Empty `session_id` falls through.
   Anonymous owner keys are cadence-only: they can claim marker/reminder state,
   but cannot disable orchestration.
@@ -61,10 +65,13 @@
   non-persisted conversational opt-out. The carryover directives reference this
   backstop when explaining when ON resumes.
 - **Directive read before claim mutation.** Hook code reads the directive body
-  before it mutates marker, owner, or reminder-counter state. If directive-dir
-  resolution or directive read fails, the turn does not consume a claim or
-  counter update; the hook fails safe for that injection instead of aborting
-  the session state machine.
+  before it mutates marker, owner, or reminder-counter state. Env plugin roots
+  (`CLAUDE_PLUGIN_ROOT`, then `PLUGIN_ROOT`) are trusted only after they resolve
+  under the compiled package root, npm/global prefixes, or known plugin cache
+  roots; otherwise the hook falls back to the bundled `../../directives` path.
+  If directive-dir resolution or directive read fails, the turn does not
+  consume a claim or counter update; the hook fails safe for that injection
+  instead of aborting the session state machine.
 - **Latch persistence (plan-phase force-enable).** When provider-metered context
   usage crosses `PLAN_LATCH_THRESHOLD_PCT` (15%), the hook writes a session-keyed
   `latch-<hash>.json` record (`{ rev: 2, latched: true, latched_at, session_id }`)

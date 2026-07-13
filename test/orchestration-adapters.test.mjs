@@ -349,6 +349,22 @@ test("codex isSubagent: source object with 'subagent' key -> true (0.131+)", () 
   assert.equal(codexAdapter.isSubagent({ source: { subagent: "review" } }, {}), true);
 });
 
+test("codex isSubagent: source object with subAgent kind keys -> true", () => {
+  for (const s of ["subAgentReview", "subAgentCompact", "subAgentThreadSpawn", "subAgentOther"]) {
+    assert.equal(codexAdapter.isSubagent({ source: { [s]: true } }, {}), true,
+      `${s} key marks a subagent`);
+  }
+});
+
+test("codex isSubagent: source object with subAgent kind/type fields -> true", () => {
+  for (const s of ["subAgentReview", "subAgentCompact", "subAgentThreadSpawn", "subAgentOther"]) {
+    assert.equal(codexAdapter.isSubagent({ source: { kind: s } }, {}), true,
+      `${s} kind marks a subagent`);
+    assert.equal(codexAdapter.isSubagent({ source: { type: s } }, {}), true,
+      `${s} type marks a subagent`);
+  }
+});
+
 test("codex isSubagent: source string enum -> true", () => {
   for (const s of ["subAgentReview", "subAgentCompact", "subAgentThreadSpawn", "subAgentOther"]) {
     assert.equal(codexAdapter.isSubagent({ source: s }, {}), true, `${s} marks a subagent`);
@@ -373,6 +389,7 @@ test("codex isSubagent: parent-process marker must be bracketed first line", () 
 test("codex isSubagent: ordinary prompt / unknown source -> false", () => {
   assert.equal(codexAdapter.isSubagent({ prompt: "just a normal user ask" }, {}), false);
   assert.equal(codexAdapter.isSubagent({ source: "interactive" }, {}), false);
+  assert.equal(codexAdapter.isSubagent({ source: { type: "user" } }, {}), false);
   assert.equal(codexAdapter.isSubagent({}, {}), false);
 });
 
@@ -387,7 +404,8 @@ test("codex SessionStart: active + not subagent -> FULL + ON reminder, counter r
   mkdirSync(ddir, { recursive: true });
   writeFileSync(join(ddir, "orchestration-codex.md"), "CODEX-FULL", "utf8");
   writeFileSync(join(ddir, "reminder-on.md"), "CODEX-REM-ON", "utf8");
-  const env = { PLUGIN_ROOT: root };
+  // Trust the temp plugin root via the install-prefix allowlist.
+  const env = { PLUGIN_ROOT: root, npm_config_prefix: root };
   try {
     writeFreshMarker(cwd);
     const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, env);

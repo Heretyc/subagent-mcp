@@ -46,7 +46,11 @@ git clone https://github.com/Heretyc/subagent-mcp <permanent-path>
 cd <permanent-path> && npm install && npm run build
 ```
 
-`scripts/deploy.mjs --source <permanent-path>` enforces this guard for you.
+`scripts/deploy.mjs --source <permanent-path>` enforces this guard for you. It
+validates the package name/version metadata before forming the tarball name.
+Its subprocess runner uses `execFileSync` with `shell:false`; on Windows it
+resolves recognized `.cmd` shims to their target Node scripts before falling
+back to `cmd.exe` for unresolved shell shims.
 
 ## Updating an existing install
 
