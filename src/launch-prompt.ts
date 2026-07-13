@@ -9,7 +9,7 @@
 
 export const MARKER = "<this is a request from a parent process>";
 
-export function hasParentMarker(prompt: unknown): boolean {
+export function isParentProcessMarkerFirstLine(prompt: unknown): boolean {
   if (typeof prompt !== "string") return false;
   const head = prompt.slice(0, 4096);
   const nl = head.indexOf("\n");
@@ -18,6 +18,8 @@ export function hasParentMarker(prompt: unknown): boolean {
   if (firstLine.charCodeAt(0) === 0xfeff) firstLine = firstLine.slice(1);
   return firstLine.startsWith(MARKER);
 }
+
+export const hasParentMarker = isParentProcessMarkerFirstLine;
 
 // Return `prompt` with MARKER guaranteed as its literal first line.
 // - First line = position 0 up to the first "\n"; a trailing "\r" (CRLF) is
@@ -29,6 +31,6 @@ export function hasParentMarker(prompt: unknown): boolean {
 // - Present (after BOM-strip) -> returned unchanged (no duplicate).
 // - Absent -> MARKER + "\n" + prompt.
 export function ensureParentMarker(prompt: string): string {
-  if (hasParentMarker(prompt)) return prompt;
+  if (isParentProcessMarkerFirstLine(prompt)) return prompt;
   return MARKER + "\n" + prompt;
 }

@@ -630,7 +630,19 @@ function repoConfigDigest(cwd: string): string {
   return h.digest("hex");
 }
 
+const FIRST_REPO_DIGEST_LIMIT = 100;
+// ponytail: process-local only; restart persistence is unnecessary for first-seen repo digests.
 const firstRepoDigests = new Map<string, string>();
+
+function rememberFirstRepoDigest(cwd: string, digest: string): void {
+  if (firstRepoDigests.has(cwd)) {
+    firstRepoDigests.delete(cwd);
+  } else if (firstRepoDigests.size >= FIRST_REPO_DIGEST_LIMIT) {
+    const oldest = firstRepoDigests.keys().next().value;
+    if (oldest !== undefined) firstRepoDigests.delete(oldest);
+  }
+  firstRepoDigests.set(cwd, digest);
+}
 
 export function readMergedPermissionConfig(
   cwd: string,
@@ -681,7 +693,7 @@ export function readMergedPermissionConfig(
   const digest = repoConfigDigest(cwd);
   const first = firstRepoDigests.get(cwd);
   const repoConfigChangedSinceFirstSeen = first !== undefined && first !== digest;
-  if (first === undefined) firstRepoDigests.set(cwd, digest);
+  if (first === undefined) rememberFirstRepoDigest(cwd, digest);
   const selfProtectionDeny = configSelfProtectionDenyRules(path);
   const protectedDirs = new Set([resolve(path), resolve(legacyConfigPath(path))]);
   merged.deny.push(...selfProtectionDeny);

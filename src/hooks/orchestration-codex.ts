@@ -26,7 +26,7 @@ import {
   type MeteringHarness,
   type MeteringUsage,
 } from "../orchestration/metering.js";
-import { hasParentMarker } from "../launch-prompt.js";
+import { isParentProcessMarkerFirstLine } from "../launch-prompt.js";
 
 /**
  * Codex CLI hook entry. Branches on payload.hook_event_name:
@@ -221,7 +221,7 @@ export const codexAdapter: CodexAdapter = {
       return true;
     }
 
-    return hasParentMarker(payload.prompt);
+    return isParentProcessMarkerFirstLine(payload.prompt);
   },
 
   // Count JSONL lines whose parsed object.type === 'turn_context'. Delegates to

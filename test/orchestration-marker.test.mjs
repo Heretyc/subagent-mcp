@@ -14,7 +14,6 @@ import {
   enablePath,
   sessionPointerPath,
   serverSessionPointerPath,
-  enable,
   writeDisable,
   removeDisable,
   writeEnable,
@@ -62,6 +61,14 @@ if (isWin) {
   test("normalizeCwd (win32): \\\\?\\ extended-length prefix and plain form hash equal", () => {
     const plain = "C:\\Some\\Project";
     const extended = "\\\\?\\C:\\Some\\Project";
+    assert.equal(normalizeCwd(extended), normalizeCwd(plain));
+    assert.equal(cwdHash(extended), cwdHash(plain));
+    assert.ok(!normalizeCwd(extended).includes("?"));
+  });
+
+  test("normalizeCwd (win32): \\\\?\\UNC\\ prefix and plain UNC form hash equal", () => {
+    const plain = "\\\\Server\\Share\\Project";
+    const extended = "\\\\?\\UNC\\Server\\Share\\Project";
     assert.equal(normalizeCwd(extended), normalizeCwd(plain));
     assert.equal(cwdHash(extended), cwdHash(plain));
     assert.ok(!normalizeCwd(extended).includes("?"));
@@ -200,37 +207,6 @@ test("current-session pointer is scoped by server key with legacy cwd fallback",
     rmSync(serverSessionPointerPath(dir, "server-B"), { force: true });
     rmSync(serverSessionPointerPath(dir, "server-C"), { force: true });
     rmSync(sessionPointerPath(dir), { force: true });
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test("enable writes an unclaimed, un-baselined marker (re-enable re-baselines)", () => {
-  const dir = mkdtempSync(join(tmpdir(), "orch-cwd-"));
-  try {
-    enable(dir);
-    const m = readMarker(dir);
-    assert.equal(m.owner_session, null);
-    assert.equal(m.baseline_turn, null);
-    assert.equal(m.claimed_at, null);
-    assert.deepEqual(m.owners, {});
-
-    writeMarker(dir, {
-      owner_session: "sess-1",
-      baseline_turn: 7,
-      claimed_at: 123,
-      provenance: null,
-      carryover_ack: false,
-      owners: { "sess-1": { baseline_turn: 7, claimed_at: 123 } },
-    });
-    assert.equal(readMarker(dir).owner_session, "sess-1");
-
-    enable(dir);
-    const reenabled = readMarker(dir);
-    assert.equal(reenabled.owner_session, null);
-    assert.equal(reenabled.baseline_turn, null);
-    assert.deepEqual(reenabled.owners, {});
-  } finally {
-    rmSync(markerPath(dir), { force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });

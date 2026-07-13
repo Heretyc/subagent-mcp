@@ -8,12 +8,12 @@
  * calls or asks on a sixth call.
  */
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { currentUserSlotNamespace, slotDir as currentSlotDir } from "../dist/concurrency.js";
-import { touchAlive, LIVENESS_TTL_MS } from "../dist/orchestration/liveness.js";
+import { alivePath, touchAlive, LIVENESS_TTL_MS } from "../dist/orchestration/liveness.js";
 import { runClaudePreTool } from "../dist/orchestration/pretool.js";
 import {
   slotPathForAgent,
@@ -79,6 +79,25 @@ test("liveness missing/stale -> fail open", () => {
   try {
     const result = runClaudePreTool(p, {}, Date.now() + LIVENESS_TTL_MS + 1);
     assert.equal(result, null, "stale or absent heartbeat must not block tools");
+  } finally {
+    cleanup(p);
+  }
+});
+
+test("fresh liveness with no live pid -> fail open", () => {
+  const p = payload("Task");
+  try {
+    mkdirSync(join(alivePath(), ".."), { recursive: true });
+    writeFileSync(alivePath(), `${Date.now()}\npid=99999999\n`, { mode: 0o600 });
+    const result = runClaudePreTool(p, {});
+    assert.equal(result, null, "dead-pid heartbeat must not block native tools");
+
+    writeFileSync(alivePath(), `${Date.now()}\n`, { mode: 0o600 });
+    assert.equal(
+      runClaudePreTool(p, {}),
+      null,
+      "heartbeat without a pid must be treated as stale",
+    );
   } finally {
     cleanup(p);
   }

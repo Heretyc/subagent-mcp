@@ -25,12 +25,12 @@ import { MARKER, hasParentMarker } from "../dist/launch-prompt.js";
 import { claudeAdapter } from "../dist/hooks/orchestration-claude.js";
 import { codexAdapter, runCodexHook } from "../dist/hooks/orchestration-codex.js";
 import {
-  enable,
   markerPath,
   writeDisable,
   removeDisable,
   readCurrentSession,
   anonKey,
+  writeMarker,
 } from "../dist/orchestration/marker.js";
 import { readReminder, reminderPath } from "../dist/orchestration/reminder.js";
 
@@ -54,6 +54,17 @@ function writeJsonl(lines) {
   const file = join(dir, "transcript.jsonl");
   writeFileSync(file, lines.map((o) => JSON.stringify(o)).join("\n") + "\n", "utf8");
   return { dir, file };
+}
+
+function writeFreshMarker(cwd) {
+  writeMarker(cwd, {
+    owner_session: null,
+    baseline_turn: null,
+    claimed_at: null,
+    owners: {},
+    provenance: "user-enabled",
+    carryover_ack: false,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -296,6 +307,15 @@ test("codex isSubagent: exact parent-process prompt marker -> true", () => {
     "the exact parent-process handoff marker marks a subagent");
 });
 
+test("codex isSubagent: parent-process marker must be bracketed first line", () => {
+  assert.equal(codexAdapter.isSubagent({ prompt: MARKER + "\nDo the thing." }, {}), true);
+  assert.equal(codexAdapter.isSubagent({ prompt: "preamble\n" + MARKER }, {}), false);
+  assert.equal(
+    codexAdapter.isSubagent({ prompt: "please mention this is a request from a parent process" }, {}),
+    false
+  );
+});
+
 test("codex isSubagent: ordinary prompt / unknown source -> false", () => {
   assert.equal(codexAdapter.isSubagent({ prompt: "just a normal user ask" }, {}), false);
   assert.equal(codexAdapter.isSubagent({ source: "interactive" }, {}), false);
@@ -315,7 +335,7 @@ test("codex SessionStart: active + not subagent -> FULL + ON reminder, counter r
   writeFileSync(join(ddir, "reminder-on.md"), "CODEX-REM-ON", "utf8");
   const env = { PLUGIN_ROOT: root };
   try {
-    enable(cwd);
+    writeFreshMarker(cwd);
     const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, env);
     assert.match(
       out,
@@ -360,7 +380,7 @@ test("codex SessionStart: subagent -> '' even when active", () => {
   mkdirSync(ddir, { recursive: true });
   writeFileSync(join(ddir, "orchestration-codex.md"), "CODEX-FULL", "utf8");
   try {
-    enable(cwd);
+    writeFreshMarker(cwd);
     const out = runCodexHook(
       { hook_event_name: "SessionStart", cwd, source: { subagent: "spawn" } },
       { PLUGIN_ROOT: root }

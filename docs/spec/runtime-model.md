@@ -18,6 +18,17 @@ is [global-concurrency/cap-contract.md](global-concurrency/cap-contract.md).
 
 Agents are stored in a module-level `Map<string, AgentState>` keyed by UUID. There is no persistence -- the map is cleared on server restart.
 
+## Cwd-Keyed State
+
+State keyed by working directory uses normalized cwd hashes. On Windows, the
+extended UNC prefix `\\?\UNC\server\share` is normalized to the same key as
+`\\server\share`, so extended and normal UNC spellings share state.
+
+Per-cwd repo-config digest baselines are process-local only. The baseline map
+is bounded at 100 cwd entries; when the cap is exceeded, the oldest entry is
+evicted. Baselines are used only to detect config changes during the current
+server process and are not persisted.
+
 ## Provider Driver IPC and Output Handling
 
 See [interactive-drivers.md](interactive-drivers.md) for the
@@ -43,7 +54,7 @@ normative interactive-only driver model.
 
 ### Output Tails
 
-`poll_agent` returns the last 2000 characters of stdout and last 1000 characters of stderr. Full output is stored in memory for the server's lifetime; there is no disk buffering.
+`poll_agent` returns the last 2000 characters of stdout and last 1000 characters of stderr. Full output is stored in memory for the server's lifetime; there is no disk buffering. With `verbose: true`, final-turn extraction keeps the same assistant-turn selection semantics; JSONL buffers are scanned from the end instead of parsed as one whole buffer.
 
 ## Status Lifecycle and Health Monitor
 

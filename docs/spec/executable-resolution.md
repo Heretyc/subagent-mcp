@@ -7,7 +7,9 @@ The public function `resolveExeFor(provider, platform, deps)` in `src/platform.t
 PowerShell `.ps1` / `.cmd` shims in the npm global bin directory cannot be directly spawned by `child_process.spawn`. The server locates the real `.exe` under the npm global prefix:
 
 - **claude:** `<npmPrefix>\node_modules\@anthropic-ai\claude-code\bin\claude.exe`
-- **codex:** `<npmPrefix>\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe`
+- **codex:** arch-aware package and vendor triples are probed for Windows:
+  x64 uses `@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe`;
+  arm64 uses `@openai\codex-win32-arm64\vendor\aarch64-pc-windows-msvc\bin\codex.exe`.
 
 If the expected path does not exist (e.g. installed differently), falls back to the bare name `"claude"` / `"codex"` and relies on PATH.
 

@@ -137,7 +137,9 @@ export function gateLaunch(
   reverted: boolean;
 } {
   const r = resolveMode(cwd, now);
-  const supplied = !!(selectors.provider || selectors.model || selectors.effort);
+  const supplied = [selectors.provider, selectors.model, selectors.effort].some(
+    (value) => value !== undefined,
+  );
   if (r.mode === "user-approved-overrides") {
     return { allowed: true, mode: r.mode, reverted: r.reverted };
   }

@@ -27,10 +27,11 @@ function test(name, fn) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeDeps({ existPaths = [], prefix = "C:\\npm-global" } = {}) {
+function makeDeps({ existPaths = [], prefix = "C:\\npm-global", arch = undefined } = {}) {
   return {
     existsSync: (p) => existPaths.includes(p),
     npmPrefix: () => prefix,
+    ...(arch ? { arch: () => arch } : {}),
   };
 }
 
@@ -63,6 +64,18 @@ test("win32 + codex vendor exe exists -> returns full vendor .exe path", () => {
     "vendor", "x86_64-pc-windows-msvc", "bin", "codex.exe"
   );
   const deps = makeDeps({ existPaths: [exePath], prefix });
+  assert.equal(resolveExeFor("codex", "win32", deps), exePath);
+});
+
+test("win32 + codex arm64 vendor exe exists -> returns full arm64 vendor .exe path", () => {
+  const prefix = "C:\\npm-global";
+  const exePath = join(
+    prefix,
+    "node_modules", "@openai", "codex",
+    "node_modules", "@openai", "codex-win32-arm64",
+    "vendor", "aarch64-pc-windows-msvc", "bin", "codex.exe"
+  );
+  const deps = makeDeps({ existPaths: [exePath], prefix, arch: "arm64" });
   assert.equal(resolveExeFor("codex", "win32", deps), exePath);
 });
 

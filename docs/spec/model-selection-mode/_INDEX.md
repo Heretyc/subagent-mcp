@@ -31,6 +31,10 @@ mode. No other tool is affected. The selector params stay in the `launch_agent`
 schema in BOTH modes : the mode changes whether supplying them is honored or
 rejected, not whether they exist.
 
+For this gate, a selector is supplied when its value is not `undefined`. An
+empty string still counts as supplied and is rejected in `smart` before any
+override path can honor it.
+
 ## Smart-mode rejection and fallback ladder
 
 On a smart-mode rejection the agent is instructed: if it has a specific scoped
@@ -93,8 +97,9 @@ project working directory.
 
 1. Two modes only: `smart` (default when unset) and `user-approved-overrides`.
 2. Smart mode keeps selector params in schema but rejects calls that supply
-   them; the server auto-selects. Rejection message cites benchmarking data,
-   research, and environment conditions.
+   them (`value !== undefined`, including empty strings); the server selects
+   automatically. Rejection message cites benchmarking data, research, and
+   environment conditions.
 3. Override enablement is honor-based and REQUIRES explicit interactive user
    authorization via the structured-question tool (provider-appropriate, or
    yes/no fallback). Never self-initiated.

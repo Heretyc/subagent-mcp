@@ -1,4 +1,4 @@
-import { mkdirSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { atomicWriteFile } from "./atomic-write.js";
 import { stateDir } from "./marker.js";
@@ -13,16 +13,35 @@ export function alivePath(): string {
 export function touchAlive(now: number = Date.now()): void {
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    atomicWriteFile(alivePath(), `${now}\n`, { encoding: "utf8", mode: 0o600 });
+    atomicWriteFile(alivePath(), `${now}\npid=${process.pid}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
   } catch {
     // Hooks fail open when liveness cannot be observed.
+  }
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
   }
 }
 
 export function serverAlive(now: number = Date.now()): boolean {
   try {
     const s = statSync(alivePath());
-    return now - s.mtimeMs <= LIVENESS_TTL_MS;
+    if (now - s.mtimeMs > LIVENESS_TTL_MS) return false;
+    const raw = readFileSync(alivePath(), "utf8");
+    const pid = raw
+      .split(/\r?\n/)
+      .map((line) => /^pid=(\d+)$/.exec(line)?.[1])
+      .find((value): value is string => value !== undefined);
+    if (!pid) return false;
+    return pidAlive(Number(pid));
   } catch {
     return false;
   }

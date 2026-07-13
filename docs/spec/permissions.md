@@ -140,7 +140,7 @@ resolve path, keyed to a server-generated `request_id`.
 - **Pending-permission history cap 200**: answered/auto-answered/errored records are retained FIFO; per-agent asked counts clear on agent close.
 - **kill_agent** closes pendings as `deny('agent stopped by operator')` before the
   kill path; exit reconciliation stays first and authoritative.
-- **`send_message`** is rejected while any request is pending.
+- **`send_message`** is rejected while any request is pending. Codex PreToolUse deny enforcement fails open unless the heartbeat flag is fresh and its owner server pid is alive.
 
 Per-request record (`pending-permissions.ts`): `request_id, agent_id,
 harness_channel, tool_name_or_method, action, permission_ceiling, escalation,
