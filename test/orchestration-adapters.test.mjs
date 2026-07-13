@@ -26,12 +26,18 @@ import { claudeAdapter } from "../dist/hooks/orchestration-claude.js";
 import { codexAdapter, runCodexHook } from "../dist/hooks/orchestration-codex.js";
 import {
   markerPath,
+  hashKey,
   writeDisable,
   removeDisable,
   readCurrentSession,
   anonKey,
   writeMarker,
 } from "../dist/orchestration/marker.js";
+import { sessionKey } from "../dist/orchestration/hook-core.js";
+import {
+  statuslinePathForSession,
+  writeStatuslineRecord,
+} from "../dist/orchestration/statusline-state.js";
 import { readReminder, reminderPath } from "../dist/orchestration/reminder.js";
 
 let passed = 0;
@@ -133,9 +139,127 @@ test("claude liftUsage: extracts latest assistant usage with one-turn lag", () =
         cache_read: 13,
       },
       harnessPercentage: null,
+      harnessContextWindow: null,
       longContextHint: null,
     });
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: reads fresh statusline percentage and context window", () => {
+  const session = `sl-fresh-${Date.now()}-${Math.random()}`;
+  const { dir, file } = writeJsonl([
+    {
+      type: "assistant",
+      message: {
+        model: "claude-sonnet-4-5",
+        usage: {
+          input_tokens: 100,
+          output_tokens: 20,
+          cache_creation_input_tokens: 7,
+          cache_read_input_tokens: 13,
+        },
+      },
+    },
+  ]);
+  const slPath = statuslinePathForSession(session);
+  try {
+    writeStatuslineRecord({ session_id: session }, {
+      session_id: session,
+      used_percentage: 44,
+      context_window_size: 1000000,
+      usage: { input: 1, output: 2, cache_creation: 3, cache_read: 4 },
+      updated_at: Date.now(),
+      source: "statusline",
+    });
+    const lifted = claudeAdapter.liftUsage(
+      { cwd: dir, session_id: session },
+      {},
+      file
+    );
+    assert.equal(lifted.harnessPercentage, 44);
+    assert.equal(lifted.harnessContextWindow, 1000000);
+  } finally {
+    rmSync(slPath, { force: true });
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: ignores stale statusline records", () => {
+  const session = `sl-stale-${Date.now()}-${Math.random()}`;
+  const { dir, file } = writeJsonl([
+    {
+      type: "assistant",
+      message: {
+        model: "claude-sonnet-4-5",
+        usage: {
+          input_tokens: 100,
+          output_tokens: 20,
+          cache_creation_input_tokens: 7,
+          cache_read_input_tokens: 13,
+        },
+      },
+    },
+  ]);
+  const slPath = statuslinePathForSession(session);
+  try {
+    writeFileSync(slPath, JSON.stringify({
+      session_id: session,
+      used_percentage: 88,
+      context_window_size: 1000000,
+      usage: { input: 1, output: 2, cache_creation: 3, cache_read: 4 },
+      updated_at: Date.now() - 25 * 60 * 60 * 1000,
+      source: "statusline",
+    }), "utf8");
+    const lifted = claudeAdapter.liftUsage(
+      { cwd: dir, session_id: session },
+      {},
+      file
+    );
+    assert.equal(lifted.harnessPercentage, null);
+    assert.equal(lifted.harnessContextWindow, null);
+  } finally {
+    rmSync(slPath, { force: true });
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: reads transcript-keyed statusline fallback", () => {
+  const { dir, file } = writeJsonl([
+    {
+      type: "assistant",
+      message: {
+        model: "claude-sonnet-4-5",
+        usage: {
+          input_tokens: 100,
+          output_tokens: 20,
+          cache_creation_input_tokens: 7,
+          cache_read_input_tokens: 13,
+        },
+      },
+    },
+  ]);
+  const key = sessionKey({ transcript_path: file });
+  const slPath = statuslinePathForSession(key);
+  try {
+    writeStatuslineRecord({ transcript_path: file }, {
+      session_id: null,
+      used_percentage: 23,
+      context_window_size: null,
+      usage: { input: 1, output: 0, cache_creation: 0, cache_read: 0 },
+      updated_at: Date.now(),
+      source: "statusline",
+    });
+    assert.equal(hashKey(key).length, 16);
+    const lifted = claudeAdapter.liftUsage(
+      { cwd: dir, transcript_path: file },
+      {},
+      file
+    );
+    assert.equal(lifted.harnessPercentage, 23);
+  } finally {
+    rmSync(slPath, { force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -185,6 +309,7 @@ test("claude liftUsage: skips sidechain assistant usage and reads long hint", ()
         cache_read: 13,
       },
       harnessPercentage: null,
+      harnessContextWindow: null,
       longContextHint: true,
     });
   } finally {

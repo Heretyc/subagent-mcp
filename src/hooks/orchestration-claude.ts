@@ -11,11 +11,13 @@ import { pathToFileURL } from "node:url";
 import {
   countJsonlType,
   runHook,
+  sessionKey,
   TRANSCRIPT_READ_CAP,
   type HookPayload,
   type ProviderAdapter,
 } from "../orchestration/hook-core.js";
 import type { MeteringHarness, MeteringUsage } from "../orchestration/metering.js";
+import { readStatuslineRecord } from "../orchestration/statusline-state.js";
 import { readClaudeLongContextHint } from "../orchestration/settings-hint.js";
 import { hasParentMarker } from "../launch-prompt.js";
 
@@ -47,6 +49,7 @@ interface UsageLiftResult {
   source_ref: string;
   usage: MeteringUsage;
   harnessPercentage: number | null;
+  harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
 }
 
@@ -138,9 +141,6 @@ function liftClaudeUsageFromTranscript(transcriptPath: string | undefined): Usag
             ? usage.cache_read_input_tokens
             : 0,
         },
-        // Claude Code statusline receives context_window.used_percentage on its
-        // own stdin payload. Recent hook transcripts do not expose that object,
-        // so this adapter cannot pass it through without a hook-readable signal.
         harnessPercentage: null,
       };
     } catch {
@@ -189,8 +189,23 @@ export const claudeAdapter: ProviderAdapter & {
   ): UsageLiftResult | null {
     const lifted = liftClaudeUsageFromTranscript(transcriptPath);
     if (lifted === null) return null;
+    const statusline = readStatuslineRecord(
+      sessionKey(payload),
+      typeof payload.cwd === "string" ? payload.cwd : undefined,
+    );
     return {
       ...lifted,
+      harnessPercentage:
+        typeof statusline?.used_percentage === "number" &&
+        Number.isFinite(statusline.used_percentage)
+          ? statusline.used_percentage
+          : null,
+      harnessContextWindow:
+        typeof statusline?.context_window_size === "number" &&
+        Number.isFinite(statusline.context_window_size) &&
+        statusline.context_window_size > 0
+          ? statusline.context_window_size
+          : null,
       longContextHint: readClaudeLongContextHint(payload.cwd, env),
     };
   },

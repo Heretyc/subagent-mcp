@@ -30,7 +30,7 @@ where usage itself is unavailable.
   model: string,
   source_ref: string,
   context_window_size: number | null,
-  window_source: "mapping" | "hint" | "ratchet" | "prior" | "family-default" | "contradiction" | "assumed-default" | "assumed-default+floor" | null,
+  window_source: "harness" | "mapping" | "hint" | "ratchet" | "prior" | "family-default" | "contradiction" | "assumed-default" | "assumed-default+floor" | null,
   window_floor: number | null,
   usage: { input: number, output: number, cache_creation: number, cache_read: number },
   used_tokens: number | null,
@@ -41,10 +41,9 @@ where usage itself is unavailable.
 }
 ```
 
-`used_tokens` is the sum of the usage fields, or `null` when usage is absent.
-`prompt_side_tokens` is the non-persisted resolver input
-`input + cache_creation + cache_read`; output is excluded because a completion
-can push total used tokens over a real window even when the prompt fit.
+`used_tokens` is the usage-field sum, or `null` when usage is absent.
+`prompt_side_tokens` is non-persisted input + cache creation + cache read;
+output is excluded because a completion can exceed a window after prompt fit.
 
 `context_window_size: null` is valid only when usage is absent. Unknown
 models, corrupt mapping data, and unsupported harness ids use the assumed
@@ -71,8 +70,10 @@ and `dist/context-windows.json` in builds. Missing, unreadable, or invalid
 mapping data resolves every lookup to `null`.
 
 Claude ladder:
-1. A harness-reported percentage, if Claude ever supplies one, wins in
-   `computeUsedPercentage` and is clamped to `[0,100]`.
+1. A fresh statusline side-channel record supplies `harnessPercentage`, and
+   when present `harnessContextWindow`; see statusline-signal.md. The
+   percentage wins in `computeUsedPercentage` and is clamped to `[0,100]`.
+   The window source is `harness`, ranked before every fallback below.
 2. Exact mapping hit supplies `default` and optional `long` tier.
 3. Unknown ids matching `/^claude-/i` use the shipped family default
    `{ default: 200000, long: 1000000 }` with
@@ -144,10 +145,9 @@ The adapter also reads a Claude long-context tier hint from, in order:
 `model` value decides. The hint is tier evidence only, not model identity;
 read or parse failure returns no hint and never throws.
 
-Claude Code computes a context percentage for statusline stdin, exposed as
-`context_window.used_percentage` in that separate payload. Current hook
-transcripts do not expose that object, so rung 1 stays reserved until the
-harness provides a hook-readable signal.
+Claude Code computes a context percentage for statusLine stdin as
+`context_window.used_percentage`. The shim records that payload in a 24h side
+channel; the hook reads it as rung 1, while transcript remains model/usage source.
 
 Because `UserPromptSubmit` fires before the current assistant response exists,
 Claude metering describes the last completed assistant turn. Turn 1 has no
@@ -170,23 +170,23 @@ That percentage takes precedence over any static mapping window.
 
 Metering records live under `join(os.tmpdir(), "subagent-mcp")` as
 `ctx-<hashKey(sessionKey)>.json`, written through `atomicWriteJson`. The key
-uses the carryover owner ladder: non-empty `session_id` first, then normalized
-`transcript_path` hash. Moved transcripts can still re-key, but case and slash
-drift do not. Reads use the existing 2 hour `ORCH_DISABLE_TTL_MS` lazy-GC
-horizon. Stale metering is strictly worse than no metering because it can
-understate current usage.
+uses the carryover owner ladder: non-empty `session_id`, then normalized
+`transcript_path` hash. Moved transcripts can re-key, but case and slash drift
+do not. Reads use the existing 2 hour `ORCH_DISABLE_TTL_MS` lazy-GC horizon.
+Stale metering is worse than no metering because it can understate usage.
 
-Plan latches use `LATCH_REV = 2`. Latch records without the current `rev` are
-treated inactive and best-effort unlinked on read. This lazily invalidates
-bug-era latches produced by the old 200k assumption. Latches are derived
-state: if corrected metering still justifies a latch, the hook re-trips it in
-the same invocation.
+Plan latches use `LATCH_REV = 2`. Records without the current `rev` are
+inactive and best-effort unlinked on read or by the hourly sweep. This lazily
+invalidates bug-era latches from the old 200k assumption. Latches are derived
+state: if corrected metering still justifies one, the hook re-trips it in the
+same invocation.
 
 ### 9. Display And Consumers
 
-Hook code is the only writer of metering records. Internal consumers are
-hook-core tag/footer composition and handoff gating. No MCP tool exposes raw
-metering data.
+Hook code is the only writer of `ctx-*`; the shim is the only writer of `sl-*`
+and `sl-cwd-*`. Consumers are hook-core tag/footer and handoff gating; no MCP
+tool exposes raw records. Harness outranks mapping, hint, ratchet, prior,
+contradiction, and assumed defaults.
 
 Visible injection surfaces are limited to the tag utilization attribute and
 the footer. Numeric percentages render as `utilization="NN%"` plus

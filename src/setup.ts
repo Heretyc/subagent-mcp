@@ -23,11 +23,15 @@ import {
   writeFileSync,
   copyFileSync,
   mkdirSync,
+  readdirSync,
+  statSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync, execSync } from "node:child_process";
+import { stateDir } from "./orchestration/marker.js";
+import { STATUSLINE_TTL_MS } from "./orchestration/statusline-state.js";
 
 const cliArgs = process.argv.slice(3); // argv[2]='setup', flags start at [3]
 const DRY_RUN = cliArgs.includes("--dry-run");
@@ -47,6 +51,7 @@ export function serverPaths(root: string = INSTALL_ROOT) {
     server: `${f}/dist/index.js`,
     claudeHook: `${f}/dist/hooks/orchestration-claude.js`,
     claudePreToolHook: `${f}/dist/hooks/orchestration-claude-pretool.js`,
+    claudeStatuslineHook: `${f}/dist/hooks/statusline-claude.js`,
     codexHook: `${f}/dist/hooks/orchestration-codex.js`,
   };
 }
@@ -57,6 +62,44 @@ export function serverPaths(root: string = INSTALL_ROOT) {
 
 export type WireStatus = "ok" | "added" | "repaired";
 export type JsonObj = Record<string, unknown>;
+
+function statuslineCommand(shimPath: string, innerCommand: string = ""): string {
+  const inner = innerCommand.trim();
+  return `node "${shimPath}"${inner ? ` ${quoteStatuslineInnerArg(inner)}` : ""}`;
+}
+
+function quoteStatuslineInnerArg(command: string): string {
+  if (process.platform === "win32") {
+    return JSON.stringify(command);
+  }
+  return `'${command.replace(/'/g, "'\\''")}'`;
+}
+
+function extractStatuslineInner(command: string): string | null {
+  const marker = "statusline-claude.js";
+  const idx = command.indexOf(marker);
+  if (idx < 0) return null;
+  let restStart = idx + marker.length;
+  if (command[restStart] === "\"") restStart++;
+  const rest = command.slice(restStart).trim();
+  return unquoteStatuslineInnerArg(rest);
+}
+
+function unquoteStatuslineInnerArg(arg: string): string {
+  if (!arg) return arg;
+  if (process.platform === "win32" && arg.startsWith("\"")) {
+    try {
+      const parsed = JSON.parse(arg) as unknown;
+      if (typeof parsed === "string") return parsed;
+    } catch {
+      return arg;
+    }
+  }
+  if (process.platform !== "win32" && arg.startsWith("'") && arg.endsWith("'")) {
+    return arg.slice(1, -1).replace(/'\\''/g, "'");
+  }
+  return arg;
+}
 
 /**
  * Pure-node PATH lookup. `where`/`which` are not guaranteed to exist (minimal
@@ -97,6 +140,10 @@ export function reconcileClaudeSettings(
   preToolHookPath: string = hookPath.replace(
     /orchestration-claude\.js$/,
     "orchestration-claude-pretool.js"
+  ),
+  statuslineHookPath: string = hookPath.replace(
+    /orchestration-claude\.js$/,
+    "statusline-claude.js"
   )
 ): { changed: boolean; status: WireStatus } {
   const hooksBlock = (s.hooks ?? {}) as JsonObj;
@@ -141,13 +188,48 @@ export function reconcileClaudeSettings(
     args: [preToolHookPath],
     timeout: 5,
   });
+  const statusline = reconcileClaudeStatusLine(s, statuslineHookPath);
   const status =
-    prompt.status === "repaired" || pretool.status === "repaired"
+    prompt.status === "repaired" || pretool.status === "repaired" || statusline.status === "repaired"
       ? "repaired"
-      : prompt.status === "added" || pretool.status === "added"
+      : prompt.status === "added" || pretool.status === "added" || statusline.status === "added"
         ? "added"
         : "ok";
-  return { changed: prompt.changed || pretool.changed, status };
+  return { changed: prompt.changed || pretool.changed || statusline.changed, status };
+}
+
+export function reconcileClaudeStatusLine(
+  s: JsonObj,
+  statuslineHookPath: string
+): { changed: boolean; status: WireStatus } {
+  const current = s.statusLine;
+  const currentCommand =
+    current && typeof current === "object" && !Array.isArray(current) &&
+    typeof (current as JsonObj).command === "string"
+      ? (current as JsonObj).command as string
+      : typeof current === "string"
+        ? current
+        : null;
+  const inner = currentCommand !== null ? extractStatuslineInner(currentCommand) : null;
+  const desired = {
+    type: "command",
+    command: statuslineCommand(statuslineHookPath, inner ?? currentCommand ?? ""),
+  };
+  if (currentCommand === null) {
+    s.statusLine = desired;
+    return { changed: true, status: "added" };
+  }
+  if (
+    current &&
+    typeof current === "object" &&
+    !Array.isArray(current) &&
+    (current as JsonObj).type === desired.type &&
+    (current as JsonObj).command === desired.command
+  ) {
+    return { changed: false, status: "ok" };
+  }
+  s.statusLine = desired;
+  return { changed: true, status: "repaired" };
 }
 
 /**
@@ -286,6 +368,7 @@ export function verifyInstall(root: string = INSTALL_ROOT): string[] {
     "dist/global-subagent-mcp-config.jsonc",
     "dist/hooks/orchestration-claude.js",
     "dist/hooks/orchestration-claude-pretool.js",
+    "dist/hooks/statusline-claude.js",
     "dist/hooks/orchestration-codex.js",
     "directives/carryover-claude.md",
     "directives/carryover-codex.md",
@@ -464,7 +547,8 @@ function repairPromptFor(vendor: "claude" | "codex", problem: string): string {
       `the global bin shim "subagent-mcp" (use 'claude mcp add subagent-mcp subagent-mcp -s user' or edit the mcpServers ` +
       `key in ~/.claude.json), and (2) ensure ~/.claude/settings.json has ` +
       `hooks.UserPromptSubmit -> {type:"command", command:"node", args:["${p.claudeHook}"]} and ` +
-      `hooks.PreToolUse -> {type:"command", command:"node", args:["${p.claudePreToolHook}"], timeout:5}. ` +
+      `hooks.PreToolUse -> {type:"command", command:"node", args:["${p.claudePreToolHook}"], timeout:5}, and ` +
+      `statusLine -> {type:"command", command:"node \\"${p.claudeStatuslineHook}\\""}. ` +
       `Back up any file before editing it.`
     );
   }
@@ -679,6 +763,22 @@ export function registrationDetail(registered: boolean, attemptedRepair: boolean
     : "not registered — run: subagent-mcp doctor";
 }
 
+export function hasRecentStatuslineSignal(
+  stateDirOverride: string = stateDir,
+  now: number = Date.now()
+): boolean {
+  try {
+    for (const name of readdirSync(stateDirOverride)) {
+      if (!/^sl-(?:cwd-)?[0-9a-f]{16}\.json$/i.test(name)) continue;
+      const stat = statSync(join(stateDirOverride, name));
+      if (now - stat.mtimeMs <= STATUSLINE_TTL_MS) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 function checkCliRegistration(
   cli: string,
   addArgs: string[],
@@ -723,6 +823,16 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
       ok: hk.status === "ok",
       detail: hk.status === "ok" ? "wired" : `${hk.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
+    const sl = reconcileClaudeStatusLine(sj, p.claudeStatuslineHook);
+    results.push({
+      label: "claude: statusLine",
+      ok: sl.status === "ok",
+      detail: sl.status === "ok"
+        ? hasRecentStatuslineSignal()
+          ? "wired; signal live"
+          : "wired; waiting for Claude statusLine signal"
+        : `${sl.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
+    });
   } else if (hasClaudeConfig) {
     const cj = readJson(join(home, ".claude.json"), {});
     const sj = readJson(join(home, ".claude", "settings.json"), {});
@@ -737,6 +847,16 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
       label: "claude: UserPromptSubmit + PreToolUse hooks",
       ok: hk.status === "ok",
       detail: hk.status === "ok" ? "wired" : `${hk.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
+    });
+    const sl = reconcileClaudeStatusLine(sj, p.claudeStatuslineHook);
+    results.push({
+      label: "claude: statusLine",
+      ok: sl.status === "ok",
+      detail: sl.status === "ok"
+        ? hasRecentStatuslineSignal()
+          ? "wired; signal live"
+          : "wired; waiting for Claude statusLine signal"
+        : `${sl.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
   }
 

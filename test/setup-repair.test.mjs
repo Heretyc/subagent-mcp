@@ -44,9 +44,17 @@ function test(name, fn) {
 
 const HOOK = "C:/global/npm/node_modules/@heretyc/subagent-mcp/dist/hooks/orchestration-claude.js";
 const PRETOOL = "C:/global/npm/node_modules/@heretyc/subagent-mcp/dist/hooks/orchestration-claude-pretool.js";
+const STATUSLINE = "C:/global/npm/node_modules/@heretyc/subagent-mcp/dist/hooks/statusline-claude.js";
 const SERVER = "C:/global/npm/node_modules/@heretyc/subagent-mcp/dist/index.js";
 const STALE = "C:/old/dev/tree/dist/hooks/orchestration-claude.js";
 const STALE_PRETOOL = "C:/old/dev/tree/dist/hooks/orchestration-claude-pretool.js";
+const STALE_STATUSLINE = "C:/old/dev/tree/dist/hooks/statusline-claude.js";
+
+function shellQuoteInner(command) {
+  return process.platform === "win32"
+    ? JSON.stringify(command)
+    : `'${command.replace(/'/g, "'\\''")}'`;
+}
 
 // ---------------------------------------------------------------------------
 // reconcileClaudeSettings
@@ -60,13 +68,14 @@ test("claude settings: absent -> added (exec form)", () => {
   const pre = s.hooks.PreToolUse[0].hooks[0];
   assert.deepEqual(hk, { type: "command", command: "node", args: [HOOK] });
   assert.deepEqual(pre, { type: "command", command: "node", args: [PRETOOL], timeout: 5 });
+  assert.deepEqual(s.statusLine, { type: "command", command: `node "${STATUSLINE}"` });
 });
 
 test("claude settings: exact wiring -> ok, nothing changed", () => {
   const s = { hooks: {
     UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [HOOK] }] }],
     PreToolUse: [{ hooks: [{ type: "command", command: "node", args: [PRETOOL], timeout: 5 }] }],
-  } };
+  }, statusLine: { type: "command", command: `node "${STATUSLINE}"` } };
   const before = JSON.stringify(s);
   const r = reconcileClaudeSettings(s, HOOK);
   assert.equal(r.status, "ok");
@@ -106,6 +115,54 @@ test("claude settings: unrelated hooks are never touched", () => {
     type: "command", command: "node", args: [PRETOOL], timeout: 5,
   });
   assert.ok(s.hooks.PreCompact, "other events untouched");
+});
+
+test("claude settings: foreign statusLine -> wrapped once with original command preserved", () => {
+  const s = {
+    hooks: {
+      UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [HOOK] }] }],
+      PreToolUse: [{ hooks: [{ type: "command", command: "node", args: [PRETOOL], timeout: 5 }] }],
+    },
+    statusLine: { type: "command", command: "starship prompt --status=$?" },
+  };
+  const r = reconcileClaudeSettings(s, HOOK);
+  assert.equal(r.status, "repaired");
+  assert.deepEqual(s.statusLine, {
+    type: "command",
+    command: `node "${STATUSLINE}" ${shellQuoteInner("starship prompt --status=$?")}`,
+  });
+});
+
+test("claude settings: statusLine reconciliation is byte-identical on second run", () => {
+  const s = {
+    hooks: {
+      UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [HOOK] }] }],
+      PreToolUse: [{ hooks: [{ type: "command", command: "node", args: [PRETOOL], timeout: 5 }] }],
+    },
+    statusLine: { type: "command", command: "starship prompt" },
+  };
+  reconcileClaudeSettings(s, HOOK);
+  const afterFirst = JSON.stringify(s);
+  const r = reconcileClaudeSettings(s, HOOK);
+  assert.equal(r.status, "ok");
+  assert.equal(r.changed, false);
+  assert.equal(JSON.stringify(s), afterFirst);
+});
+
+test("claude settings: already-ours statusLine -> path refreshed, inner command preserved", () => {
+  const s = {
+    hooks: {
+      UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [HOOK] }] }],
+      PreToolUse: [{ hooks: [{ type: "command", command: "node", args: [PRETOOL], timeout: 5 }] }],
+    },
+    statusLine: { type: "command", command: `node "${STALE_STATUSLINE}" starship prompt` },
+  };
+  const r = reconcileClaudeSettings(s, HOOK);
+  assert.equal(r.status, "repaired");
+  assert.deepEqual(s.statusLine, {
+    type: "command",
+    command: `node "${STATUSLINE}" ${shellQuoteInner("starship prompt")}`,
+  });
 });
 
 // ---------------------------------------------------------------------------

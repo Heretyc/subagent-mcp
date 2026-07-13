@@ -76,6 +76,22 @@ test("computeUsedPercentage prefers harness percentage, falls back, and propagat
   }), null);
 });
 
+test("harness percentage and window override computed ladder", () => {
+  const record = buildMeteringRecord({
+    session_id: "s-harness-override",
+    harness: "claude",
+    model: "claude-sonnet-4-5",
+    source_ref: "transcript.jsonl",
+    usage: { input: 10000, output: 0, cache_creation: 0, cache_read: 0 },
+    event: "UserPromptSubmit",
+    harnessPercentage: 37.5,
+    harnessContextWindow: LONG_CONTEXT_WINDOW,
+  });
+  assert.equal(record.used_percentage, 37.5);
+  assert.equal(record.context_window_size, LONG_CONTEXT_WINDOW);
+  assert.equal(record.window_source, "harness");
+});
+
 test("phaseFor thresholds are inclusive at 15 and 50", () => {
   assert.equal(phaseFor(null), "normal");
   assert.equal(phaseFor(14.99), "normal");
