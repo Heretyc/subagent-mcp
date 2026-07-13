@@ -72,7 +72,6 @@ This repository uses the Claude CI/CD Policy Pack for Git, GitHub, CI/CD, and ag
 - `docs/spec/auto-mode/_INDEX.md`: read before changing the `launch_agent` tool's param contract, the routing-table loader/resolver, or auto-mode candidate-selection / silent-fallback behavior; for the advanced-ruleset.py override hook, its python execution/IO contract, launch visibility fields, or the post-spawn failover window, read `docs/spec/advanced-ruleset/_INDEX.md` first.
 - `docs/spec/dev-loop/worktree-enforcement/_INDEX.md`: read before ANY mutating or repo-affecting action - creating/naming a branch or worktree, editing/writing/deleting a file, staging, committing, merging, rebasing, resetting, or pushing - to run the pre-action worktree gate. Not for read-only status/log/diff/inspection.
 - `docs/spec/dev-loop/release-publishing.md`: read before `npm publish`, npm-registry auth refresh, or diagnosing a publish failure.
-- `docs/spec/graphify.md`: read before architecture/navigation questions, before grep/find/rg searches, and at session start for MCP health expectations.
 - `docs/spec/permissions.md`: read the index, then the matched leaf before touching the permission engine, ceiling modes, `respond_permission`/`permission_requested`, the Codex approval channel, or the `global-subagent-mcp-config.jsonc` permission keys. Note: launched sub-agents run gated (default ceiling `auto`) and children get no `respond_permission` tool.
 
 ## Always Enforce

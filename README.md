@@ -27,7 +27,7 @@ of raw file context. The main invariants are:
 
 ### What You Need First
 
-- Node.js 18 or newer (`node --version`)
+- Node.js 20 or newer (`node --version`)
 - `claude` CLI, installed and signed in (`claude --version`)
 - `codex` CLI, installed and signed in (`codex --version`; optional if you only
   use Claude)

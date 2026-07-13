@@ -21,7 +21,6 @@ Historical entries:
   targeted fixes across orchestration, documentation, and validation surfaces.
 - Added the ASCII prose policy and `check:prose` gate coverage.
 - Added the README configuration section and Gemini CLI install guide.
-- Added cross-platform graphify hook support.
 
 ---
 

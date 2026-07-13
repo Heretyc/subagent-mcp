@@ -12,7 +12,7 @@ workflow, CI/CD gates, and publishing.
 Developer / build-from-source toolchain (end-user runtime requirements live in
 [README section  What you need first](README.md#what-you-need-first)):
 
-- **Node.js >= 18**  (`node --version`)
+- **Node.js >= 20**  (`node --version`)
 - **npm >= 8**  (`npm --version`)
 - **`claude` CLI** : globally installed and authenticated  (`claude --version`)
 - **`codex` CLI** : globally installed and authenticated  (`codex --version`; optional if only using Claude paths)

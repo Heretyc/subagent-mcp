@@ -4,6 +4,7 @@ version: 1.0.0
 description: Install, deploy, register, or set up the subagent-mcp addon (MCP server + orchestration-mode hooks) standards-compliant across every supported vendor (currently Claude Code CLI and Codex CLI; expandable). Ships ALL parts : MCP stdio server, per-turn hooks, and directive assets : to a PERMANENT, repo-decoupled location and wires each vendor with its official mechanism. Use when asked to "install subagent-mcp", "install the mcp", "install this", "deploy subagent-mcp", "set up subagent-mcp", "add subagent-mcp to Claude/Codex", "register the addon", "globally install subagent-mcp", "reinstall/repoint subagent-mcp", or "update the subagent-mcp install". HARD RULE: never install or run the addon from a worktree, %TEMP%/TMP/tmp, Downloads, or any temporary/ephemeral path : install only to a permanent global location. Stay compliant to the official vendor specs listed in references/compliance.md.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: June 2026
+updated: 2026-07-13
 ---
 
 # subagent-mcp Installer
@@ -98,7 +99,7 @@ Run the steps in order. Each is detailed in the linked reference.
 
 ## Helper script
 
-`skills/subagent-mcp-installer/scripts/deploy.mjs` (zero-dep ESM, Node >= 18) :
+`skills/subagent-mcp-installer/scripts/deploy.mjs` (zero-dep ESM, Node >= 20) :
 the robust, location-guarded installer (path is relative to the repo root). Usage:
 
 ```

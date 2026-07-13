@@ -19,7 +19,6 @@ function test(name, fn) {
 const hookRegistrationFiles = [
   "src/setup.ts",
   "scripts/postinstall.mjs",
-  "tools/vendor/graphify-local/graphify/__main__.py",
   "hooks/hooks.json",
 ];
 

@@ -43,7 +43,6 @@ everything else.
 | Release / publishing | `docs/spec/dev-loop/release-publishing.md` |
 | Contradiction checker | `docs/spec/dev-loop/contradiction-checker.md` |
 | Prompt review (8-perspective) | `docs/spec/prompt-review/eight-perspective-review.md` |
-| Graphify (knowledge graph) | `docs/spec/graphify.md` |
 | Contributing / dev env | `CONTRIBUTING.md`, `docs/CONTRIBUTING.md` (redirect stub) |
 | Release notes | `docs/release-notes.md` |
 | Directive source assets | `directives/{orchestration-claude,orchestration-codex,carryover-claude,carryover-codex,reminder-on,reminder-off-claude,reminder-off-codex,short-on,short-off}.md` |
@@ -177,7 +176,6 @@ everything else.
 - `docs/spec/dev-loop/release-publishing.md` : publish/registry.
 - `docs/spec/dev-loop/contradiction-checker.md` : pre-commit contradiction gate.
 - `docs/spec/prompt-review/eight-perspective-review.md` : changing instruction/prompt files.
-- `docs/spec/graphify.md` : architecture/navigation questions, before grep/find.
 - `docs/spec/interactive-drivers.md` : driver model / provider process handling.
 - `CONTRIBUTING.md` : dev env, build, test, contribution workflow.
 - `skills/mcp-builder/SKILL.md` : building an MCP server.

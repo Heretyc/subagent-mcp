@@ -29,7 +29,7 @@ npm install
 npm run build      # tsc + copy-provider -> dist/index.js, dist/hooks/*.js
 ```
 
-Requires **Node.js >= 18**. After the build, confirm these exist:
+Requires **Node.js >= 20**. After the build, confirm these exist:
 
 - `dist/index.js` : MCP server entry
 - `dist/hooks/orchestration-claude.js` : Claude per-turn hook

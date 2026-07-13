@@ -6,5 +6,4 @@ src/config-scaffold.ts
 .env
 claude-cicd-policy-pack.zip
 **/__pycache__/
-graphify-out/
 *.bak-init-*

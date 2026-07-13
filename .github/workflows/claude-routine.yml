@@ -3,7 +3,8 @@ name: Claude Routine Dispatch
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review, edited]
-  push: {}
+  push:
+    branches: [main]
   merge_group:
     types: [checks_requested]
   workflow_dispatch:

@@ -11,7 +11,7 @@ blocks into provider global user-config, or installing from source.
 
 ## Prerequisites
 
-- **Node.js >= 18**
+- **Node.js >= 20**
 - **`claude` CLI** (Claude Code) installed globally and authenticated (`claude login`)
 - **`codex` CLI** (OpenAI Codex CLI) installed globally and authenticated (`codex auth`)
 - Both CLIs must be installed and on `PATH` (macOS/Linux: standard npm global bin or Homebrew; Windows: resolved via npm global prefix automatically)

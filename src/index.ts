@@ -2069,7 +2069,7 @@ server.tool(
   })
 );
 
-// Tool 8: model-selection-mode
+// Tool 9: model-selection-mode
 server.tool(
   "model-selection-mode",
   "Set or query per-project MODEL SELECTION MODE, which gates launch_agent's `provider`/`model`/`effort` selectors. `mode`: \"smart\" or \"user-approved-overrides\"; omit to query. \"smart\" is the DEFAULT (used whenever unset): launch_agent REJECTS any call supplying provider/model/effort and the server auto-picks the best model for the task_category. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (reverts to smart on the next launch_agent call after the 30 min elapse); re-enabling does NOT extend an active window. HONOR-BASED, parallel to orchestration-mode: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex; a plain yes/no if neither exists). This tool CANNOT verify that authorization — never enable on your own initiative. PERSISTENCE: state keyed by cwd; both the mode and the override-window timestamp survive server restarts (remaining window is restored, not reset).",
