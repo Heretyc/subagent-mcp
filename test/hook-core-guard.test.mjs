@@ -18,17 +18,40 @@ function withTempRoot(fn) {
 }
 
 try {
-  assert.throws(
+  // ISS-080: an invalid/untrusted plugin root must never be honored, but it
+  // must also never throw — resolution fails safe by falling back to the
+  // compiled root's bundled directives dir.
+  const compiledFallback = resolveDirectivesDir({});
+  assert.equal(isAbsolute(compiledFallback), true);
+
+  // A relative CLAUDE_PLUGIN_ROOT is untrusted: it is NOT honored and does not
+  // throw; resolution falls back to the bundled directives dir.
+  assert.doesNotThrow(
     () => resolveDirectivesDir({ CLAUDE_PLUGIN_ROOT: "relative/bad/path" }),
-    /CLAUDE_PLUGIN_ROOT.*relative\/bad\/path/,
-    "relative CLAUDE_PLUGIN_ROOT should fail closed"
+    "relative CLAUDE_PLUGIN_ROOT must fail safe, not throw"
+  );
+  assert.equal(
+    resolveDirectivesDir({ CLAUDE_PLUGIN_ROOT: "relative/bad/path" }),
+    compiledFallback,
+    "relative CLAUDE_PLUGIN_ROOT falls back to the bundled directives dir"
+  );
+  assert.equal(
+    readDirective({ CLAUDE_PLUGIN_ROOT: "relative/bad/path" }, "short-on.md"),
+    readFileSync(join(compiledFallback, "short-on.md"), "utf8"),
+    "relative CLAUDE_PLUGIN_ROOT still yields the bundled directive"
   );
 
   withTempRoot((rootWithoutDirectives) => {
-    assert.throws(
+    // An absolute root lacking a directives dir is likewise not honored and
+    // must fall back to the bundled directives dir without throwing.
+    assert.doesNotThrow(
       () => resolveDirectivesDir({ PLUGIN_ROOT: rootWithoutDirectives }),
-      new RegExp(`PLUGIN_ROOT.*${rootWithoutDirectives.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
-      "PLUGIN_ROOT without directives should fail closed"
+      "PLUGIN_ROOT without directives must fail safe, not throw"
+    );
+    assert.equal(
+      resolveDirectivesDir({ PLUGIN_ROOT: rootWithoutDirectives }),
+      compiledFallback,
+      "PLUGIN_ROOT without directives falls back to the bundled directives dir"
     );
   });
 
@@ -36,9 +59,13 @@ try {
     const directivesDir = join(validRoot, "directives");
     mkdirSync(directivesDir);
     writeFileSync(join(directivesDir, "sample.md"), "directive body", "utf8");
-    assert.equal(resolveDirectivesDir({ PLUGIN_ROOT: validRoot }), directivesDir);
-    assert.equal(readDirective({ PLUGIN_ROOT: validRoot }, "sample.md"), "directive body");
-    assert.equal(readDirective({ PLUGIN_ROOT: validRoot }, "missing.md"), "");
+    // A root is honored only when it is trusted: mark it under the install
+    // allowlist by pointing npm_config_prefix at it, matching how the resolver
+    // gates env-supplied roots.
+    const trusted = { PLUGIN_ROOT: validRoot, npm_config_prefix: validRoot };
+    assert.equal(resolveDirectivesDir(trusted), directivesDir);
+    assert.equal(readDirective(trusted, "sample.md"), "directive body");
+    assert.equal(readDirective(trusted, "missing.md"), "");
   });
 
   const fallback = resolveDirectivesDir({});
