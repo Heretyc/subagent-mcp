@@ -41,10 +41,9 @@ decoupled copy). When they disagree, **this skill wins**.
    `dist/advanced-ruleset.py` is NEVER overwritten on
    update: `deploy.mjs` snapshots it before `npm install -g` and restores it
    after.
-   `dist/global-subagent-mcp-config.jsonc` is also user-editable retained
-   config; the same snapshot/restore mechanism preserves user edits to the
-   global config across installs and updates. `dist/global-concurrency.jsonc`
-   remains a legacy fallback only.
+   `dist/global-subagent-mcp-config.jsonc` is the sole canonical
+   user-editable retained config; the same snapshot/restore mechanism
+   preserves user edits to the global config across installs and updates.
 3. **Standards-compliant per vendor.** Use each vendor's official registration
    path and config schema, verbatim from the specs in
    `references/compliance.md`. No bespoke shims.
@@ -79,6 +78,10 @@ Run the steps in order. Each is detailed in the linked reference.
    `scripts/deploy.mjs` does this with a hard guard that REFUSES forbidden
    source paths. It runs `npm run build`, `npm pack`, `npm install -g <tarball>`,
    removes the tarball, resolves `npm root -g`, and verifies every shipped part.
+   All child processes use `execFileSync` with `shell:false`. On Windows, known
+   npm `.cmd` shims are resolved to their Node script before execution, with a
+   `cmd.exe` fallback only for unresolved shell shims. Package name and version
+   metadata are validated before forming the tarball path.
 3. **Detect present vendors** : is `claude` on PATH? does `~/.codex/` exist?
    Install for each present vendor; skip absent ones (note what you skipped).
 4. **Wire each vendor** with its official mechanism:

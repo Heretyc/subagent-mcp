@@ -7,7 +7,7 @@ in one shot with `setup`, tuning global machine-local settings, upserting manage
 blocks into provider global user-config, or installing from source.
 **Do not load when:** you only need the per-host MCP-server config snippet (see
 `claude-code.md`, `codex.md`, `gemini.md`) or the orchestration hook wiring (see
-`orchestration-plugin.md`).
+[docs/install/_INDEX.md](../install/_INDEX.md)).
 
 ## Prerequisites
 
@@ -53,9 +53,11 @@ back-compat fallback):
 
 When `checkForUpdates` is true, the MCP server starts a non-blocking npmjs
 metadata check after launch. If a newer `@heretyc/subagent-mcp` exists, the CLI
-hook appends this notice at most once per session and no more than every 12
-hours: run `subagent-mcp update`, then `subagent-mcp setup`. If a hook host
-omits `session_id`, the notice falls back to timestamp-only throttling.
+hook appends an informational prompt to run `subagent-mcp update`, then
+`subagent-mcp setup`, at most once per session and no more than every 12 hours.
+Registry-sourced names, versions, and URLs are never interpolated into injected
+text. If a hook host omits `session_id`, the notice falls back to
+timestamp-only throttling.
 
 Set `"checkForUpdates": false` to skip the registry fetch and suppress the hook
 notice. `SUBAGENT_UPDATE_CHECK=0` or `SUBAGENT_UPDATE_CHECK=false`

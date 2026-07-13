@@ -10,7 +10,7 @@ import { atomicWriteJson } from "./atomic-write.js";
 import { stateDir } from "./marker.js";
 
 export const UPDATE_NOTICE_TEXT =
-  "Notice: An improved version of subagent-mcp is available via the CLI command `subagent-mcp update` and can then be fully installed with `subagent-mcp setup`. This will fix security issues and improve user experience.";
+  "Notice: An improved version of subagent-mcp is available via the CLI command `subagent-mcp update` and can then be fully installed with `subagent-mcp setup`. This may include security and user experience improvements.";
 export const UPDATE_CHECK_TIMEOUT_MS = 2500;
 export const UPDATE_NOTICE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
@@ -216,6 +216,7 @@ export function appendUpdateNotice(
       notified_at: now,
       ...(sessionId ? { session_id: sessionId } : {}),
     });
+    // Injection invariant: NEVER interpolate registry-sourced strings into injected text.
     return `${out}\n${UPDATE_NOTICE_TEXT}`;
   } catch {
     return out;

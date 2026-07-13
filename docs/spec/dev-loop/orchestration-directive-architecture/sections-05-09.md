@@ -2,225 +2,163 @@
 
 ## section 5 : No-Hook Fail-Safe-ON + One-Time Opt-Out (D18 / S6 / D6 / D7)
 
-Hosts that inject **no** hook block (Gemini, desktop apps, any session without
-hook injection : D6) cannot report `state`. The tag is **ABSENT** ⇒ state is
-**UNKNOWN** (never an emitted `state="unknown"` value).
+Hosts that inject no hook block (Gemini, desktop apps, any session without hook
+injection : D6) cannot report `state`. The tag is absent, so state is UNKNOWN,
+never an emitted `state="unknown"` value.
 
 On such a host (S6, three parts):
 
-1. **Emit the UNKNOWN-STATE WARNING** (base literal from C3):
+1. Emit the UNKNOWN-STATE WARNING (base literal from C3):
    `subagent-mcp: no hook injection detected : orchestration state unknown; defaulting to ON`
-2. **Briefly EXPLAIN WHY:** *no hook injection detected : cannot verify
-   orchestration state; defaulting to ON to prevent uncontrolled inline
-   execution.*
-3. **Allow a ONE-TIME per-session opt-out:** *If you are not currently running
-   an orchestration workflow, you may explicitly opt out of ON for this session
-   by saying so now; this opt-out does not persist and is not recorded.* If the
-   user opts out, honor OFF **for this session only** (no persistence, no
-   recording; the next new session defaults back to the ON warning).
+2. Explain why: no hook injection was detected, so the agent cannot verify
+   orchestration state and defaults to ON to prevent uncontrolled inline
+   execution.
+3. Allow a one-time per-session opt-out: if the user is not running an
+   orchestration workflow, they may explicitly opt out of ON for this session.
+   This opt-out does not persist and is not recorded. The next new session
+   defaults back to the ON warning.
 
-The **sub-agent first-line exemption (section 6) is the ONLY automatic suppressor** of
-this fail-safe default : it prevents fail-safe-ON from recursing into a
-fork-bomb.
+The sub-agent first-line exemption in section 6 is the only automatic
+suppressor of this fail-safe default. It prevents fail-safe ON from recursing
+into child sessions.
 
-### 5.1 No-hook hosts vs hook-covered hosts (UNCHANGED note)
+### 5.1 No-hook hosts vs hook-covered hosts
 
-The context-metered redesign does **NOT** change no-hook host behavior. This
-section 5 fail-safe-ON-when-UNKNOWN rule stays exactly as written above:
-no-hook hosts (Gemini, desktop apps, any session without hook injection)
-cannot report state, cannot be metered, and therefore keep the existing
-**default-ON-when-UNKNOWN** doctrine, unchanged.
+The context-metered redesign does not change no-hook host behavior. No-hook
+hosts cannot report state, cannot be metered, and keep the existing
+default-ON-when-UNKNOWN doctrine.
 
-Distinguish this from the NEW hook-covered-host rule (sections-00-04.md,
-context-metering.md): on hosts that DO fire hooks, orchestration now starts
-**default-OFF per session**, and ON is reached only by an explicit enable
-record, an active 15% latch, or the **metering-undetectable fail-safe**. That
-metering fail-safe is a separate mechanism from this no-hook fail-safe: it
-applies only where hooks fire but provider-reported context size cannot be
-measured. No-hook hosts never reach the metering path at all and remain on the
-unchanged default-ON warning described here.
+Distinguish this from the hook-covered-host rule in `sections-00-04.md` and
+`context-metering.md`: on hosts that do fire hooks, orchestration starts
+default OFF per session, and ON is reached only by an explicit enable record,
+an active 15% latch, or the metering-undetectable fail-safe. That metering
+fail-safe applies only where hooks fire but provider-reported context size
+cannot be measured.
 
 ---
 
 ## section 6 : Sub-Agent First-Line Exemption + `launch_agent` Upsert (D19 / D20 / S8)
 
-**UNCHANGED by the context-metered redesign.** The first-line exemption (the
-`<this is a request from a parent process>` line-1 SKIP) and the
-`SUBAGENT_MCP_SUBAGENT=1` spawn-env carve-out are preserved exactly as
-specified below. Metering, the 15% latch, and the 50% handoff phase do not
-alter, weaken, or add to these carve-outs; a child session still self-skips the
-ENTIRE init/orchestration regime regardless of any metering phase.
+The first-line exemption and `SUBAGENT_MCP_SUBAGENT=1` spawn-env carve-out are
+unchanged by the context-metered redesign. Metering, the 15% latch, and the 50%
+handoff phase do not alter these carve-outs.
 
 ### 6.1 The exemption (D19)
 
-> **Any session whose prompt's literal FIRST LINE begins with the exact string
-> `<this is a request from a parent process>` SKIPS the ENTIRE init /
-> orchestration regime** : it ignores the INIT_BLOCK and every `<subagent-mcp>`
-> tag. This is the canonical child-session identifier and the **ONLY exception
-> to all mandates**. It exists to stop the section 5 fail-safe-ON default from
-> recursively orchestrating child sessions (fork-bomb prevention).
+Any session whose prompt's literal first line begins with the exact string
+`<this is a request from a parent process>` skips the entire init and
+orchestration regime: it ignores the INIT_BLOCK and every `<subagent-mcp>` tag.
+This is the canonical child-session identifier and the only exception to all
+mandates.
 
-"First line" = the literal line at character position 0 up to the first newline.
-**Leading blank lines do NOT count** : the marker must be physically line 1.
-Child identity is a **first-line SKIP, never a tag attribute** (the hook emits
-`""` for a sub-agent turn). Defensive guard: every injected directive (A5) also
-restates this first-line check so a stray injection into a child self-skips.
+"First line" means character position 0 up to the first newline. Leading blank
+lines do not count. Child identity is a first-line skip, never a tag attribute.
+The hook emits `""` for a sub-agent turn. Every injected directive also
+restates this check so a stray injection into a child self-skips.
 
 ### 6.2 Silent upsert (D20 / S8)
 
-`launch_agent` **silently UPSERTS** the marker as the **TRUE first line** of
-every sub-agent prompt when absent, and does **not** duplicate it when present.
-The contract is Appendix **A7** (`ensureParentMarker`). It is BOM-tolerant on
-the first-line comparison only, CRLF-safe, idempotent, and **never mutates the
-prompt body**. It is wired into **all** launch paths (Claude Agent SDK + Codex
-app-server). The D20 unit test (A7.2 / section 11) is **GATING**.
+`launch_agent` silently upserts the marker as the true first line of every
+sub-agent prompt when absent, and does not duplicate it when present. Appendix
+A7 (`ensureParentMarker`) is the contract: BOM-tolerant on the first-line
+comparison only, CRLF-safe, idempotent, and never mutates the prompt body. It
+is wired into all launch paths. The D20 unit test is gating.
 
-### 6.3 Fork-bomb hardening : native-tool denial + depth cap (D19 extension)
+### 6.3 Fork-bomb hardening : native-tool denial + depth cap
 
-Two code-enforced guards backstop the prose exemption so a compromised or
-confused child cannot recurse:
+Two code-enforced guards backstop the prose exemption:
 
-1. **Native sub-agent tools denied for children too.** The Claude PreToolUse gate
-   (`src/orchestration/pretool.ts`) denies harness-native `Task`/`Agent`/`Explore`
-   **even when the caller is a sub-agent** (`SUBAGENT_MCP_SUBAGENT=1`). The gate
-   no longer early-returns `null` for children, so the SOLE-CHANNEL rule
-   (launch_agent only) is enforced on sub-agents, not just the root orchestrator.
-2. **`SUBAGENT_MCP_DEPTH` spawn-level cap.** Each launch stamps the child's env
-   with `SUBAGENT_MCP_DEPTH = parent depth + 1`. `currentLaunchDepth` reads it:
-   main orchestrator = depth **0** → sub-orchestrators depth **1** → workers depth
-   **2**. `launch_agent` is **code-rejected at depth >= 2** (workers cannot spawn),
-   giving exactly two spawn levels below the main orchestrator. A legacy sub-agent
-  carrying `SUBAGENT_MCP_SUBAGENT=1` but no `SUBAGENT_MCP_DEPTH` is treated as
-  depth **1** (so it may still launch one level, but its children hit the cap).
+1. Claude PreToolUse denies harness-native `Task`/`Agent`/`Explore` even when
+   the caller is a sub-agent (`SUBAGENT_MCP_SUBAGENT=1`). The sole-channel rule
+   is enforced on sub-agents, not just the root orchestrator.
+2. Each launch stamps `SUBAGENT_MCP_DEPTH = parent depth + 1`. Main
+   orchestrator depth is 0, sub-orchestrators depth is 1, and workers depth is
+   2. `launch_agent` is code-rejected at depth >= 2. A legacy sub-agent with
+   `SUBAGENT_MCP_SUBAGENT=1` but no depth is treated as depth 1.
 
 ### 6.4 Hook-side child detection ladder
 
 Hook adapters detect child turns by degrading to the next-strongest signal,
 never to a guess and never to `undefined`: spawn env
-`SUBAGENT_MCP_SUBAGENT=1` -> host-structured metadata -> exact wire marker.
+`SUBAGENT_MCP_SUBAGENT=1`, host-structured metadata, then exact wire marker.
+
 Claude structured metadata is `agent_id` or a sub-agent
-`CLAUDE_CODE_ENTRYPOINT`; Codex structured metadata is the `source` object/enum.
+`CLAUDE_CODE_ENTRYPOINT`. Codex structured metadata is the `source`
+object/enum. For Codex object-form `source`, child detection accepts the legacy
+`subagent` key, known `subAgent*` kind names as object keys, and those same
+names in `kind` or `type` discriminator values. This is intentionally
+schema-tolerant because local Codex rollouts have not made the object shape
+stable.
+
 The final marker tier uses the shared `hasParentMarker()` predicate from
-`src/launch-prompt.ts`, the same constant/extractor used by `ensureParentMarker`.
-It is case-sensitive and accepts only the exact bracketed marker at character
-position 0 on the physical first line, with BOM and CRLF comparison tolerance.
-Leading blank lines, line-2 markers, bracketless prose, case variants, and
-mid-line substrings do not count.
+`src/launch-prompt.ts`, the same constant/extractor used by
+`ensureParentMarker`. It is case-sensitive and accepts only the exact bracketed
+marker at character position 0 on the physical first line, with BOM and CRLF
+comparison tolerance. Leading blank lines, line-2 markers, bracketless prose,
+case variants, and mid-line substrings do not count.
 
 ---
 
 ## section 7 : Dropout / HALT Semantics + Task-Abandonment Exit (D12 / D23 / S5)
 
-If subagent-mcp stops responding **while orchestration is ON**:
+If subagent-mcp stops responding while orchestration is ON:
 
-- **HALT and ask the user.** Do **nothing** inline.
-- **HALT UNTIL RESTORED:** keep re-checking and remain halted until subagent-mcp
-  returns. **No auto-degrade.**
-- **The only user exit is explicit task abandonment (S5):**
-
-  > *The only user choices are keep-waiting (the default) or explicitly abandon
-  > the whole task; aborting ends the task, it never switches you to inline
-  > work.*
-
-There is no inline-degrade path. Aborting **terminates the task entirely**; it
-never converts the orchestrator into an inline worker.
+- Halt and ask the user. Do nothing inline.
+- Keep re-checking and remain halted until subagent-mcp returns. No auto-degrade.
+- The only user exit is explicit task abandonment: aborting ends the task and
+  never switches the orchestrator into inline work.
 
 ---
 
 ## section 8 : Markers, Union Migration & Collapse (D9 / D17 / D22 / S2 / S3)
 
-### 8.1 Markers (S2)
+### 8.1 Markers, migration, and collapse
 
-```
+Managed blocks use:
+
+```text
 <!-- subagent-mcp:managed:begin schema=3 -->
 ... managed block body ...
 <!-- subagent-mcp:managed:end -->
 ```
 
-The outer `subagent-mcp:` prefix is **unchanged** (external-tooling stability);
-the `:managed:` segment makes the block self-describing; `schema=N` is the
-version/format dial (D9 bump). **No migration note inside the block** (D9).
+The outer `subagent-mcp:` prefix is unchanged for external tooling stability.
+The `:managed:` segment makes the block self-describing; `schema=N` is the
+version/format dial. No migration note is written inside the block.
 
-### 8.2 Union migration regex (S3) : verified vs real `init.ts`
+`MIGRATE_RE` matches both legacy and managed blocks:
+`/<!-- subagent-mcp:(?:managed:)?begin\b[^>]*-->[\s\S]*?<!-- subagent-mcp:(?:managed:)?end -->/`.
+The optional `managed:` group and schema bump force one re-upsert for prior
+installs. On duplicate or corrupt blocks, init replaces the first match with
+the new block, deletes remaining matches up to the bounded cap, collapses blank
+runs once, and performs one `atomicWrite`. `removeManagedBlock` uses the same
+regex, so it strips legacy v1/schema=2 and schema=3.
 
-```
-MIGRATE_RE = /<!-- subagent-mcp:(?:managed:)?begin\b[^>]*-->[\s\S]*?<!-- subagent-mcp:(?:managed:)?end -->/
-```
+### 8.2 Edit protocol for do-not-edit / schema-marked blocks
 
-Replaces the current `BEGIN_RE` at `src/init.ts` line 31. The `(?:managed:)?`
-group makes it match **both** generations in one pattern (full spec + collapse
-algorithm in Appendix **A6**). The bump (`v1`/`schema=2` → `schema=3`) forces a re-upsert on
-every prior install (captured legacy text never `=== block`, so the `updated`
-path always runs first re-init).
+Any block labeled "do not edit between markers", carrying a `schema=N` marker,
+or otherwise looking machine-managed must be flagged and proposed before it is
+touched. Before making any edit:
 
-### 8.3 Collapse (S3)
+1. Say that the block looks installer-managed and editing it in place risks a
+   silent overwrite on the next `init` re-upsert.
+2. Propose the safer default: write the change to an adjacent unmanaged file
+   and let the user decide whether to merge it into the managed block.
+3. Edit the managed block in place only if the user, having heard the risk,
+   still asks for it directly.
 
-On `>1` global match (corrupted/duplicate prior install): replace the **FIRST**
-match with the new block, loop-delete the remaining matches (bounded cap 8),
-`collapseBlankRuns` once, single `atomicWrite`, stderr note. Result: **exactly
-one** schema=3 block. `removeManagedBlock` uses the same `MIGRATE_RE` so
-`--remove` strips legacy v1/schema=2 **and** schema=3.
+### 8.3 Enable and latch records
 
-### 8.4 Edit protocol for do-not-edit / schema-marked blocks (Rule 3)
+The context-metered redesign adds two session-keyed state files under
+`join(os.tmpdir(), "subagent-mcp")`, written through `atomicWriteJson` with dir
+`0o700` and file `0o600`:
 
-Any block labeled "do not edit between markers", carrying a `schema=N` marker, or
-otherwise looking machine-managed must be flagged-and-proposed before it is
-touched : sequencing, not new information, is the fix. Before making any edit:
+| Record | File | Shape | Semantics |
+|---|---|---|---|
+| Enable | `orch-enable-<hashKey(sessionKey)>.json` | `{ enabled_at: number }` | explicit opt-in that raises a default-OFF hook-covered session to ON; same 2h TTL and lazy-GC pattern as disable; disable still wins |
+| Latch | `latch-<hashKey(sessionKey)>.json` | `{ latched: true, latched_at: number, session_id: string }` | written once at the first 15% plan-phase crossing; does not expire by time while the record exists; persists through the 50% phase for that session |
 
-1. **Say so out loud, before editing:** the block looks installer-managed and is
-   labeled do-not-edit; editing it in place risks a silent overwrite on the next
-   `init` re-upsert and overrides an explicit label without asking first.
-2. **Propose the safer default unprompted:** write the change to an adjacent
-   unmanaged file (e.g. `<name>-directive.md` next to the managed file) and let
-   the user decide whether to merge it into the managed block themselves.
-3. **Only edit the managed block in place** if the user, having heard #1, still
-   asks for it directly.
-
-Having the do-not-edit label and the `schema=N` marker in hand *before* the first
-edit is exactly the trigger : do not edit first and produce the adjacent-file
-alternative only after a revert demand.
-
-### 8.5 New state-file records : enable and latch (context-metered redesign)
-
-The redesign adds two new state files under the existing state dir
-(`join(os.tmpdir(), "subagent-mcp")`), written via the existing
-`atomicWriteJson` (dir `0o700`, file `0o600`). Both are session-keyed via the
-existing `hashKey(sessionKey)` function.
-
-**Enable record** (NEW, mirrors the existing `orch-disable-<hash>.json`
-structurally), file name:
-
-```
-orch-enable-<hashKey(sessionKey)>.json
-```
-
-Shape:
-
-```
-{ enabled_at: number }
-```
-
-An enable record is the explicit opt-in that raises a default-OFF hook-covered
-session to ON. It uses the same 2h TTL / lazy-GC pattern as the disable record
-(`ORCH_DISABLE_TTL_MS`). A disable record still wins over an enable record.
-
-**Latch record** (NEW), file name:
-
-```
-latch-<hashKey(sessionKey)>.json
-```
-
-Shape:
-
-```
-{ latched: true, latched_at: number, session_id: string }
-```
-
-The latch record is written when a session first crosses the 15% plan-phase
-threshold (`tripLatch`, idempotent : `latched_at` records the FIRST crossing).
-Unlike the enable/disable records, the latch does NOT expire by time while its
-record exists; it persists through the 50% phase for the life of the session.
-A brand-new session (new `sessionKey`) starts latch-free.
+A brand-new session with a new `sessionKey` starts latch-free.
 
 ---
 
@@ -230,14 +168,10 @@ A brand-new session (new `sessionKey`) starts latch-free.
 |---|---|---|---|---|
 | Claude Code CLI | Yes | hook tag | `AskUserQuestion` | authoritative ON/OFF |
 | Codex CLI | Yes | hook tag | `request-user-input` | authoritative ON/OFF |
-| Gemini CLI | No | : (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (section 5) |
-| Desktop apps | Toggle session disable, inject nothing | : (tag absent) | n/a | UNKNOWN → warn → **fail-safe ON** (section 5) |
+| Gemini CLI | No | tag absent | n/a | UNKNOWN, warn, fail-safe ON (section 5) |
+| Desktop apps | Toggle session disable, inject nothing | tag absent | n/a | UNKNOWN, warn, fail-safe ON (section 5) |
 
-The supremacy clause (A4) is byte-identical in all three host files **regardless
-of whether that host fires hooks** (D7). No hook-core behavior change is
-required for fail-safe-ON; it lives entirely in the INIT_BLOCK + MCP
-`instructions` prose. The hook **emits `""` on any error** and for any sub-agent
-turn (never a `<subagent-mcp>` tag).
-
----
-
+The supremacy clause (A4) is byte-identical in all three host files regardless
+of whether that host fires hooks. Fail-safe ON lives in the INIT_BLOCK and MCP
+`instructions` prose. Hook-core emits `""` on any error and for any sub-agent
+turn, never a `<subagent-mcp>` tag.

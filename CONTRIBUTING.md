@@ -164,6 +164,7 @@ duplicate the content in the "Must NOT be duplicated in" column.
 | Developer / build prerequisites | CONTRIBUTING section  Prerequisites | README (link only); docs/registration.md; CONTRIBUTING section  Publishing |
 | From-source build steps (clone/install/build/run) | CONTRIBUTING section  Local Setup | README; any other CONTRIBUTING section |
 | MCP host wiring (per-platform) | docs/registration.md | README; CONTRIBUTING prose |
+| MCP-only server registration vs orchestration-hook install | docs/registration.md owns MCP server registration steps only; docs/install/* owns orchestration-hook install, plugin/npm/manual wiring, and per-host hook verification | Do not put orchestration-hook install steps in docs/registration.md; do not duplicate MCP-only server config steps in docs/install/* |
 | Contribution workflow (8 steps) | CONTRIBUTING section  Contribution Workflow | docs/CONTRIBUTING.md (redirect stub only); README |
 | GitHub CI/CD gates | CONTRIBUTING section  GitHub Gates (CI/CD) | README; any other doc |
 | Release / publish SOP | docs/spec/dev-loop/release-publishing.md | README; CONTRIBUTING section  Local Setup |

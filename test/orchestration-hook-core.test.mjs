@@ -30,14 +30,17 @@ import {
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   ANON_CLAIM_TTL_MS,
   cullHookZombies,
   ownerKey,
+  resolveDirectivesDir,
   runHook,
   REMINDER_PERIOD,
+  sessionKey,
 } from "../dist/orchestration/hook-core.js";
 import {
   markerPath,
@@ -126,7 +129,9 @@ function makeDirectivesEnv({
   if (withReminderOff) writeFileSync(join(dir, "rem-off.md"), REM_OFF_TEXT, "utf8");
   if (withLatch) writeFileSync(join(dir, "latch-test.md"), LATCH_TEXT, "utf8");
   if (withHandoff) writeFileSync(join(dir, "handoff-test.md"), HANDOFF_TEXT, "utf8");
-  return { root, env: { PLUGIN_ROOT: root } };
+  // Mark the temp plugin root trusted by pointing the install-prefix allowlist
+  // (npm_config_prefix) at it; the resolver's trust gate then accepts it.
+  return { root, env: { PLUGIN_ROOT: root, npm_config_prefix: root } };
 }
 
 // Synthetic adapter with injectable subagent/turn behavior.
@@ -501,6 +506,36 @@ test("identity ladder is total: session_id > transcript_path > anon", () => {
   }
 });
 
+test("transcript_path fallback normalizes slash and case variants before hashing", () => {
+  const cwd = makeCwd();
+  try {
+    const adapter = makeAdapter();
+    const lower = "C:/tmp/subagent/transcript.jsonl";
+    const slashVariant = "C:\\tmp\\subagent\\transcript.jsonl";
+    const caseVariant = "c:/TMP/subagent/TRANSCRIPT.jsonl";
+
+    // Slash normalization is platform-independent: backslashes collapse to
+    // forward slashes on every OS, so these must always hash equal.
+    assert.equal(sessionKey({ transcript_path: lower }), sessionKey({ transcript_path: slashVariant }));
+    // Case-insensitive normalization applies only on Windows, where the
+    // filesystem is case-insensitive. POSIX paths are case-sensitive, so the
+    // production code (correctly) lowercases only on win32 and the case variant
+    // must hash differently there.
+    if (process.platform === "win32") {
+      assert.equal(sessionKey({ transcript_path: lower }), sessionKey({ transcript_path: caseVariant }));
+    } else {
+      assert.notEqual(sessionKey({ transcript_path: lower }), sessionKey({ transcript_path: caseVariant }));
+    }
+    assert.equal(
+      ownerKey({ cwd, session_id: "host-session", transcript_path: caseVariant }, cwd, adapter),
+      "host-session",
+      "host session_id remains preferred over transcript_path fallback"
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 test("anonymous owner claim re-anchors after TTL and then returns to cadence", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
@@ -603,12 +638,16 @@ test("missing directive files -> '' (fail-safe read, never throws)", () => {
 
 test("invalid directives root -> '' from runHook instead of escaping readDirective", () => {
   const cwd = makeCwd();
-  const badRoot = join(tmpdir(), "orch-root-missing-directives");
+  // A trusted plugin root (npm_config_prefix marks it under the install
+  // allowlist) whose directives dir exists but is empty: every directive read
+  // fail-safes to '' without the resolver escaping or claiming the marker.
+  const badRoot = mkdtempSync(join(tmpdir(), "orch-root-empty-directives-"));
+  mkdirSync(join(badRoot, "directives"), { recursive: true });
   try {
     writeFreshMarker(cwd);
     const out = runHook(
       { cwd, session_id: "sess-bad-root", transcript_path: undefined },
-      { PLUGIN_ROOT: badRoot },
+      { PLUGIN_ROOT: badRoot, npm_config_prefix: badRoot },
       makeAdapter({ turn: 0 })
     );
     assert.equal(out, "", "resolver errors are contained by readDirective");
@@ -616,6 +655,36 @@ test("invalid directives root -> '' from runHook instead of escaping readDirecti
       "failed directive resolution does not claim the marker");
   } finally {
     cleanup(cwd, badRoot);
+  }
+});
+
+test("env directives root outside trusted install prefixes is rejected by falling back", () => {
+  const outsideRoot = mkdtempSync(join(tmpdir(), "orch-untrusted-root-"));
+  const outsideDirectives = join(outsideRoot, "directives");
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  mkdirSync(outsideDirectives, { recursive: true });
+  try {
+    assert.equal(
+      resolveDirectivesDir({ PLUGIN_ROOT: outsideRoot }),
+      join(repoRoot, "directives")
+    );
+  } finally {
+    rmSync(outsideRoot, { recursive: true, force: true });
+  }
+});
+
+test("env directives root under npm prefix is accepted", () => {
+  const prefix = mkdtempSync(join(tmpdir(), "orch-trusted-prefix-"));
+  const pluginRoot = join(prefix, "node_modules", "@heretyc", "subagent-mcp");
+  const directivesDir = join(pluginRoot, "directives");
+  mkdirSync(directivesDir, { recursive: true });
+  try {
+    assert.equal(
+      resolveDirectivesDir({ PLUGIN_ROOT: pluginRoot, npm_config_prefix: prefix }),
+      directivesDir
+    );
+  } finally {
+    rmSync(prefix, { recursive: true, force: true });
   }
 });
 

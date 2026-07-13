@@ -5,8 +5,8 @@
 **Load when:** registering the bare `subagent-mcp` server in Codex's
 `config.toml`, or locating repo-level Codex config docs.
 **Do not load when:** installing the Codex orchestration hook (see
-`orchestration-plugin.md`) or wiring Claude/Gemini (see `claude-code.md`,
-`gemini.md`).
+[docs/install/_INDEX.md](../install/_INDEX.md)) or wiring Claude/Gemini (see
+`claude-code.md`, `gemini.md`).
 
 Replace the path with the absolute path where you cloned the repo.
 

@@ -6,7 +6,8 @@
 or Desktop), choosing user vs project scope, or locating the Claude Desktop
 config file.
 **Do not load when:** installing the orchestration hook/plugin (see
-`orchestration-plugin.md`) or wiring Codex/Gemini (see `codex.md`, `gemini.md`).
+[docs/install/_INDEX.md](../install/_INDEX.md)) or wiring Codex/Gemini (see
+`codex.md`, `gemini.md`).
 
 Replace the path in each example with the absolute path where you cloned the repo.
 

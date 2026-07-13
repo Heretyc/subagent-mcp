@@ -169,9 +169,12 @@ That percentage takes precedence over any static mapping window.
 ### 8. State And Latch Migration
 
 Metering records live under `join(os.tmpdir(), "subagent-mcp")` as
-`ctx-<hashKey(sessionKey)>.json`, written through `atomicWriteJson`. Reads use
-the existing 2 hour `ORCH_DISABLE_TTL_MS` lazy-GC horizon. Stale metering is
-strictly worse than no metering because it can understate current usage.
+`ctx-<hashKey(sessionKey)>.json`, written through `atomicWriteJson`. The key
+uses the carryover owner ladder: non-empty `session_id` first, then normalized
+`transcript_path` hash. Moved transcripts can still re-key, but case and slash
+drift do not. Reads use the existing 2 hour `ORCH_DISABLE_TTL_MS` lazy-GC
+horizon. Stale metering is strictly worse than no metering because it can
+understate current usage.
 
 Plan latches use `LATCH_REV = 2`. Latch records without the current `rev` are
 treated inactive and best-effort unlinked on read. This lazily invalidates
@@ -191,10 +194,7 @@ the footer. Known percentages render as `utilization="NN%"` plus
 `utilization="unknown"` and suppress the footer. `Remaining Context=0%` is
 allowed only when a resolved window or harness percentage honestly reaches the
 clamp.
-
 ### 10. One-Turn Lag
-
 Both adapters lift usage for the prior completed turn. Same-turn usage would
-require estimation, which section 1 forbids. Threshold consumers treat a
-one-turn-lagged crossing as sufficient to trip; the lag can delay detection by
-one turn, but does not fabricate a percentage.
+require forbidden estimation. Threshold consumers may trip from a one-turn-
+lagged crossing; the lag can delay detection but never fabricates a percentage.

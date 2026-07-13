@@ -18,7 +18,8 @@ the limit is reached, `launch_agent` is REJECTED : the cap never queues or
 blocks. The limit value lives in a user-editable `global-subagent-mcp-config.jsonc`
 config that is re-read live on every call and preserved across package updates
 by the same bracket that protects `advanced-ruleset.py`.
-See `docs/spec/permissions.md` section 4 for the 2.12.5 rename; `global-concurrency.jsonc` is a deprecated fallback.
+See `docs/spec/permissions/config-and-lifecycle.md` section 4 for the 2.12.5
+rename; `global-concurrency.jsonc` is a deprecated fallback.
 
 `launch_agent` silently runs zombie reaping before cap rejection but does not
 return `zombie_report`; culled `zombie_killed` status remains observable through

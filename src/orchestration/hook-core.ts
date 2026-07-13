@@ -6,8 +6,9 @@ import {
   readSync,
   statSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { dirname, isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import * as marker from "./marker.js";
 import * as reminder from "./reminder.js";
@@ -109,11 +110,14 @@ interface Emission {
 /**
  * Resolve the repo-root `directives/` dir at runtime. Honors an explicit plugin
  * root (Claude sets CLAUDE_PLUGIN_ROOT; a generic PLUGIN_ROOT is also accepted)
- * so the bundled plugin finds its assets wherever it is installed. Otherwise we
- * walk up from the COMPILED file location: dist/hooks/<x>.js -> ../../directives
- * === <repoRoot>/directives.
+ * so the bundled plugin finds its assets wherever it is installed, but only
+ * when that root is under an expected install prefix. Otherwise we walk up from
+ * the COMPILED file location: dist/hooks/<x>.js -> ../../directives ===
+ * <repoRoot>/directives.
  */
 export function resolveDirectivesDir(env: NodeJS.ProcessEnv): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const compiledRoot = resolve(here, "..", "..");
   const rootEnvName =
     env.CLAUDE_PLUGIN_ROOT !== undefined
       ? "CLAUDE_PLUGIN_ROOT"
@@ -123,19 +127,69 @@ export function resolveDirectivesDir(env: NodeJS.ProcessEnv): string {
   if (rootEnvName) {
     const root = env[rootEnvName] ?? "";
     const directivesDir = join(root, "directives");
-    if (!isAbsolute(root) || !existsSync(directivesDir)) {
-      throw new Error(
-        `${rootEnvName} must be an absolute path with an existing directives directory: ${root}`
-      );
+    if (
+      isAbsolute(root) &&
+      existsSync(directivesDir) &&
+      isTrustedPluginRoot(root, env, compiledRoot)
+    ) {
+      return directivesDir;
     }
-    return directivesDir;
   }
-  const here = dirname(fileURLToPath(import.meta.url));
   // Compiled location is dist/orchestration/hook-core.js, so ../../directives
   // is the repo root's directives dir; the entry shims live at dist/hooks/<x>.js
   // and import this module, but __dirname here is the hook-core module's own
   // dir. Two levels up from dist/orchestration is the repo root either way.
-  return join(here, "..", "..", "directives");
+  return join(compiledRoot, "directives");
+}
+
+function normalizePathKey(pathValue: string): string {
+  let p = resolve(pathValue);
+  p = p.replace(/\\/g, "/");
+  if (process.platform === "win32") {
+    p = p.toLowerCase();
+  }
+  if (p.length > 1 && p.endsWith("/")) {
+    p = p.slice(0, -1);
+  }
+  return p;
+}
+
+function isPathUnder(pathValue: string, prefix: string): boolean {
+  const child = normalizePathKey(pathValue);
+  const parent = normalizePathKey(prefix);
+  return child === parent || child.startsWith(parent + "/");
+}
+
+function installPrefixes(env: NodeJS.ProcessEnv, compiledRoot: string): string[] {
+  const prefixes = [
+    compiledRoot,
+    env.npm_config_prefix,
+    env.PREFIX,
+    process.env.npm_config_prefix,
+    process.env.PREFIX,
+    process.platform === "win32" && env.APPDATA ? join(env.APPDATA, "npm") : undefined,
+    process.platform === "win32" && process.env.APPDATA
+      ? join(process.env.APPDATA, "npm")
+      : undefined,
+    join(dirname(process.execPath), ".."),
+    join(homedir(), ".claude", "plugins"),
+    join(homedir(), ".codex", "plugins", "cache"),
+    join(homedir(), ".codex", "plugins"),
+  ];
+  return [...new Set(prefixes.filter((p): p is string => typeof p === "string" && p.length > 0))];
+}
+
+function isTrustedPluginRoot(
+  root: string,
+  env: NodeJS.ProcessEnv,
+  compiledRoot: string
+): boolean {
+  // Trust assumption: env roots are host-controlled only after they resolve
+  // under the package install, npm global prefix, or known plugin cache roots.
+  const resolvedRoot = resolve(root);
+  return installPrefixes(env, compiledRoot).some((prefix) =>
+    isPathUnder(resolvedRoot, prefix)
+  );
 }
 
 /** Read a directive asset by filename. On ANY failure return '' (fail-safe). */
@@ -248,7 +302,9 @@ export function sessionKey(payload: HookPayload): string | undefined {
     typeof payload.transcript_path === "string" &&
     payload.transcript_path.length > 0
   ) {
-    return "tp-" + marker.hashKey(payload.transcript_path);
+    // Residual caveat: a genuinely moved transcript still re-keys. Prefer the
+    // host session_id when present, which remains the precedence above.
+    return "tp-" + marker.hashKey(normalizePathKey(payload.transcript_path));
   }
   return undefined;
 }

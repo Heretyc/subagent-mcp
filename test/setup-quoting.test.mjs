@@ -15,6 +15,7 @@
  *     and legacy shim forms and fail closed (null) on anything else.
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +27,11 @@ import {
   quoteWinShellExe,
   resolveCmdShimNodeScript,
 } from "../dist/setup.js";
+import {
+  quoteWinCmdArg,
+  run as runDeployCommand,
+  validatePackageMetadata,
+} from "../skills/subagent-mcp-installer/scripts/deploy.mjs";
 
 let passed = 0;
 let failed = 0;
@@ -114,6 +120,55 @@ test('quoteWinShellArg: embedded quote -> "" doubling (not \\")', () => {
 
 test('quoteWinShellArg: empty string -> ""', () => {
   assert.equal(quoteWinShellArg(""), '""');
+});
+
+// ---------------------------------------------------------------------------
+// deploy.mjs Windows command fallback and package metadata validation
+// ---------------------------------------------------------------------------
+test("deploy quoteWinCmdArg: always quotes and escapes cmd metachars", () => {
+  assert.equal(quoteWinCmdArg('a"&|^<>%b'), '"a""^&^|^^^<^>^%b"');
+});
+
+if (process.platform === "win32") {
+  test("deploy run: .cmd shim args with embedded quotes and cmd metachars round-trip", () => {
+    const dir = mkdtempSync(join(tmpdir(), "deploy-quote-"));
+    try {
+      const rel = "node_modules\\fake-cli\\cli.js";
+      mkdirSync(join(dir, "node_modules", "fake-cli"), { recursive: true });
+      const script = join(dir, rel);
+      const arg = 'a"&|^<>%b';
+      writeFileSync(script, "console.log(JSON.stringify(process.argv.slice(2)));\n");
+      writeFileSync(join(dir, "fake.cmd"), `@echo off\r\nnode "%~dp0\\${rel}" %*\r\n`);
+      const out = runDeployCommand(join(dir, "fake.cmd"), [arg], dir);
+      assert.deepEqual(JSON.parse(out), [arg]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
+
+test("deploy validatePackageMetadata: accepts expected package metadata", () => {
+  assert.doesNotThrow(() => validatePackageMetadata({ name: "@heretyc/subagent-mcp", version: "2.12.16" }));
+});
+
+test("deploy validatePackageMetadata: rejects unsafe package names", () => {
+  const out = spawnSync(process.execPath, [
+    "--input-type=module",
+    "-e",
+    'import { validatePackageMetadata } from "./skills/subagent-mcp-installer/scripts/deploy.mjs"; validatePackageMetadata({ name: "bad&name", version: "1.0.0" });',
+  ], { cwd: process.cwd(), encoding: "utf8" });
+  assert.equal(out.status, 1);
+  assert.match(out.stderr, /invalid package name: bad&name/);
+});
+
+test("deploy validatePackageMetadata: rejects unsafe package versions", () => {
+  const out = spawnSync(process.execPath, [
+    "--input-type=module",
+    "-e",
+    'import { validatePackageMetadata } from "./skills/subagent-mcp-installer/scripts/deploy.mjs"; validatePackageMetadata({ name: "@heretyc/subagent-mcp", version: "1.0.0&calc" });',
+  ], { cwd: process.cwd(), encoding: "utf8" });
+  assert.equal(out.status, 1);
+  assert.match(out.stderr, /invalid package version: 1\.0\.0&calc/);
 });
 
 // ---------------------------------------------------------------------------

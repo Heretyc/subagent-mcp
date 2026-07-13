@@ -10,9 +10,12 @@ host's supported orchestration wiring installed together.
 > never installs from a worktree or temp path. The per-host pages below document
 > supported manual/plugin install paths.
 
-For the lighter, MCP-only registration reference (no orchestration hook) see
-[docs/registration.md](../registration.md). For what orchestration mode *is*,
-see [docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md section 10](../spec/dev-loop/orchestration-directive-architecture/sections-10-13.md).
+For MCP-only server registration, see
+[docs/registration.md](../registration.md). Orchestration-hook install steps
+belong in this `docs/install/` guide set. For what orchestration mode *is*, see
+[docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md section 10](../spec/dev-loop/orchestration-directive-architecture/sections-10-13.md).
+The `orchestration-mode` MCP tool flips the toggle; each supported host's
+per-turn hook performs the directive injection.
 
 ## Build prerequisite (do this first, every host)
 

@@ -1,5 +1,5 @@
 /**
- * Mirror-fragments byte-identity test (S4/D25/D7) — NON-GATING.
+ * Mirror-fragments byte-identity test (S4/D25/D7) — GATING.
  *
  * Two governance fragments are duplicated across source files by design and
  * MUST never drift:
@@ -22,8 +22,9 @@
  * "byte-identical" means here. A failure means real drift exists — the diff of
  * the two A2 copies is printed so it can be fixed.
  *
- * Per spec this test is NON-GATING: it documents/guards the invariant and
- * reports drift; it is not wired into any required gate.
+ * This test IS wired into `npm test` (see package.json) and therefore gates
+ * CI: it documents/guards the invariant and reports drift, and a failure
+ * fails the required test run rather than merely warning.
  */
 
 import assert from "node:assert/strict";
