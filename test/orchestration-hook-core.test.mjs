@@ -912,7 +912,7 @@ test("metering-undetectable fail-safe does not override an explicit session disa
   }
 });
 
-test("metering contradiction writes unknown record and fail-safes same turn", () => {
+test("metering contradiction writes clamped numeric record", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   const session = `s-meter-contradiction:${cwd}`;
@@ -932,13 +932,14 @@ test("metering contradiction writes unknown record and fail-safes same turn", ()
     assertTagged(out, {
       state: "on",
       kind: "directive",
-      phase: "normal",
-      utilization: "unknown",
-      body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
+      phase: "handoff",
+      utilization: "100%",
+      body: `${FULL_TEXT}\n${REM_ON_TEXT}\n${HANDOFF_TEXT}`,
+      remaining: 0,
     });
     const record = readMetering(session);
-    assert.equal(record?.context_window_size, null);
-    assert.equal(record?.used_percentage, null);
+    assert.equal(record?.context_window_size, 200000);
+    assert.equal(record?.used_percentage, 100);
     assert.equal(record?.window_source, "contradiction");
   } finally {
     clearLatch(session);

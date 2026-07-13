@@ -27,6 +27,8 @@ export type WindowSource =
   | "prior"
   | "family-default"
   | "contradiction"
+  | "assumed-default"
+  | "assumed-default+floor"
   | null;
 
 export interface MeteringUsage {
@@ -237,6 +239,23 @@ function maybeApplyLong(
   return { candidate, source };
 }
 
+function assumedDefaultResolution(window_floor: number | null): WindowResolution {
+  if (window_floor !== null && window_floor > DEFAULT_CONTEXT_WINDOW) {
+    return {
+      window: window_floor,
+      source: "assumed-default+floor",
+      window_floor,
+      contradiction: false,
+    };
+  }
+  return {
+    window: DEFAULT_CONTEXT_WINDOW,
+    source: "assumed-default",
+    window_floor,
+    contradiction: false,
+  };
+}
+
 export function resolveContextWindowDetailed(input: {
   harness: string;
   modelId: string | null | undefined;
@@ -246,15 +265,6 @@ export function resolveContextWindowDetailed(input: {
   priorWindowSource?: WindowSource;
   priorWindowFloor?: number | null;
 }): WindowResolution {
-  const normalized = normalizeModelId(input.modelId);
-  if (normalized === null) {
-    return { window: null, source: null, window_floor: null, contradiction: false };
-  }
-  const table = loadContextWindowTable();
-  if (table === null) {
-    return { window: null, source: null, window_floor: null, contradiction: false };
-  }
-
   const promptSideTokens = finiteNumber(input.promptSideTokens)
     ? input.promptSideTokens
     : null;
@@ -265,14 +275,22 @@ export function resolveContextWindowDetailed(input: {
   );
   const observedFloor = Math.max(promptSideTokens ?? 0, priorFloor ?? 0);
   const window_floor = observedFloor > 0 ? observedFloor : null;
+  const normalized = normalizeModelId(input.modelId);
+  if (normalized === null) {
+    return assumedDefaultResolution(window_floor);
+  }
+  const table = loadContextWindowTable();
+  if (table === null) {
+    return assumedDefaultResolution(window_floor);
+  }
 
   if (input.harness === "claude") {
     if (!/^claude-/i.test(normalized.base)) {
-      return { window: null, source: null, window_floor, contradiction: false };
+      return assumedDefaultResolution(window_floor);
     }
     const entry = table.claude[normalized.base] ?? table.family_defaults?.claude ?? null;
     if (entry === null) {
-      return { window: null, source: null, window_floor, contradiction: false };
+      return assumedDefaultResolution(window_floor);
     }
     const mapped = Object.prototype.hasOwnProperty.call(table.claude, normalized.base);
     let candidate = entry.default;
@@ -284,7 +302,7 @@ export function resolveContextWindowDetailed(input: {
         candidate = entry.long;
         source = "ratchet";
       } else {
-        return { window: null, source: "contradiction", window_floor, contradiction: true };
+        return { window: entry.long ?? entry.default, source: "contradiction", window_floor, contradiction: true };
       }
     }
     if (priorFloor !== null && priorFloor > candidate) {
@@ -292,7 +310,7 @@ export function resolveContextWindowDetailed(input: {
         candidate = entry.long;
         source = "prior";
       } else {
-        return { window: null, source: "contradiction", window_floor, contradiction: true };
+        return { window: entry.long ?? entry.default, source: "contradiction", window_floor, contradiction: true };
       }
     }
     return { window: candidate, source, window_floor, contradiction: false };
@@ -301,7 +319,7 @@ export function resolveContextWindowDetailed(input: {
   if (input.harness === "codex") {
     const entry = table.codex[normalized.base] ?? null;
     if (entry === null) {
-      return { window: null, source: null, window_floor, contradiction: false };
+      return assumedDefaultResolution(window_floor);
     }
     let candidate = entry.default;
     let source: WindowSource = "mapping";
@@ -311,7 +329,7 @@ export function resolveContextWindowDetailed(input: {
         candidate = entry.long;
         source = "ratchet";
       } else {
-        return { window: null, source: "contradiction", window_floor, contradiction: true };
+        return { window: entry.long ?? entry.default, source: "contradiction", window_floor, contradiction: true };
       }
     }
     if (priorFloor !== null && priorFloor > candidate) {
@@ -319,13 +337,13 @@ export function resolveContextWindowDetailed(input: {
         candidate = entry.long;
         source = "prior";
       } else {
-        return { window: null, source: "contradiction", window_floor, contradiction: true };
+        return { window: entry.long ?? entry.default, source: "contradiction", window_floor, contradiction: true };
       }
     }
     return { window: candidate, source, window_floor, contradiction: false };
   }
 
-  return { window: null, source: null, window_floor, contradiction: false };
+  return assumedDefaultResolution(window_floor);
 }
 
 export function resolveContextWindow(

@@ -193,6 +193,70 @@ test("claude liftUsage: skips sidechain assistant usage and reads long hint", ()
   }
 });
 
+test("claude liftUsage: skips synthetic or missing model rows", () => {
+  const { dir, file } = writeJsonl([
+    {
+      type: "assistant",
+      message: {
+        model: "claude-fable-5",
+        usage: {
+          input_tokens: 2,
+          output_tokens: 60,
+          cache_creation_input_tokens: 6894,
+          cache_read_input_tokens: 669235,
+        },
+      },
+    },
+    {
+      type: "assistant",
+      message: {
+        model: "<synthetic>",
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    },
+    {
+      type: "assistant",
+      message: {
+        model: "",
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    },
+    {
+      type: "assistant",
+      message: {
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    },
+  ]);
+  try {
+    const lifted = claudeAdapter.liftUsage({}, {}, file);
+    assert.equal(lifted.model, "claude-fable-5");
+    assert.deepEqual(lifted.usage, {
+      input: 2,
+      output: 60,
+      cache_creation: 6894,
+      cache_read: 669235,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Claude adapter: isSubagent signals
 // ---------------------------------------------------------------------------
