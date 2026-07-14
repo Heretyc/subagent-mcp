@@ -77,7 +77,7 @@ output; use short launch id `fable` for `claude-fable-5`.
 | Top level | Bare JSON array. An object wrapper (e.g. `{"candidates": [...]}`) is INVALID. `[]` is VALID : see Veto below. |
 | Element | Object with string `provider`, `model`, `effort`. All other keys : including `rank` : are IGNORED on output. |
 | `provider` | `claude` or `codex`. |
-| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude) or `gpt-5.5` (codex); the provider↔model pair must be legal. |
+| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude) or `gpt-5.5`, `gpt-5.6` (codex); the provider↔model pair must be legal. |
 | `effort` | Per-model table below; the validator does its OWN membership checks. |
 | Duplicates | Allowed : the attempt loop simply tries them in order. |
 | Anything else | Ruleset failure → hard fail. |
@@ -91,6 +91,7 @@ Per-model effort legality:
 | `fable` | `medium`, `high`, `xhigh`, `max` |
 | `opus`, `opus-4-8` | `medium`, `high`, `xhigh`, `max`, `ultracode` |
 | `gpt-5.5` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
+| `gpt-5.6` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
 
 HAZARD : the validator must not delegate effort checks to the launch path:
 `resolveEffort` has a lenient fallback that silently coerces

@@ -271,7 +271,7 @@ test("explicit mismatch: codex + fable -> Codex constraint message", () => {
   });
   assert.equal(
     msg,
-    "Error: Codex provider only supports gpt-5.5. Got: fable",
+    "Error: Codex provider only supports gpt-5.5 or gpt-5.6. Got: fable",
     "codex+fable must be rejected because fable is Claude-only");
 });
 
@@ -284,7 +284,7 @@ test("explicit mismatch: codex + sonnet -> Codex constraint message", () => {
   });
   assert.equal(
     msg,
-    "Error: Codex provider only supports gpt-5.5. Got: sonnet",
+    "Error: Codex provider only supports gpt-5.5 or gpt-5.6. Got: sonnet",
     "codex+sonnet returns the existing Codex-constraint message verbatim");
 });
 
