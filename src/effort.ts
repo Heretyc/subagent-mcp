@@ -13,7 +13,7 @@ export function mapModel(provider: Provider, model: string): string {
     if (model === "fable") return "claude-fable-5";
     return model;
   } else {
-    return model; // gpt-5.5
+    return model; // gpt-5.5, gpt-5.6
   }
 }
 
@@ -52,7 +52,7 @@ export function resolveEffort(
   if (provider === "codex") {
     if (effort === "max") {
       throw new Error(
-        `max effort is not valid for gpt-5.5 (Codex). Valid: medium, high, xhigh.`
+        `max effort is not valid for gpt-5.5/gpt-5.6 (Codex). Valid: medium, high, xhigh.`
       );
     }
     if (["medium", "high", "xhigh"].includes(effort)) {

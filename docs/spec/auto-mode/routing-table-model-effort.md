@@ -12,12 +12,12 @@ Derive provider from the pairing's `model`:
 | `model` value(s) | provider |
 |---|---|
 | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` | `claude` |
-| `gpt-5.5` | `codex` |
+| `gpt-5.5`, `gpt-5.6` | `codex` |
 
 Rule: Claude model ids map to `claude`; any GPT/codex-family id maps to
 `codex`. An unknown model id that maps to neither → skip that pairing (treat as
 a launch-time failure for that candidate; advance). Note: the launch model enum
-is currently `["haiku","sonnet","opus","opus-4-8","fable","gpt-5.5"]`. The
+is currently `["haiku","sonnet","opus","opus-4-8","fable","gpt-5.5","gpt-5.6"]`. The
 committed runtime table is launchable-only; benchmarked codex sibling ids that
 cannot be launched are retained only in the audit artifact and filtered out
 before comparing the audit universe to the shipped table.
@@ -36,7 +36,7 @@ pairing's `effort` before passing to `buildCommand`:
    invalid combo into `buildCommand`):
    - `ultracode` is valid ONLY on `opus`/`opus-4-8`. On any other model →
      clamp DOWN to `xhigh`.
-   - codex (`gpt-5.5`) has no `max`/`ultracode`: `max` → `xhigh`;
+   - codex (`gpt-5.5`, `gpt-5.6`) has no `max`/`ultracode`: `max` → `xhigh`;
      `ultracode` → `xhigh`.
    - haiku ignores effort entirely.
 4. Unknown / unrecognized tier (not in the enum, not `none`) → skip this

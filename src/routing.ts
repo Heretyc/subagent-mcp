@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import type { Provider } from "./effort.js";
 
 /** Launch model enum accepted by buildCommand. */
-export const LAUNCH_MODELS = ["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5"] as const;
+export const LAUNCH_MODELS = ["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5", "gpt-5.6"] as const;
 type LaunchModel = (typeof LAUNCH_MODELS)[number];
 
 /** Launch effort enum accepted by buildCommand/resolveEffort. */
@@ -40,6 +40,7 @@ const FULL_TO_SHORT: Record<string, LaunchModel | Set<LaunchModel>> = {
   "claude-haiku-4-5": "haiku",
   "claude-fable-5": "fable",
   "gpt-5.5": "gpt-5.5",
+  "gpt-5.6": "gpt-5.6",
   // Short ids may already appear in a hand-authored table; map them through.
   haiku: "haiku",
   sonnet: "sonnet",
@@ -348,8 +349,8 @@ export function validatePresence(p: {
     if (provider === "claude" && !["haiku", "sonnet", "opus", "opus-4-8", "fable"].includes(model)) {
       return `Error: Claude provider only supports haiku, sonnet, opus, opus-4-8, or fable. Got: ${model}`;
     }
-    if (provider === "codex" && model !== "gpt-5.5") {
-      return `Error: Codex provider only supports gpt-5.5. Got: ${model}`;
+    if (provider === "codex" && !["gpt-5.5", "gpt-5.6"].includes(model)) {
+      return `Error: Codex provider only supports gpt-5.5 or gpt-5.6. Got: ${model}`;
     }
   }
 
