@@ -25,6 +25,8 @@ import {
   reconcileCodexHooks,
   claudeAddArgs,
   codexAddArgs,
+  deployHandoffResumeSkill,
+  verifyHandoffResumeSkill,
 } from "../dist/setup.js";
 
 let passed = 0;
@@ -54,6 +56,18 @@ function shellQuoteInner(command) {
   return process.platform === "win32"
     ? JSON.stringify(command)
     : `'${command.replace(/'/g, "'\\''")}'`;
+}
+
+function withSkillRoot(fn) {
+  const root = mkdtempSync(join(tmpdir(), "repair-root-"));
+  try {
+    const skillDir = join(root, "skills", "handoff-resume");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "package skill\n");
+    fn(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -326,6 +340,28 @@ test("claudeAddArgs: official user-scope shim registration argv", () => {
 
 test("codexAddArgs: official node server registration argv", () => {
   assert.deepEqual(codexAddArgs(SERVER), ["mcp", "add", "subagent-mcp", "--", "node", SERVER]);
+});
+
+// ---------------------------------------------------------------------------
+// handoff-resume doctor check
+// ---------------------------------------------------------------------------
+test("handoff-resume skill verify: missing before setup, PASS after deploy", () => {
+  const home = mkdtempSync(join(tmpdir(), "repair-home-"));
+  try {
+    withSkillRoot((root) => {
+      const missing = verifyHandoffResumeSkill(root, home);
+      assert.equal(missing.label, "claude: handoff-resume skill");
+      assert.equal(missing.ok, false);
+      assert.equal(missing.detail, "missing - run subagent-mcp setup");
+
+      deployHandoffResumeSkill(root, home);
+      const pass = verifyHandoffResumeSkill(root, home);
+      assert.equal(pass.ok, true);
+      assert.equal(pass.detail, "deployed");
+    });
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
 });
 
 // ---------------------------------------------------------------------------

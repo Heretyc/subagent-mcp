@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, copyFileSync, realpathSync, unlinkSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, copyFileSync, realpathSync, unlinkSync, mkdirSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve, dirname, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -217,6 +217,7 @@ function verify(install) {
     "directives/reminder-on.md",
     "directives/reminder-off-claude.md",
     "directives/reminder-off-codex.md",
+    "skills/handoff-resume/SKILL.md",
     "node_modules/@modelcontextprotocol/sdk/package.json",
     "node_modules/zod/package.json",
   ];
@@ -342,14 +343,34 @@ function wireClaude(install) {
     changed = true;
   }
   if (reconcileStatusLine(s, p.claudeStatuslineHook)) changed = true;
-  if (!changed) { console.error("  settings.json hooks already present - left as-is"); return; }
-  if (existsSync(sfile)) backup(sfile);
-  writeFileSync(sfile, JSON.stringify(s, null, 2));
-  console.error(`  added/updated Claude hooks -> ${sfile}`);
+  if (!changed) {
+    console.error("  settings.json hooks already present - left as-is");
+  } else {
+    mkdirSync(dirname(sfile), { recursive: true });
+    if (existsSync(sfile)) backup(sfile);
+    writeFileSync(sfile, JSON.stringify(s, null, 2));
+    console.error(`  added/updated Claude hooks -> ${sfile}`);
+  }
+
+  const source = join(install, "skills", "handoff-resume", "SKILL.md");
+  const target = join(homedir(), ".claude", "skills", "handoff-resume", "SKILL.md");
+  if (!existsSync(source)) {
+    console.error(`  handoff-resume skill source missing -> ${source}`);
+  } else {
+    const body = readFileSync(source, "utf8");
+    if (existsSync(target) && readFileSync(target, "utf8") === body) {
+      console.error("  handoff-resume skill already present - left as-is");
+    } else {
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, body);
+      console.error(`  deployed handoff-resume skill -> ${target}`);
+    }
+  }
 }
 
 function wireCodex(install) {
   const p = paths(install);
+  // Codex has no Agent Skill mechanism; MCP instructions carry handoff guidance.
   console.error("==> wire Codex (config.toml block + hooks.json)");
   const cfg = join(homedir(), ".codex", "config.toml");
   if (existsSync(cfg)) {

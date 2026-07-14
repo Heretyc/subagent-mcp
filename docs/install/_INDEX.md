@@ -34,6 +34,7 @@ Requires **Node.js >= 20**. After the build, confirm these exist:
 - `dist/index.js` : MCP server entry
 - `dist/hooks/orchestration-claude.js` : Claude per-turn hook
 - `dist/hooks/orchestration-claude-pretool.js` : Claude PreToolUse gate
+- `skills/handoff-resume/SKILL.md` : Claude handoff resume Agent Skill
 - `dist/hooks/orchestration-codex.js` : Codex per-turn hook
 
 > **Distribution note:** `dist/` is git-ignored, so it must be built before any

@@ -23,3 +23,8 @@ test("handoff-resume skill documents handoff tool usage", () => {
     assert.match(body, new RegExp(`\\b${tool}\\b[^.]+\\.`), `documents ${tool} usage`);
   }
 });
+
+test("package includes handoff-resume skill directory", () => {
+  const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
+  assert.ok(pkg.files.includes("skills/handoff-resume"), "package.json files ships skills/handoff-resume");
+});

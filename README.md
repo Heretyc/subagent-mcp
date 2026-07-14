@@ -54,7 +54,8 @@ Installing the package only ships the program. It does not connect anything on
 its own. `subagent-mcp setup` finds your Claude Code or Codex install and
 registers both the server and the per-turn orchestration hooks. For Claude Code
 it also registers or wraps `statusLine` so the hook can read Claude's
-authoritative context percentage without replacing your custom statusline.
+authoritative context percentage without replacing your custom statusline, and
+deploys the `handoff-resume` Agent Skill to your Claude user scope.
 Preview first with `subagent-mcp setup --dry-run`.
 
 ### Restart, Then Turn On The Invariant
