@@ -23,6 +23,7 @@ import {
   wireMcpServer,
   registrationDetail,
   reconcileClaudeSettings,
+  deployHandoffResumeSkill,
 } from "../dist/setup.js";
 
 let passed = 0;
@@ -73,6 +74,19 @@ function withHome(fn) {
     fn(home, vendorWireSpecs(P, home));
   } finally {
     rmSync(home, { recursive: true, force: true });
+  }
+}
+
+function withSkillRoot(fn) {
+  const root = mkdtempSync(join(tmpdir(), "wire-root-"));
+  try {
+    const skillDir = join(root, "skills", "handoff-resume");
+    mkdirSync(skillDir, { recursive: true });
+    const source = join(skillDir, "SKILL.md");
+    writeFileSync(source, "package skill\n");
+    fn(root, source);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 }
 
@@ -225,6 +239,40 @@ test("claude settings: statusLine foreign command wraps once and is idempotent",
   });
   assert.equal(second.status, "ok");
   assert.equal(JSON.stringify(s), afterFirst, "second run must not double-wrap or churn");
+});
+
+// ---------------------------------------------------------------------------
+// Claude handoff-resume skill deployment
+// ---------------------------------------------------------------------------
+test("handoff-resume skill: setup deploys package copy", () => {
+  withHome((home) => withSkillRoot((root, source) => {
+    const r = deployHandoffResumeSkill(root, home);
+    const target = join(home, ".claude", "skills", "handoff-resume", "SKILL.md");
+    assert.equal(r.status, "added");
+    assert.equal(r.changed, true);
+    assert.equal(readFileSync(target, "utf8"), readFileSync(source, "utf8"));
+  }));
+});
+
+test("handoff-resume skill: second setup is unchanged", () => {
+  withHome((home) => withSkillRoot((root) => {
+    deployHandoffResumeSkill(root, home);
+    const r = deployHandoffResumeSkill(root, home);
+    assert.equal(r.status, "ok");
+    assert.equal(r.changed, false);
+  }));
+});
+
+test("handoff-resume skill: user-modified target is restored", () => {
+  withHome((home) => withSkillRoot((root, source) => {
+    deployHandoffResumeSkill(root, home);
+    const target = join(home, ".claude", "skills", "handoff-resume", "SKILL.md");
+    writeFileSync(target, "user edit\n");
+    const r = deployHandoffResumeSkill(root, home);
+    assert.equal(r.status, "repaired");
+    assert.equal(r.changed, true);
+    assert.equal(readFileSync(target, "utf8"), readFileSync(source, "utf8"));
+  }));
 });
 
 // ---------------------------------------------------------------------------

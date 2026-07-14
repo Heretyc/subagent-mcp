@@ -59,6 +59,16 @@ Before acting on a handoff-read request, the session must confirm user
 intent via EXACTLY 5 structured questions. This proves legitimacy and
 clears ambiguity before the saved handoff is surfaced.
 
+## Handoff-resume Skill Deployment
+
+`subagent-mcp setup` deploys the packaged Claude Agent Skill from
+`skills/handoff-resume/SKILL.md` to
+`~/.claude/skills/handoff-resume/SKILL.md`. `subagent-mcp doctor` checks that
+the target exists and matches the installed package copy. Missing or stale
+targets are repaired by re-running setup. Codex is intentionally not targeted
+because Codex has no Agent Skill mechanism; the MCP instructions carry the
+handoff guidance there.
+
 ## Post-write response (exact, byte-for-byte)
 
 On a successful `handoff-write`, the MCP tool responds with EXACTLY the

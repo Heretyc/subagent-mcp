@@ -25,6 +25,7 @@
   "files": [
     "dist",
     "directives",
+    "skills/handoff-resume",
     "scripts/postinstall.mjs",
     "LICENSE",
     "NOTICE",

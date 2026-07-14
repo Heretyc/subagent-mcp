@@ -56,12 +56,27 @@ export function serverPaths(root: string = INSTALL_ROOT) {
   };
 }
 
+export function handoffResumeSkillPaths(root: string = INSTALL_ROOT, home: string = homedir()) {
+  return {
+    source: join(root, "skills", "handoff-resume", "SKILL.md"),
+    target: join(home, ".claude", "skills", "handoff-resume", "SKILL.md"),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Pure helpers (exported for tests and for the doctor command)
 // ---------------------------------------------------------------------------
 
 export type WireStatus = "ok" | "added" | "repaired";
 export type JsonObj = Record<string, unknown>;
+
+export interface HandoffResumeSkillResult {
+  changed: boolean;
+  status: WireStatus | "missing-source";
+  source: string;
+  target: string;
+  detail: string;
+}
 
 function statuslineCommand(shimPath: string, innerCommand: string = ""): string {
   const inner = innerCommand.trim();
@@ -578,6 +593,59 @@ function describe(status: WireStatus, what: string): void {
   else console.log(`  ${what}: pointed at a stale path — repaired.`);
 }
 
+export function deployHandoffResumeSkill(
+  root: string = INSTALL_ROOT,
+  home: string = homedir()
+): HandoffResumeSkillResult {
+  const { source, target } = handoffResumeSkillPaths(root, home);
+  if (!existsSync(source)) {
+    return {
+      changed: false,
+      status: "missing-source",
+      source,
+      target,
+      detail: `source missing at ${source}; reinstall @heretyc/subagent-mcp, then run subagent-mcp setup`,
+    };
+  }
+  const desired = readFileSync(source, "utf8");
+  if (existsSync(target) && readFileSync(target, "utf8") === desired) {
+    return { changed: false, status: "ok", source, target, detail: "deployed" };
+  }
+  const status: WireStatus = existsSync(target) ? "repaired" : "added";
+  if (!DRY_RUN) {
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, desired);
+  }
+  return { changed: true, status, source, target, detail: status === "added" ? "deployed" : "restored" };
+}
+
+export function verifyHandoffResumeSkill(
+  root: string = INSTALL_ROOT,
+  home: string = homedir()
+): CheckResult {
+  const { source, target } = handoffResumeSkillPaths(root, home);
+  if (!existsSync(source)) {
+    return {
+      label: "claude: handoff-resume skill",
+      ok: false,
+      detail: "source missing from install - reinstall @heretyc/subagent-mcp",
+    };
+  }
+  if (!existsSync(target)) {
+    return {
+      label: "claude: handoff-resume skill",
+      ok: false,
+      detail: "missing - run subagent-mcp setup",
+    };
+  }
+  const ok = readFileSync(target, "utf8") === readFileSync(source, "utf8");
+  return {
+    label: "claude: handoff-resume skill",
+    ok,
+    detail: ok ? "deployed" : "stale - run subagent-mcp setup",
+  };
+}
+
 /** Everything vendor-specific about wiring the MCP server, in one descriptor. */
 export interface VendorWireSpec {
   vendor: "claude" | "codex";
@@ -705,6 +773,21 @@ function wireClaude(): void {
   } catch (e) {
     fail("claude", `could not write the settings.json hook: ${(e as Error).message}`);
   }
+
+  // 3) Claude Agent Skill for resuming saved handoffs.
+  try {
+    const r = deployHandoffResumeSkill(INSTALL_ROOT);
+    if (r.status === "missing-source") {
+      fail("claude", r.detail);
+    } else {
+      if (r.status === "ok") console.log("  handoff-resume skill: already correct.");
+      else if (r.status === "added") console.log("  handoff-resume skill: added.");
+      else console.log("  handoff-resume skill: restored from package copy.");
+      if (r.changed && DRY_RUN) console.log("    (dry-run: not written)");
+    }
+  } catch (e) {
+    fail("claude", `could not deploy the handoff-resume skill: ${(e as Error).message}`);
+  }
 }
 
 function wireCodex(): void {
@@ -712,6 +795,8 @@ function wireCodex(): void {
   const p = serverPaths();
   const codexDir = join(homedir(), ".codex");
   const specs = vendorWireSpecs(p);
+
+  // Codex has no Agent Skill mechanism; MCP instructions carry handoff guidance.
 
   // 1) config.toml — MCP server block (created if the file is missing).
   try {
@@ -833,6 +918,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
           : "wired; waiting for Claude statusLine signal"
         : `${sl.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
+    results.push(verifyHandoffResumeSkill(root, home));
   } else if (hasClaudeConfig) {
     const cj = readJson(join(home, ".claude.json"), {});
     const sj = readJson(join(home, ".claude", "settings.json"), {});
@@ -858,6 +944,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
           : "wired; waiting for Claude statusLine signal"
         : `${sl.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
+    results.push(verifyHandoffResumeSkill(root, home));
   }
 
   const hasCodexCli = findOnPath("codex") !== null;
