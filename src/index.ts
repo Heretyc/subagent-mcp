@@ -1396,6 +1396,16 @@ server.tool(
       candidates = slotInsert(candidates, loadApiProviders(), task_category);
     }
 
+    const apiGate = modelMode.gateLaunch(agentCwd, {
+      provider,
+      model,
+      effort,
+      dispatchSource: candidates.some((c) => c.provider === "api") ? "api-provider" : undefined,
+    });
+    if (!apiGate.allowed) {
+      return errorResult(apiGate.message ?? modelMode.SELECTOR_REJECTION_MESSAGE);
+    }
+
     const cap = readGlobalCap();
     const reservationId = randomUUID();
     const reservation = reserveSlot(reservationId, cap, slotDir(), NONBLOCKING_CULL_DEPS);

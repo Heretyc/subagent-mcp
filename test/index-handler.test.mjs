@@ -1414,6 +1414,7 @@ await test("api provider slot dispatch retries one transient failure and records
     });
     try {
       await session.initialize();
+      await enableManualSelection(session);
       const { agentId, launchPayload } = await launchAndPoll(session, {
         task_category: "coding",
         prompt: "api route",

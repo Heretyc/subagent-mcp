@@ -21,6 +21,7 @@ import { cwdHash, stateDir } from "./marker.js";
  */
 
 const WINDOW_MS = 30 * 60 * 1000;
+let sessionApiGateApproved = false;
 
 type ModelModeState = {
   mode: "smart" | "user-approved-overrides";
@@ -128,7 +129,12 @@ export function setMode(
 
 export function gateLaunch(
   cwd: string,
-  selectors: { provider?: unknown; model?: unknown; effort?: unknown },
+  selectors: {
+    provider?: unknown;
+    model?: unknown;
+    effort?: unknown;
+    dispatchSource?: "api-provider";
+  },
   now: number = Date.now(),
 ): {
   allowed: boolean;
@@ -141,9 +147,12 @@ export function gateLaunch(
     (value) => value !== undefined,
   );
   if (r.mode === "user-approved-overrides") {
+    if (selectors.dispatchSource === "api-provider") {
+      sessionApiGateApproved = true;
+    }
     return { allowed: true, mode: r.mode, reverted: r.reverted };
   }
-  if (supplied) {
+  if (supplied || (selectors.dispatchSource === "api-provider" && !sessionApiGateApproved)) {
     return {
       allowed: false,
       mode: "smart",
