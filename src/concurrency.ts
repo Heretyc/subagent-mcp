@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { CONCURRENCY_SCAFFOLD } from "./config-scaffold.js";
 import { getConfigHome } from "./config-home.js";
+import { askLine, type PromptOptions } from "./prompt.js";
 import {
   cullStaleSlots,
   ZOMBIE_FORCE_GRACE_MS,
@@ -76,6 +77,12 @@ export interface GlobalConfig {
   path: string;
   usedLegacyPath: boolean;
   parseFailure: string | null;
+}
+
+export interface FirstRunCeilingOptions extends PromptOptions {
+  path?: string;
+  isTTY?: boolean;
+  log?: (line: string) => void;
 }
 
 export interface ReservedSlot {
@@ -249,6 +256,47 @@ export function ensureConcurrencyConfig(path: string = defaultConfigPath()): voi
     if (existsSync(resolved.path)) return;
     writeFileSync(path, CONCURRENCY_SCAFFOLD);
   } catch {}
+}
+
+function scaffoldWithCeiling(ceiling: PermissionsCeiling): string {
+  return CONCURRENCY_SCAFFOLD.replace(
+    /"permissionsCeiling"\s*:\s*"(?:auto|manual|yolo)"/,
+    `"permissionsCeiling": "${ceiling}"`
+  );
+}
+
+export async function ensureFirstRunPermissionCeiling(
+  opts: FirstRunCeilingOptions = {}
+): Promise<PermissionsCeiling | null> {
+  const path = opts.path ?? defaultConfigPath();
+  if (existsSync(resolveGlobalConfigPath(path).path)) return null;
+
+  let ceiling: PermissionsCeiling = "auto";
+  const tty = opts.isTTY ?? process.stdin.isTTY;
+  if (tty) {
+    opts.log?.("Choose permission ceiling for first run:");
+    opts.log?.("  1. Yolo   - preserve historical bypass/danger-full-access except config self-protection.");
+    opts.log?.("  2. Auto   - shared engine gates unsafe/residue actions. (Recommended)");
+    opts.log?.("  3. Manual - ask for human approval for residue; danger is denied.");
+    for (;;) {
+      const answer = await askLine(opts, "Select [1-3, default 2 Auto]: ");
+      if (answer === "" || answer === "2" || answer === "a" || answer === "auto") break;
+      if (answer === "1" || answer === "y" || answer === "yolo") {
+        ceiling = "yolo";
+        break;
+      }
+      if (answer === "3" || answer === "m" || answer === "manual") {
+        ceiling = "manual";
+        break;
+      }
+      opts.log?.("Enter 1, 2, or 3.");
+    }
+  } else {
+    opts.log?.("Permission ceiling: non-TTY first run, defaulting to auto.");
+  }
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, scaffoldWithCeiling(ceiling), "utf8");
+  return ceiling;
 }
 
 export function readGlobalConfig(path: string = defaultConfigPath()): GlobalConfig {

@@ -3,10 +3,13 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { Readable, Writable } from "node:stream";
 
 import {
   clampCap,
   countSlots,
+  ensureFirstRunPermissionCeiling,
+  parsePermissionsCeilingConfig,
   parseCheckForUpdatesConfig,
   parseConcurrencyConfig,
   readSlotMetadata,
@@ -33,6 +36,22 @@ function test(name, fn) {
     console.error(`        ${e.message}`);
     failed++;
   }
+}
+
+async function asyncTest(name, fn) {
+  try {
+    await fn();
+    console.log(`  PASS: ${name}`);
+    passed++;
+  } catch (e) {
+    console.error(`  FAIL: ${name}`);
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+}
+
+function sink() {
+  return new Writable({ write(_chunk, _enc, cb) { cb(); } });
 }
 
 function tmpSlotDir() {
@@ -97,6 +116,65 @@ test("parseCheckForUpdatesConfig defaults true unless explicitly false", () => {
   assert.equal(parseCheckForUpdatesConfig("{not json"), true);
   assert.equal(parseCheckForUpdatesConfig('{"checkForUpdates":"false"}'), true);
   assert.equal(parseCheckForUpdatesConfig('{"checkForUpdates":false}'), false);
+});
+
+await asyncTest("first-run ceiling prompts on absent config and writes manual", async () => {
+  const dir = tmpSlotDir();
+  const file = join(dir, "global-subagent-mcp-config.jsonc");
+  const lines = [];
+  try {
+    const result = await ensureFirstRunPermissionCeiling({
+      path: file,
+      isTTY: true,
+      input: Readable.from(["3\n"]),
+      output: sink(),
+      log: (line) => lines.push(line),
+    });
+    assert.equal(result, "manual");
+    assert.equal(parsePermissionsCeilingConfig(readFileSync(file, "utf8")), "manual");
+    assert.deepEqual(lines, [
+      "Choose permission ceiling for first run:",
+      "  1. Yolo   - preserve historical bypass/danger-full-access except config self-protection.",
+      "  2. Auto   - shared engine gates unsafe/residue actions. (Recommended)",
+      "  3. Manual - ask for human approval for residue; danger is denied.",
+    ]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await asyncTest("first-run ceiling non-TTY writes auto without prompting", async () => {
+  const dir = tmpSlotDir();
+  const file = join(dir, "global-subagent-mcp-config.jsonc");
+  const lines = [];
+  try {
+    const result = await ensureFirstRunPermissionCeiling({ path: file, isTTY: false, log: (line) => lines.push(line) });
+    assert.equal(result, "auto");
+    assert.equal(parsePermissionsCeilingConfig(readFileSync(file, "utf8")), "auto");
+    assert.deepEqual(lines, ["Permission ceiling: non-TTY first run, defaulting to auto."]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await asyncTest("first-run ceiling skips existing config", async () => {
+  const dir = tmpSlotDir();
+  const file = join(dir, "global-subagent-mcp-config.jsonc");
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(file, '{"permissionsCeiling":"yolo"}', "utf8");
+    const result = await ensureFirstRunPermissionCeiling({
+      path: file,
+      isTTY: true,
+      input: Readable.from(["3\n"]),
+      output: sink(),
+      log: () => assert.fail("existing config must not prompt"),
+    });
+    assert.equal(result, null);
+    assert.equal(parsePermissionsCeilingConfig(readFileSync(file, "utf8")), "yolo");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("reserveSlot rejects at cap and rolls back its own marker", () => {

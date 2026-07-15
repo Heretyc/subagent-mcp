@@ -66,6 +66,7 @@ import {
   readSlotMetadata,
   readMergedPermissionConfig,
   readPermissionsCeiling,
+  ensureFirstRunPermissionCeiling,
   readGlobalCap,
   releaseSlot,
   reserveSlot,
@@ -2399,6 +2400,9 @@ if (isMain) {
     process.exit(code);
   }
   if (arg === "setup") {
+    if (!process.argv.slice(3).includes("--dry-run")) {
+      await ensureFirstRunPermissionCeiling({ log: console.log });
+    }
     const { runSetup } = await import("./setup.js");
     await runSetup();
     process.exit(0);
@@ -2412,10 +2416,14 @@ if (isMain) {
     process.exit(await runUninstall());
   }
   if (arg === "init" || arg === "--init") {
+    if (!process.argv.slice(3).includes("--dry-run")) {
+      await ensureFirstRunPermissionCeiling({ log: console.log });
+    }
     const { runInit } = await import("./init.js");
     process.exit(await runInit());
   }
   if (arg === "config" && process.argv[3] === "init") {
+    await ensureFirstRunPermissionCeiling({ log: console.log });
     const { runConfigInit } = await import("./config-init.js");
     process.exit(await runConfigInit());
   }
@@ -2428,6 +2436,7 @@ if (isMain) {
     process.exit(await runRollback());
   }
   if (arg === "doctor") {
+    await ensureFirstRunPermissionCeiling({ log: console.log });
     const { runDoctor } = await import("./doctor.js");
     process.exitCode = await runDoctor();
   }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Postinstall banner for subagent-mcp. Read-only and best-effort by design:
+// Postinstall banner for subagent-mcp. Best-effort by design:
 // never fail npm install, never mutate vendor config.
 
 import { existsSync, readFileSync, realpathSync } from "node:fs";
@@ -205,10 +205,16 @@ export function banner({ root, home = homedir() }) {
   return L.join("\n") + "\n";
 }
 
-export function main() {
+export async function main() {
   try {
     const root = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), ".."));
     if (existsSync(join(root, "src"))) return;
+    try {
+      const { ensureFirstRunPermissionCeiling } = await import(
+        pathToFileURL(join(root, "dist", "concurrency.js")).href
+      );
+      await ensureFirstRunPermissionCeiling({ log: (line) => process.stdout.write(`${line}\n`) });
+    } catch {}
     process.stdout.write(banner({ root }));
   } catch {
     // Never let a banner failure break the install.
@@ -216,6 +222,6 @@ export function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  await main();
   process.exit(0);
 }
