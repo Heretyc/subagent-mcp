@@ -27,7 +27,12 @@
     "directives",
     "templates",
     "skills/handoff-resume",
+    "skills/smcp-help",
+    "skills/smcp-status",
+    "skills/smcp-doctor",
+    "commands",
     "scripts/postinstall.mjs",
+    "AGENTS.md",
     "LICENSE",
     "NOTICE",
     "README.md"
