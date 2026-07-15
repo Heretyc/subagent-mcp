@@ -26,5 +26,10 @@
         "ml_accelerator_design": -1
       }
     }
+
+    // GMI OpenAI-compatible API template:
+    // Add a sibling provider entry named "gmi" with api_style "openai",
+    // base_url set to your GMI endpoint, model set to your deployed model,
+    // key_env set to GMI_API_KEY, and routing slots copied from above.
   }
 }
