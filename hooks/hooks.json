@@ -5,6 +5,7 @@
         "matcher": "*",
         "hooks": [
           {
+            "id": "subagent-mcp-pretool",
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/hooks/orchestration-claude-pretool.js\"",
             "timeout": 5
@@ -16,8 +17,21 @@
       {
         "hooks": [
           {
+            "id": "subagent-mcp-orchestration-claude",
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/hooks/orchestration-claude.js\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "id": "subagent-mcp-session-start",
+            "command": "node dist/hooks/smcp-activate.js",
+            "commandWindows": null,
+            "timeout": 5
           }
         ]
       }

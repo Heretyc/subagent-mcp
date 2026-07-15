@@ -47,7 +47,7 @@ for the full technical specification.
 | `401 Unauthorized` installing from GitHub Packages | `prerequisites-and-install.md` (GitHub Packages `.npmrc` auth) |
 | CLI not found / not on PATH | `prerequisites-and-install.md` (Prerequisites) |
 | Server registered but no per-turn directive appears | `docs/install/_INDEX.md` (desktop hosts / Gemini inject nothing) |
-| Claude plugin load fails with duplicate-hooks error | `docs/install/_INDEX.md` (manifest must not re-declare hooks/mcpServers) |
+| Claude plugin load fails with duplicate-hooks error | `docs/install/_INDEX.md` (do not combine plugin hooks with manual settings hooks) |
 | Codex hook never fires | `docs/install/_INDEX.md` (absolute path for `orchestration-codex.js`) |
 
 ## Workflow map

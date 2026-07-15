@@ -41,10 +41,10 @@ Requires **Node.js >= 20**. After the build, confirm these exist:
 > host can load it. The `subagent-mcp-installer` skill handles this via
 > `npm pack` + `npm install -g`: the `prepare` script rebuilds `dist/` before
 > packing, so the tarball ships a fresh `dist/` to a permanent, decoupled global
-> location. For the plugin-marketplace approach, a **local-path** plugin
-> install (which copies your built working tree) is required : a git/GitHub URL
-> install clones *without* `dist/` and fails with `ENOENT`, so build after
-> cloning if you go that route.
+> location. For the plugin-marketplace approach, the plugin source must have a
+> built `dist/` before Claude loads it. A local-path install can use your built
+> working tree. A Git URL source needs the installed checkout built before use;
+> if you see `ENOENT` for `dist/hooks/*.js`, build that plugin source.
 
 ## Per-host guides
 

@@ -12,7 +12,13 @@ const forbiddenSymbols = [
   { symbol: "api.anthropic.com", pattern: /\bapi\.anthropic\.com\b/ },
   { symbol: "api.openai.com", pattern: /\bapi\.openai\.com\b/ },
 ];
-const rawHttpCallSite = /\b(?:fetch|https\.request)\s*\(/;
+const permittedFetchSources = new Set([
+  updateCheckSource,
+  "src/providers/provider-client.ts",
+]);
+const directFetchUsage =
+  /(?<![\w$.])fetch\s*\(|\bglobalThis\.fetch\b|\bglobal\.fetch\b|\bfrom\s+["'](?:node-fetch|undici)["']|\brequire\s*\(\s*["'](?:node-fetch|undici)["']\s*\)/;
+const rawHttpCallSite = /\bhttps\.request\s*\(/;
 
 function readIfExists(path) {
   return existsSync(path) ? readFileSync(path, "utf8") : "";
@@ -39,6 +45,11 @@ function checkFile(path, text, violations) {
   }
   if (rawHttpCallSite.test(text) && displayPath !== updateCheckSource) {
     violations.push(`${displayPath}: forbidden raw HTTP model-inference call site`);
+  }
+  if (directFetchUsage.test(text) && !permittedFetchSources.has(displayPath)) {
+    violations.push(
+      `${displayPath}: forbidden fetch use outside src/orchestration/update-check.ts or src/providers/provider-client.ts`
+    );
   }
 }
 

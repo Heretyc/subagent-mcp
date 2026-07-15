@@ -5,8 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/ABS/PATH/TO/subagent-mcp/dist/hooks/orchestration-codex.js\"",
-            "commandWindows": "node \"C:/Users/YourName/Dropbox/subagent-mcp/dist/hooks/orchestration-codex.js\"",
+            "command": "node \"${PLUGIN_DIR}/dist/hooks/orchestration-codex.js\"",
+            "commandWindows": "node \"${PLUGIN_DIR}/dist/hooks/orchestration-codex.js\"",
             "timeout": 10
           }
         ]
@@ -17,8 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/ABS/PATH/TO/subagent-mcp/dist/hooks/orchestration-codex.js\"",
-            "commandWindows": "node \"C:/Users/YourName/Dropbox/subagent-mcp/dist/hooks/orchestration-codex.js\"",
+            "command": "node \"${PLUGIN_DIR}/dist/hooks/orchestration-codex.js\"",
+            "commandWindows": "node \"${PLUGIN_DIR}/dist/hooks/orchestration-codex.js\"",
             "timeout": 10
           }
         ]
