@@ -16,6 +16,7 @@ function fail(message) {
 const pkg = readJson("package.json");
 const lock = readJson("package-lock.json");
 const plugin = readJson(".claude-plugin/plugin.json");
+const codexPlugin = readJson(".codex-plugin/plugin.json");
 const indexTs = readFileSync(join(root, "src", "index.ts"), "utf8");
 
 const expected = pkg.version;
@@ -24,6 +25,7 @@ const checks = [
   ["package-lock.json root version", lock.version],
   ["package-lock.json packages[\"\"] version", lock.packages?.[""]?.version],
   [".claude-plugin/plugin.json version", plugin.version],
+  [".codex-plugin/plugin.json version", codexPlugin.version],
 ];
 
 const serverVersion = indexTs.match(/\bversion:\s*"([^"]+)"/)?.[1];
