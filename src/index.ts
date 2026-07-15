@@ -2190,6 +2190,8 @@ if (isMain) {
     "                     upsert project instruction-file invariant blocks",
     "                     flags: --dry-run --remove --force --root <dir> --files <csv> --copilot --cursor",
     "                     --global  upsert into ~/.claude/CLAUDE.md, ~/.codex/AGENTS.md, ~/.gemini/GEMINI.md",
+    "  config init [--force]",
+    "                     scaffold ~/.subagent-mcp/providers.jsonc and .env",
     "  doctor             check install and wiring health",
     "  update, --update   update to the latest release (npm install -g)",
     "  version, --version, -v",
@@ -2373,6 +2375,10 @@ if (isMain) {
   if (arg === "init" || arg === "--init") {
     const { runInit } = await import("./init.js");
     process.exit(await runInit());
+  }
+  if (arg === "config" && process.argv[3] === "init") {
+    const { runConfigInit } = await import("./config-init.js");
+    process.exit(await runConfigInit());
   }
   if (arg === "doctor") {
     const { runDoctor } = await import("./doctor.js");
