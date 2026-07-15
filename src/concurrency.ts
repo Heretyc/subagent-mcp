@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { homedir, platform, userInfo } from "node:os";
+import { platform, userInfo } from "node:os";
 import { dirname, join, parse as parsePath, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CONCURRENCY_SCAFFOLD } from "./config-scaffold.js";
+import { getConfigHome } from "./config-home.js";
 import {
   cullStaleSlots,
   ZOMBIE_FORCE_GRACE_MS,
@@ -665,9 +666,10 @@ export function readMergedPermissionConfig(
     mergeRules(merged, blanketMutatingAskRules());
   }
   let disableBypass = false;
+  const configHome = getConfigHome();
   const sources: Array<[ConfigSourceKind, string, boolean]> = [
-    ["user-settings", join(homedir(), ".subagent-mcp", "settings.json"), true],
-    ["user-settings-local", join(homedir(), ".subagent-mcp", "settings.local.json"), true],
+    ["user-settings", join(configHome, "settings.json"), true],
+    ["user-settings-local", join(configHome, "settings.local.json"), true],
     ["repo-claude-settings", join(cwd, ".claude", "settings.json"), false],
     ["repo-claude-settings-local", join(cwd, ".claude", "settings.local.json"), false],
   ];
