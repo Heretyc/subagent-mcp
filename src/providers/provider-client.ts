@@ -1,7 +1,127 @@
+import type { ApiProvider } from "./types.js";
+
+type JsonObj = Record<string, unknown>;
+
 export interface HeadProbeResult {
   ok: boolean;
   status?: number;
   error?: string;
+}
+
+export interface ApiProviderRequest {
+  messages: unknown[];
+  tools?: unknown[];
+  temperature?: number;
+  max_tokens?: number;
+}
+
+export interface ApiProviderResponse {
+  provider: string;
+  model: string;
+  text: string;
+  raw: unknown;
+}
+
+interface ProviderClientDeps {
+  fetch?: typeof fetch;
+}
+
+function endpoint(baseUrl: string, path: string): string {
+  return `${baseUrl.replace(/\/+$/, "")}${path}`;
+}
+
+function missingKey(provider: ApiProvider): Error {
+  return new Error(`SUBAGENT_MCP_ERROR: provider ${provider.name} key_env ${provider.key_env} not set in ~/.subagent-mcp/.env`);
+}
+
+function badUrl(provider: ApiProvider, detail: string): Error {
+  return new Error(
+    `SUBAGENT_MCP_ERROR: provider ${provider.name} base_url ${provider.base_url} unreachable — edit ~/.subagent-mcp/providers.jsonc or check network (${detail})`
+  );
+}
+
+function model404(provider: ApiProvider): Error {
+  return new Error(
+    `SUBAGENT_MCP_ERROR: provider ${provider.name} model ${provider.model} not found — edit ~/.subagent-mcp/providers.jsonc model`
+  );
+}
+
+function authHeaders(provider: ApiProvider): HeadersInit {
+  const key = process.env[provider.key_env];
+  if (!key) throw missingKey(provider);
+  return {
+    "content-type": "application/json",
+    authorization: `Bearer ${key}`,
+    ...(provider.api_style === "claude" ? { "anthropic-version": "2023-06-01" } : {}),
+  };
+}
+
+function textFromContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (typeof part === "string") return part;
+      if (part && typeof part === "object" && typeof (part as JsonObj).text === "string") return (part as JsonObj).text as string;
+      return "";
+    })
+    .join("");
+}
+
+function normalizeOpenAi(provider: ApiProvider, raw: unknown): ApiProviderResponse {
+  const root = raw && typeof raw === "object" ? raw as JsonObj : {};
+  const choices = Array.isArray(root.choices) ? root.choices : [];
+  const first = choices[0] && typeof choices[0] === "object" ? choices[0] as JsonObj : {};
+  const message = first.message && typeof first.message === "object" ? first.message as JsonObj : {};
+  return { provider: provider.name, model: provider.model, text: textFromContent(message.content), raw };
+}
+
+function normalizeClaude(provider: ApiProvider, raw: unknown): ApiProviderResponse {
+  const root = raw && typeof raw === "object" ? raw as JsonObj : {};
+  return { provider: provider.name, model: provider.model, text: textFromContent(root.content), raw };
+}
+
+async function readJson(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
+
+export async function callApiProvider(
+  provider: ApiProvider,
+  request: ApiProviderRequest,
+  deps: ProviderClientDeps = {}
+): Promise<ApiProviderResponse> {
+  const url = provider.api_style === "openai"
+    ? endpoint(provider.base_url, "/v1/chat/completions")
+    : endpoint(provider.base_url, "/v1/messages");
+  const body = {
+    model: provider.model,
+    temperature: request.temperature ?? 0.5,
+    max_tokens: request.max_tokens ?? 4096,
+    tools: request.tools ?? [],
+    messages: request.messages,
+  };
+
+  let response: Response;
+  try {
+    response = await (deps.fetch ?? fetch)(url, {
+      method: "POST",
+      headers: authHeaders(provider),
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    throw badUrl(provider, e instanceof Error ? e.message : String(e));
+  }
+
+  const raw = await readJson(response);
+  if (response.status === 404) throw model404(provider);
+  if (!response.ok) throw badUrl(provider, `status ${response.status}`);
+  return provider.api_style === "openai" ? normalizeOpenAi(provider, raw) : normalizeClaude(provider, raw);
 }
 
 export async function probeProviderHead(
