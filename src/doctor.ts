@@ -11,8 +11,8 @@ import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { createBackup } from "./backup.js";
-import { stripJsoncComments } from "./concurrency.js";
 import { getConfigHome } from "./config-home.js";
+import { parseJsoncFile, type JsonObj } from "./jsonc.js";
 import {
   detectInstallMode,
   existingDist,
@@ -29,8 +29,6 @@ import {
 import { probeProviderHead, type HeadProbeResult } from "./providers/provider-client.js";
 
 type Status = "PASS" | "WARN" | "FAIL" | "INFO";
-type JsonObj = Record<string, any>;
-
 interface DoctorLine {
   status: Status;
   id: number;
@@ -79,24 +77,6 @@ const TASK_CATEGORIES = [
 
 function configHome(opts: DoctorOptions): string {
   return opts.configHome ?? (opts.home ? join(opts.home, ".subagent-mcp") : getConfigHome());
-}
-
-function parseJsoncFile(file: string): { ok: true; json: JsonObj } | { ok: false; error: string } {
-  try {
-    const text = readFileSync(file, "utf8");
-    return { ok: true, json: JSON.parse(stripJsoncComments(text)) as JsonObj };
-  } catch (e) {
-    const message = e instanceof SyntaxError ? jsonErrorWithLine(readFileSync(file, "utf8"), e.message) : e instanceof Error ? e.message : String(e);
-    return { ok: false, error: message };
-  }
-}
-
-function jsonErrorWithLine(text: string, message: string): string {
-  const pos = /position (\d+)/.exec(message)?.[1];
-  if (!pos) return message;
-  const n = Number(pos);
-  const lineNo = stripJsoncComments(text).slice(0, n).split(/\r?\n/).length;
-  return `${message}; line ${lineNo}`;
 }
 
 function providerEntries(config: JsonObj | null): Array<[string, JsonObj]> {

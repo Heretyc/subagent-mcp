@@ -2192,6 +2192,8 @@ if (isMain) {
     "                     --global  upsert into ~/.claude/CLAUDE.md, ~/.codex/AGENTS.md, ~/.gemini/GEMINI.md",
     "  config init [--force]",
     "                     scaffold ~/.subagent-mcp/providers.jsonc and .env",
+    "  config validate [--file <path>]",
+    "                     validate providers.jsonc against .env and routing schema",
     "  rollback           restore user config files from the newest backup",
     "  uninstall          remove subagent-mcp hooks and MCP registrations",
     "  doctor             check install and wiring health",
@@ -2390,6 +2392,10 @@ if (isMain) {
   if (arg === "config" && process.argv[3] === "init") {
     const { runConfigInit } = await import("./config-init.js");
     process.exit(await runConfigInit());
+  }
+  if (arg === "config" && process.argv[3] === "validate") {
+    const { runConfigValidate } = await import("./config-validate.js");
+    process.exit(await runConfigValidate());
   }
   if (arg === "rollback") {
     const { runRollback } = await import("./backup.js");
