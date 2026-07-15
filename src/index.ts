@@ -4,10 +4,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { spawn, spawnSync, execSync } from "child_process";
+import { EventEmitter } from "node:events";
 import { unlinkSync, existsSync, realpathSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { randomUUID } from "crypto";
 import { isAbsolute, basename, join, dirname } from "node:path";
 import { tmpdir } from "node:os";
+import { PassThrough } from "node:stream";
 import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
 import { createProviderDriver, type DriverProcess, type ProviderDriver } from "./drivers.js";
@@ -45,7 +47,11 @@ import {
   type Candidate,
   type SelectionMode,
   type RoutingBranch,
+  slotInsert,
 } from "./routing.js";
+import { callApiProvider } from "./providers/provider-client.js";
+import { loadApiProviders } from "./providers/config-loader.js";
+import { effortToTemperature } from "./providers/effort-map.js";
 import { createDeadlockWindow } from "./deadlock.js";
 import {
   createRulesetGate,
@@ -156,6 +162,29 @@ export const AGENT_RETENTION_MS = 30 * 60 * 1000;
 // scoping. The env-check runs lazily at the FIRST launch_agent call; success
 // latches enabled/disabled for the process lifetime, failure never latches.
 const rulesetGate = createRulesetGate();
+
+class ClosedProcess extends EventEmitter implements DriverProcess {
+  stdout = new PassThrough();
+  stderr = new PassThrough();
+  killed = false;
+  exitCode: number | null = 0;
+
+  kill(): boolean {
+    this.killed = true;
+    return false;
+  }
+}
+
+function closedDriver(process: DriverProcess): ProviderDriver {
+  return {
+    process,
+    closed: true,
+    definitelyStarted: Promise.resolve(),
+    start: async () => {},
+    send: async () => { throw new Error("api provider sessions are single-turn"); },
+    kill: () => { process.kill(); },
+  };
+}
 
 function ceilingRank(ceiling: "manual" | "auto" | "yolo"): number {
   return ceiling === "manual" ? 0 : ceiling === "auto" ? 1 : 2;
@@ -811,6 +840,53 @@ async function tryLaunchCandidate(
     originalSelection: { provider: string; model: string; effort: string };
   }
 ): Promise<{ agentId: string } | { reason: string; failure_type: FailureType }> {
+  if (candidate.provider === "api") {
+    if (!candidate.apiProvider) {
+      return { reason: "api provider config missing for candidate", failure_type: "permanent" };
+    }
+    const agentId = randomUUID();
+    const now = Date.now();
+    try {
+      const response = await callApiProvider(candidate.apiProvider, {
+        messages: [{ role: "user", content: prompt }],
+        temperature: effortToTemperature(candidate.effort as Parameters<typeof effortToTemperature>[0]),
+        max_tokens: 4096,
+      });
+      const process = new ClosedProcess();
+      const agentState: AgentState = {
+        id: agentId,
+        provider: "api",
+        model: candidate.model,
+        routingTier,
+        ...(rulesetInfo
+          ? { rulesetApplied: true, rulesetOriginalSelection: rulesetInfo.originalSelection }
+          : {}),
+        status: "finished",
+        process,
+        driver: closedDriver(process),
+        stdout: response.text,
+        stderr: "",
+        exitCode: 0,
+        exitedAt: now,
+        lastExitCode: null,
+        lastExitedAt: null,
+        startedAt: now,
+        lastActivity: now,
+        cwd: agentCwd,
+        permissionSnapshot,
+        waitReported: false,
+        visibleStream: response.text ? [{ type: "text", text: response.text, at: now }] : [],
+        streamBuf: "",
+        slotLastActivity: now,
+      };
+      agents.set(agentId, agentState);
+      return { agentId };
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      return { reason, failure_type: classifyFailureReason(reason, "") };
+    }
+  }
+
   // Build the command. haiku ignores effort; pass "high" placeholder for the
   // "none" sentinel (buildCommand drops it for haiku anyway).
   const effortForBuild = candidate.effort === "none" ? "high" : candidate.effort;
@@ -1316,6 +1392,10 @@ server.tool(
 
     // 6. Attempt loop: best→worst. Register on first successful driver start; silently
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
+    if (process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1") {
+      candidates = slotInsert(candidates, loadApiProviders(), task_category);
+    }
+
     const cap = readGlobalCap();
     const reservationId = randomUUID();
     const reservation = reserveSlot(reservationId, cap, slotDir(), NONBLOCKING_CULL_DEPS);
@@ -1334,7 +1414,7 @@ server.tool(
     incrementAgentCount();
     try {
       for (const candidate of candidates) {
-        const outcome = await tryLaunchCandidate(
+        let outcome = await tryLaunchCandidate(
           candidate,
           prompt,
           agentCwd,
@@ -1344,6 +1424,22 @@ server.tool(
             ? { applied: true, originalSelection: rulesetOriginalSelection }
             : undefined
         );
+        if (
+          candidate.provider === "api" &&
+          !("agentId" in outcome) &&
+          outcome.failure_type === "transient_provider"
+        ) {
+          outcome = await tryLaunchCandidate(
+            candidate,
+            prompt,
+            agentCwd,
+            permissionSnapshot,
+            routingTier,
+            rulesetApplied && rulesetOriginalSelection !== undefined
+              ? { applied: true, originalSelection: rulesetOriginalSelection }
+              : undefined
+          );
+        }
         if ("agentId" in outcome) {
           if (branch === "performance") {
             deadlockWindow.consume();

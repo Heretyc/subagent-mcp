@@ -8,6 +8,7 @@
 
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
 import {
   chmodSync,
   copyFileSync,
@@ -33,6 +34,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const distIndex = join(repoRoot, "dist", "index.js");
 const preloadPath = join(repoRoot, "test", "fixtures", "fake-ruleset-preload.cjs");
 const { currentUserSlotNamespace } = await import("../dist/concurrency.js");
+const { TASK_CATEGORIES } = await import("../dist/routing.js");
 const {
   anonKey,
   disablePath,
@@ -661,6 +663,40 @@ function makeTempEnv() {
     fakeBin
   );
   return { tempRoot, workDir, env, slotDir };
+}
+
+function writeApiProviders(home, provider) {
+  const configDir = join(home, ".subagent-mcp");
+  mkdirSync(configDir, { recursive: true });
+  const routing = Object.fromEntries(
+    TASK_CATEGORIES
+      .filter((category) => category !== "fallback_default")
+      .map((category) => [category, category === "coding" ? 1 : -1])
+  );
+  writeFileSync(join(configDir, "providers.jsonc"), JSON.stringify({
+    providers: {
+      api: {
+        name: "api",
+        api_style: "openai",
+        base_url: provider.base_url,
+        model: provider.model ?? "api-model",
+        key_env: "API_KEY",
+        routing,
+      },
+    },
+  }));
+}
+
+async function withHttpJson(handler, fn) {
+  const server = createServer(handler);
+  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  try {
+    const address = server.address();
+    assert.equal(typeof address, "object");
+    await fn(`http://127.0.0.1:${address.port}`);
+  } finally {
+    await new Promise((resolveClose) => server.close(resolveClose));
+  }
 }
 
 function sleep(ms) {
@@ -1355,6 +1391,83 @@ await test("explicit fable launch: zod enum accepts model and selection is honor
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+await test("api provider slot dispatch retries one transient failure and records status", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  let calls = 0;
+  await withHttpJson((req, res) => {
+    calls += 1;
+    assert.equal(req.url, "/v1/chat/completions");
+    if (calls === 1) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "server error" }));
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { content: "api ok" } }] }));
+  }, async (baseUrl) => {
+    writeApiProviders(tempRoot, { base_url: baseUrl });
+    const session = createMcpSession(distIndex, {
+      cwd: workDir,
+      env: { ...env, HOME: tempRoot, USERPROFILE: tempRoot, API_KEY: "test-key" },
+    });
+    try {
+      await session.initialize();
+      const { agentId, launchPayload } = await launchAndPoll(session, {
+        task_category: "coding",
+        prompt: "api route",
+      });
+      assertSelection(launchPayload, { provider: "api", model: "api-model", effort: "medium" }, "api slot launch");
+      assert.equal(calls, 2, "transient API failure must retry exactly once");
+
+      const poll = await pollAgent(session, agentId, { verbose: true });
+      assert.equal(poll.status, "finished");
+      assert.equal(poll.final_output.includes("api ok"), true);
+
+      const status = await session.request("tools/call", { name: "get_status", arguments: {} });
+      const statusPayload = JSON.parse(status.result.content[0].text);
+      assert.equal(statusPayload.last_routing_decisions.at(-1).provider, "api");
+    } finally {
+      await session.close();
+    }
+  });
+  rmSync(tempRoot, { recursive: true, force: true });
+});
+
+await test("api provider disable env keeps pre-api CLI routing", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  let calls = 0;
+  await withHttpJson((_req, res) => {
+    calls += 1;
+    res.writeHead(500);
+    res.end();
+  }, async (baseUrl) => {
+    writeApiProviders(tempRoot, { base_url: baseUrl });
+    const session = createMcpSession(distIndex, {
+      cwd: workDir,
+      env: {
+        ...env,
+        HOME: tempRoot,
+        USERPROFILE: tempRoot,
+        API_KEY: "test-key",
+        SUBAGENT_MCP_DISABLE_API_PROVIDERS: "1",
+      },
+    });
+    try {
+      await session.initialize();
+      const { agentId, launchPayload } = await launchAndPoll(session, {
+        task_category: "coding",
+        prompt: "api disabled route",
+      });
+      assert.notEqual(launchPayload.provider, "api");
+      assert.equal(calls, 0, "disable env must not call configured API providers");
+      await killAgent(session, agentId);
+    } finally {
+      await session.close();
+    }
+  });
+  rmSync(tempRoot, { recursive: true, force: true });
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
