@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "subagent-mcp",
-      "source": "./",
+      "source": "https://github.com/Heretyc/subagent-mcp.git",
       "description": "MCP server for local Claude Code / Codex CLI sub-agents, plus orchestration-mode directive and tool-gate hooks."
     }
   ]

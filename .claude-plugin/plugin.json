@@ -1,5 +1,14 @@
 {
   "name": "subagent-mcp",
   "version": "2.12.21",
-  "description": "Launches and manages local Claude Code and Codex CLI sub-agents, plus orchestration-mode hooks for per-turn directives and deterministic Claude tool gates."
+  "description": "Launches and manages local Claude Code and Codex CLI sub-agents, plus orchestration-mode hooks for per-turn directives and deterministic Claude tool gates.",
+  "hooks": "./hooks/hooks.json",
+  "displayName": "subagent-mcp",
+  "shortDescription": "Local MCP server for Claude Code and Codex sub-agent orchestration.",
+  "capabilities": [
+    "Launch and manage local Claude Code and Codex CLI sub-agents",
+    "Inject orchestration-mode directives through Claude Code hooks",
+    "Route sub-agent tasks by category, model, provider, and effort"
+  ],
+  "defaultPrompt": "Run: subagent-mcp doctor"
 }
