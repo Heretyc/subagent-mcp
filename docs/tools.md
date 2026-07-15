@@ -1,6 +1,6 @@
 # Tool Reference
 
-The nine tools exposed by `subagent-mcp`. See [README.md](../README.md) for the
+The tools exposed by `subagent-mcp`. See [README.md](../README.md) for the
 overview and [docs/SPEC.md](SPEC.md) for full parameter schemas and return
 shapes.
 
@@ -31,6 +31,16 @@ Returns: `{ agent_id, status, provider, model, effort, task_category }`, plus `r
 Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable`. Codex accepts only `gpt-5.5`.
 
 Spec: [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_INDEX.md) (param contract, presence→behavior matrix, exact error text).
+
+---
+
+## `get_status`
+
+Return live in-memory MCP server session state.
+
+No parameters.
+
+Returns: `{ providers_loaded, agent_count, session_start_time, last_routing_decisions }`. `session_start_time` is the MCP server process boot time; hook processes do not write a state file.
 
 ---
 

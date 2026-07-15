@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { Readable, Writable } from "node:stream";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -12,6 +12,7 @@ import {
   checkProviderConfig,
   checkReachability,
   checkRoutingCoverage,
+  checkSessionState,
   checkUpdate,
 } from "../dist/doctor.js";
 
@@ -108,6 +109,10 @@ function writePlugin(home) {
   });
 }
 
+function writeInstalledManifest(pkgRoot, hooks) {
+  writeJson(join(pkgRoot, "hooks", "hooks.json"), { hooks });
+}
+
 test("install-mode: npm-global mode reports dist path", () => withRoot(({ home, fakeBin, pkgRoot }) => {
   const r = checkInstallMode({ home, env: env(fakeBin) });
   assert.equal(r.status, "PASS");
@@ -135,6 +140,59 @@ test("install-mode: dual mode reports both installs", () => withRoot(({ home, fa
   const r = checkInstallMode({ home, env: env(fakeBin) });
   assert.match(r.detail, /npm-global=/);
   assert.match(r.detail, /marketplace=/);
+}));
+
+test("session-state: SessionStart entry present reports get_status availability", async () => withRoot(async ({ home, fakeBin, pkgRoot }) => {
+  writeInstalledManifest(pkgRoot, {
+    SessionStart: [{ hooks: [{ id: "subagent-mcp-session-start", command: "node dist/hooks/smcp-activate.js" }] }],
+  });
+  const r = await checkSessionState({ home, env: env(fakeBin), isTTY: false });
+  assert.equal(r.status, "INFO");
+  assert.match(r.detail, /SessionStart hook present/);
+  assert.match(r.detail, /get_status MCP tool/);
+}));
+
+test("session-state: missing SessionStart warns without repair in non-TTY", async () => withRoot(async ({ home, fakeBin, pkgRoot }) => {
+  const file = join(pkgRoot, "hooks", "hooks.json");
+  writeInstalledManifest(pkgRoot, { UserPromptSubmit: [{ hooks: [] }] });
+  const before = readFileSync(file, "utf8");
+  const r = await checkSessionState({ home, env: env(fakeBin), isTTY: false });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /missing subagent-mcp-session-start/);
+  assert.match(r.detail, /non-TTY: no changes made/);
+  assert.equal(readFileSync(file, "utf8"), before);
+}));
+
+test("session-state: repair Y restores canonical SessionStart after backup", async () => withRoot(async ({ home, fakeBin, pkgRoot }) => {
+  const file = join(pkgRoot, "hooks", "hooks.json");
+  writeInstalledManifest(pkgRoot, { UserPromptSubmit: [{ hooks: [] }] });
+  const r = await checkSessionState({
+    home,
+    env: env(fakeBin),
+    isTTY: true,
+    input: Readable.from(["y\n"]),
+    output: new Writable({ write(_chunk, _enc, cb) { cb(); } }),
+  });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /repaired after backup/);
+  const session = JSON.parse(readFileSync(file, "utf8")).hooks.SessionStart[0].hooks[0];
+  assert.equal(session.id, "subagent-mcp-session-start");
+  assert.equal(session.command, "node dist/hooks/smcp-activate.js");
+  assert.equal(readdirSync(join(pkgRoot, "hooks")).some((name) => name.startsWith("hooks.json.bak-")), true);
+}));
+
+test("session-state: null get_status session_start_time warns", async () => withRoot(async ({ home, fakeBin, pkgRoot }) => {
+  writeInstalledManifest(pkgRoot, {
+    SessionStart: [{ hooks: [{ id: "subagent-mcp-session-start", command: "node dist/hooks/smcp-activate.js" }] }],
+  });
+  const r = await checkSessionState({
+    home,
+    env: env(fakeBin),
+    isTTY: false,
+    statusSource: () => ({ session_start_time: null }),
+  });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /session_start_time would be null/);
 }));
 
 test("mcp-registration: stale mcp.json warns without failing live registration", async () => withRoot(async ({ home, fakeBin }) => {
