@@ -29,6 +29,7 @@
         "hooks": [
           {
             "id": "subagent-mcp-session-start",
+            "type": "command",
             "command": "node dist/hooks/smcp-activate.js",
             "commandWindows": null,
             "timeout": 5

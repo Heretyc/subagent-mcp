@@ -93,6 +93,7 @@ test("hooks manifest uses stable ids and bare node commands", () => {
   assert.equal(prompt.id, "subagent-mcp-orchestration-claude");
   assert.deepEqual(session, {
     id: "subagent-mcp-session-start",
+    type: "command",
     command: "node dist/hooks/smcp-activate.js",
     commandWindows: null,
     timeout: 5,
