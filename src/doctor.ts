@@ -14,6 +14,7 @@ import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { createBackup } from "./backup.js";
+import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { findOnPath, resolveCmdShimNodeScript } from "./setup.js";
 
 type Status = "PASS" | "WARN" | "FAIL";
@@ -147,17 +148,21 @@ function canonicalEntry(): JsonObj {
   return { type: "stdio", command: "subagent-mcp", args: [], env: {} };
 }
 
-async function askFix(opts: DoctorOptions): Promise<boolean> {
+async function askYesNo(opts: DoctorOptions, prompt: string): Promise<boolean> {
   const rl = createInterface({
     input: opts.input ?? defaultInput,
     output: opts.output ?? defaultOutput,
   });
   try {
-    const answer = (await rl.question("Fix MCP registration? [Y/n] ")).trim().toLowerCase();
+    const answer = (await rl.question(prompt)).trim().toLowerCase();
     return answer === "" || answer === "y" || answer === "yes";
   } finally {
     rl.close();
   }
+}
+
+async function askFix(opts: DoctorOptions): Promise<boolean> {
+  return askYesNo(opts, "Fix MCP registration? [Y/n] ");
 }
 
 export async function checkMcpRegistration(opts: DoctorOptions = {}): Promise<DoctorLine> {
@@ -205,8 +210,201 @@ export async function checkMcpRegistration(opts: DoctorOptions = {}): Promise<Do
   };
 }
 
+interface HookEntry {
+  sourceFile: string;
+  event: string;
+  groupIndex: number;
+  hookIndex: number;
+  entry: JsonObj;
+  script: string | null;
+  id: string | null;
+  command: string;
+  canonical: boolean;
+}
+
+interface HookDuplicate {
+  id: string;
+  kind: "same-id" | "legacy-pair" | "dual-mode";
+  keep: HookEntry | null;
+  remove: HookEntry;
+}
+
+const SCRIPT_IDS: Record<string, string> = {
+  "orchestration-claude.js": "subagent-mcp-orchestration-claude",
+  "orchestration-claude-pretool.js": "subagent-mcp-pretool",
+  "smcp-activate.js": "subagent-mcp-session-start",
+  "orchestration-codex.js": "subagent-mcp-orchestration-codex",
+};
+
+function reEsc(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function entryCommand(entry: JsonObj): string {
+  const args = Array.isArray(entry.args) ? entry.args.map(String).join(" ") : "";
+  const cmd = typeof entry.command === "string" ? entry.command : "";
+  const win = typeof entry.commandWindows === "string" && entry.commandWindows !== cmd ? ` | ${entry.commandWindows}` : "";
+  return `${cmd}${args ? ` ${args}` : ""}${win}`;
+}
+
+function hookScript(entry: JsonObj): string | null {
+  const text = entryCommand(entry).replace(/\\/g, "/");
+  for (const script of Object.keys(SCRIPT_IDS)) {
+    const re = new RegExp(`(?:^|[/ "'])dist/hooks/${reEsc(script)}(?:$|["' ])`);
+    if (re.test(text) || text.includes(`/hooks/${script}`)) return script;
+  }
+  return null;
+}
+
+function currentHookCommands(script: string, npmDist: string | null): string[] {
+  if (!npmDist) return [];
+  const root = dirname(dirname(npmDist)).replace(/\\/g, "/");
+  const hook = `${root}/dist/hooks/${script}`;
+  return [`node ${hook}`, `node "${hook}"`];
+}
+
+function flattenHooks(file: string, json: JsonObj | null, env: NodeJS.ProcessEnv): HookEntry[] {
+  const hooks = json?.hooks;
+  if (!hooks || typeof hooks !== "object" || Array.isArray(hooks)) return [];
+  const npmDist = npmGlobalDist(env);
+  const out: HookEntry[] = [];
+  for (const [event, groups] of Object.entries(hooks as Record<string, unknown>)) {
+    if (!Array.isArray(groups)) continue;
+    groups.forEach((group, groupIndex) => {
+      const list = group && typeof group === "object" ? (group as JsonObj).hooks : null;
+      if (!Array.isArray(list)) return;
+      list.forEach((raw, hookIndex) => {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+        const entry = raw as JsonObj;
+        const script = hookScript(entry);
+        const id = typeof entry.id === "string" && entry.id.startsWith("subagent-mcp") ? entry.id : null;
+        if (!script && !id) return;
+        const command = entryCommand(entry);
+        out.push({
+          sourceFile: file,
+          event,
+          groupIndex,
+          hookIndex,
+          entry,
+          script,
+          id,
+          command,
+          canonical: script ? currentHookCommands(script, npmDist).includes(command.replace(/\\/g, "/")) : false,
+        });
+      });
+    });
+  }
+  return out;
+}
+
+function hookDetail(h: HookEntry): string {
+  return `${h.sourceFile} ${h.event} command=${JSON.stringify(h.command)} entry=${JSON.stringify(h.entry)}`;
+}
+
+function betterHook(a: HookEntry, b: HookEntry): HookEntry {
+  if (a.canonical !== b.canonical) return a.canonical ? a : b;
+  if ((a.id !== null) !== (b.id !== null)) return a.id !== null ? a : b;
+  return a.groupIndex < b.groupIndex || (a.groupIndex === b.groupIndex && a.hookIndex <= b.hookIndex) ? a : b;
+}
+
+function pluginHooksPresent(home: string, env: NodeJS.ProcessEnv): Set<string> {
+  const scripts = new Set<string>();
+  for (const dist of scanPluginDists(home)) {
+    const root = dirname(dirname(dist));
+    for (const rel of ["hooks/hooks.json", "codex/hooks.json"]) {
+      for (const h of flattenHooks(join(root, rel), readJson(join(root, rel)), env)) {
+        if (h.script) scripts.add(h.script);
+      }
+    }
+  }
+  return scripts;
+}
+
+function findHookDuplicates(files: Array<{ file: string; json: JsonObj | null }>, home: string, env: NodeJS.ProcessEnv): HookDuplicate[] {
+  const all = files.flatMap((f) => flattenHooks(f.file, f.json, env));
+  const out: HookDuplicate[] = [];
+  const seen = new Set<string>();
+  const add = (d: HookDuplicate) => {
+    const k = `${d.kind}:${d.remove.sourceFile}:${d.remove.groupIndex}:${d.remove.hookIndex}:${d.keep?.sourceFile ?? "plugin"}:${d.id}`;
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(d);
+    }
+  };
+
+  for (const id of new Set(all.map((h) => h.id).filter((v): v is string => v !== null))) {
+    const matches = all.filter((h) => h.id === id);
+    if (matches.length < 2) continue;
+    let keep = matches[0];
+    for (const h of matches.slice(1)) keep = betterHook(keep, h);
+    for (const h of matches) if (h !== keep) add({ id, kind: "same-id", keep, remove: h });
+  }
+
+  for (const idHook of all.filter((h) => h.id && h.script)) {
+    for (const legacy of all.filter((h) => !h.id && h.script === idHook.script)) {
+      const keep = betterHook(idHook, legacy);
+      add({ id: idHook.id!, kind: "legacy-pair", keep, remove: keep === idHook ? legacy : idHook });
+    }
+  }
+
+  // Marketplace hooks and npm-global user hooks are both valid alone. Together,
+  // the manifest fires the same script, so the user-config copy is redundant.
+  const pluginScripts = pluginHooksPresent(home, env);
+  for (const h of all) {
+    if (h.script && pluginScripts.has(h.script)) add({ id: h.id ?? SCRIPT_IDS[h.script], kind: "dual-mode", keep: null, remove: h });
+  }
+  return out;
+}
+
+function removeHookEntry(json: JsonObj, h: HookEntry): void {
+  const groups = ((json.hooks as JsonObj)[h.event] as JsonObj[]);
+  const list = groups[h.groupIndex].hooks as JsonObj[];
+  list.splice(h.hookIndex, 1);
+}
+
+export async function checkDuplicateHooks(opts: DoctorOptions = {}): Promise<DoctorLine> {
+  const home = opts.home ?? homedir();
+  const env = opts.env ?? process.env;
+  const files = [
+    { file: join(home, ".claude", "settings.json"), json: readJson(join(home, ".claude", "settings.json")) },
+    { file: join(home, ".codex", "hooks.json"), json: readJson(join(home, ".codex", "hooks.json")) },
+  ];
+  const dupes = findHookDuplicates(files, home, env);
+  if (dupes.length === 0) return { status: "PASS", id: 3, name: "duplicate-hooks", detail: "no duplicate subagent-mcp hooks found" };
+
+  const tty = opts.isTTY ?? process.stdin.isTTY;
+  const detail = dupes.map((d) => `${d.kind} ${d.id}: remove ${hookDetail(d.remove)}${d.keep ? `; keep ${hookDetail(d.keep)}` : "; keep plugin manifest"}`).join("; ");
+  if (!tty) return { status: "WARN", id: 3, name: "duplicate-hooks", detail: `${detail}; non-TTY: no changes made` };
+
+  let backedUp = false;
+  const removals = new Map<string, Set<string>>();
+  for (const d of dupes) {
+    if (await askYesNo(opts, `Remove duplicate entry ${d.id}? [Y/n] `)) {
+      if (!backedUp) {
+        createBackup();
+        backedUp = true;
+      }
+      const key = `${d.remove.event}:${d.remove.groupIndex}:${d.remove.hookIndex}`;
+      const set = removals.get(d.remove.sourceFile) ?? new Set<string>();
+      set.add(key);
+      removals.set(d.remove.sourceFile, set);
+    }
+  }
+  for (const f of files) {
+    const set = removals.get(f.file);
+    if (!set || !f.json) continue;
+    const entries = flattenHooks(f.file, f.json, env)
+      .filter((h) => set.has(`${h.event}:${h.groupIndex}:${h.hookIndex}`))
+      .sort((a, b) => b.groupIndex - a.groupIndex || b.hookIndex - a.hookIndex);
+    for (const h of entries) removeHookEntry(f.json, h);
+    atomicWriteFile(f.file, `${JSON.stringify(f.json, null, 2)}\n`, { encoding: "utf8" });
+  }
+  const count = [...removals.values()].reduce((n, s) => n + s.size, 0);
+  return { status: "WARN", id: 3, name: "duplicate-hooks", detail: `${detail}; removed=${count}${backedUp ? " after backup" : ""}` };
+}
+
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
-  const results = [checkInstallMode(opts), await checkMcpRegistration(opts)];
+  const results = [checkInstallMode(opts), await checkMcpRegistration(opts), await checkDuplicateHooks(opts)];
   for (const r of results) console.log(line(r));
   const counts = { PASS: 0, WARN: 0, FAIL: 0 };
   for (const r of results) counts[r.status]++;

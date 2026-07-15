@@ -4,7 +4,7 @@ import { Readable, Writable } from "node:stream";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { checkInstallMode, checkMcpRegistration } from "../dist/doctor.js";
+import { checkDuplicateHooks, checkInstallMode, checkMcpRegistration } from "../dist/doctor.js";
 
 let passed = 0;
 let failed = 0;
@@ -63,6 +63,35 @@ function env(fakeBin) {
 function liveConfig(home) {
   writeJson(join(home, ".claude.json"), {
     mcpServers: { "subagent-mcp": { command: "subagent-mcp", args: [] } },
+  });
+}
+
+function claudePromptHook(path, extra = {}) {
+  return {
+    id: "subagent-mcp-orchestration-claude",
+    type: "command",
+    command: "node",
+    args: [path],
+    ...extra,
+  };
+}
+
+function writeClaudeHooks(home, hooks) {
+  writeJson(join(home, ".claude", "settings.json"), {
+    hooks: { UserPromptSubmit: [{ hooks }] },
+  });
+}
+
+function writePlugin(home) {
+  const plugin = join(home, ".claude", "plugins", "subagent-mcp");
+  mkdirSync(join(plugin, ".claude-plugin"), { recursive: true });
+  mkdirSync(join(plugin, "dist", "hooks"), { recursive: true });
+  writeJson(join(plugin, ".claude-plugin", "plugin.json"), { name: "subagent-mcp" });
+  writeFileSync(join(plugin, "dist", "index.js"), "");
+  writeJson(join(plugin, "hooks", "hooks.json"), {
+    hooks: {
+      UserPromptSubmit: [{ hooks: [{ id: "subagent-mcp-orchestration-claude", command: 'node "${CLAUDE_PLUGIN_ROOT}/dist/hooks/orchestration-claude.js"' }] }],
+    },
   });
 }
 
@@ -141,6 +170,85 @@ test("mcp-registration: non-TTY never modifies stale mcp.json", async () => with
   const r = await checkMcpRegistration({ home, env: env(fakeBin), isTTY: false });
   assert.equal(r.status, "WARN");
   assert.equal(readFileSync(stale, "utf8"), before);
+}));
+
+test("duplicate-hooks: no dupes passes", async () => withRoot(async ({ home, pkgRoot, fakeBin }) => {
+  writeClaudeHooks(home, [claudePromptHook(join(pkgRoot, "dist", "hooks", "orchestration-claude.js"))]);
+  const r = await checkDuplicateHooks({ home, env: env(fakeBin), isTTY: false });
+  assert.equal(r.status, "PASS");
+}));
+
+test("duplicate-hooks: same-id dupes warn", async () => withRoot(async ({ home, pkgRoot, fakeBin }) => {
+  const hook = join(pkgRoot, "dist", "hooks", "orchestration-claude.js");
+  writeClaudeHooks(home, [claudePromptHook(hook), claudePromptHook(join(home, "old", "dist", "hooks", "orchestration-claude.js"))]);
+  const r = await checkDuplicateHooks({ home, env: env(fakeBin), isTTY: false });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /same-id subagent-mcp-orchestration-claude/);
+  assert.match(r.detail, /non-TTY: no changes made/);
+}));
+
+test("duplicate-hooks: legacy id-less plus id-bearing pair warns", async () => withRoot(async ({ home, pkgRoot, fakeBin }) => {
+  const hook = join(pkgRoot, "dist", "hooks", "orchestration-claude.js");
+  writeClaudeHooks(home, [claudePromptHook(hook), { type: "command", command: "node", args: [hook] }]);
+  const r = await checkDuplicateHooks({ home, env: env(fakeBin), isTTY: false });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /legacy-pair subagent-mcp-orchestration-claude/);
+}));
+
+test("duplicate-hooks: dual-mode keeps plugin and marks user config redundant", async () => withRoot(async ({ home, pkgRoot, fakeBin }) => {
+  writePlugin(home);
+  writeClaudeHooks(home, [claudePromptHook(join(pkgRoot, "dist", "hooks", "orchestration-claude.js"))]);
+  const r = await checkDuplicateHooks({ home, env: env(fakeBin), isTTY: false });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /dual-mode subagent-mcp-orchestration-claude/);
+  assert.match(r.detail, /keep plugin manifest/);
+}));
+
+test("duplicate-hooks: repair Y removes duplicate after backup", async () => withRoot(async ({ home, pkgRoot, fakeBin }) => {
+  const hook = join(pkgRoot, "dist", "hooks", "orchestration-claude.js");
+  const file = join(home, ".claude", "settings.json");
+  writeClaudeHooks(home, [claudePromptHook(hook), { type: "command", command: "node", args: [hook] }]);
+  const r = await checkDuplicateHooks({
+    home,
+    env: env(fakeBin),
+    isTTY: true,
+    input: Readable.from(["y\n"]),
+    output: new Writable({ write(_chunk, _enc, cb) { cb(); } }),
+  });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /removed=1 after backup/);
+  const after = readFileSync(file, "utf8");
+  assert.match(after, /\n  "hooks"/);
+  assert.equal(JSON.parse(after).hooks.UserPromptSubmit[0].hooks.length, 1);
+  assert.equal(existsSync(join(home, ".subagent-mcp", "backups")), true);
+}));
+
+test("duplicate-hooks: repair n leaves config unchanged", async () => withRoot(async ({ home, pkgRoot, fakeBin }) => {
+  const hook = join(pkgRoot, "dist", "hooks", "orchestration-claude.js");
+  const file = join(home, ".claude", "settings.json");
+  writeClaudeHooks(home, [claudePromptHook(hook), { type: "command", command: "node", args: [hook] }]);
+  const before = readFileSync(file, "utf8");
+  const r = await checkDuplicateHooks({
+    home,
+    env: env(fakeBin),
+    isTTY: true,
+    input: Readable.from(["n\n"]),
+    output: new Writable({ write(_chunk, _enc, cb) { cb(); } }),
+  });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /removed=0/);
+  assert.equal(readFileSync(file, "utf8"), before);
+}));
+
+test("duplicate-hooks: non-TTY leaves config unchanged", async () => withRoot(async ({ home, pkgRoot, fakeBin }) => {
+  const hook = join(pkgRoot, "dist", "hooks", "orchestration-claude.js");
+  const file = join(home, ".claude", "settings.json");
+  writeClaudeHooks(home, [claudePromptHook(hook), { type: "command", command: "node", args: [hook] }]);
+  const before = readFileSync(file, "utf8");
+  const r = await checkDuplicateHooks({ home, env: env(fakeBin), isTTY: false });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /non-TTY: no changes made/);
+  assert.equal(readFileSync(file, "utf8"), before);
 }));
 
 for (const t of tests) {
