@@ -14,6 +14,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { Provider } from "./effort.js";
+import type { ApiProvider } from "./providers/types.js";
+export { slotInsert } from "./providers/slot-router.js";
 
 /** Launch model enum accepted by buildCommand. */
 export const LAUNCH_MODELS = ["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5", "gpt-5.6"] as const;
@@ -71,6 +73,7 @@ export interface Candidate {
   provider: Provider;
   model: string; // SHORT launch id
   effort: string; // normalized launch effort, or HAIKU_EFFORT sentinel
+  apiProvider?: ApiProvider;
 }
 
 export interface CandidateResult {
