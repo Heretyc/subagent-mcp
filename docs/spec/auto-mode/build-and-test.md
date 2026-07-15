@@ -34,11 +34,11 @@ interpolated,confidence,basis}, ... ]` (NO per-category object wrapper, NO
 `performance`:
 
 - A category with multiple pairings spanning BOTH providers and varied ranks
-  (e.g. `architecture`: `opus-4-8@high` rank 1, `gpt-5.5@xhigh` rank 2,
+  (e.g. `architecture`: `opus-4-8@high` rank 1, `gpt-5.5@xhigh` or `gpt-5.6@xhigh` rank 2,
   `sonnet@medium` rank 3, `haiku@none` rank 4).
 - A category with a single pairing.
 - A category present but empty (`performance.<cat>: []`).
-- A pairing whose `effort` needs normalization (e.g. `gpt-5.5@max` → clamp
+- A pairing whose `effort` needs normalization (e.g. `gpt-5.5@max` or `gpt-5.6@max` → clamp
   `xhigh`; `sonnet@ultracode` → clamp `xhigh`).
 - (Optional) a pairing with an unknown model id to exercise the skip path.
 
@@ -57,10 +57,10 @@ runner, `assert/strict`, exit non-zero on any failure. Import the compiled
    rank order.
 3. **provider_model filter** : `provider:"claude",model:"sonnet"` yields only
    sonnet pairings.
-4. **effort normalization** : `gpt-5.5@max` resolves to launch effort `xhigh`;
+4. **effort normalization** : `gpt-5.5@max` and `gpt-5.6@max` resolve to launch effort `xhigh`;
    `sonnet@ultracode` → `xhigh`; `opus-4-8@ultracode` stays `ultracode`;
    `haiku@none` → effort ignored/placeholder.
-5. **model→provider map** : haiku/sonnet/opus/opus-4-8/fable → claude; gpt-5.5 →
+5. **model→provider map** : haiku/sonnet/opus/opus-4-8/fable → claude; gpt-5.5/gpt-5.6 →
    codex.
 6. **empty category** : empty category array (`[]`) → resolver signals "no candidates"
    (the value the handler turns into `ERR_NO_CANDIDATES`).

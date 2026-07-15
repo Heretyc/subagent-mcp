@@ -243,7 +243,7 @@ function effortAllowed(model: string, effort: string): boolean {
   if (model === "opus" || model === "opus-4-8") {
     return (LAUNCH_EFFORTS as readonly string[]).includes(effort);
   }
-  // gpt-5.5 (the only remaining launch model).
+  // Codex launch models.
   return CODEX_EFFORTS.includes(effort);
 }
 
@@ -255,7 +255,7 @@ function effortAllowed(model: string, effort: string): boolean {
  *
  * Per element: string provider/model/effort; provider ∈ {claude, codex};
  * model ∈ launch enum; provider↔model legality (claude↔{haiku,sonnet,opus,
- * opus-4-8,fable}, codex↔gpt-5.5); per-model effort legality incl. haiku→"none".
+ * opus-4-8,fable}, codex↔{gpt-5.5,gpt-5.6}); per-model effort legality incl. haiku→"none".
  * Extra keys (incl. rank) are ignored on output; duplicates are allowed (the
  * attempt loop just tries them in order). An EMPTY array is VALID — it is the
  * limit case of the allowed filter operation and means "veto the launch"
@@ -288,11 +288,11 @@ export function validateRulesetOutput(
     if (!(LAUNCH_MODELS as readonly string[]).includes(model)) {
       return { ok: false, error: `candidate ${i}: unknown model ${model}` };
     }
-    if (provider === "claude" && model === "gpt-5.5") {
-      return { ok: false, error: `candidate ${i}: claude does not support gpt-5.5` };
+    if (provider === "claude" && ["gpt-5.5", "gpt-5.6"].includes(model)) {
+      return { ok: false, error: `candidate ${i}: claude does not support ${model}` };
     }
-    if (provider === "codex" && model !== "gpt-5.5") {
-      return { ok: false, error: `candidate ${i}: codex only supports gpt-5.5, got ${model}` };
+    if (provider === "codex" && !["gpt-5.5", "gpt-5.6"].includes(model)) {
+      return { ok: false, error: `candidate ${i}: codex only supports gpt-5.5 or gpt-5.6, got ${model}` };
     }
     if (!effortAllowed(model, effort)) {
       return { ok: false, error: `candidate ${i}: effort ${effort} is not valid for ${provider}/${model}` };

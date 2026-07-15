@@ -112,13 +112,17 @@ await test("validateRulesetOutput: rejection matrix (per-model effort legality, 
     [{ provider: "claude", model: "banana", effort: "high" }, "unknown model"],
     [{ provider: "gemini", model: "sonnet", effort: "high" }, "unknown provider"],
     [{ provider: "claude", model: "gpt-5.5", effort: "high" }, "provider↔model mismatch (claude cannot run gpt-5.5)"],
-    [{ provider: "codex", model: "sonnet", effort: "high" }, "provider↔model mismatch (codex only runs gpt-5.5)"],
+    [{ provider: "claude", model: "gpt-5.6", effort: "high" }, "provider↔model mismatch (claude cannot run gpt-5.6)"],
+    [{ provider: "codex", model: "sonnet", effort: "high" }, "provider↔model mismatch (codex only runs gpt-5.5 or gpt-5.6)"],
     [{ provider: "claude", model: "sonnet" }, "missing effort key (non-string)"],
   ];
   for (const [el, why] of bad) {
     const result = validateRulesetOutput([el]);
     assert.equal(result.ok, false, `must reject: ${why}`);
   }
+  const claudeGpt56 = validateRulesetOutput([{ provider: "claude", model: "gpt-5.6", effort: "high" }]);
+  assert.equal(claudeGpt56.ok, false, "claude must reject gpt-5.6 explicitly");
+  assert.equal(claudeGpt56.error, "candidate 0: claude does not support gpt-5.6");
 
   // Top-level / element shape failures.
   assert.equal(validateRulesetOutput({}).ok, false, "non-array top level must be rejected");

@@ -42,7 +42,7 @@ Validation order in the handler:
 4. If `model` present and not `provider` -> `ERR_MODEL_NEEDS_PROVIDER`.
 5. (explicit mode only) provider+model must match the existing
    provider<->model rule from `src/index.ts` (claude<->{haiku,sonnet,opus,opus-4-8,fable};
-   codex<->gpt-5.5); reuse that existing check and its message verbatim.
+   codex<->{gpt-5.5,gpt-5.6}); reuse that existing check and its message verbatim.
 6. If `task_category` is `fallback_default` and mode is not `explicit` ->
    `ERR_FALLBACK_DEFAULT`.
 7. All validation passed. If `deadlock === true`, ARM the deadlock window now
