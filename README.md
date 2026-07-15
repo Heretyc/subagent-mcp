@@ -13,6 +13,10 @@ macOS, Linux, and Windows. It drives the locally authenticated `claude` and
 `codex` CLIs you already signed into. It does not make direct HTTP API calls and
 does not require API keys.
 
+![subagent-mcp long-horizon session demonstration](docs/images/smcp-example.png)
+
+*7 h 38 min one-shot coding session, several hundred tool calls, Fable 5, July 15 2026 - 41% context used, no auto-compaction, orchestrated via subagent-mcp.*
+
 The orchestrator monitors but does not read or write project files itself. Work
 is delegated to fresh sub-agents, so the orchestrator keeps summaries instead
 of raw file context. The main invariants are:
@@ -37,12 +41,27 @@ Building from source needs extra developer tools. See
 
 ### Install The Package
 
+Marketplace plugin for Claude Code:
+
+```bash
+claude plugin marketplace add Heretyc/subagent-mcp
+claude plugin install subagent-mcp@subagent-mcp
+```
+
+Codex uses MCP registration:
+
+```bash
+codex mcp add subagent-mcp -- node /abs/path/to/subagent-mcp/dist/index.js
+```
+
+Or install the npm package globally:
+
 ```bash
 npm install -g @heretyc/subagent-mcp
 ```
 
-This is the standard install. Organizations pinning the package through GitHub
-Packages should see [docs/registration.md](docs/registration.md).
+Organizations pinning the package through GitHub Packages should see
+[docs/registration/prerequisites-and-install.md](docs/registration/prerequisites-and-install.md).
 
 ### Wire It Into Your Assistant
 
@@ -57,6 +76,11 @@ it also registers or wraps `statusLine` so the hook can read Claude's
 authoritative context percentage without replacing your custom statusline, and
 deploys the `handoff-resume` Agent Skill to your Claude user scope.
 Preview first with `subagent-mcp setup --dry-run`.
+
+For provider config, run `subagent-mcp config init`, edit the generated `.env`
+keys under your subagent-mcp config home, then run
+`subagent-mcp config validate`. See [skills/smcp-help/SKILL.md](skills/smcp-help/SKILL.md)
+for details.
 
 ### Restart, Then Turn On The Invariant
 
@@ -88,8 +112,9 @@ do not receive per-turn hook reminders.
 
 The server exposes `launch_agent`, `poll_agent`, `kill_agent`, `send_message`,
 `list_agents`, `wait`, `respond_permission`, `orchestration-mode`, and
-`model-selection-mode`. See [docs/tools.md](docs/tools.md) for the full
-parameter and return reference.
+`model-selection-mode`; `get_status` returns `providers_loaded`, `agent_count`,
+`session_start_time`, and `last_routing_decisions`. See [docs/tools.md](docs/tools.md)
+for the full parameter and return reference.
 
 You do not have to choose a model. Give `launch_agent` a prompt and a task
 category such as `coding`, `debugging`, or `security_review`; the server picks
@@ -151,6 +176,9 @@ Unanswered requests auto-deny after 5 minutes. Full spec:
   work you no longer need. Raising `globalConcurrentSubagents` also works.
 - **Logs.** Agent output is available through `poll_agent`. Server diagnostics
   go to the host MCP server log on stderr.
+- **Install or config looks wrong.** Run `subagent-mcp doctor` for the 9-check
+  diagnostic; it prompts before any fix. `subagent-mcp rollback` restores the
+  most recent config backup. See [skills/smcp-doctor/SKILL.md](skills/smcp-doctor/SKILL.md).
 
 ## Documentation
 
@@ -158,6 +186,7 @@ Unanswered requests auto-deny after 5 minutes. Full spec:
 |---|---|
 | [docs/spec/arch-rationale.md](docs/spec/arch-rationale.md) | Design rationale |
 | [docs/registration.md](docs/registration.md) | Per-platform setup |
+| [docs/install/_INDEX.md](docs/install/_INDEX.md) | Install guide map |
 | [docs/tools.md](docs/tools.md) | Tool reference |
 | [docs/usage.md](docs/usage.md) | Model and effort matrix |
 | [docs/SPEC.md](docs/SPEC.md) | Technical specification |
@@ -168,6 +197,6 @@ Unanswered requests auto-deny after 5 minutes. Full spec:
 
 ## License
 
-Apache-2.0. Copyright 2026 Lexi Blackburn.
+Apache-2.0. Copyright 2026 Lexi Blackburn (https://github.com/Heretyc/).
 
 See [LICENSE](LICENSE).

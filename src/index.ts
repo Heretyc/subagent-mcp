@@ -79,6 +79,11 @@ import * as modelMode from "./orchestration/model-mode.js";
 import * as handoff from "./orchestration/handoff.js";
 import * as metering from "./orchestration/metering.js";
 import { computeEffectiveActive } from "./orchestration/hook-core.js";
+import {
+  getStatus,
+  incrementAgentCount,
+  recordRoutingDecision,
+} from "./status-tracker.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
 import { checkForNpmUpdate } from "./orchestration/update-check.js";
 import { ensureParentMarker } from "./launch-prompt.js";
@@ -757,7 +762,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.14.0",
+    version: "2.15.0",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -1184,6 +1189,7 @@ server.tool(
     deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
   },
   withMaintenance(async (params: any) => {
+    const launchStartedAt = Date.now();
     const { task_category, provider, model, effort, deadlock } = params;
     const launchDepth = currentLaunchDepth();
     if (launchDepth >= 2) {
@@ -1324,6 +1330,7 @@ server.tool(
       failure_type: FailureType;
     }[] = [];
     let launched = false;
+    incrementAgentCount();
     try {
       for (const candidate of candidates) {
         const outcome = await tryLaunchCandidate(
@@ -1363,6 +1370,11 @@ server.tool(
             }
           }
           launched = true;
+          recordRoutingDecision({
+            category: task_category,
+            provider: candidate.provider,
+            elapsed_ms: Date.now() - launchStartedAt,
+          });
           return {
             content: [
               {
@@ -1444,6 +1456,20 @@ server.tool(
       `Error: all ${skipped.length} candidate launches failed for task_category ${task_category}:\n${lines}\n${SPLIT_HINT}\n${AUTO_HINT}`
     );
   }) // ponytail: launch_agent still reaps, but callers do not receive zombie_report.
+);
+
+server.tool(
+  "get_status",
+  "Return live in-memory MCP session state. `session_start_time` is the MCP server process boot time because smcp-activate runs as a separate hook process and cannot update this server's memory; no state file is used.",
+  {},
+  withMaintenance(async () => ({
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(getStatus()),
+      },
+    ],
+  }))
 );
 
 // Tool 2: poll_agent

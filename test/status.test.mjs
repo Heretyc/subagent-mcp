@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   HEARTBEAT_TIMEOUT_MS,
   computeStatusTransition,
   buildLivenessFields,
 } from "../dist/status-helpers.js";
+import {
+  getStatus,
+  incrementAgentCount,
+  loadProvidersFromConfigHome,
+  recordRoutingDecision,
+  resetStatusForTests,
+} from "../dist/status-tracker.js";
 
 let passed = 0;
 let failed = 0;
@@ -223,6 +233,54 @@ test("buildLivenessFields: alive is false if exitCode set even on live label", (
   // Defensive: status reconcile runs first, but exitCode is the source of truth.
   const f = buildLivenessFields("processing", 0, NOW, NOW);
   assert.equal(f.alive, false, "exitCode !== null means not alive");
+});
+
+test("status-tracker increments agent_count", () => {
+  resetStatusForTests();
+  incrementAgentCount();
+  incrementAgentCount();
+  assert.equal(getStatus().agent_count, 2);
+});
+
+test("status-tracker keeps only last 10 routing decisions", () => {
+  resetStatusForTests();
+  for (let i = 0; i < 12; i++) {
+    recordRoutingDecision({
+      category: `cat-${i}`,
+      provider: i % 2 ? "claude" : "codex",
+      elapsed_ms: i,
+    });
+  }
+  const decisions = getStatus().last_routing_decisions;
+  assert.equal(decisions.length, 10);
+  assert.equal(decisions[0].category, "cat-2");
+  assert.equal(decisions[9].category, "cat-11");
+});
+
+test("status-tracker loads provider names from providers.jsonc", () => {
+  const root = mkdtempSync(join(tmpdir(), "subagent-status-"));
+  try {
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "providers.jsonc"),
+      '{ "providers": { "claude": {}, "codex": {} } } // ok\n',
+      "utf8"
+    );
+    assert.deepEqual(loadProvidersFromConfigHome(root), ["claude", "codex"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("status-tracker returns empty provider list for absent or invalid config", () => {
+  const root = mkdtempSync(join(tmpdir(), "subagent-status-"));
+  try {
+    assert.deepEqual(loadProvidersFromConfigHome(root), []);
+    writeFileSync(join(root, "providers.jsonc"), "{ nope", "utf8");
+    assert.deepEqual(loadProvidersFromConfigHome(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

@@ -1,6 +1,6 @@
 {
   "name": "@heretyc/subagent-mcp",
-  "version": "2.14.0",
+  "version": "2.15.0",
   "description": "MCP server that launches and manages always-interactive Claude Code and Codex sub-agent sessions (no direct Anthropic/OpenAI API).",
   "keywords": [
     "mcp",
@@ -27,7 +27,12 @@
     "directives",
     "templates",
     "skills/handoff-resume",
+    "skills/smcp-help",
+    "skills/smcp-status",
+    "skills/smcp-doctor",
+    "commands",
     "scripts/postinstall.mjs",
+    "AGENTS.md",
     "LICENSE",
     "NOTICE",
     "README.md"

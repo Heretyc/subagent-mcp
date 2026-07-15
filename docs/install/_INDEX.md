@@ -17,7 +17,7 @@ belong in this `docs/install/` guide set. For what orchestration mode *is*, see
 The `orchestration-mode` MCP tool flips the toggle; each supported host's
 per-turn hook performs the directive injection.
 
-## Build prerequisite (do this first, every host)
+## Build prerequisite (source installs only)
 
 The hook and server both run from `dist/`, which is **git-ignored** (not
 committed). You must build it locally before any host can load it.

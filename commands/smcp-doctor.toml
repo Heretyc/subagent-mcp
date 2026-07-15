@@ -1,0 +1,5 @@
+description = "Load skills/smcp-doctor/SKILL.md and diagnose subagent-mcp setup."
+prompt = """
+Load skills/smcp-doctor/SKILL.md from this extension or repository and follow it exactly.
+Use it to run and interpret the subagent-mcp doctor workflow.
+"""

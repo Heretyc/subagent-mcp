@@ -2,6 +2,7 @@
 
 import {
   existsSync,
+  copyFileSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
@@ -47,6 +48,7 @@ interface DoctorOptions {
   providerHead?: (baseUrl: string) => Promise<HeadProbeResult>;
   packageInfo?: () => { name: string; version: string };
   registryBaseUrl?: string;
+  statusSource?: () => { session_start_time: string | null } | null;
 }
 
 function line(r: DoctorLine): string {
@@ -56,6 +58,10 @@ function line(r: DoctorLine): string {
 function readJson(file: string): JsonObj | null {
   if (!existsSync(file)) return null;
   return JSON.parse(readFileSync(file, "utf8")) as JsonObj;
+}
+
+function backupFile(file: string): void {
+  if (existsSync(file)) copyFileSync(file, `${file}.bak-${Date.now()}`);
 }
 
 const TASK_CATEGORIES = ROUTING_TASK_CATEGORIES.filter((c) => c !== "fallback_default");
@@ -173,6 +179,18 @@ const SCRIPT_IDS: Record<string, string> = {
   "orchestration-codex.js": "subagent-mcp-orchestration-codex",
 };
 
+const SESSION_START_ID = "subagent-mcp-session-start";
+
+function canonicalSessionStartEntry(): JsonObj {
+  return {
+    id: SESSION_START_ID,
+    type: "command",
+    command: "node dist/hooks/smcp-activate.js",
+    commandWindows: null,
+    timeout: 5,
+  };
+}
+
 function reEsc(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -255,6 +273,34 @@ function pluginHooksPresent(home: string, env: NodeJS.ProcessEnv): Set<string> {
     }
   }
   return scripts;
+}
+
+function installedHookManifests(home: string, env: NodeJS.ProcessEnv): string[] {
+  const mode = detectInstallMode({ home, env });
+  const roots = [
+    mode.npmGlobalDist ? dirname(dirname(mode.npmGlobalDist)) : null,
+    ...mode.marketplaceDists.map((dist) => dirname(dirname(dist))),
+  ].filter((p): p is string => p !== null);
+  return [...new Set(roots.map((root) => join(root, "hooks", "hooks.json")))];
+}
+
+function hasSessionStartEntry(file: string, env: NodeJS.ProcessEnv): boolean {
+  return flattenHooks(file, readJson(file), env).some((h) => h.event === "SessionStart" && h.id === SESSION_START_ID);
+}
+
+function restoreSessionStartEntry(file: string): void {
+  const json = readJson(file) ?? { hooks: {} };
+  const hooks = json.hooks && typeof json.hooks === "object" && !Array.isArray(json.hooks) ? json.hooks as JsonObj : {};
+  json.hooks = hooks;
+  const groups = Array.isArray(hooks.SessionStart) ? hooks.SessionStart as JsonObj[] : [];
+  hooks.SessionStart = groups;
+  if (groups.length === 0) groups.push({ hooks: [] });
+  const list = Array.isArray(groups[0].hooks) ? groups[0].hooks as JsonObj[] : [];
+  groups[0].hooks = list;
+  list.push(canonicalSessionStartEntry());
+  mkdirSync(dirname(file), { recursive: true });
+  backupFile(file);
+  atomicWriteFile(file, `${JSON.stringify(json, null, 2)}\n`, { encoding: "utf8" });
 }
 
 function findHookDuplicates(files: Array<{ file: string; json: JsonObj | null }>, home: string, env: NodeJS.ProcessEnv): HookDuplicate[] {
@@ -429,6 +475,38 @@ export async function checkUpdate(opts: DoctorOptions = {}): Promise<DoctorLine>
     : { status: "PASS", id: 8, name: "update-check", detail: `current ${pkg.version}` };
 }
 
+export async function checkSessionState(opts: DoctorOptions = {}): Promise<DoctorLine> {
+  const home = opts.home ?? homedir();
+  const env = opts.env ?? process.env;
+  const manifests = installedHookManifests(home, env);
+  const missing = manifests.filter((file) => !hasSessionStartEntry(file, env));
+  const source = opts.statusSource?.();
+  const sourceDetail = source === undefined || source === null
+    ? "server session state available via get_status MCP tool; doctor CLI cannot query running MCP server memory"
+    : source.session_start_time
+      ? "get_status session_start_time is populated"
+      : "get_status session_start_time would be null";
+
+  if (missing.length > 0 || manifests.length === 0) {
+    const detail = manifests.length === 0
+      ? "no installed hooks/hooks.json manifest found"
+      : `missing ${SESSION_START_ID} in ${missing.join(", ")}`;
+    if (!(opts.isTTY ?? process.stdin.isTTY)) {
+      return { status: "WARN", id: 9, name: "session-state", detail: `${detail}; ${sourceDetail}; non-TTY: no changes made` };
+    }
+    if (await askYesNo(opts, "Restore SessionStart hook? [Y/n] ")) {
+      for (const file of missing) restoreSessionStartEntry(file);
+      return { status: "WARN", id: 9, name: "session-state", detail: `${detail}; repaired after backup; ${sourceDetail}` };
+    }
+    return { status: "WARN", id: 9, name: "session-state", detail: `${detail}; repair skipped; ${sourceDetail}` };
+  }
+
+  if (source?.session_start_time === null) {
+    return { status: "WARN", id: 9, name: "session-state", detail: `SessionStart hook present; ${sourceDetail}` };
+  }
+  return { status: "INFO", id: 9, name: "session-state", detail: `SessionStart hook present; ${sourceDetail}` };
+}
+
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   const results = [
     checkInstallMode(opts),
@@ -439,6 +517,7 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
     checkRoutingCoverage(opts),
     ...await checkReachability(opts),
     await checkUpdate(opts),
+    await checkSessionState(opts),
   ];
   for (const r of results) console.log(line(r));
   const counts = { PASS: 0, WARN: 0, FAIL: 0, INFO: 0 };

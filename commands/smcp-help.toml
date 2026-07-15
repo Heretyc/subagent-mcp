@@ -1,0 +1,5 @@
+description = "Load skills/smcp-help/SKILL.md and explain subagent-mcp help."
+prompt = """
+Load skills/smcp-help/SKILL.md from this extension or repository and follow it exactly.
+Use it to answer the user's subagent-mcp help request.
+"""
