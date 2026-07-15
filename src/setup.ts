@@ -175,9 +175,13 @@ export function reconcileClaudeSettings(
     hooksBlock[event] = list;
     for (const grp of list) {
       for (const hk of grp.hooks ?? []) {
+        if (typeof desired.id === "string" && hk.id === desired.id) {
+          return { changed: false, status: "ok" };
+        }
         if (!JSON.stringify(hk).includes(scriptName)) continue;
         const args = hk.args as unknown[] | undefined;
         const exact =
+          hk.id === desired.id &&
           hk.type === desired.type &&
           hk.command === desired.command &&
           Array.isArray(args) &&
@@ -193,11 +197,13 @@ export function reconcileClaudeSettings(
   };
 
   const prompt = reconcile("UserPromptSubmit", "orchestration-claude.js", {
+    id: "subagent-mcp-orchestration-claude",
     type: "command",
     command: "node",
     args: [hookPath],
   });
   const pretool = reconcile("PreToolUse", "orchestration-claude-pretool.js", {
+    id: "subagent-mcp-pretool",
     type: "command",
     command: "node",
     args: [preToolHookPath],

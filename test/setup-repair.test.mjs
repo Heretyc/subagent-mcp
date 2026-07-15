@@ -80,15 +80,23 @@ test("claude settings: absent -> added (exec form)", () => {
   assert.equal(r.changed, true);
   const hk = s.hooks.UserPromptSubmit[0].hooks[0];
   const pre = s.hooks.PreToolUse[0].hooks[0];
-  assert.deepEqual(hk, { type: "command", command: "node", args: [HOOK] });
-  assert.deepEqual(pre, { type: "command", command: "node", args: [PRETOOL], timeout: 5 });
+  assert.deepEqual(hk, {
+    id: "subagent-mcp-orchestration-claude", type: "command", command: "node", args: [HOOK],
+  });
+  assert.deepEqual(pre, {
+    id: "subagent-mcp-pretool", type: "command", command: "node", args: [PRETOOL], timeout: 5,
+  });
   assert.deepEqual(s.statusLine, { type: "command", command: `node "${STATUSLINE}"` });
 });
 
 test("claude settings: exact wiring -> ok, nothing changed", () => {
   const s = { hooks: {
-    UserPromptSubmit: [{ hooks: [{ type: "command", command: "node", args: [HOOK] }] }],
-    PreToolUse: [{ hooks: [{ type: "command", command: "node", args: [PRETOOL], timeout: 5 }] }],
+    UserPromptSubmit: [{ hooks: [{
+      id: "subagent-mcp-orchestration-claude", type: "command", command: "node", args: [HOOK],
+    }] }],
+    PreToolUse: [{ hooks: [{
+      id: "subagent-mcp-pretool", type: "command", command: "node", args: [PRETOOL], timeout: 5,
+    }] }],
   }, statusLine: { type: "command", command: `node "${STATUSLINE}"` } };
   const before = JSON.stringify(s);
   const r = reconcileClaudeSettings(s, HOOK);
@@ -105,8 +113,26 @@ test("claude settings: stale path -> repaired in place, not duplicated", () => {
   const r = reconcileClaudeSettings(s, HOOK);
   assert.equal(r.status, "repaired");
   assert.equal(s.hooks.UserPromptSubmit.length, 1, "no duplicate entry");
+  assert.equal(s.hooks.UserPromptSubmit[0].hooks[0].id, "subagent-mcp-orchestration-claude");
+  assert.equal(s.hooks.PreToolUse[0].hooks[0].id, "subagent-mcp-pretool");
   assert.deepEqual(s.hooks.UserPromptSubmit[0].hooks[0].args, [HOOK]);
   assert.deepEqual(s.hooks.PreToolUse[0].hooks[0].args, [PRETOOL]);
+});
+
+test("claude settings: existing stable ids skip command-string rewrites", () => {
+  const s = { hooks: {
+    UserPromptSubmit: [{ hooks: [{
+      id: "subagent-mcp-orchestration-claude", type: "command", command: "node old.js",
+    }] }],
+    PreToolUse: [{ hooks: [{
+      id: "subagent-mcp-pretool", type: "command", command: "node old-pretool.js", timeout: 1,
+    }] }],
+  }, statusLine: { type: "command", command: `node "${STATUSLINE}"` } };
+  const before = JSON.stringify(s);
+  const r = reconcileClaudeSettings(s, HOOK);
+  assert.equal(r.status, "ok");
+  assert.equal(r.changed, false);
+  assert.equal(JSON.stringify(s), before, "stable id match must be a no-op");
 });
 
 test("claude settings: legacy single-string command form -> repaired to exec form", () => {
@@ -126,7 +152,7 @@ test("claude settings: unrelated hooks are never touched", () => {
   assert.deepEqual(s.hooks.UserPromptSubmit[0].hooks[0], other, "user's own hook untouched");
   assert.equal(s.hooks.UserPromptSubmit.length, 2, "ours appended alongside");
   assert.deepEqual(s.hooks.PreToolUse[0].hooks[0], {
-    type: "command", command: "node", args: [PRETOOL], timeout: 5,
+    id: "subagent-mcp-pretool", type: "command", command: "node", args: [PRETOOL], timeout: 5,
   });
   assert.ok(s.hooks.PreCompact, "other events untouched");
 });

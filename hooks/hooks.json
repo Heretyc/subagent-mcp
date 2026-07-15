@@ -5,6 +5,7 @@
         "matcher": "*",
         "hooks": [
           {
+            "id": "subagent-mcp-pretool",
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/hooks/orchestration-claude-pretool.js\"",
             "timeout": 5
@@ -16,6 +17,7 @@
       {
         "hooks": [
           {
+            "id": "subagent-mcp-orchestration-claude",
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/hooks/orchestration-claude.js\""
           }
