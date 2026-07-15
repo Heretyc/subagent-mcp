@@ -444,6 +444,11 @@ await test("launch_agent rejects callers at depth 2", async () => {
     const text = response.result.content[0].text;
     assert.match(text, /launch_agent depth cap reached/);
     assert.match(text, /depth 2 workers cannot spawn further/);
+    const status = await session.request("tools/call", {
+      name: "get_status",
+      arguments: {},
+    });
+    assert.equal(JSON.parse(status.result.content[0].text).agent_count, 0);
   } finally {
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });

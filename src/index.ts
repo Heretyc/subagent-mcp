@@ -1190,7 +1190,6 @@ server.tool(
   },
   withMaintenance(async (params: any) => {
     const launchStartedAt = Date.now();
-    incrementAgentCount();
     const { task_category, provider, model, effort, deadlock } = params;
     const launchDepth = currentLaunchDepth();
     if (launchDepth >= 2) {
@@ -1331,6 +1330,7 @@ server.tool(
       failure_type: FailureType;
     }[] = [];
     let launched = false;
+    incrementAgentCount();
     try {
       for (const candidate of candidates) {
         const outcome = await tryLaunchCandidate(
