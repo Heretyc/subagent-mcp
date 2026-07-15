@@ -2193,6 +2193,7 @@ if (isMain) {
     "  config init [--force]",
     "                     scaffold ~/.subagent-mcp/providers.jsonc and .env",
     "  rollback           restore user config files from the newest backup",
+    "  uninstall          remove subagent-mcp hooks and MCP registrations",
     "  doctor             check install and wiring health",
     "  upgrade            one-command upgrade with backup, hook repair, init-block check, and doctor",
     "  update, --update   update to the latest release (npm install -g)",
@@ -2377,6 +2378,10 @@ if (isMain) {
   if (arg === "upgrade") {
     const { runUpgrade } = await import("./upgrade.js");
     process.exit(await runUpgrade());
+  }
+  if (arg === "uninstall") {
+    const { runUninstall } = await import("./uninstall.js");
+    process.exit(await runUninstall());
   }
   if (arg === "init" || arg === "--init") {
     const { runInit } = await import("./init.js");

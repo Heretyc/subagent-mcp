@@ -7,7 +7,7 @@
  * the stdio MCP server, which blocks forever waiting on stdin. These tests
  * encode the guard contract:
  *   - version/--version/-v  -> exit 0, prints exactly the package.json version,
- *   - help/--help/-h        -> exit 0, usage names the real commands (setup,
+ *   - help/--help/-h        -> exit 0, usage names core commands (setup,
  *                              init, doctor, update),
  *   - update/--update       -> real npm is never spawned; a fake npm proves
  *                              user-edited advanced-ruleset.py is preserved,

@@ -10,6 +10,7 @@ import { globalTargetFiles, upsertInitBlock } from "./init.js";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { runDoctor } from "./doctor.js";
 import { serverPaths } from "./setup.js";
+import { referencedHookPath } from "./hook-match.js";
 
 type JsonObj = Record<string, any>;
 type RunResult = { status: number | null; error?: Error };
@@ -79,15 +80,6 @@ function writeJson(file: string, value: JsonObj): void {
   atomicWriteFile(file, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8" });
 }
 
-function referencedPath(entry: JsonObj): string | null {
-  if (entry.command === "node" && Array.isArray(entry.args) && typeof entry.args[0] === "string") {
-    return entry.args[0];
-  }
-  const text = [entry.command, entry.commandWindows].filter((v) => typeof v === "string").join(" ");
-  const m = text.match(/(?:^|\s)node\s+"?([^"\s]+dist[\\/](?:hooks[\\/])?[^"\s]+\.js)"?/);
-  return m?.[1] ?? null;
-}
-
 function repairHooksIn(file: string, root: string): number {
   const json = readJson(file);
   const hooks = json?.hooks;
@@ -103,7 +95,7 @@ function repairHooksIn(file: string, root: string): number {
         const entry = hook as JsonObj;
         const id = typeof entry.id === "string" ? entry.id : "";
         const desired = HOOK_BY_ID[id]?.(root);
-        const p = referencedPath(entry);
+        const p = referencedHookPath(entry);
         if (!desired || !p || existsSync(p)) continue;
         Object.keys(entry).forEach((k) => delete entry[k]);
         Object.assign(entry, desired);
