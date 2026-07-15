@@ -13,6 +13,10 @@ macOS, Linux, and Windows. It drives the locally authenticated `claude` and
 `codex` CLIs you already signed into. It does not make direct HTTP API calls and
 does not require API keys.
 
+![subagent-mcp long-horizon session demonstration](docs/images/smcp-example.png)
+
+*7 h 38 min one-shot coding session, several hundred tool calls, Fable 5, July 15 2026 - 41% context used, no auto-compaction, orchestrated via subagent-mcp.*
+
 The orchestrator monitors but does not read or write project files itself. Work
 is delegated to fresh sub-agents, so the orchestrator keeps summaries instead
 of raw file context. The main invariants are:
