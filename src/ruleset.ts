@@ -282,7 +282,7 @@ export function validateRulesetOutput(
     if (typeof provider !== "string" || typeof model !== "string" || typeof effort !== "string") {
       return { ok: false, error: `candidate ${i}: provider, model, and effort must be strings` };
     }
-    if (provider !== "claude" && provider !== "codex") {
+    if (provider !== "claude" && provider !== "codex" && provider !== "api") {
       return { ok: false, error: `candidate ${i}: unknown provider ${provider}` };
     }
     if (!(LAUNCH_MODELS as readonly string[]).includes(model)) {

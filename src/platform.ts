@@ -1,6 +1,6 @@
 import { join, posix } from "path";
 
-export type SupportedProvider = "claude" | "codex";
+export type SupportedProvider = "claude" | "codex" | "api";
 
 export interface ResolveDeps {
   existsSync(p: string): boolean;
@@ -40,7 +40,7 @@ export function resolveExeFor(
         "claude.exe"
       );
       if (deps.existsSync(exe)) return exe;
-    } else {
+    } else if (provider === "codex") {
       const arch = deps.arch?.() ?? process.arch;
       const codexWin32 =
         arch === "arm64"
@@ -60,6 +60,8 @@ export function resolveExeFor(
         "codex.exe"
       );
       if (deps.existsSync(exe)) return exe;
+    } else {
+      throw new Error("api provider dispatch not implemented");
     }
     // Fall back to bare name — PATH resolver
     return provider;
@@ -78,12 +80,14 @@ export function resolveExeFor(
       "/opt/homebrew/bin/claude",
       "/usr/local/bin/claude",
     ];
-  } else {
+  } else if (provider === "codex") {
     candidates = [
       posix.join(prefix, "bin", "codex"),
       "/opt/homebrew/bin/codex",
       "/usr/local/bin/codex",
     ];
+  } else {
+    throw new Error("api provider dispatch not implemented");
   }
 
   for (const candidate of candidates) {

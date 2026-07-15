@@ -105,6 +105,8 @@ function collectClaude(e: Record<string, unknown>, out: VisibleStreamItem[]): vo
 // (Claude `thinking`/`redacted_thinking` blocks, Codex `reasoning` items) —
 // records that produce no visible stream items. Never throws.
 export function isNonVisibleStreamLine(provider: string, line: string): boolean {
+  if (provider === "api") return false;
+
   const trimmed = line.trim();
   if (!trimmed) return false;
   let evt: unknown;
@@ -146,6 +148,8 @@ export function isNonVisibleStreamLine(provider: string, line: string): boolean 
 // Parse a SINGLE complete JSONL line into visible items (appended to `out`).
 // Blank/unparseable lines are skipped. Never throws.
 function collectLine(provider: string, line: string, out: VisibleStreamItem[]): void {
+  if (provider === "api") return;
+
   const trimmed = line.trim();
   if (!trimmed) return;
   let evt: unknown;
@@ -215,6 +219,8 @@ export function flushStream(provider: string, pending: string): ConsumeResult {
 }
 
 export function isTurnCompletedLine(provider: string, line: string): boolean {
+  if (provider === "api") return false;
+
   const trimmed = line.trim();
   if (!trimmed) return false;
   try {

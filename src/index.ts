@@ -1182,7 +1182,7 @@ server.tool(
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
-    provider: z.enum(["claude", "codex"]).optional(),
+    provider: z.enum(["claude", "codex", "api"]).optional(),
     model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5", "gpt-5.6"]).optional(),
     effort: z.enum(["medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),

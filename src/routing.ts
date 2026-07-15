@@ -177,6 +177,10 @@ export function normalizeEffort(
     return "xhigh";
   }
 
+  if (provider === "api") {
+    return effort;
+  }
+
   return effort;
 }
 

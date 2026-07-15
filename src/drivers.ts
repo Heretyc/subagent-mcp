@@ -1196,6 +1196,10 @@ export class ClaudeSdkDriver implements ProviderDriver {
 }
 
 export async function createProviderDriver(options: DriverLaunchOptions): Promise<ProviderDriver> {
+  if (options.provider === "api") {
+    throw new Error("api provider dispatch not implemented");
+  }
+
   const testSeamsEnabled =
     process.env.NODE_ENV === "test" || process.env.SUBAGENT_MCP_ENABLE_TEST_SEAMS === "1";
   if (
