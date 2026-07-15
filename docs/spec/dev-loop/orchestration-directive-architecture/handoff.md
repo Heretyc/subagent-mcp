@@ -55,9 +55,10 @@ resume from.
 
 ## Post-read coaching (handoff-read)
 
-Before acting on a handoff-read request, the session must confirm user
-intent via EXACTLY 5 structured questions. This proves legitimacy and
-clears ambiguity before the saved handoff is surfaced.
+After a successful `handoff-read`, the session must read the saved handoff,
+then confirm user intent via EXACTLY 4 structured questions before acting on
+it. Confirm: resume objective, current blocker, files/state to preserve, and
+next concrete action plus permission to proceed in this session.
 
 ## Handoff-resume Skill Deployment
 

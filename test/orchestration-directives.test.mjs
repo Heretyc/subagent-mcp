@@ -234,8 +234,8 @@ test("latch and handoff directives carry provider-specific coaching counts", () 
   for (const [name, body] of [["handoff-claude", handoffClaude], ["handoff-codex", handoffCodex]]) {
     assert.match(body, /handoff-write[\s\S]{0,160}10/i,
       `${name} must mention 10 questions near handoff-write`);
-    assert.match(body, /handoff-read[\s\S]{0,160}5/i,
-      `${name} must mention 5 questions near handoff-read`);
+    assert.match(body, /handoff-read[\s\S]{0,160}4/i,
+      `${name} must mention 4 questions near handoff-read`);
   }
 
   assert.match(handoffClaude, /AskUserQuestion/, "handoff-claude must name AskUserQuestion");

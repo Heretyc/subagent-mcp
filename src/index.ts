@@ -2162,7 +2162,7 @@ server.tool(
 // Tool 11: handoff-read
 server.tool(
   "handoff-read",
-  "Read the saved handoff for this working directory (if any). BEFORE calling, confirm the user's intent via EXACTLY 5 structured questions (proves legitimacy, clears ambiguity). If found, this session becomes the ONLY session that gets the handoff re-appended to its periodic LONG reminders. If none is saved, explains that the previous session must write one first.",
+  "Read the saved handoff for this working directory (if any). Call this first; after reading any saved handoff, confirm the user's intent via EXACTLY 4 structured questions before acting on it (proves legitimacy, clears ambiguity). If found, this session becomes the ONLY session that gets the handoff re-appended to its periodic LONG reminders. If none is saved, explains that the previous session must write one first.",
   {},
   withMaintenance(async () => {
     const cwd = process.cwd();
@@ -2177,7 +2177,7 @@ server.tool(
       [
         "Saved handoff:",
         marked.content + overflowLine,
-        "Before using this handoff, confirm the user's intent via EXACTLY 5 structured questions. Confirm: resume objective, current blocker, files/state to preserve, next concrete action, and permission to proceed in this session.",
+        "You have read this handoff. Before acting on it, confirm the user's intent via EXACTLY 4 structured questions. Confirm: resume objective, current blocker, files/state to preserve, and next concrete action plus permission to proceed in this session.",
       ].join("\n\n")
     );
   })
