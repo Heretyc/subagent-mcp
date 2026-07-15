@@ -322,6 +322,31 @@ await test("subagent child server exposes neutral instructions", async () => {
   }
 });
 
+await test("get_status returns exact live status object", async () => {
+  const session = createMcpSession(distIndex);
+  try {
+    await session.initialize();
+    const response = await session.request("tools/call", {
+      name: "get_status",
+      arguments: {},
+    });
+    assert.equal(response.result.isError, undefined);
+    const payload = JSON.parse(response.result.content[0].text);
+    assert.deepEqual(Object.keys(payload).sort(), [
+      "agent_count",
+      "last_routing_decisions",
+      "providers_loaded",
+      "session_start_time",
+    ]);
+    assert.equal(payload.agent_count, 0);
+    assert.ok(Array.isArray(payload.providers_loaded));
+    assert.ok(typeof payload.session_start_time === "string");
+    assert.deepEqual(payload.last_routing_decisions, []);
+  } finally {
+    await session.close();
+  }
+});
+
 await test("launch_agent from depth 0 sets child SUBAGENT_MCP_DEPTH=1", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   const capturePath = join(tempRoot, "env-capture.jsonl");

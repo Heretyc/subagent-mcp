@@ -88,8 +88,9 @@ do not receive per-turn hook reminders.
 
 The server exposes `launch_agent`, `poll_agent`, `kill_agent`, `send_message`,
 `list_agents`, `wait`, `respond_permission`, `orchestration-mode`, and
-`model-selection-mode`. See [docs/tools.md](docs/tools.md) for the full
-parameter and return reference.
+`model-selection-mode`; `get_status` returns `providers_loaded`, `agent_count`,
+`session_start_time`, and `last_routing_decisions`. See [docs/tools.md](docs/tools.md)
+for the full parameter and return reference.
 
 You do not have to choose a model. Give `launch_agent` a prompt and a task
 category such as `coding`, `debugging`, or `security_review`; the server picks
