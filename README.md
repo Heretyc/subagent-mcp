@@ -9,9 +9,12 @@
 
 subagent-mcp is an MCP stdio server that turns an AI coding assistant (Claude
 Code, Codex, Gemini CLI) into a manager of local Claude and Codex sub-agents on
-macOS, Linux, and Windows. It drives the locally authenticated `claude` and
-`codex` CLIs you already signed into. It does not make direct HTTP API calls and
-does not require API keys.
+macOS, Linux, and Windows. It orchestrates the locally authenticated `claude`
+and `codex` CLIs you already signed into, and can route tasks to direct API
+providers (Claude Messages API and OpenAI-compatible) configured in
+`providers.jsonc`. Provider credentials stay out of config: `providers.jsonc`
+names env vars, and key values live in the adjacent gitignored `.env`. API HTTP
+is confined to `src/providers/provider-client.ts`.
 
 ![subagent-mcp long-horizon session demonstration](docs/images/smcp-example.png)
 

@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { TASK_CATEGORIES } from "../dist/routing.js";
+import { loadApiProviders } from "../dist/providers/config-loader.js";
 
 let passed = 0;
 let failed = 0;
@@ -35,6 +36,36 @@ function withConfig(fn) {
   }
 }
 
+function withHome(fn) {
+  const root = mkdtempSync(join(tmpdir(), "subagent-provider-loader-"));
+  const oldHome = process.env.HOME;
+  const oldUserProfile = process.env.USERPROFILE;
+  process.env.HOME = root;
+  process.env.USERPROFILE = root;
+  try {
+    const dir = join(root, ".subagent-mcp");
+    mkdirSync(dir, { recursive: true });
+    fn(dir);
+  } finally {
+    if (oldHome === undefined) delete process.env.HOME;
+    else process.env.HOME = oldHome;
+    if (oldUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = oldUserProfile;
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function captureWarns(fn) {
+  const old = console.error;
+  const lines = [];
+  console.error = (line) => lines.push(String(line));
+  try {
+    return { value: fn(), lines };
+  } finally {
+    console.error = old;
+  }
+}
+
 function provider(routing = Object.fromEntries(CATEGORIES.map((c) => [c, -1]))) {
   return {
     providers: {
@@ -46,6 +77,17 @@ function provider(routing = Object.fromEntries(CATEGORIES.map((c) => [c, -1]))) 
         routing,
       },
     },
+  };
+}
+
+function apiProvider(overrides = {}) {
+  return {
+    api_style: "openai",
+    base_url: "https://api.example.test/v1",
+    model: "example-model",
+    key_env: "EXAMPLE_API_KEY",
+    routing: Object.fromEntries(CATEGORIES.map((c) => [c, c === "coding" ? 1 : -1])),
+    ...overrides,
   };
 }
 
@@ -121,6 +163,44 @@ test("non-integer slot fails", () => withConfig((dir) => {
   const r = run(file);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /category coding slot must be integer/);
+}));
+
+test("api provider loader loads valid config", () => withHome((dir) => {
+  writeJson(join(dir, "providers.jsonc"), { providers: { api: apiProvider() } });
+  const { value, lines } = captureWarns(() => loadApiProviders());
+  assert.equal(lines.length, 0);
+  assert.deepEqual(value.map((p) => p.name), ["api"]);
+  assert.equal(value[0].api_style, "openai");
+  assert.equal(value[0].routing.coding, 1);
+}));
+
+test("api provider loader skips one bad entry and keeps good entries", () => withHome((dir) => {
+  writeJson(join(dir, "providers.jsonc"), {
+    providers: {
+      good: apiProvider({ api_style: "claude" }),
+      bad: apiProvider({ model: "" }),
+      cli: provider().providers.a,
+    },
+  });
+  const { value, lines } = captureWarns(() => loadApiProviders());
+  assert.deepEqual(value.map((p) => p.name), ["good"]);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /WARN providers: bad: model must be string/);
+}));
+
+test("api provider loader returns empty on malformed file", () => withHome((dir) => {
+  writeFileSync(join(dir, "providers.jsonc"), "{\n  nope\n}\n", "utf8");
+  const { value, lines } = captureWarns(() => loadApiProviders());
+  assert.deepEqual(value, []);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /WARN providers: .*line 2/);
+}));
+
+test("api provider loader returns empty on absent file", () => withHome(() => {
+  const { value, lines } = captureWarns(() => loadApiProviders());
+  assert.deepEqual(value, []);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /WARN providers: missing /);
 }));
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

@@ -6,7 +6,7 @@ import { parseJsoncFile, type JsonObj } from "./jsonc.js";
 import { TASK_CATEGORIES } from "./routing.js";
 
 const TEMPLATE_PATH = fileURLToPath(new URL("../templates/providers.jsonc.template", import.meta.url));
-const ROUTING_CATEGORIES = TASK_CATEGORIES.filter((c) => c !== "fallback_default");
+export const ROUTING_CATEGORIES = TASK_CATEGORIES.filter((c) => c !== "fallback_default");
 
 type SchemaField = { name: string; type: "string" | "array" | "object" };
 
@@ -46,6 +46,25 @@ function providerEntries(config: JsonObj): Array<[string, JsonObj]> {
   return Object.entries(providers).filter((e): e is [string, JsonObj] => !!e[1] && typeof e[1] === "object" && !Array.isArray(e[1]));
 }
 
+export function validateRoutingMap(name: string, routing: unknown): { errors: string[]; routed: string[] } {
+  const errors: string[] = [];
+  const routed: string[] = [];
+  if (!routing || typeof routing !== "object" || Array.isArray(routing)) {
+    return { errors: [`routing provider ${name}: routing must be object`], routed };
+  }
+  const map = routing as Record<string, unknown>;
+  const keys = Object.keys(map);
+  for (const category of ROUTING_CATEGORIES) {
+    if (!keys.includes(category)) errors.push(`routing provider ${name}: missing category ${category}`);
+    else if (!Number.isInteger(map[category])) errors.push(`routing provider ${name}: category ${category} slot must be integer`);
+    else if ((map[category] as number) >= 1) routed.push(category);
+  }
+  for (const key of keys) {
+    if (!ROUTING_CATEGORIES.includes(key as any)) errors.push(`routing provider ${name}: unknown category ${key}`);
+  }
+  return { errors, routed };
+}
+
 export function validateConfigFile(file: string): { ok: boolean; lines: string[] } {
   const parsed = parseJsoncFile(file);
   const fields = templateFields();
@@ -58,27 +77,32 @@ export function validateConfigFile(file: string): { ok: boolean; lines: string[]
 
   const env = readDotEnv(join(dirname(file), ".env"));
   for (const [name, provider] of providers) {
-    for (const field of fields) {
-      const value = provider[field.name];
-      const ok = field.type === "array" ? Array.isArray(value) : field.type === "object" ? !!value && typeof value === "object" && !Array.isArray(value) : typeof value === "string" && value.length > 0;
-      if (!ok) errors.push(`schema provider ${name}: ${field.name} must be ${field.type}`);
+    if (provider.api_style !== undefined) {
+      for (const field of [
+        { name: "api_style", type: "string" },
+        { name: "base_url", type: "string" },
+        { name: "model", type: "string" },
+        { name: "key_env", type: "string" },
+      ] as const) {
+        const value = provider[field.name];
+        if (typeof value !== "string" || value.length === 0) errors.push(`schema provider ${name}: ${field.name} must be string`);
+      }
+      if (provider.api_style !== "claude" && provider.api_style !== "openai") errors.push(`schema provider ${name}: api_style must be claude or openai`);
+    } else {
+      for (const field of fields) {
+        const value = provider[field.name];
+        const ok = field.type === "array" ? Array.isArray(value) : field.type === "object" ? !!value && typeof value === "object" && !Array.isArray(value) : typeof value === "string" && value.length > 0;
+        if (!ok) errors.push(`schema provider ${name}: ${field.name} must be ${field.type}`);
+      }
     }
     if (typeof provider.key_env === "string") {
       const value = env.get(provider.key_env);
       if (!value || value === "YOUR_KEY_HERE") errors.push(`env provider ${name}: missing key_env ${provider.key_env}`);
     }
 
-    const routing = provider.routing;
-    if (!routing || typeof routing !== "object" || Array.isArray(routing)) continue;
-    const keys = Object.keys(routing);
-    for (const category of ROUTING_CATEGORIES) {
-      if (!keys.includes(category)) errors.push(`routing provider ${name}: missing category ${category}`);
-      else if (!Number.isInteger(routing[category])) errors.push(`routing provider ${name}: category ${category} slot must be integer`);
-      else if (routing[category] >= 1) routed.add(category);
-    }
-    for (const key of keys) {
-      if (!ROUTING_CATEGORIES.includes(key as any)) errors.push(`routing provider ${name}: unknown category ${key}`);
-    }
+    const routingResult = validateRoutingMap(name, provider.routing);
+    for (const error of routingResult.errors) errors.push(error);
+    for (const category of routingResult.routed) routed.add(category);
   }
 
   const fieldText = fields.map((f) => `${f.name}:${f.type}`).join(", ");
