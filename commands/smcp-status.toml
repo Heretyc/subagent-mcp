@@ -1,0 +1,5 @@
+description = "Load skills/smcp-status/SKILL.md and report subagent-mcp status."
+prompt = """
+Load skills/smcp-status/SKILL.md from this extension or repository and follow it exactly.
+Use it to report the live subagent-mcp status.
+"""
