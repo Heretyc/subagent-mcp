@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import pkg from "../package.json" with { type: "json" };
 
 let passed = 0;
 let failed = 0;
@@ -29,6 +30,10 @@ function read(path) {
   return readFileSync(path, "utf8");
 }
 
+function readJson(path) {
+  return JSON.parse(read(path));
+}
+
 test("install paths do not register PostToolUse hooks", () => {
   for (const path of hookRegistrationFiles) {
     assert.doesNotMatch(read(path), /\bPostToolUse\b/, `${path} must not register PostToolUse`);
@@ -43,7 +48,7 @@ test("hooks manifest contains no output-adjacent PostToolUse hook", () => {
 });
 
 test("hooks manifest uses stable ids and bare node commands", () => {
-  const manifest = JSON.parse(read("hooks/hooks.json"));
+  const manifest = readJson("hooks/hooks.json");
   const pretool = manifest.hooks.PreToolUse[0].hooks[0];
   const prompt = manifest.hooks.UserPromptSubmit[0].hooks[0];
   const session = manifest.hooks.SessionStart[0].hooks[0];
@@ -58,6 +63,32 @@ test("hooks manifest uses stable ids and bare node commands", () => {
   assert.match(pretool.command, /^node "\$\{CLAUDE_PLUGIN_ROOT\}\//);
   assert.match(prompt.command, /^node "\$\{CLAUDE_PLUGIN_ROOT\}\//);
   assert.doesNotMatch(JSON.stringify(manifest), /\bsh\s+-c\b/);
+});
+
+test("Codex plugin manifest points at the repo hook template", () => {
+  const manifest = readJson(".codex-plugin/plugin.json");
+  assert.equal(manifest.name, "subagent-mcp");
+  assert.equal(manifest.version, pkg.version);
+  assert.equal(manifest.hooks, "./codex/hooks.json");
+});
+
+test("Codex marketplace exposes the Git-backed plugin", () => {
+  const marketplace = readJson(".agents/plugins/marketplace.json");
+  assert.equal(marketplace.name, "subagent-mcp");
+  assert.equal(marketplace.interface.displayName, "subagent-mcp");
+  assert.equal(marketplace.plugins.length, 1);
+  assert.deepEqual(marketplace.plugins[0], {
+    name: "subagent-mcp",
+    source: {
+      source: "url",
+      url: "https://github.com/Heretyc/subagent-mcp.git",
+    },
+    policy: {
+      installation: "AVAILABLE",
+      authentication: "ON_INSTALL",
+    },
+    category: "Productivity",
+  });
 });
 
 function runActivate(home) {
