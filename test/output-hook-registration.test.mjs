@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import pkg from "../package.json" with { type: "json" };
+import { verificationSummary } from "../scripts/postinstall.mjs";
 
 let passed = 0;
 let failed = 0;
@@ -32,6 +33,42 @@ function read(path) {
 
 function readJson(path) {
   return JSON.parse(read(path));
+}
+
+function writeJson(path, value) {
+  writeFileSync(path, JSON.stringify(value, null, 2));
+}
+
+function withVerifyFixture(fn) {
+  const root = join(tmpdir(), `postinstall-root-${process.pid}-${Date.now()}-${Math.random()}`);
+  const home = join(tmpdir(), `postinstall-home-${process.pid}-${Date.now()}-${Math.random()}`);
+  try {
+    mkdirSync(join(root, "dist"), { recursive: true });
+    writeFileSync(join(root, "dist", "index.js"), "#!/usr/bin/env node\n");
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    mkdirSync(join(home, ".codex"), { recursive: true });
+    writeJson(join(home, ".claude.json"), {
+      mcpServers: { "subagent-mcp": { type: "stdio", command: "node", args: [join(root, "dist", "index.js")] } },
+    });
+    writeJson(join(home, ".claude", "settings.json"), {
+      hooks: {
+        PreToolUse: [{ hooks: [{ id: "subagent-mcp-pretool" }] }],
+        UserPromptSubmit: [{ hooks: [{ id: "subagent-mcp-orchestration-claude" }] }],
+      },
+    });
+    writeFileSync(join(home, ".codex", "config.toml"),
+      `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${join(root, "dist", "index.js").replace(/\\/g, "/")}"]\n`);
+    writeJson(join(home, ".codex", "hooks.json"), {
+      hooks: {
+        SessionStart: [{ hooks: [{ command: 'node "dist/hooks/orchestration-codex.js"' }] }],
+        UserPromptSubmit: [{ hooks: [{ command: 'node "dist/hooks/orchestration-codex.js"' }] }],
+      },
+    });
+    fn({ root, home });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
 }
 
 test("install paths do not register PostToolUse hooks", () => {
@@ -142,6 +179,57 @@ test("install paths do not target poll_agent or wait from hook registration", ()
   for (const path of hookRegistrationFiles) {
     assert.doesNotMatch(read(path), outputAdjacent, `${path} must not add output-adjacent hooks`);
   }
+});
+
+test("postinstall verification: all user-config wiring passes", () => {
+  withVerifyFixture(({ root, home }) => {
+    const { rows, text } = verificationSummary({ root, home });
+    assert.deepEqual(rows.map((r) => [r.vendor, r.ok]), [["Claude", true], ["Codex", true]]);
+    assert.match(text, /Claude\s+PASS/);
+    assert.match(text, /Codex\s+PASS/);
+  });
+});
+
+test("postinstall verification: missing hook id fails with guidance", () => {
+  withVerifyFixture(({ root, home }) => {
+    writeJson(join(home, ".claude", "settings.json"), {
+      hooks: { UserPromptSubmit: [{ hooks: [{ id: "subagent-mcp-orchestration-claude" }] }] },
+    });
+    const { rows, text } = verificationSummary({ root, home });
+    assert.equal(rows.find((r) => r.vendor === "Claude").ok, false);
+    assert.match(text, /Claude\s+FAIL/);
+    assert.match(text, /Guidance: inspect ~\/\.claude\.json/);
+    assert.match(text, /subagent-mcp doctor/);
+  });
+});
+
+test("postinstall verification: marketplace hooks pass without user-config hooks", () => {
+  withVerifyFixture(({ root, home }) => {
+    writeJson(join(home, ".claude", "settings.json"), { hooks: {} });
+    writeJson(join(home, ".codex", "hooks.json"), { hooks: {} });
+    mkdirSync(join(root, ".claude-plugin"), { recursive: true });
+    mkdirSync(join(root, ".codex-plugin"), { recursive: true });
+    mkdirSync(join(root, "hooks"), { recursive: true });
+    mkdirSync(join(root, "codex"), { recursive: true });
+    writeJson(join(root, ".claude-plugin", "plugin.json"), { hooks: "./hooks/hooks.json" });
+    writeJson(join(root, "hooks", "hooks.json"), {
+      hooks: {
+        PreToolUse: [{ hooks: [{ id: "subagent-mcp-pretool" }] }],
+        UserPromptSubmit: [{ hooks: [{ id: "subagent-mcp-orchestration-claude" }] }],
+        SessionStart: [{ hooks: [{ id: "subagent-mcp-session-start" }] }],
+      },
+    });
+    writeJson(join(root, ".codex-plugin", "plugin.json"), { hooks: "./codex/hooks.json" });
+    writeJson(join(root, "codex", "hooks.json"), {
+      hooks: {
+        SessionStart: [{ hooks: [{ command: 'node "${PLUGIN_DIR}/dist/hooks/orchestration-codex.js"' }] }],
+        UserPromptSubmit: [{ hooks: [{ command: 'node "${PLUGIN_DIR}/dist/hooks/orchestration-codex.js"' }] }],
+      },
+    });
+    const { rows, text } = verificationSummary({ root, home });
+    assert.deepEqual(rows.map((r) => [r.vendor, r.ok]), [["Claude", true], ["Codex", true]]);
+    assert.match(text, /plugin-manifest/);
+  });
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
