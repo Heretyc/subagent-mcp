@@ -28,7 +28,7 @@ export const DEFAULT_CHECK_FOR_UPDATES: boolean = true;
 export const DEFAULT_PERMISSIONS_CEILING = "auto" as const;
 export const DEFAULT_ESCALATION = "irreversible-only" as const;
 export const DEFAULT_STRICT_READ_PARITY = "warn" as const;
-export const DEFAULT_SANDBOX_NETWORK: boolean = false;
+export const DEFAULT_SANDBOX_NETWORK: boolean = true;
 export const CONFIG_FILENAME: string = "global-subagent-mcp-config.jsonc";
 export const LEGACY_CONFIG_FILENAME: string = "global-concurrency.jsonc";
 
