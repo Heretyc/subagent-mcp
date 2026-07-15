@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
-  realpathSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -16,6 +13,13 @@ import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { createBackup } from "./backup.js";
 import { stripJsoncComments } from "./concurrency.js";
 import { getConfigHome } from "./config-home.js";
+import {
+  detectInstallMode,
+  existingDist,
+  npmGlobalDist,
+  resolveCommandPath,
+  scanPluginDists,
+} from "./install-mode.js";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import {
   fetchLatestVersion,
@@ -23,7 +27,6 @@ import {
   readInstalledPackageInfo,
 } from "./orchestration/update-check.js";
 import { probeProviderHead, type HeadProbeResult } from "./providers/provider-client.js";
-import { findOnPath, resolveCmdShimNodeScript } from "./setup.js";
 
 type Status = "PASS" | "WARN" | "FAIL" | "INFO";
 type JsonObj = Record<string, any>;
@@ -102,74 +105,11 @@ function providerEntries(config: JsonObj | null): Array<[string, JsonObj]> {
   return Object.entries(providers).filter((e): e is [string, JsonObj] => !!e[1] && typeof e[1] === "object" && !Array.isArray(e[1]));
 }
 
-function distIndex(root: string): string {
-  return join(root, "dist", "index.js");
-}
-
-function existingDist(pathValue: string | null): string | null {
-  if (!pathValue) return null;
-  try {
-    const p = realpathSync(pathValue);
-    return existsSync(p) && p.replace(/\\/g, "/").endsWith("/dist/index.js") ? p : null;
-  } catch {
-    return null;
-  }
-}
-
-function npmGlobalDist(env: NodeJS.ProcessEnv): string | null {
-  const npm = findOnPath("npm", env) ?? "npm";
-  const isCmd = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(npm);
-  const shimJs = isCmd ? resolveCmdShimNodeScript(npm) : null;
-  const r = shimJs
-    ? spawnSync(process.execPath, [shimJs, "root", "-g"], {
-        encoding: "utf8",
-        env,
-        stdio: ["ignore", "pipe", "ignore"],
-      })
-    : isCmd
-      ? { status: 1, stdout: "" }
-      : spawnSync(npm, ["root", "-g"], {
-          encoding: "utf8",
-          env,
-          stdio: ["ignore", "pipe", "ignore"],
-        });
-  const rooted =
-    r.status === 0
-      ? existingDist(join(r.stdout.trim(), "@heretyc", "subagent-mcp", "dist", "index.js"))
-      : null;
-  return rooted ?? existingDist(resolveCommandPath("subagent-mcp", env));
-}
-
-function scanPluginDists(home: string): string[] {
-  const root = join(home, ".claude", "plugins");
-  const found: string[] = [];
-  const walk = (dir: string, depth: number) => {
-    if (depth > 5 || !existsSync(dir)) return;
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const p = join(dir, e.name);
-      if (!e.isDirectory()) continue;
-      const manifest = join(p, ".claude-plugin", "plugin.json");
-      const dist = distIndex(p);
-      if (existsSync(manifest) && existsSync(dist)) {
-        try {
-          if (readJson(manifest)?.name === "subagent-mcp") found.push(realpathSync(dist));
-        } catch {}
-      }
-      walk(p, depth + 1);
-    }
-  };
-  walk(root, 0);
-  return [...new Set(found)];
-}
-
 export function checkInstallMode(opts: DoctorOptions = {}): DoctorLine {
-  const home = opts.home ?? homedir();
-  const env = opts.env ?? process.env;
-  const global = npmGlobalDist(env);
-  const plugins = scanPluginDists(home);
+  const mode = detectInstallMode({ home: opts.home ?? homedir(), env: opts.env ?? process.env });
   const parts = [
-    global ? `npm-global=${global}` : null,
-    ...plugins.map((p) => `marketplace=${p}`),
+    mode.npmGlobalDist ? `npm-global=${mode.npmGlobalDist}` : null,
+    ...mode.marketplaceDists.map((p) => `marketplace=${p}`),
   ].filter((p): p is string => p !== null);
   return {
     status: parts.length ? "PASS" : "FAIL",
@@ -177,19 +117,6 @@ export function checkInstallMode(opts: DoctorOptions = {}): DoctorLine {
     name: "install-mode",
     detail: parts.length ? parts.join("; ") : "no npm-global or marketplace install found",
   };
-}
-
-function resolveCommandPath(command: string, env: NodeJS.ProcessEnv): string | null {
-  const direct = existsSync(command) ? command : findOnPath(command, env);
-  if (!direct) return null;
-  if (process.platform === "win32" && /\.(?:cmd|bat)$/i.test(direct)) {
-    return resolveCmdShimNodeScript(direct) ?? direct;
-  }
-  try {
-    return realpathSync(direct);
-  } catch {
-    return direct;
-  }
 }
 
 function resolveEntry(entry: JsonObj | undefined, env: NodeJS.ProcessEnv): string | null {

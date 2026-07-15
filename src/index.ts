@@ -2194,6 +2194,7 @@ if (isMain) {
     "                     scaffold ~/.subagent-mcp/providers.jsonc and .env",
     "  rollback           restore user config files from the newest backup",
     "  doctor             check install and wiring health",
+    "  upgrade            one-command upgrade with backup, hook repair, init-block check, and doctor",
     "  update, --update   update to the latest release (npm install -g)",
     "  version, --version, -v",
     "                     print the installed version",
@@ -2372,6 +2373,10 @@ if (isMain) {
     const { runSetup } = await import("./setup.js");
     await runSetup();
     process.exit(0);
+  }
+  if (arg === "upgrade") {
+    const { runUpgrade } = await import("./upgrade.js");
+    process.exit(await runUpgrade());
   }
   if (arg === "init" || arg === "--init") {
     const { runInit } = await import("./init.js");
