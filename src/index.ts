@@ -757,7 +757,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.13.0",
+    version: "2.14.0",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
@@ -2190,7 +2190,14 @@ if (isMain) {
     "                     upsert project instruction-file invariant blocks",
     "                     flags: --dry-run --remove --force --root <dir> --files <csv> --copilot --cursor",
     "                     --global  upsert into ~/.claude/CLAUDE.md, ~/.codex/AGENTS.md, ~/.gemini/GEMINI.md",
+    "  config init [--force]",
+    "                     scaffold ~/.subagent-mcp/providers.jsonc and .env",
+    "  config validate [--file <path>]",
+    "                     validate providers.jsonc against .env and routing schema",
+    "  rollback           restore user config files from the newest backup",
+    "  uninstall          remove subagent-mcp hooks and MCP registrations",
     "  doctor             check install and wiring health",
+    "  upgrade            one-command upgrade with backup, hook repair, init-block check, and doctor",
     "  update, --update   update to the latest release (npm install -g)",
     "  version, --version, -v",
     "                     print the installed version",
@@ -2370,19 +2377,40 @@ if (isMain) {
     await runSetup();
     process.exit(0);
   }
+  if (arg === "upgrade") {
+    const { runUpgrade } = await import("./upgrade.js");
+    process.exit(await runUpgrade());
+  }
+  if (arg === "uninstall") {
+    const { runUninstall } = await import("./uninstall.js");
+    process.exit(await runUninstall());
+  }
   if (arg === "init" || arg === "--init") {
     const { runInit } = await import("./init.js");
     process.exit(await runInit());
   }
+  if (arg === "config" && process.argv[3] === "init") {
+    const { runConfigInit } = await import("./config-init.js");
+    process.exit(await runConfigInit());
+  }
+  if (arg === "config" && process.argv[3] === "validate") {
+    const { runConfigValidate } = await import("./config-validate.js");
+    process.exit(await runConfigValidate());
+  }
+  if (arg === "rollback") {
+    const { runRollback } = await import("./backup.js");
+    process.exit(await runRollback());
+  }
   if (arg === "doctor") {
     const { runDoctor } = await import("./doctor.js");
-    process.exit(await runDoctor());
+    process.exitCode = await runDoctor();
   }
-  if (arg !== undefined && arg !== "") {
+  else if (arg !== undefined && arg !== "") {
     console.error(`unknown argument: ${arg}`);
     console.error(usage);
     process.exit(1);
   }
+  else {
   // ORCHESTRATION MODE PERSISTS across restarts/sessions: the server does NOT
   // clear the marker on startup. DEFAULT ON now means ABSENCE of a disable
   // record — a project stays ON with no marker write needed; OFF is only a
@@ -2397,4 +2425,5 @@ if (isMain) {
   startLivenessHeartbeat();
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  }
 }

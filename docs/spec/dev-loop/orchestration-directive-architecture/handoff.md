@@ -63,11 +63,10 @@ clears ambiguity before the saved handoff is surfaced.
 
 `subagent-mcp setup` deploys the packaged Claude Agent Skill from
 `skills/handoff-resume/SKILL.md` to
-`~/.claude/skills/handoff-resume/SKILL.md`. `subagent-mcp doctor` checks that
-the target exists and matches the installed package copy. Missing or stale
-targets are repaired by re-running setup. Codex is intentionally not targeted
-because Codex has no Agent Skill mechanism; the MCP instructions carry the
-handoff guidance there.
+`~/.claude/skills/handoff-resume/SKILL.md`. Missing or stale targets are
+repaired by re-running setup. Codex is intentionally not targeted because
+Codex has no Agent Skill mechanism; the MCP instructions carry the handoff
+guidance there.
 
 ## Post-write response (exact, byte-for-byte)
 

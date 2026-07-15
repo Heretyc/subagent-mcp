@@ -1,0 +1,30 @@
+{
+  "providers": {
+    "example": {
+      "display_name": "Example provider",
+      "command": "example-cli",
+      "args": [],
+      "key_env": "EXAMPLE_PROVIDER_API_KEY",
+      "routing": {
+        // 1=first, 2=second slot; <1=skip
+        // slot=N inserts at position N, shifting existing entries down.
+        // slot <1 disables this provider for that category.
+        // There is no global default priority.
+        "math_proof": -1,
+        "security_review": -1,
+        "debugging": -1,
+        "quality_review": -1,
+        "architecture": -1,
+        "agentic_execution": -1,
+        "data_analysis": -1,
+        "coding": -1,
+        "knowledge_synthesis": -1,
+        "mechanical": -1,
+        "prompt_engineering": -1,
+        "vulnerability_research": -1,
+        "molecular_biology": -1,
+        "ml_accelerator_design": -1
+      }
+    }
+  }
+}

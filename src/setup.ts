@@ -64,7 +64,7 @@ export function handoffResumeSkillPaths(root: string = INSTALL_ROOT, home: strin
 }
 
 // ---------------------------------------------------------------------------
-// Pure helpers (exported for tests and for the doctor command)
+// Pure helpers exported for tests and setup wiring.
 // ---------------------------------------------------------------------------
 
 export type WireStatus = "ok" | "added" | "repaired";
@@ -836,7 +836,7 @@ function wireCodex(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Read-back verification (also used by `subagent-mcp doctor`)
+// Read-back verification for setup wiring.
 // ---------------------------------------------------------------------------
 
 export interface CheckResult {

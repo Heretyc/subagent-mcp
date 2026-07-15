@@ -152,7 +152,7 @@ function registryPackageUrl(packageName: string, registryBaseUrl: string): strin
   return `${base}/${packageName.replace("/", "%2F")}`;
 }
 
-async function fetchLatestVersion(
+export async function fetchLatestVersion(
   packageName: string,
   deps: Required<Pick<UpdateCheckDeps, "fetch" | "registryBaseUrl" | "timeoutMs">>
 ): Promise<string | undefined> {
