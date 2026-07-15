@@ -47,8 +47,15 @@ session after installing.
 
 ### Codex equivalent
 
-Codex has no plugin marketplace. Register the server with the official Codex
-command, which writes `~/.codex/config.toml`:
+Codex has a plugin marketplace too. Install the bundled plugin with:
+
+```
+codex plugin marketplace add Heretyc/subagent-mcp
+codex plugin add subagent-mcp@subagent-mcp
+```
+
+Or register just the server with the official Codex command, which writes
+`~/.codex/config.toml`:
 
 ```
 codex mcp add subagent-mcp -- node /abs/path/to/subagent-mcp/dist/index.js
