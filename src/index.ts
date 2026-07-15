@@ -2387,13 +2387,14 @@ if (isMain) {
   }
   if (arg === "doctor") {
     const { runDoctor } = await import("./doctor.js");
-    process.exit(await runDoctor());
+    process.exitCode = await runDoctor();
   }
-  if (arg !== undefined && arg !== "") {
+  else if (arg !== undefined && arg !== "") {
     console.error(`unknown argument: ${arg}`);
     console.error(usage);
     process.exit(1);
   }
+  else {
   // ORCHESTRATION MODE PERSISTS across restarts/sessions: the server does NOT
   // clear the marker on startup. DEFAULT ON now means ABSENCE of a disable
   // record — a project stays ON with no marker write needed; OFF is only a
@@ -2408,4 +2409,5 @@ if (isMain) {
   startLivenessHeartbeat();
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  }
 }

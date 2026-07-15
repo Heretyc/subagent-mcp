@@ -14,10 +14,18 @@ import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { createBackup } from "./backup.js";
+import { stripJsoncComments } from "./concurrency.js";
+import { getConfigHome } from "./config-home.js";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
+import {
+  fetchLatestVersion,
+  isVersionNewer,
+  readInstalledPackageInfo,
+} from "./orchestration/update-check.js";
+import { probeProviderHead, type HeadProbeResult } from "./providers/provider-client.js";
 import { findOnPath, resolveCmdShimNodeScript } from "./setup.js";
 
-type Status = "PASS" | "WARN" | "FAIL";
+type Status = "PASS" | "WARN" | "FAIL" | "INFO";
 type JsonObj = Record<string, any>;
 
 interface DoctorLine {
@@ -29,10 +37,15 @@ interface DoctorLine {
 
 interface DoctorOptions {
   home?: string;
+  configHome?: string;
   env?: NodeJS.ProcessEnv;
   isTTY?: boolean;
   input?: NodeJS.ReadableStream;
   output?: NodeJS.WritableStream;
+  fetch?: typeof fetch;
+  providerHead?: (baseUrl: string) => Promise<HeadProbeResult>;
+  packageInfo?: () => { name: string; version: string };
+  registryBaseUrl?: string;
 }
 
 function line(r: DoctorLine): string {
@@ -42,6 +55,51 @@ function line(r: DoctorLine): string {
 function readJson(file: string): JsonObj | null {
   if (!existsSync(file)) return null;
   return JSON.parse(readFileSync(file, "utf8")) as JsonObj;
+}
+
+const TASK_CATEGORIES = [
+  "math_proof",
+  "security_review",
+  "debugging",
+  "quality_review",
+  "architecture",
+  "agentic_execution",
+  "data_analysis",
+  "coding",
+  "knowledge_synthesis",
+  "mechanical",
+  "prompt_engineering",
+  "vulnerability_research",
+  "molecular_biology",
+  "ml_accelerator_design",
+];
+
+function configHome(opts: DoctorOptions): string {
+  return opts.configHome ?? (opts.home ? join(opts.home, ".subagent-mcp") : getConfigHome());
+}
+
+function parseJsoncFile(file: string): { ok: true; json: JsonObj } | { ok: false; error: string } {
+  try {
+    const text = readFileSync(file, "utf8");
+    return { ok: true, json: JSON.parse(stripJsoncComments(text)) as JsonObj };
+  } catch (e) {
+    const message = e instanceof SyntaxError ? jsonErrorWithLine(readFileSync(file, "utf8"), e.message) : e instanceof Error ? e.message : String(e);
+    return { ok: false, error: message };
+  }
+}
+
+function jsonErrorWithLine(text: string, message: string): string {
+  const pos = /position (\d+)/.exec(message)?.[1];
+  if (!pos) return message;
+  const n = Number(pos);
+  const lineNo = stripJsoncComments(text).slice(0, n).split(/\r?\n/).length;
+  return `${message}; line ${lineNo}`;
+}
+
+function providerEntries(config: JsonObj | null): Array<[string, JsonObj]> {
+  const providers = config?.providers;
+  if (!providers || typeof providers !== "object" || Array.isArray(providers)) return [];
+  return Object.entries(providers).filter((e): e is [string, JsonObj] => !!e[1] && typeof e[1] === "object" && !Array.isArray(e[1]));
 }
 
 function distIndex(root: string): string {
@@ -403,12 +461,110 @@ export async function checkDuplicateHooks(opts: DoctorOptions = {}): Promise<Doc
   return { status: "WARN", id: 3, name: "duplicate-hooks", detail: `${detail}; removed=${count}${backedUp ? " after backup" : ""}` };
 }
 
+export function checkProviderConfig(opts: DoctorOptions = {}): DoctorLine {
+  const file = join(configHome(opts), "providers.jsonc");
+  if (!existsSync(file)) {
+    return { status: "FAIL", id: 4, name: "provider-config", detail: `missing ${file}; run: subagent-mcp config init` };
+  }
+  const parsed = parseJsoncFile(file);
+  return parsed.ok
+    ? { status: "PASS", id: 4, name: "provider-config", detail: `${file} parses` }
+    : { status: "FAIL", id: 4, name: "provider-config", detail: `${file} parse error: ${parsed.error}` };
+}
+
+function readProviderConfig(opts: DoctorOptions): JsonObj | null {
+  const file = join(configHome(opts), "providers.jsonc");
+  if (!existsSync(file)) return null;
+  const parsed = parseJsoncFile(file);
+  return parsed.ok ? parsed.json : null;
+}
+
+function readDotEnv(path: string): Map<string, string> | null {
+  if (!existsSync(path)) return null;
+  const env = new Map<string, string>();
+  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
+    if (m) env.set(m[1], m[2].replace(/^["']|["']$/g, ""));
+  }
+  return env;
+}
+
+export function checkEnvKeys(opts: DoctorOptions = {}): DoctorLine {
+  const home = configHome(opts);
+  const env = readDotEnv(join(home, ".env"));
+  const keys = [...new Set(providerEntries(readProviderConfig(opts)).map(([, p]) => p.key_env).filter((v): v is string => typeof v === "string"))];
+  const missing = env === null ? keys : keys.filter((k) => !env.get(k) || env.get(k) === "YOUR_KEY_HERE");
+  return {
+    status: env === null || missing.length ? "WARN" : "PASS",
+    id: 5,
+    name: "env-keys",
+    detail: env === null
+      ? (keys.length ? `missing .env; missing keys: ${missing.join(", ")}` : "missing .env; no key_env entries")
+      : (missing.length ? `missing keys: ${missing.join(", ")}` : "all key_env entries set"),
+  };
+}
+
+export function checkRoutingCoverage(opts: DoctorOptions = {}): DoctorLine {
+  const routed = new Set<string>();
+  for (const [, provider] of providerEntries(readProviderConfig(opts))) {
+    const routing = provider.routing;
+    if (!routing || typeof routing !== "object" || Array.isArray(routing)) continue;
+    for (const category of TASK_CATEGORIES) {
+      if (typeof routing[category] === "number" && routing[category] >= 1) routed.add(category);
+    }
+  }
+  return routed.size === 0
+    ? { status: "WARN", id: 6, name: "routing-coverage", detail: "no API routing active" }
+    : { status: "PASS", id: 6, name: "routing-coverage", detail: `${routed.size}/14 categories routed` };
+}
+
+export async function checkReachability(opts: DoctorOptions = {}): Promise<DoctorLine[]> {
+  const providers = providerEntries(readProviderConfig(opts))
+    .map(([name, p]) => [name, p.base_url] as const)
+    .filter((e): e is readonly [string, string] => typeof e[1] === "string" && e[1].length > 0);
+  if (providers.length === 0) {
+    return [{ status: "INFO", id: 7, name: "reachability", detail: "no providers with base_url configured" }];
+  }
+  const probe = opts.providerHead ?? ((url: string) => probeProviderHead(url, { timeoutMs: 3000 }));
+  return Promise.all(providers.map(async ([name, url]) => {
+    const r = await probe(url);
+    return {
+      status: "INFO" as const,
+      id: 7,
+      name: "reachability",
+      detail: r.status ? `${name}: status ${r.status}` : `${name}: unreachable (${r.error ?? "unknown"})`,
+    };
+  }));
+}
+
+export async function checkUpdate(opts: DoctorOptions = {}): Promise<DoctorLine> {
+  const pkg = (opts.packageInfo ?? readInstalledPackageInfo)();
+  const latest = await fetchLatestVersion(pkg.name, {
+    fetch: opts.fetch ?? fetch,
+    registryBaseUrl: opts.registryBaseUrl ?? "https://registry.npmjs.org",
+    timeoutMs: 2500,
+  });
+  if (!latest) return { status: "INFO", id: 8, name: "update-check", detail: "offline or undeterminable" };
+  return isVersionNewer(latest, pkg.version)
+    ? { status: "WARN", id: 8, name: "update-check", detail: `latest ${latest}; run: subagent-mcp upgrade` }
+    : { status: "PASS", id: 8, name: "update-check", detail: `current ${pkg.version}` };
+}
+
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
-  const results = [checkInstallMode(opts), await checkMcpRegistration(opts), await checkDuplicateHooks(opts)];
+  const results = [
+    checkInstallMode(opts),
+    await checkMcpRegistration(opts),
+    await checkDuplicateHooks(opts),
+    checkProviderConfig(opts),
+    checkEnvKeys(opts),
+    checkRoutingCoverage(opts),
+    ...await checkReachability(opts),
+    await checkUpdate(opts),
+  ];
   for (const r of results) console.log(line(r));
-  const counts = { PASS: 0, WARN: 0, FAIL: 0 };
+  const counts = { PASS: 0, WARN: 0, FAIL: 0, INFO: 0 };
   for (const r of results) counts[r.status]++;
   const exitCode = counts.FAIL > 0 ? 1 : 0;
-  console.log(`Summary: pass=${counts.PASS} warn=${counts.WARN} fail=${counts.FAIL} exit=${exitCode}`);
+  console.log(`Summary: pass=${counts.PASS} warn=${counts.WARN} fail=${counts.FAIL} info=${counts.INFO} exit=${exitCode}`);
   return exitCode;
 }

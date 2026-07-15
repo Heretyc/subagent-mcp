@@ -4,7 +4,16 @@ import { Readable, Writable } from "node:stream";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { checkDuplicateHooks, checkInstallMode, checkMcpRegistration } from "../dist/doctor.js";
+import {
+  checkDuplicateHooks,
+  checkEnvKeys,
+  checkInstallMode,
+  checkMcpRegistration,
+  checkProviderConfig,
+  checkReachability,
+  checkRoutingCoverage,
+  checkUpdate,
+} from "../dist/doctor.js";
 
 let passed = 0;
 let failed = 0;
@@ -64,6 +73,10 @@ function liveConfig(home) {
   writeJson(join(home, ".claude.json"), {
     mcpServers: { "subagent-mcp": { command: "subagent-mcp", args: [] } },
   });
+}
+
+function providerConfig(home, providers) {
+  writeJson(join(home, ".subagent-mcp", "providers.jsonc"), { providers });
 }
 
 function claudePromptHook(path, extra = {}) {
@@ -250,6 +263,73 @@ test("duplicate-hooks: non-TTY leaves config unchanged", async () => withRoot(as
   assert.match(r.detail, /non-TTY: no changes made/);
   assert.equal(readFileSync(file, "utf8"), before);
 }));
+
+test("provider-config: absent providers.jsonc fails with init hint", () => withRoot(({ home }) => {
+  const r = checkProviderConfig({ configHome: join(home, ".subagent-mcp") });
+  assert.equal(r.status, "FAIL");
+  assert.match(r.detail, /subagent-mcp config init/);
+}));
+
+test("provider-config: parse error fails with line info", () => withRoot(({ home }) => {
+  const configHome = join(home, ".subagent-mcp");
+  mkdirSync(configHome, { recursive: true });
+  writeFileSync(join(configHome, "providers.jsonc"), "{\n  nope\n}\n", "utf8");
+  const r = checkProviderConfig({ configHome });
+  assert.equal(r.status, "FAIL");
+  assert.match(r.detail, /parse error/);
+  assert.match(r.detail, /line 2/);
+}));
+
+test("env-keys: missing or placeholder key warns without value leakage", () => withRoot(({ home }) => {
+  const configHome = join(home, ".subagent-mcp");
+  providerConfig(home, {
+    a: { key_env: "A_KEY", routing: {} },
+    b: { key_env: "B_KEY", routing: {} },
+  });
+  writeFileSync(join(configHome, ".env"), "A_KEY=YOUR_KEY_HERE\nB_KEY=real-secret\n", "utf8");
+  const r = checkEnvKeys({ configHome });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /A_KEY/);
+  assert.doesNotMatch(r.detail, /real-secret/);
+}));
+
+test("routing-coverage: zero active slots warns", () => withRoot(({ home }) => {
+  const configHome = join(home, ".subagent-mcp");
+  providerConfig(home, { a: { routing: { coding: -1 } } });
+  const r = checkRoutingCoverage({ configHome });
+  assert.equal(r.status, "WARN");
+  assert.equal(r.detail, "no API routing active");
+}));
+
+test("routing-coverage: reports N of 14 routed categories", () => withRoot(({ home }) => {
+  const configHome = join(home, ".subagent-mcp");
+  providerConfig(home, { a: { routing: { coding: 1, debugging: 2, fallback_default: 1 } } });
+  const r = checkRoutingCoverage({ configHome });
+  assert.equal(r.status, "PASS");
+  assert.equal(r.detail, "2/14 categories routed");
+}));
+
+test("reachability: unreachable probe is INFO only", async () => withRoot(async ({ home }) => {
+  const configHome = join(home, ".subagent-mcp");
+  providerConfig(home, { a: { base_url: "https://provider.test", routing: {} } });
+  const lines = await checkReachability({
+    configHome,
+    providerHead: async () => ({ ok: false, error: "offline" }),
+  });
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].status, "INFO");
+  assert.match(lines[0].detail, /unreachable/);
+}));
+
+test("update-check: behind warns with upgrade command", async () => {
+  const r = await checkUpdate({
+    packageInfo: () => ({ name: "@heretyc/subagent-mcp", version: "1.0.0" }),
+    fetch: async () => ({ ok: true, json: async () => ({ "dist-tags": { latest: "1.0.1" } }) }),
+    registryBaseUrl: "https://registry.example.test",
+  });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /subagent-mcp upgrade/);
+});
 
 for (const t of tests) {
   try {
