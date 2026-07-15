@@ -35,10 +35,11 @@ and `yolo` bypasses all gating including config-file protection.
   `respond_permission` takes no attestation; a compromised orchestrator can
   answer `manual` requests itself. Accepted: it already holds `kill_agent`/
   `send_message`/`launch_agent`; no `responder` provenance field shipped.
-- **Codex sandbox network.** `auto`/`manual` default to workspace-write with no
-  network. `sandboxNetwork` or network-ish allow rules reopen network while
-  keeping `approvalPolicy:'untrusted'`; `yolo` remains the blunt fallback that
-  removes both approval gating and the sandbox.
+- **Codex sandbox network.** `auto`/`manual` launch workspace-write with network
+  access **always on** (`network_access=true` is set unconditionally, regardless
+  of `sandboxNetwork` or allow rules) while keeping `approvalPolicy:'untrusted'`
+  so approvals still gate actions; `yolo` remains the blunt fallback that removes
+  both approval gating and the sandbox.
 - **Codex in-sandbox blind spots.** Under `untrusted`, Codex's own known-safe
   reads may auto-run without reaching `verdict()`; no mutation escapes approval.
 - **Codex approval TOCTOU (J2-16).** smcp evaluates a `fileChange` path at
