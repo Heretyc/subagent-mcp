@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 
 let passed = 0;
 let failed = 0;
@@ -43,11 +46,52 @@ test("hooks manifest uses stable ids and bare node commands", () => {
   const manifest = JSON.parse(read("hooks/hooks.json"));
   const pretool = manifest.hooks.PreToolUse[0].hooks[0];
   const prompt = manifest.hooks.UserPromptSubmit[0].hooks[0];
+  const session = manifest.hooks.SessionStart[0].hooks[0];
   assert.equal(pretool.id, "subagent-mcp-pretool");
   assert.equal(prompt.id, "subagent-mcp-orchestration-claude");
+  assert.deepEqual(session, {
+    id: "subagent-mcp-session-start",
+    command: "node dist/hooks/smcp-activate.js",
+    commandWindows: null,
+    timeout: 5,
+  });
   assert.match(pretool.command, /^node "\$\{CLAUDE_PLUGIN_ROOT\}\//);
   assert.match(prompt.command, /^node "\$\{CLAUDE_PLUGIN_ROOT\}\//);
   assert.doesNotMatch(JSON.stringify(manifest), /\bsh\s+-c\b/);
+});
+
+function runActivate(home) {
+  return spawnSync(process.execPath, [join("dist", "hooks", "smcp-activate.js")], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      HOMEDRIVE: "",
+      HOMEPATH: "",
+    },
+  });
+}
+
+test("smcp-activate nudges only when providers config is absent", () => {
+  const home = join(tmpdir(), `smcp-activate-${process.pid}-${Date.now()}`);
+  try {
+    mkdirSync(home, { recursive: true });
+    let result = runActivate(home);
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, "");
+    assert.equal(result.stderr, "No providers configured. Run: subagent-mcp doctor\n");
+
+    mkdirSync(join(home, ".subagent-mcp"), { recursive: true });
+    writeFileSync(join(home, ".subagent-mcp", "providers.jsonc"), "{}\n", "utf8");
+    result = runActivate(home);
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, "");
+    assert.equal(result.stderr, "");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
 });
 
 test("install paths do not target poll_agent or wait from hook registration", () => {

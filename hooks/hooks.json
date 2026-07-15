@@ -23,6 +23,18 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "id": "subagent-mcp-session-start",
+            "command": "node dist/hooks/smcp-activate.js",
+            "commandWindows": null,
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }
