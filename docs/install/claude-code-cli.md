@@ -8,11 +8,13 @@ in one plugin. Do the [build prerequisite](_INDEX.md) first.
 ## Option A : local-marketplace plugin (hook + server together)
 
 The repo ships a single-plugin marketplace whose manifest points at the
-canonical Git source and bundles both `.mcp.json` (server) and
-`hooks/hooks.json` (hook). `.claude-plugin/plugin.json` declares the hook file
-with `"hooks": "./hooks/hooks.json"` and must not re-declare inline hook event
-tables or `mcpServers`. Only the plugin loader resolves `${CLAUDE_PLUGIN_ROOT}`
-and loads both together, so this is the plugin path.
+same-repo plugin (`"source": "./"`) and bundles both `.mcp.json` (server) and
+`hooks/hooks.json` (hook). Claude Code auto-loads the standard
+`hooks/hooks.json`, so `.claude-plugin/plugin.json` must **not** re-declare it
+(a `"hooks": "./hooks/hooks.json"` entry now trips a duplicate-hooks-file load
+error) and must not re-declare inline hook event tables or `mcpServers`. Only
+the plugin loader resolves `${CLAUDE_PLUGIN_ROOT}` and loads both together, so
+this is the plugin path.
 
 **macOS / Linux:**
 

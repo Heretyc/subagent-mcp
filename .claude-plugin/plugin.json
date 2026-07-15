@@ -2,7 +2,6 @@
   "name": "subagent-mcp",
   "version": "2.13.0",
   "description": "Launches and manages local Claude Code and Codex CLI sub-agents, plus orchestration-mode hooks for per-turn directives and deterministic Claude tool gates.",
-  "hooks": "./hooks/hooks.json",
   "displayName": "subagent-mcp",
   "shortDescription": "Local MCP server for Claude Code and Codex sub-agent orchestration.",
   "capabilities": [
