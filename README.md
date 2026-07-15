@@ -48,7 +48,14 @@ claude plugin marketplace add Heretyc/subagent-mcp
 claude plugin install subagent-mcp@subagent-mcp
 ```
 
-Codex uses MCP registration:
+Marketplace plugin for Codex:
+
+```bash
+codex plugin marketplace add Heretyc/subagent-mcp
+codex plugin add subagent-mcp@subagent-mcp
+```
+
+Or Codex MCP registration:
 
 ```bash
 codex mcp add subagent-mcp -- node /abs/path/to/subagent-mcp/dist/index.js
