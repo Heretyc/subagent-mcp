@@ -45,7 +45,7 @@ fallback use in Gemini CLI, Cursor, Windsurf, Kiro, Copilot, and similar agents.
 
 ## Deeper Docs
 
-- Start with `retrieval-map.md` to choose the smallest relevant doc.
+- Start with `retrieval-map.md` (repo root) to choose the smallest relevant doc.
 - Install and host wiring: `docs/registration.md` and `docs/install/`.
 - Tool reference: `docs/tools.md`.
 - Orchestration model: `docs/spec/dev-loop/orchestration-directive-architecture.md`.
