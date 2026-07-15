@@ -1,11 +1,10 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline/promises";
-import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { createBackup } from "./backup.js";
 import { isSubagentMcpHook, type JsonObj } from "./hook-match.js";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
+import { askYesNo } from "./prompt.js";
 
 export interface UninstallOptions {
   home?: string;
@@ -89,16 +88,6 @@ export function verifyNoSubagentMcp(home = homedir()): string[] {
   const codex = join(home, ".codex", "config.toml");
   if (existsSync(codex) && removeCodexMcpBlock(readFileSync(codex, "utf8")).removed > 0) remaining.push(codex);
   return remaining;
-}
-
-async function askYesNo(opts: UninstallOptions, prompt: string): Promise<boolean> {
-  const rl = createInterface({ input: opts.input ?? defaultInput, output: opts.output ?? defaultOutput });
-  try {
-    const answer = (await rl.question(prompt)).trim().toLowerCase();
-    return answer === "" || answer === "y" || answer === "yes";
-  } finally {
-    rl.close();
-  }
 }
 
 function scope(home: string): string[] {

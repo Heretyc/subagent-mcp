@@ -8,11 +8,11 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { createInterface } from "node:readline/promises";
-import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { createBackup } from "./backup.js";
 import { getConfigHome } from "./config-home.js";
 import { parseJsoncFile, type JsonObj } from "./jsonc.js";
+import { askYesNo } from "./prompt.js";
+import { TASK_CATEGORIES as ROUTING_TASK_CATEGORIES } from "./routing.js";
 import {
   detectInstallMode,
   existingDist,
@@ -58,22 +58,7 @@ function readJson(file: string): JsonObj | null {
   return JSON.parse(readFileSync(file, "utf8")) as JsonObj;
 }
 
-const TASK_CATEGORIES = [
-  "math_proof",
-  "security_review",
-  "debugging",
-  "quality_review",
-  "architecture",
-  "agentic_execution",
-  "data_analysis",
-  "coding",
-  "knowledge_synthesis",
-  "mechanical",
-  "prompt_engineering",
-  "vulnerability_research",
-  "molecular_biology",
-  "ml_accelerator_design",
-];
+const TASK_CATEGORIES = ROUTING_TASK_CATEGORIES.filter((c) => c !== "fallback_default");
 
 function configHome(opts: DoctorOptions): string {
   return opts.configHome ?? (opts.home ? join(opts.home, ".subagent-mcp") : getConfigHome());
@@ -111,19 +96,6 @@ function resolveEntry(entry: JsonObj | undefined, env: NodeJS.ProcessEnv): strin
 
 function canonicalEntry(): JsonObj {
   return { type: "stdio", command: "subagent-mcp", args: [], env: {} };
-}
-
-async function askYesNo(opts: DoctorOptions, prompt: string): Promise<boolean> {
-  const rl = createInterface({
-    input: opts.input ?? defaultInput,
-    output: opts.output ?? defaultOutput,
-  });
-  try {
-    const answer = (await rl.question(prompt)).trim().toLowerCase();
-    return answer === "" || answer === "y" || answer === "yes";
-  } finally {
-    rl.close();
-  }
 }
 
 async function askFix(opts: DoctorOptions): Promise<boolean> {

@@ -10,9 +10,8 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { createInterface } from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
 import { getConfigHome } from "./config-home.js";
+import { askYesNo } from "./prompt.js";
 
 export type BackupFileStatus = "present" | "absent";
 
@@ -168,13 +167,7 @@ export function restoreLatestBackup(opts: { injectFailureAfterStage?: boolean } 
 }
 
 async function askProceed(timestamp: string): Promise<boolean> {
-  const rl = createInterface({ input, output });
-  try {
-    const answer = (await rl.question(`Proceed with rollback from ${timestamp}? [Y/n] `)).trim().toLowerCase();
-    return answer === "" || answer === "y" || answer === "yes";
-  } finally {
-    rl.close();
-  }
+  return askYesNo({}, `Proceed with rollback from ${timestamp}? [Y/n] `);
 }
 
 export async function runRollback(): Promise<number> {

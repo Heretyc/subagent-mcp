@@ -1,8 +1,6 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline/promises";
-import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { spawnSync } from "node:child_process";
 import { createBackup } from "./backup.js";
 import { detectInstallMode, type InstallModeInfo } from "./install-mode.js";
@@ -11,6 +9,7 @@ import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { runDoctor } from "./doctor.js";
 import { serverPaths } from "./setup.js";
 import { referencedHookPath } from "./hook-match.js";
+import { askYesNo } from "./prompt.js";
 
 type JsonObj = Record<string, any>;
 type RunResult = { status: number | null; error?: Error };
@@ -112,19 +111,6 @@ export function repairStaleHooks(home = homedir(), root: string): number {
     join(home, ".claude", "settings.json"),
     join(home, ".codex", "hooks.json"),
   ].reduce((n, file) => n + repairHooksIn(file, root), 0);
-}
-
-async function askYesNo(opts: UpgradeOptions, prompt: string): Promise<boolean> {
-  const rl = createInterface({
-    input: opts.input ?? defaultInput,
-    output: opts.output ?? defaultOutput,
-  });
-  try {
-    const answer = (await rl.question(prompt)).trim().toLowerCase();
-    return answer === "" || answer === "y" || answer === "yes";
-  } finally {
-    rl.close();
-  }
 }
 
 async function manageGlobalInitBlocks(opts: UpgradeOptions): Promise<{ updated: number; skipped: number }> {
