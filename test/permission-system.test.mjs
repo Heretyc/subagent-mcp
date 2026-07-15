@@ -267,12 +267,12 @@ await test("Codex approval reply shapes are exact for every approval method", ()
   assert.deepEqual(codexApprovalResult("mcpServer/elicitation/request", "deny"), { action: "decline" });
 });
 
-await test("Codex auto ceiling keeps workspace-write network off by default", () => {
+await test("Codex auto ceiling enables workspace-write network by default", () => {
   const launch = resolveCodexLaunchValues({ ceiling: "auto", escalation: "irreversible-only", rules: {} }, false);
   assert.equal(launch.approvalPolicy, "untrusted");
   assert.equal(launch.threadSandbox, "workspace-write");
-  assert.deepEqual(launch.turnSandboxPolicy, { type: "workspaceWrite", writableRoots: [] });
-  assert.deepEqual(launch.cliConfigArgs, []);
+  assert.deepEqual(launch.turnSandboxPolicy, { type: "workspaceWrite", writableRoots: [], networkAccess: true });
+  assert.deepEqual(launch.cliConfigArgs, ["-c", "sandbox_workspace_write.network_access=true"]);
 });
 
 await test("Codex sandboxNetwork opt-in enables workspace-write network", () => {
@@ -286,7 +286,7 @@ await test("Codex sandboxNetwork opt-in enables workspace-write network", () => 
   assert.deepEqual(launch.cliConfigArgs, ["-c", "sandbox_workspace_write.network_access=true"]);
 });
 
-await test("Codex network-ish allow rules translate to workspace-write network", () => {
+await test("Codex network-ish allow rules keep workspace-write network enabled", () => {
   const seen = [];
   const oldError = console.error;
   console.error = (msg) => seen.push(String(msg));
@@ -298,7 +298,7 @@ await test("Codex network-ish allow rules translate to workspace-write network",
     });
     assert.equal(launch.turnSandboxPolicy.networkAccess, true);
     assert.deepEqual(launch.cliConfigArgs, ["-c", "sandbox_workspace_write.network_access=true"]);
-    assert.ok(seen.some((m) => /translated network allow/.test(m)));
+    assert.deepEqual(seen, []);
   } finally {
     console.error = oldError;
   }

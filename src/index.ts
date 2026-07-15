@@ -4,10 +4,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { spawn, spawnSync, execSync } from "child_process";
+import { EventEmitter } from "node:events";
 import { unlinkSync, existsSync, realpathSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { randomUUID } from "crypto";
 import { isAbsolute, basename, join, dirname } from "node:path";
 import { tmpdir } from "node:os";
+import { PassThrough } from "node:stream";
 import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
 import { createProviderDriver, type DriverProcess, type ProviderDriver } from "./drivers.js";
@@ -45,7 +47,11 @@ import {
   type Candidate,
   type SelectionMode,
   type RoutingBranch,
+  slotInsert,
 } from "./routing.js";
+import { callApiProvider } from "./providers/provider-client.js";
+import { loadApiProviders } from "./providers/config-loader.js";
+import { effortToTemperature } from "./providers/effort-map.js";
 import { createDeadlockWindow } from "./deadlock.js";
 import {
   createRulesetGate,
@@ -66,6 +72,7 @@ import {
   readSlotMetadata,
   readMergedPermissionConfig,
   readPermissionsCeiling,
+  ensureFirstRunPermissionCeiling,
   readGlobalCap,
   releaseSlot,
   reserveSlot,
@@ -155,6 +162,29 @@ export const AGENT_RETENTION_MS = 30 * 60 * 1000;
 // scoping. The env-check runs lazily at the FIRST launch_agent call; success
 // latches enabled/disabled for the process lifetime, failure never latches.
 const rulesetGate = createRulesetGate();
+
+class ClosedProcess extends EventEmitter implements DriverProcess {
+  stdout = new PassThrough();
+  stderr = new PassThrough();
+  killed = false;
+  exitCode: number | null = 0;
+
+  kill(): boolean {
+    this.killed = true;
+    return false;
+  }
+}
+
+function closedDriver(process: DriverProcess): ProviderDriver {
+  return {
+    process,
+    closed: true,
+    definitelyStarted: Promise.resolve(),
+    start: async () => {},
+    send: async () => { throw new Error("api provider sessions are single-turn"); },
+    kill: () => { process.kill(); },
+  };
+}
 
 function ceilingRank(ceiling: "manual" | "auto" | "yolo"): number {
   return ceiling === "manual" ? 0 : ceiling === "auto" ? 1 : 2;
@@ -762,9 +792,9 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.15.0",
+    version: "3.0.0",
     description:
-      "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
+      "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
   {
     instructions:
@@ -810,6 +840,53 @@ async function tryLaunchCandidate(
     originalSelection: { provider: string; model: string; effort: string };
   }
 ): Promise<{ agentId: string } | { reason: string; failure_type: FailureType }> {
+  if (candidate.provider === "api") {
+    if (!candidate.apiProvider) {
+      return { reason: "api provider config missing for candidate", failure_type: "permanent" };
+    }
+    const agentId = randomUUID();
+    const now = Date.now();
+    try {
+      const response = await callApiProvider(candidate.apiProvider, {
+        messages: [{ role: "user", content: prompt }],
+        temperature: effortToTemperature(candidate.effort as Parameters<typeof effortToTemperature>[0]),
+        max_tokens: 4096,
+      });
+      const process = new ClosedProcess();
+      const agentState: AgentState = {
+        id: agentId,
+        provider: "api",
+        model: candidate.model,
+        routingTier,
+        ...(rulesetInfo
+          ? { rulesetApplied: true, rulesetOriginalSelection: rulesetInfo.originalSelection }
+          : {}),
+        status: "finished",
+        process,
+        driver: closedDriver(process),
+        stdout: response.text,
+        stderr: "",
+        exitCode: 0,
+        exitedAt: now,
+        lastExitCode: null,
+        lastExitedAt: null,
+        startedAt: now,
+        lastActivity: now,
+        cwd: agentCwd,
+        permissionSnapshot,
+        waitReported: false,
+        visibleStream: response.text ? [{ type: "text", text: response.text, at: now }] : [],
+        streamBuf: "",
+        slotLastActivity: now,
+      };
+      agents.set(agentId, agentState);
+      return { agentId };
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      return { reason, failure_type: classifyFailureReason(reason, "") };
+    }
+  }
+
   // Build the command. haiku ignores effort; pass "high" placeholder for the
   // "none" sentinel (buildCommand drops it for haiku anyway).
   const effortForBuild = candidate.effort === "none" ? "high" : candidate.effort;
@@ -1182,7 +1259,7 @@ server.tool(
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
-    provider: z.enum(["claude", "codex"]).optional(),
+    provider: z.enum(["claude", "codex", "api"]).optional(),
     model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5", "gpt-5.6"]).optional(),
     effort: z.enum(["medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
@@ -1315,6 +1392,20 @@ server.tool(
 
     // 6. Attempt loop: best→worst. Register on first successful driver start; silently
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
+    if (process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1") {
+      candidates = slotInsert(candidates, loadApiProviders(), task_category);
+    }
+
+    const apiGate = modelMode.gateLaunch(agentCwd, {
+      provider,
+      model,
+      effort,
+      dispatchSource: candidates.some((c) => c.provider === "api") ? "api-provider" : undefined,
+    });
+    if (!apiGate.allowed) {
+      return errorResult(apiGate.message ?? modelMode.SELECTOR_REJECTION_MESSAGE);
+    }
+
     const cap = readGlobalCap();
     const reservationId = randomUUID();
     const reservation = reserveSlot(reservationId, cap, slotDir(), NONBLOCKING_CULL_DEPS);
@@ -1333,7 +1424,7 @@ server.tool(
     incrementAgentCount();
     try {
       for (const candidate of candidates) {
-        const outcome = await tryLaunchCandidate(
+        let outcome = await tryLaunchCandidate(
           candidate,
           prompt,
           agentCwd,
@@ -1343,6 +1434,22 @@ server.tool(
             ? { applied: true, originalSelection: rulesetOriginalSelection }
             : undefined
         );
+        if (
+          candidate.provider === "api" &&
+          !("agentId" in outcome) &&
+          outcome.failure_type === "transient_provider"
+        ) {
+          outcome = await tryLaunchCandidate(
+            candidate,
+            prompt,
+            agentCwd,
+            permissionSnapshot,
+            routingTier,
+            rulesetApplied && rulesetOriginalSelection !== undefined
+              ? { applied: true, originalSelection: rulesetOriginalSelection }
+              : undefined
+          );
+        }
         if ("agentId" in outcome) {
           if (branch === "performance") {
             deadlockWindow.consume();
@@ -2162,7 +2269,7 @@ server.tool(
 // Tool 11: handoff-read
 server.tool(
   "handoff-read",
-  "Read the saved handoff for this working directory (if any). BEFORE calling, confirm the user's intent via EXACTLY 5 structured questions (proves legitimacy, clears ambiguity). If found, this session becomes the ONLY session that gets the handoff re-appended to its periodic LONG reminders. If none is saved, explains that the previous session must write one first.",
+  "Read the saved handoff for this working directory (if any). Call this first; after reading any saved handoff, confirm the user's intent via EXACTLY 4 structured questions before acting on it (proves legitimacy, clears ambiguity). If found, this session becomes the ONLY session that gets the handoff re-appended to its periodic LONG reminders. If none is saved, explains that the previous session must write one first.",
   {},
   withMaintenance(async () => {
     const cwd = process.cwd();
@@ -2177,7 +2284,7 @@ server.tool(
       [
         "Saved handoff:",
         marked.content + overflowLine,
-        "Before using this handoff, confirm the user's intent via EXACTLY 5 structured questions. Confirm: resume objective, current blocker, files/state to preserve, next concrete action, and permission to proceed in this session.",
+        "You have read this handoff. Before acting on it, confirm the user's intent via EXACTLY 4 structured questions. Confirm: resume objective, current blocker, files/state to preserve, and next concrete action plus permission to proceed in this session.",
       ].join("\n\n")
     );
   })
@@ -2399,6 +2506,9 @@ if (isMain) {
     process.exit(code);
   }
   if (arg === "setup") {
+    if (!process.argv.slice(3).includes("--dry-run")) {
+      await ensureFirstRunPermissionCeiling({ log: console.log });
+    }
     const { runSetup } = await import("./setup.js");
     await runSetup();
     process.exit(0);
@@ -2412,10 +2522,14 @@ if (isMain) {
     process.exit(await runUninstall());
   }
   if (arg === "init" || arg === "--init") {
+    if (!process.argv.slice(3).includes("--dry-run")) {
+      await ensureFirstRunPermissionCeiling({ log: console.log });
+    }
     const { runInit } = await import("./init.js");
     process.exit(await runInit());
   }
   if (arg === "config" && process.argv[3] === "init") {
+    await ensureFirstRunPermissionCeiling({ log: console.log });
     const { runConfigInit } = await import("./config-init.js");
     process.exit(await runConfigInit());
   }
@@ -2428,6 +2542,7 @@ if (isMain) {
     process.exit(await runRollback());
   }
   if (arg === "doctor") {
+    await ensureFirstRunPermissionCeiling({ log: console.log });
     const { runDoctor } = await import("./doctor.js");
     process.exitCode = await runDoctor();
   }

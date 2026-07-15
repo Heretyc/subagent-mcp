@@ -3,7 +3,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 
-export type Provider = "claude" | "codex";
+export type Provider = "claude" | "codex" | "api";
 
 export function mapModel(provider: Provider, model: string): string {
   if (provider === "claude") {
@@ -12,9 +12,9 @@ export function mapModel(provider: Provider, model: string): string {
     if (model === "haiku") return "claude-haiku-4-5";
     if (model === "fable") return "claude-fable-5";
     return model;
-  } else {
-    return model; // gpt-5.5, gpt-5.6
   }
+  if (provider === "codex") return model; // gpt-5.5, gpt-5.6
+  throw new Error("api provider dispatch not implemented");
 }
 
 export function resolveEffort(
@@ -60,6 +60,10 @@ export function resolveEffort(
     }
   }
 
+  if (provider === "api") {
+    throw new Error("api provider dispatch not implemented");
+  }
+
   return { kind: "flag", value: "high" };
 }
 
@@ -91,14 +95,18 @@ export function buildCommand(
     }
 
     return { args };
-  } else {
-    // codex
-    void (er as { kind: "flag"; value: string }).value;
-    return {
-      args: [
-        "app-server",
-        "--stdio",
-      ],
-    };
   }
+
+  if (provider === "api") {
+    throw new Error("api provider dispatch not implemented");
+  }
+
+  // codex
+  void (er as { kind: "flag"; value: string }).value;
+  return {
+    args: [
+      "app-server",
+      "--stdio",
+    ],
+  };
 }

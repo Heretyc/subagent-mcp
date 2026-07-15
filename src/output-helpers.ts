@@ -86,6 +86,8 @@ function codexEventText(evt: unknown): string | null {
 export function extractFinalTurn(provider: string, stdout: string): string {
   if (!stdout) return "";
 
+  if (provider === "api") return rawFallback(stdout);
+
   if (provider === "claude") {
     if (!hasNewlineBetweenJsonObjects(stdout)) {
       try {

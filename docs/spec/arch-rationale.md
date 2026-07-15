@@ -41,8 +41,12 @@ Running both Claude Code and Codex (and being provider-agnostic beyond them)
 prevents **per-provider and per-model blind spots** and removes **vendor
 dependency**. A weakness or outage in one provider does not blind or block the
 whole system; auto-routing picks the right provider/model/effort per task from a
-benchmark-derived table. No direct API calls, no API keys : it drives the
-locally authenticated vendor CLIs.
+benchmark-derived table. The same table also accepts direct API providers from
+`<configHome>/providers.jsonc`: entries use `api_style: "claude" | "openai"`,
+`base_url`, `model`, `key_env`, and 14-category routing slots. Credentials stay
+out of config; `key_env` names an environment variable whose value lives in the
+adjacent gitignored `.env`. API provider routing uses slot insertion, and HTTP
+is confined to `src/providers/provider-client.ts` by the api-isolation test.
 
 ## Bet 3 : Ruthless token efficiency + durable authoritative hooks
 

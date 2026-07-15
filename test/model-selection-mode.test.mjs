@@ -166,6 +166,22 @@ test("(e) re-enabling an active override does NOT reset the 30-min window", (cwd
   assert.equal(r.enabled_at, t0, "enabled_at unchanged after re-enable");
 });
 
+test("(f) API-routed launch gets one session gate, then stays approved", (cwd) => {
+  const first = gateLaunch(cwd, { dispatchSource: "api-provider" }, t0);
+  assert.equal(first.allowed, false, "first API-routed launch in smart mode must gate");
+  assert.equal(first.message, SELECTOR_REJECTION_MESSAGE,
+    "API gate uses the same canonical model-selection prompt");
+
+  setMode(cwd, "user-approved-overrides", t0);
+  const approved = gateLaunch(cwd, { dispatchSource: "api-provider" }, t0);
+  assert.equal(approved.allowed, true, "user approval opens the API session gate");
+
+  setMode(cwd, "smart", t0 + 60_000);
+  const later = gateLaunch(cwd, { dispatchSource: "api-provider" }, t0 + WINDOW_MS + 1);
+  assert.equal(later.allowed, true,
+    "API gate approval is process-session scoped after the first approved API launch");
+});
+
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------

@@ -7,13 +7,17 @@ export interface PromptOptions {
 }
 
 export async function askYesNo(opts: PromptOptions, prompt: string): Promise<boolean> {
+  const answer = await askLine(opts, prompt);
+  return answer === "" || answer === "y" || answer === "yes";
+}
+
+export async function askLine(opts: PromptOptions, prompt: string): Promise<string> {
   const rl = createInterface({
     input: opts.input ?? defaultInput,
     output: opts.output ?? defaultOutput,
   });
   try {
-    const answer = (await rl.question(prompt)).trim().toLowerCase();
-    return answer === "" || answer === "y" || answer === "yes";
+    return (await rl.question(prompt)).trim().toLowerCase();
   } finally {
     rl.close();
   }

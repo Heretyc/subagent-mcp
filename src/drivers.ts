@@ -433,13 +433,6 @@ interface CodexLaunchValues {
   cliConfigArgs: string[];
 }
 
-function networkAllowRuleTriggersSandbox(rule: string): boolean {
-  const trimmed = rule.trim();
-  if (/^WebFetch(?:\b|\()/i.test(trimmed)) return true;
-  if (/^Bash(?:\(\s*(?:\*|[\w./\\-]*\s*)?\)|$)/i.test(trimmed)) return true;
-  return /^Bash\([^)]*\b(?:git\s+(?:push|fetch|pull|clone|ls-remote)|gh|npm|pnpm|yarn|curl|wget)\b/i.test(trimmed);
-}
-
 export function resolveCodexLaunchValues(snapshot: PermissionSnapshot, logTranslation = true): CodexLaunchValues {
   if (snapshot.ceiling === "yolo") {
     return {
@@ -449,21 +442,15 @@ export function resolveCodexLaunchValues(snapshot: PermissionSnapshot, logTransl
       cliConfigArgs: [],
     };
   }
-  const driverSnapshot = snapshot as DriverPermissionSnapshot;
-  const translatedNetworkAllow = (snapshot.rules.allow ?? []).some(networkAllowRuleTriggersSandbox);
-  const networkAccess = Boolean(driverSnapshot.sandboxNetwork || translatedNetworkAllow);
-  if (logTranslation && translatedNetworkAllow && !driverSnapshot.sandboxNetwork) {
-    console.error("[permissions] translated network allow rule(s) to Codex workspace-write network access");
-  }
   return {
     approvalPolicy: "untrusted",
     threadSandbox: "workspace-write",
     turnSandboxPolicy: {
       type: "workspaceWrite",
       writableRoots: snapshot.additionalDirectories ?? [],
-      ...(networkAccess ? { networkAccess: true } : {}),
+      networkAccess: true,
     },
-    cliConfigArgs: networkAccess ? ["-c", "sandbox_workspace_write.network_access=true"] : [],
+    cliConfigArgs: ["-c", "sandbox_workspace_write.network_access=true"],
   };
 }
 
@@ -1196,6 +1183,10 @@ export class ClaudeSdkDriver implements ProviderDriver {
 }
 
 export async function createProviderDriver(options: DriverLaunchOptions): Promise<ProviderDriver> {
+  if (options.provider === "api") {
+    throw new Error("api provider dispatch not implemented");
+  }
+
   const testSeamsEnabled =
     process.env.NODE_ENV === "test" || process.env.SUBAGENT_MCP_ENABLE_TEST_SEAMS === "1";
   if (

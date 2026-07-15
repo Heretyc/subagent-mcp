@@ -1,27 +1,23 @@
 # Technical Overview
 
-## Non-Goals
+## Provider Support
 
-subagent-mcp does NOT and will NOT:
+subagent-mcp supports locally authenticated Claude Code and Codex sessions, plus
+direct API providers configured in `<configHome>/providers.jsonc` (JSONC).
+API provider entries use `api_style: "claude" | "openai"`, `base_url`, `model`,
+`key_env`, and a 14-category `routing` slot map. Credentials are never stored
+in `providers.jsonc`: `key_env` names an environment variable, and actual keys
+live in the adjacent gitignored `.env`.
 
-- Call the Anthropic HTTP API directly (no API keys)
-- Call the OpenAI HTTP API directly (no `openai` SDK, no API keys)
-- Support any provider other than locally authenticated Claude Code and Codex
-- Act as a general HTTP proxy or model gateway
-- Add direct API support in future versions
+API provider routing folds into the same 14-category table by slot insertion.
+subagent-mcp is not a general HTTP proxy or model gateway.
 
-The "no API keys / no direct API" non-goals are enforced by a grep-gate test
-(`test/no-api-keys.test.mjs`, in the default `npm test` run): it fails the build
-if `src/**/*.ts` or `dist/index.js` references `ANTHROPIC_API_KEY`,
-`OPENAI_API_KEY`, `api.anthropic.com`, or `api.openai.com`, or introduces a raw
-`fetch(...)`/`https.request(...)` model-inference call site. Outbound network
-calls live only in `src/orchestration/update-check.ts`; the api-isolation
-safety test allowlists exactly two permitted fetch locations:
-`src/orchestration/update-check.ts` and `src/providers/provider-client.ts` (the
-latter is currently unused/reserved, and the check applies vacuously while the
-file does not exist).
-subagent-mcp only drives the locally authenticated `claude` and `codex` CLIs; it
-never holds provider credentials of its own.
+The API isolation grep gate (`test/no-api-keys.test.mjs`, in the default
+`npm test` run) fails the build if `src/**/*.ts` or `dist/index.js` references
+literal provider key names, hard-coded provider API hosts, or unapproved raw
+HTTP model-inference call sites. HTTP is confined to
+`src/providers/provider-client.ts`; the safety test allowlists fetch only in
+`src/orchestration/update-check.ts` and `src/providers/provider-client.ts`.
 
 ## Architecture
 
@@ -33,6 +29,7 @@ MCP Host (Claude Code / Codex / Gemini CLI)
          |  ProviderDriver abstraction
          +---> Claude Agent SDK logical session (local claude executable)
          +---> codex app-server JSONL stdio session
+         +---> API provider HTTP client (src/providers/provider-client.ts)
 ```
 
 - **Transport:** stdio (MCP spec 2025-06-18)
