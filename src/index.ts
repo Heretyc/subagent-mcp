@@ -762,7 +762,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "2.14.0",
+    version: "2.15.0",
     description:
       "Launches always-interactive local Claude and Codex sub-agent sessions and is the orchestrator's sole launch channel. Claude runs via the Claude Agent SDK over the local Claude Code executable; Codex via `codex app-server` over stdio. The server never calls Anthropic or OpenAI HTTP APIs directly.",
   },
