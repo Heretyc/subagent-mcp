@@ -72,6 +72,18 @@ test("Codex plugin manifest points at the repo hook template", () => {
   assert.equal(manifest.hooks, "./codex/hooks.json");
 });
 
+test("Codex hook template uses plugin-relative dist paths", () => {
+  const manifest = readJson("codex/hooks.json");
+  const text = JSON.stringify(manifest);
+  assert.doesNotMatch(text, /ABS\/PATH\/TO|Dropbox/);
+  assert.doesNotMatch(text, /(?:[A-Za-z]:[\\/]|\/(?:Users|home|tmp|var|opt|usr)\b)/);
+  for (const event of ["SessionStart", "UserPromptSubmit"]) {
+    const hook = manifest.hooks[event][0].hooks[0];
+    assert.equal(hook.command, 'node "${PLUGIN_DIR}/dist/hooks/orchestration-codex.js"');
+    assert.equal(hook.commandWindows, 'node "${PLUGIN_DIR}/dist/hooks/orchestration-codex.js"');
+  }
+});
+
 test("Codex marketplace exposes the Git-backed plugin", () => {
   const marketplace = readJson(".agents/plugins/marketplace.json");
   assert.equal(marketplace.name, "subagent-mcp");
