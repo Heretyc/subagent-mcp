@@ -27,7 +27,12 @@ interface ProviderClientDeps {
 }
 
 function endpoint(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}${path}`;
+  // The client appends the versioned path (/v1/...) itself, so tolerate a
+  // base_url that already carries a trailing /v1 (the OpenAI-SDK convention
+  // and the natural shape of most providers' documented endpoints) instead
+  // of double-appending it into /v1/v1/... -> 404.
+  const root = baseUrl.replace(/\/+$/, "").replace(/\/v1$/, "");
+  return `${root}${path}`;
 }
 
 function missingKey(provider: ApiProvider): Error {
@@ -40,10 +45,15 @@ function badUrl(provider: ApiProvider, detail: string): Error {
   );
 }
 
-function model404(provider: ApiProvider): Error {
-  return new Error(
-    `SUBAGENT_MCP_ERROR: provider ${provider.name} model ${provider.model} not found — edit ~/.subagent-mcp/providers.jsonc model`
-  );
+function notFound404(provider: ApiProvider, url: string, raw: unknown): Error {
+  // A 404 is ambiguous: wrong model, or wrong base_url/path. Distinguish by
+  // the response body so the message points at the right knob instead of
+  // always blaming the model.
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw ?? "");
+  const hint = /model/i.test(body)
+    ? `model ${provider.model} not found — edit ~/.subagent-mcp/providers.jsonc model`
+    : `endpoint ${url} returned 404 — check ~/.subagent-mcp/providers.jsonc base_url`;
+  return new Error(`SUBAGENT_MCP_ERROR: provider ${provider.name} ${hint} (body: ${body.slice(0, 200)})`);
 }
 
 function authHeaders(provider: ApiProvider): HeadersInit {
@@ -119,7 +129,7 @@ export async function callApiProvider(
   }
 
   const raw = await readJson(response);
-  if (response.status === 404) throw model404(provider);
+  if (response.status === 404) throw notFound404(provider, url, raw);
   if (!response.ok) throw badUrl(provider, `status ${response.status}`);
   return provider.api_style === "openai" ? normalizeOpenAi(provider, raw) : normalizeClaude(provider, raw);
 }
