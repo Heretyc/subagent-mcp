@@ -7,7 +7,7 @@ import { detectInstallMode, type InstallModeInfo } from "./install-mode.js";
 import { globalTargetFiles, upsertInitBlock } from "./init.js";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { runDoctor } from "./doctor.js";
-import { serverPaths } from "./setup.js";
+import { deploySmcpSkillsAndCommands, serverPaths } from "./setup.js";
 import { referencedHookPath } from "./hook-match.js";
 import { askYesNo } from "./prompt.js";
 
@@ -166,6 +166,8 @@ export async function runUpgrade(opts: UpgradeOptions = {}): Promise<number> {
   const repairRoot = root ?? dirname(dirname(mode.npmGlobalDist ?? mode.marketplaceDists[0]));
   const repaired = repairStaleHooks(home, repairRoot);
   actions.push(`repaired-hooks=${repaired}`);
+  const smcp = deploySmcpSkillsAndCommands(repairRoot, home);
+  actions.push(`smcp-assets=${smcp.status}`);
   const init = await manageGlobalInitBlocks(opts);
   actions.push(`init-updated=${init.updated}`, `init-skipped=${init.skipped}`);
 

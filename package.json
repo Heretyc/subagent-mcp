@@ -31,6 +31,8 @@
     "skills/smcp-status",
     "skills/smcp-doctor",
     "commands",
+    ".claude-plugin",
+    ".codex-plugin",
     "scripts/postinstall.mjs",
     "AGENTS.md",
     "LICENSE",

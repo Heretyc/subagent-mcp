@@ -34,6 +34,14 @@ function rootFixture() {
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, "");
   }
+  for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+    const skillDir = join(installRoot, "skills", name);
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), `${name} skill\n`);
+    const commandDir = join(installRoot, "commands");
+    mkdirSync(commandDir, { recursive: true });
+    writeFileSync(join(commandDir, `${name}.toml`), `${name} command\n`);
+  }
   return { temp, home, installRoot };
 }
 
@@ -162,6 +170,15 @@ test("init block absent non-TTY reports only", () => withRoot(async (r) => {
   const o = opts(r, "npm-global");
   assert.equal(await runUpgrade(o.options), 0);
   for (const target of globalTargetFiles(r.home)) assert.equal(existsSync(target), false);
+}));
+
+test("update deploys smcp skills and slash commands", () => withRoot(async (r) => {
+  const o = opts(r, "npm-global");
+  assert.equal(await runUpgrade(o.options), 0);
+  for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+    assert.equal(readFileSync(join(r.home, ".claude", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);
+    assert.equal(readFileSync(join(r.home, ".claude", "commands", `${name}.toml`), "utf8"), `${name} command\n`);
+  }
 }));
 
 for (const t of tests) {

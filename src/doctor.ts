@@ -28,6 +28,7 @@ import {
   readInstalledPackageInfo,
 } from "./orchestration/update-check.js";
 import { probeProviderHead, type HeadProbeResult } from "./providers/provider-client.js";
+import { verifySmcpSkillsAndCommands } from "./setup.js";
 
 type Status = "PASS" | "WARN" | "FAIL" | "INFO";
 interface DoctorLine {
@@ -507,6 +508,21 @@ export async function checkSessionState(opts: DoctorOptions = {}): Promise<Docto
   return { status: "INFO", id: 9, name: "session-state", detail: `SessionStart hook present; ${sourceDetail}` };
 }
 
+export function checkSmcpSkillsAndCommands(opts: DoctorOptions = {}): DoctorLine {
+  const mode = detectInstallMode({ home: opts.home ?? homedir(), env: opts.env ?? process.env });
+  const dist = mode.npmGlobalDist ?? mode.marketplaceDists[0];
+  if (!dist) {
+    return { status: "WARN", id: 10, name: "smcp-skills-commands", detail: "no install root found; run subagent-mcp setup" };
+  }
+  const r = verifySmcpSkillsAndCommands(dirname(dirname(dist)), opts.home ?? homedir());
+  return {
+    status: r.ok ? "PASS" : "WARN",
+    id: 10,
+    name: "smcp-skills-commands",
+    detail: r.detail,
+  };
+}
+
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   const results = [
     checkInstallMode(opts),
@@ -518,6 +534,7 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
     ...await checkReachability(opts),
     await checkUpdate(opts),
     await checkSessionState(opts),
+    checkSmcpSkillsAndCommands(opts),
   ];
   for (const r of results) console.log(line(r));
   const counts = { PASS: 0, WARN: 0, FAIL: 0, INFO: 0 };

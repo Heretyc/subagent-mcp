@@ -24,6 +24,7 @@ import {
   registrationDetail,
   reconcileClaudeSettings,
   deployHandoffResumeSkill,
+  deploySmcpSkillsAndCommands,
 } from "../dist/setup.js";
 
 let passed = 0;
@@ -87,6 +88,18 @@ function withSkillRoot(fn) {
     fn(root, source);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function writeSmcpAssets(root) {
+  for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+    const skillDir = join(root, "skills", name);
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), `${name} skill\n`);
+    writeFileSync(join(skillDir, "notes.txt"), `${name} sibling\n`);
+    const commandDir = join(root, "commands");
+    mkdirSync(commandDir, { recursive: true });
+    writeFileSync(join(commandDir, `${name}.toml`), `${name} command\n`);
   }
 }
 
@@ -272,6 +285,20 @@ test("handoff-resume skill: user-modified target is restored", () => {
     assert.equal(r.status, "repaired");
     assert.equal(r.changed, true);
     assert.equal(readFileSync(target, "utf8"), readFileSync(source, "utf8"));
+  }));
+});
+
+test("smcp skills and commands: setup deploys skills, siblings, and slash commands", () => {
+  withHome((home) => withSkillRoot((root) => {
+    writeSmcpAssets(root);
+    const r = deploySmcpSkillsAndCommands(root, home);
+    assert.equal(r.status, "added");
+    assert.equal(r.changed, true);
+    for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+      assert.equal(readFileSync(join(home, ".claude", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);
+      assert.equal(readFileSync(join(home, ".claude", "skills", name, "notes.txt"), "utf8"), `${name} sibling\n`);
+      assert.equal(readFileSync(join(home, ".claude", "commands", `${name}.toml`), "utf8"), `${name} command\n`);
+    }
   }));
 });
 
