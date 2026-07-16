@@ -23,12 +23,10 @@ subagents. The server exposes tools such as `launch_agent`, `poll_agent`,
 and their routing preferences live in a user-owned `providers.jsonc`; secrets
 live only in a sibling `.env`.
 
-Scope note for this release: the provider `routing` slots are **reserved
-routing metadata** stored in config. They record intended per-category
-priority order. The server validates and reports them (see `doctor` and
-`get_status`), but automatic API-based routing across those providers ships in
-a later release. Describe slots as config that exists today; do not promise the
-routing engine yet.
+Scope note for this release: as of v3.0.0, provider `routing` slots are live
+routing config. They record per-category priority order, are validated and
+reported (see `doctor` and `get_status`), and are consumed by the slot router
+to route matching task categories to the configured API provider.
 
 ## Install
 
@@ -126,8 +124,9 @@ Each `routing` value is a slot number for that task category:
   `coding`, `knowledge_synthesis`, `mechanical`, `prompt_engineering`,
   `vulnerability_research`, `molecular_biology`, `ml_accelerator_design`.
 
-Slots are validated and reported now; the routing engine that consumes them
-ships later, so setting slots today is safe forward-looking configuration.
+Slots are validated, reported, and consumed by the v3.0.0 routing engine. A
+provider with `-1` for every category is configured but will not receive routed
+API tasks.
 
 ## Set keys (.env)
 
