@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.0.1
+
+### Fixed
+
+- API provider `base_url` that includes a trailing `/v1` no longer double-appends
+  the version path (was producing `/v1/v1/chat/completions` and a 404). A 404 now
+  distinguishes an unknown model from a wrong `base_url` instead of always
+  reporting "model not found".
+- Bumped transitive `hono` to clear a high-severity npm audit advisory
+  (GHSA-wwfh-h76j-fc44). Not runtime-reachable here (stdio transport only).
+
+### Docs
+
+- Corrected the `smcp-help` and `smcp-doctor` skills to describe the API routing
+  engine as live since 3.0.0 (they still said it "ships in a later release").
+- Refreshed the README example image.
+
 ## 3.0.0
 
 ### BREAKING
