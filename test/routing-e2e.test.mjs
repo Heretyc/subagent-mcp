@@ -118,6 +118,18 @@ await test("mock OpenAI-compatible routing posts /v1/chat/completions and normal
   });
 });
 
+await test("base_url with trailing /v1 does not double-append the version path", async () => {
+  let seenUrl = null;
+  await withJsonServer(async (req, res) => {
+    seenUrl = req.url;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { content: "ok" } }] }));
+  }, async (baseUrl) => {
+    await callCandidate(provider("openai", `${baseUrl}/v1`));
+    assert.equal(seenUrl, "/v1/chat/completions");
+  });
+});
+
 await test("live GMI route runs only when GMI_API_KEY is present", async () => {
   if (!process.env.GMI_API_KEY) {
     console.log("  SKIP: GMI_API_KEY absent; live GMI route not run");
