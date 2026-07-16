@@ -83,10 +83,10 @@ only INFO-class outputs and carry no repair.
    `subagent-mcp config init` only with `Y/n` confirmation, and never print or
    invent a key value.
 6. **routing-coverage** - how many of the 14 task categories have a provider
-   slotted at 1 or greater? WARN `no API routing active` is expected on this
-   release because slots are reserved metadata and the routing engine ships
-   later. Explain that; the "repair" is optional: set slots in `providers.jsonc`
-   per `/smcp:help`. No confirmation needed since nothing is auto-changed.
+   slotted at 1 or greater? WARN `no API routing active` means the v3.0.0 slot
+   router has no provider to use for API-routed tasks. The "repair" is
+   optional: set slots in `providers.jsonc` per `/smcp:help`. No confirmation
+   needed since nothing is auto-changed.
 7. **reachability** - INFO per configured `base_url`: reports the HTTP status or
    `unreachable`. No repair; surface it as a note (this is the reachability
    signal `/smcp:status` may reference).
