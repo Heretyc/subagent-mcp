@@ -2,9 +2,10 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:f
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
-import { extractManagedBlock, globalTargetFiles, managedBlockHash, targetFiles, parseArgs, upsertInitBlock } from "./init.js";
-import { askLine, askYesNo, type PromptOptions } from "./prompt.js";
+import { extractManagedBlock, globalTargetFiles, managedBlockHash, upsertInitBlock } from "./init.js";
+import { askLine, type PromptOptions } from "./prompt.js";
 import { readPendingUpdateNotice, readUpdateCheckStatus } from "./orchestration/update-check.js";
+import { runSetupInitMenu } from "./setup-init-scope.js";
 
 export type InitScope = "project" | "global";
 
@@ -27,6 +28,9 @@ export interface UpdateRegistryOptions extends PromptOptions {
   isTTY?: boolean;
   quiet?: boolean;
   force?: boolean;
+  unattended?: boolean;
+  dryRun?: boolean;
+  init?: (args: string[]) => Promise<number>;
   log?: (line: string) => void;
 }
 
@@ -150,36 +154,11 @@ export function pruneBackupsMostRecentOnly(home = homedir()): void {
   for (const name of dirs.slice(0, -1)) rmSync(join(root, name), { recursive: true, force: true });
 }
 
-function scanExistingBlocks(home: string, cwd = process.cwd()): InitRegistryEntry[] {
-  const roots = [cwd, join(home, ".claude"), join(home, ".codex"), join(home, ".gemini")];
-  const files = [
-    ...targetFiles(cwd, parseArgs(["--root", cwd])),
-    ...globalTargetFiles(home),
-  ];
-  const byRoot = new Map<string, string[]>();
-  for (const file of files) {
-    if (!existsSync(file)) continue;
-    const block = extractManagedBlock(readFileSync(file, "utf8"));
-    if (!block) continue;
-    const root = roots.find((r) => resolve(file).startsWith(resolve(r))) ?? cwd;
-    byRoot.set(resolve(root), [...(byRoot.get(resolve(root)) ?? []), resolve(file)]);
-  }
-  return [...byRoot.entries()].map(([root, found]) => ({
-    root,
-    files: found,
-    scope: root === resolve(cwd) ? "project" : "global",
-    timestamp: new Date().toISOString(),
-    blockHash: managedBlockHash(),
-  }));
-}
-
-async function maybeBackfill(registry: InitRegistry, opts: UpdateRegistryOptions): Promise<InitRegistry> {
+async function ensureInitializedForUpdate(registry: InitRegistry, opts: UpdateRegistryOptions): Promise<InitRegistry> {
   if (registry.entries.length || registry.globalInit) return registry;
-  const tty = opts.isTTY ?? process.stdin.isTTY;
-  if (!tty) return registry;
-  if (!(await askYesNo(opts, "Init registry is empty. Scan cwd and provider dirs for managed blocks? [Y/n] "))) return registry;
-  const entries = scanExistingBlocks(opts.home ?? homedir());
-  return { ...registry, globalInit: entries.some((e) => e.scope === "global"), entries };
+  const code = await runSetupInitMenu(opts);
+  if (code !== 0) throw new Error(`init command exited with code ${code}`);
+  return readInitRegistry(opts.home ?? homedir());
 }
 
 async function handleStale(registry: InitRegistry, opts: UpdateRegistryOptions): Promise<InitRegistry> {
@@ -202,7 +181,7 @@ async function handleStale(registry: InitRegistry, opts: UpdateRegistryOptions):
 export async function prepareRegistryForUpdate(opts: UpdateRegistryOptions = {}): Promise<InitRegistry> {
   const home = opts.home ?? homedir();
   const log = opts.log ?? console.log;
-  let registry = await maybeBackfill(readInitRegistry(home), { ...opts, home });
+  let registry = await ensureInitializedForUpdate(readInitRegistry(home), { ...opts, home });
   registry = await handleStale(registry, { ...opts, home });
   writeInitRegistry(registry, home);
   if (!opts.quiet) {

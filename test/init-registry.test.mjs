@@ -93,6 +93,89 @@ test("stale registered dirs are kept and warned in non-TTY update", async () => 
   assert.match(out.join("\n"), /warning: keeping stale init registry path/);
 }));
 
+test("missing-registry update prompts init-scope menu and dispatches project init", async () => withHome(async ({ home, project }) => {
+  mkdirSync(project, { recursive: true });
+  const calls = [];
+  const registry = await prepareRegistryForUpdate({
+    home,
+    isTTY: true,
+    input: Readable.from(["1\n"]),
+    output: new Writable({ write(_c, _e, cb) { cb(); } }),
+    log: () => {},
+    init: async (args) => {
+      calls.push(args);
+      registerInitRun({ root: project, files: [join(project, "AGENTS.md")], scope: "project", home });
+      return 0;
+    },
+  });
+  assert.deepEqual(calls, [[]]);
+  assert.equal(registry.entries.length, 1);
+  assert.equal(registry.entries[0].scope, "project");
+}));
+
+test("empty-registry update prompts init-scope menu and dispatches global init", async () => withHome(async ({ home }) => {
+  writeInitRegistry({ globalInit: false, autoUpdate: false, entries: [] }, home);
+  const calls = [];
+  const registry = await prepareRegistryForUpdate({
+    home,
+    isTTY: true,
+    input: Readable.from(["2\n"]),
+    output: new Writable({ write(_c, _e, cb) { cb(); } }),
+    log: () => {},
+    init: async (args) => {
+      calls.push(args);
+      writeInitRegistry({ globalInit: true, autoUpdate: false, entries: [] }, home);
+      return 0;
+    },
+  });
+  assert.deepEqual(calls, [["--global"]]);
+  assert.equal(registry.globalInit, true);
+}));
+
+test("update init-scope menu defaults global for non-TTY and unattended", async () => withHome(async ({ home }) => {
+  const calls = [];
+  await prepareRegistryForUpdate({
+    home,
+    isTTY: false,
+    log: () => {},
+    init: async (args) => {
+      calls.push(args);
+      writeInitRegistry({ globalInit: true, autoUpdate: false, entries: [] }, home);
+      return 0;
+    },
+  });
+  writeInitRegistry({ globalInit: false, autoUpdate: false, entries: [] }, home);
+  await prepareRegistryForUpdate({
+    home,
+    isTTY: true,
+    unattended: true,
+    log: () => {},
+    init: async (args) => {
+      calls.push(args);
+      writeInitRegistry({ globalInit: true, autoUpdate: false, entries: [] }, home);
+      return 0;
+    },
+  });
+  assert.deepEqual(calls, [["--global"], ["--global"]]);
+}));
+
+test("populated update registry skips init-scope menu", async () => withHome(async ({ home, project }) => {
+  mkdirSync(project, { recursive: true });
+  registerInitRun({ root: project, files: [join(project, "AGENTS.md")], scope: "project", home });
+  let called = false;
+  const registry = await prepareRegistryForUpdate({
+    home,
+    isTTY: true,
+    log: () => {},
+    init: async () => {
+      called = true;
+      return 0;
+    },
+  });
+  assert.equal(called, false);
+  assert.equal(registry.entries.length, 1);
+}));
+
 test("update --force reapplies global and registered project blocks", () => withHome(({ home, project }) => {
   const file = join(project, "AGENTS.md");
   mkdirp(file);
