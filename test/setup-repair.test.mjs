@@ -25,9 +25,7 @@ import {
   reconcileCodexHooks,
   claudeAddArgs,
   codexAddArgs,
-  deployHandoffResumeSkill,
   deploySmcpSkillsAndCommands,
-  verifyHandoffResumeSkill,
   verifySmcpSkillsAndCommands,
 } from "../dist/setup.js";
 
@@ -63,9 +61,6 @@ function shellQuoteInner(command) {
 function withSkillRoot(fn) {
   const root = mkdtempSync(join(tmpdir(), "repair-root-"));
   try {
-    const skillDir = join(root, "skills", "handoff-resume");
-    mkdirSync(skillDir, { recursive: true });
-    writeFileSync(join(skillDir, "SKILL.md"), "package skill\n");
     fn(root);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -73,7 +68,7 @@ function withSkillRoot(fn) {
 }
 
 function writeSmcpAssets(root) {
-  for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+  for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     const skillDir = join(root, "skills", name);
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), `${name} skill\n`);
@@ -382,27 +377,6 @@ test("codexAddArgs: official node server registration argv", () => {
 });
 
 // ---------------------------------------------------------------------------
-// handoff-resume doctor check
-// ---------------------------------------------------------------------------
-test("handoff-resume skill verify: missing before setup, PASS after deploy", () => {
-  const home = mkdtempSync(join(tmpdir(), "repair-home-"));
-  try {
-    withSkillRoot((root) => {
-      const missing = verifyHandoffResumeSkill(root, home);
-      assert.equal(missing.label, "claude: handoff-resume skill");
-      assert.equal(missing.ok, false);
-      assert.equal(missing.detail, "missing - run subagent-mcp setup");
-
-      deployHandoffResumeSkill(root, home);
-      const pass = verifyHandoffResumeSkill(root, home);
-      assert.equal(pass.ok, true);
-      assert.equal(pass.detail, "deployed");
-    });
-  } finally {
-    rmSync(home, { recursive: true, force: true });
-  }
-});
-
 test("smcp skills and commands verify: missing before setup, PASS after deploy", () => {
   const home = mkdtempSync(join(tmpdir(), "repair-home-"));
   try {

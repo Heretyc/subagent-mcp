@@ -1,0 +1,5 @@
+description = "Load skills/smcp-handoff/SKILL.md and resume a saved subagent-mcp handoff."
+prompt = """
+Load skills/smcp-handoff/SKILL.md from this extension or repository and follow it exactly.
+Use it to resume the user's saved subagent-mcp handoff.
+"""

@@ -14,8 +14,8 @@
 three surfaces (MCP `instructions`, upserted `INIT_BLOCK`, per-turn hook
 directives). ON = delegate-only orchestrator (launch_agent sole channel, no
 inline reads/writes). OFF = solo + provider-metered context tracking
-(context-metering.md); ENFORCED-ON at the 15%/50% thresholds (see
-R-LATCH-15/R-HANDOFF-50). State is
+(context-metering.md); ENFORCED-ON at the 15%/40%/50% thresholds (see
+R-LATCH-15/R-HANDOFF-40/R-HANDOFF-WARN-50). State is
 reported SOLELY by the hook `<subagent-mcp state="...">` tag; hookless hosts →
 UNKNOWN → fail-safe ON. Sub-agent first-line marker skips the whole regime.
 

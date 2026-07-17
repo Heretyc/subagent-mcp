@@ -9,6 +9,9 @@ import { join } from "node:path";
 import {
   HANDOFF_CONTENT_LIMIT,
   HANDOFF_OVERFLOW_LIMIT,
+  UNAVAILABLE_BELOW_40,
+  UNAVAILABLE_NO_METERING,
+  checkHandoffWriteAvailable,
   OVERSIZE_CONTENT,
   OVERSIZE_OVERFLOW,
   clearHandoff,
@@ -62,6 +65,24 @@ test("write/read/clear round-trip stores and removes the handoff record", () => 
     assert.equal(readHandoff(cwd), null);
     assert.equal(existsSync(handoffPath(cwd)), false);
   });
+});
+
+test("write gate is locked at 39%, unlocked at 40%, and stays unlocked at 50%", () => {
+  assert.deepEqual(checkHandoffWriteAvailable(null), {
+    ok: false,
+    error: UNAVAILABLE_NO_METERING,
+  });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 39 }), {
+    ok: false,
+    error: UNAVAILABLE_BELOW_40,
+  });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 40 }), { ok: true });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 49 }), { ok: true });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 50 }), { ok: true });
+});
+
+test("below-threshold handoff error string names 40 percent", () => {
+  assert.equal(UNAVAILABLE_BELOW_40, "handoff-write is not available until this session reaches 40% context utilization (currently below threshold).");
 });
 
 test("oversize content is rejected with exact error string", () => {

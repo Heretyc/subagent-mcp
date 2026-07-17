@@ -8,8 +8,8 @@ overflow file `handoff-overflow-<cwdHash(cwd)>-<unix_ms>.md`).
 ## Gating rules
 
 - `handoff-write` is unlocked ONLY when the calling session is at or above
-  50% context utilization (`used_percentage >= HANDOFF_THRESHOLD_PCT`, i.e.
-  phase = "handoff") AND metering is readable for that session. Below 50%,
+  40% context utilization (`used_percentage >= HANDOFF_THRESHOLD_PCT`, i.e.
+  phase = "handoff") AND metering is readable for that session. Below 40%,
   or when metering is unreadable, the tool refuses with an affirmative error
   (never silent) -- see exact strings below.
 - `handoff-read` and `handoff-clear` are ALWAYS available regardless of
@@ -31,8 +31,8 @@ The following error/coaching strings are exact and must not be altered:
 UNAVAILABLE_NO_METERING =
 "handoff-write is not available due to missing context size data. It will become available once context usage can be measured for this session."
 
-UNAVAILABLE_BELOW_50 =
-"handoff-write is not available until this session reaches 50% context utilization (currently below threshold)."
+UNAVAILABLE_BELOW_40 =
+"handoff-write is not available until this session reaches 40% context utilization (currently below threshold)."
 
 OVERSIZE_CONTENT =
 "handoff content exceeds the 4000-character limit; shorten it, or move the excess (up to 8000 additional characters) into a separate file and reference its full path inside the 4000-character content."
@@ -63,8 +63,8 @@ next concrete action plus permission to proceed in this session.
 ## Handoff-resume Skill Deployment
 
 `subagent-mcp setup` deploys the packaged Claude Agent Skill from
-`skills/handoff-resume/SKILL.md` to
-`~/.claude/skills/handoff-resume/SKILL.md`. Missing or stale targets are
+`skills/smcp-handoff/SKILL.md` to
+`~/.claude/skills/smcp-handoff/SKILL.md`. Missing or stale targets are
 repaired by re-running setup. Codex is intentionally not targeted because
 Codex has no Agent Skill mechanism; the MCP instructions carry the handoff
 guidance there.
@@ -75,7 +75,7 @@ On a successful `handoff-write`, the MCP tool responds with EXACTLY the
 following string, character-for-character:
 
 ```
-We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `handoff-resume skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.
+We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `smcp-handoff skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.
 ```
 
 ## LONG-reminder re-append rule
@@ -94,6 +94,6 @@ reads the same handoff record later (last-read-wins rebinds
 
 `handoff-clear` deletes the saved handoff record (and its overflow file, if
 any) for the cwd. The handoff lifecycle is not a one-time event: each
-successor session that works in the same cwd and later crosses the 50%
-threshold again unlocks `handoff-write` again, and the same write -> coach
+successor session that works in the same cwd and later crosses the 40%
+unlock threshold again unlocks `handoff-write` again, and the same write -> coach
 -> read -> re-append cycle repeats for that successor session.

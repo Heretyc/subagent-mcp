@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.0.3
+
+### Changed
+
+- Renamed the handoff skill to the smcp-* standard: `handoff-resume` is now
+  `smcp-handoff`, deployed via the generalized smcp deploy with a new
+  `/smcp:handoff` slash-command. Old trigger phrases ("handoff-resume",
+  "resume handoff", "resume work") still work; `update` migrates away a stale
+  `~/.claude/skills/handoff-resume` install. `doctor` now expects 4 skills +
+  4 commands.
+- Handoff tools (`handoff-write`/`handoff-read`/`handoff-clear`) now unlock at
+  40% context utilization; the every-turn wind-down warnings still start at
+  50%. The 15% orchestration latch is unchanged.
+
 ## 3.0.2
 
 ### Fixed

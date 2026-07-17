@@ -843,7 +843,48 @@ test("plan latch persists but the one-time latch coaching body does not re-fire"
   }
 });
 
-test("handoff phase appends handoff body on both short and long cadence turns", () => {
+test("40-49% handoff phase unlocks without wind-down warning body", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-handoff-unlocked:${cwd}`;
+  const adapter = makeAdapter({
+    turn: 2,
+    liftUsage: () => ({
+      harness: "claude",
+      model: "claude-sonnet-4-5",
+      source_ref: "synthetic-transcript",
+      usage: { input: 80000, output: 0, cache_creation: 0, cache_read: 0 },
+      harnessPercentage: null,
+    }),
+  });
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(claim, {
+      state: "on",
+      kind: "directive",
+      phase: "handoff",
+      utilization: "40%",
+      body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
+      remaining: 60,
+    });
+    assert.ok(!claim.includes(HANDOFF_TEXT), "40% claim turn must not include wind-down body");
+    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(short, {
+      state: "on",
+      kind: "carrier",
+      phase: "handoff",
+      utilization: "40%",
+      body: SHORT_ON_TEXT,
+      remaining: 60,
+    });
+    assert.ok(!short.includes(HANDOFF_TEXT), "40-49% carrier turns must not include wind-down body");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("50% warning threshold appends handoff body on both short and long cadence turns", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   const session = `s-meter-handoff:${cwd}`;

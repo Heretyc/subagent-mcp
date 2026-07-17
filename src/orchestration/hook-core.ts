@@ -491,6 +491,13 @@ function readMeteringState(current: string): {
   };
 }
 
+function shouldWarnHandoff(usedPercentage: number | null): boolean {
+  return (
+    usedPercentage !== null &&
+    usedPercentage >= metering.HANDOFF_WARNING_THRESHOLD_PCT
+  );
+}
+
 /**
  * Lift this turn's usage, persist the metering record, and report whether
  * metering is undetectable (fail-safe ON) for THIS turn.
@@ -601,7 +608,7 @@ export function claimAndEmit(
       "\n" +
       bodyFromDirective(readDirective(env, adapter.reminderOnFile));
   const handoffBody =
-    phase === "handoff"
+    shouldWarnHandoff(usedPercentage)
       ? "\n" +
         bodyFromDirective(readDirective(env, providerDirectiveFile(adapter, "handoff")))
       : "";
@@ -805,7 +812,7 @@ export function runHook(
         isLong: true,
       };
     }
-    if (meteringState.phase === "handoff") {
+    if (shouldWarnHandoff(meteringState.usedPercentage)) {
       emission = {
         ...emission,
         body:
