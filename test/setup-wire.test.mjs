@@ -15,16 +15,21 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable, Writable } from "node:stream";
 
 import {
   SERVER_NAME,
+  chooseSetupInitScope,
   serverPaths,
   vendorWireSpecs,
   wireMcpServer,
   registrationDetail,
   reconcileClaudeSettings,
   deploySmcpSkillsAndCommands,
+  ensureSetupAutoUpdate,
+  runSetupInitMenu,
 } from "../dist/setup.js";
+import { readInitRegistry, writeInitRegistry } from "../dist/init-registry.js";
 
 let passed = 0;
 let failed = 0;
@@ -72,7 +77,7 @@ function shellQuoteInner(command) {
 function withHome(fn) {
   const home = mkdtempSync(join(tmpdir(), "wire-home-"));
   try {
-    fn(home, vendorWireSpecs(P, home));
+    return fn(home, vendorWireSpecs(P, home));
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -85,6 +90,10 @@ function withSkillRoot(fn) {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+}
+
+function sink() {
+  return new Writable({ write(_chunk, _enc, cb) { cb(); } });
 }
 
 function writeSmcpAssets(root) {
@@ -277,6 +286,121 @@ test("smcp skills and commands: removes legacy handoff skill after deploy", () =
     assert.equal(existsSync(legacy), false);
   }));
 });
+
+await (async () => {
+  try {
+    const calls = [];
+    const lines = [];
+    const code = await runSetupInitMenu({
+      unattended: true,
+      log: (line) => lines.push(line),
+      init: async (args) => {
+        calls.push(args);
+        return 0;
+      },
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(calls, [["--global"]]);
+    assert.deepEqual(lines, ["Init scope: unattended setup, defaulting to global."]);
+    console.log("  PASS: setup init menu: unattended dispatches real global init args");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup init menu: unattended dispatches real global init args");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
+
+await (async () => {
+  try {
+    const calls = [];
+    const code = await runSetupInitMenu({
+      isTTY: false,
+      log: () => {},
+      init: async (args) => {
+        calls.push(args);
+        return 0;
+      },
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(calls, [["--global"]]);
+    console.log("  PASS: setup init menu: non-TTY dispatches real global init args");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup init menu: non-TTY dispatches real global init args");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
+
+await (async () => {
+  try {
+    const calls = [];
+    const code = await runSetupInitMenu({
+      isTTY: true,
+      input: Readable.from(["1\n"]),
+      output: sink(),
+      log: () => {},
+      init: async (args) => {
+        calls.push(args);
+        return 0;
+      },
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(calls, [[]]);
+    assert.equal(await chooseSetupInitScope({
+      isTTY: true,
+      input: Readable.from(["2\n"]),
+      output: sink(),
+      log: () => {},
+    }), "global");
+    console.log("  PASS: setup init menu: interactive selection dispatches selected init scope");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup init menu: interactive selection dispatches selected init scope");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
+
+await (async () => {
+  try {
+    const home = mkdtempSync(join(tmpdir(), "wire-home-"));
+    try {
+      const lines = [];
+      assert.equal(await ensureSetupAutoUpdate({ home, unattended: true, log: (line) => lines.push(line) }), true);
+      assert.equal(readInitRegistry(home).autoUpdate, true);
+      assert.deepEqual(lines, ["Auto-update: unattended setup, defaulting to enabled."]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+    console.log("  PASS: setup auto-update: unattended defaults enabled and persists");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup auto-update: unattended defaults enabled and persists");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
+
+await (async () => {
+  try {
+    const home = mkdtempSync(join(tmpdir(), "wire-home-"));
+    try {
+      writeInitRegistry({ globalInit: false, autoUpdate: false, entries: [] }, home);
+      assert.equal(await ensureSetupAutoUpdate({ home, unattended: true }), false);
+      assert.equal(readInitRegistry(home).autoUpdate, false);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+    console.log("  PASS: setup auto-update: existing registry flag is not re-prompted");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup auto-update: existing registry flag is not re-prompted");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
 
 // ---------------------------------------------------------------------------
 // Summary

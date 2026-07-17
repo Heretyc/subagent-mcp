@@ -43,7 +43,7 @@ You are at or above 50% context utilization. Strongly warn the user EVERY turn t
 
 `handoff-write` is unlocked from 40% context utilization. Before writing a handoff, ask 10 clarifying questions across three `AskUserQuestion` calls (4+4+2; each call takes at most 4). Use the answers to shape a precise `/goal` prompt for the next session.
 
-Before acting on `handoff-read`, confirm intent with exactly 5 structured questions in one `AskUserQuestion` call.
+Before acting on `handoff-read`, confirm intent with exactly 4 structured questions in one `AskUserQuestion` call.
 
 After a successful `handoff-read`, only this reading session gets the saved handoff appended verbatim to LONG reminders every 5th turn. Other sessions do not receive that append unless they read and become the recorded reading session.
 ```
@@ -55,7 +55,7 @@ You are at or above 50% context utilization. Strongly warn the user EVERY turn t
 
 `handoff-write` is unlocked from 40% context utilization. Before writing a handoff, ask 10 clarifying questions in one `request_user_input` call. Use the answers to shape a precise `/goal` prompt for the next session.
 
-Before acting on `handoff-read`, confirm intent with exactly 5 structured questions in one `request_user_input` call.
+Before acting on `handoff-read`, confirm intent with exactly 4 structured questions in one `request_user_input` call.
 
 After a successful `handoff-read`, only this reading session gets the saved handoff appended verbatim to LONG reminders every 5th turn. Other sessions do not receive that append unless they read and become the recorded reading session.
 ```
@@ -63,7 +63,7 @@ After a successful `handoff-read`, only this reading session gets the saved hand
 ### A5.5 `directives/latch-claude.md`
 
 ```md
-15% LATCH COACHING. Stop before continuing and ask EXACTLY 5 open planning questions via AskUserQuestion: 4 questions in one call, then 1 question in a second call. This is four-plus-one across two calls. NEVER put all 5 in one call, and never use any other split.
+15% LATCH COACHING. Stop before continuing and ask EXACTLY 4 open planning questions in a SINGLE AskUserQuestion call (AskUserQuestion holds max 4). Do NOT split.
 
 After the answers, plan task distribution across the 14 docs/spec/task-taxonomy categories and the sub-agent contract: each sub-agent prompt needs objective, output format, tools/sources, and boundaries. Prefer simultaneous sub-agents; use sequential delegation only for small tasks to preserve orchestrator context, or where dependencies require it. Serialize writers over shared paths.
 
@@ -73,7 +73,7 @@ The latch is persisted and enforced for this session. It does not re-ask once tr
 ### A5.6 `directives/latch-codex.md`
 
 ```md
-15% LATCH COACHING. Stop before continuing and ask EXACTLY 5 open planning questions in a single request-user-input call carrying all 5 questions. Do NOT split the questions.
+15% LATCH COACHING. Stop before continuing and ask EXACTLY 4 open planning questions in a single request-user-input call. Do NOT split the questions.
 
 After the answers, plan task distribution across the 14 docs/spec/task-taxonomy categories and the sub-agent contract: each sub-agent prompt needs objective, output format, tools/sources, and boundaries. Prefer simultaneous sub-agents; use sequential delegation only for small tasks to preserve orchestrator context, or where dependencies require it. Serialize writers over shared paths.
 

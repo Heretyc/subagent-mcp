@@ -63,6 +63,8 @@ const A4_JOINTLY_BINDING =
 
 const TASK_TRACKING_DIRECTIVE =
   "TASK TRACKING: track multi-step work with the harness-native task tracking tool (if one exists), keeping statuses current as work progresses.";
+const WAIT_ON_AGENTS_DIRECTIVE =
+  "WAIT-ON-AGENTS: When waiting for agents to finish processing, utilize the SMCP (Subagent-MCP) wait tool on loop rather than less efficient harness native methods";
 
 // Extract the actual ladder paragraph as it appears in each source file, so a
 // failing run can print the concrete drift rather than a bare boolean.
@@ -162,6 +164,10 @@ test("task tracking directive is present in INIT_BLOCK and repo mirrors", () => 
     assert.ok(
       body.includes(TASK_TRACKING_DIRECTIVE),
       `${name} must include the harness-native task tracking directive`
+    );
+    assert.ok(
+      body.includes(WAIT_ON_AGENTS_DIRECTIVE),
+      `${name} must include the SMCP wait-loop directive`
     );
   }
 });

@@ -10,3 +10,11 @@ updated: 2026-07-11
 # Handoff Resume
 
 When triggered, call the `handoff-read` MCP tool for the current cwd first, read the saved handoff, then confirm the user's intent with EXACTLY 4 structured questions before acting on it. Confirm: resume objective, current blocker, files/state to preserve, and next concrete action plus permission to proceed in this session. `handoff-write` saves a compact resume record once 50% context utilization unlocks it. `handoff-read` retrieves the saved record for this cwd and binds reminder re-append behavior to this reading session. `handoff-clear` deletes the saved record and overflow file, if any, for this cwd.
+
+## Coach the writer (handoff-write)
+
+A handoff record MUST carry a DEFINABLE AND ACHIEVABLE goal. When shaping the `/goal` prompt, state (1) a concrete goal, (2) a measurable done-condition the successor can check, and (3) the next concrete action to take first. Never write a vague "continue working": the successor cannot tell when such work is finished.
+
+## Coach the successor (handoff-read)
+
+After the 4-question confirm, RUN UNTIL the handoff's stated goals are achieved (its done-condition is met) OR the subagent-mcp hook context-exhaustion alert says a new handoff is needed. This is a run-until-achieved loop: do not stop early for review pauses unless the handoff explicitly asks for them. If context exhausts before the goal is met, write a fresh handoff and hand off again.

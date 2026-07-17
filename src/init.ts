@@ -7,8 +7,10 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import * as os from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { registerInitRun, deregisterInitRun } from "./init-registry.js";
 
 export type InitStatus = "created" | "added" | "updated" | "ok" | "removed" | "absent";
 
@@ -42,12 +44,13 @@ export const INIT_BLOCK = [
   "ORCHESTRATION ON — you are the ORCHESTRATOR. Allowed tools: only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. There is no inline-by-right; every step runs in a sub-agent. If one atomic step truly cannot run in a sub-agent, ask the user via the structured-question tool for a one-time exception for that single step, perform only that step, then resume delegating. Sole channel: while subagent-mcp is connected, every sub-agent launch goes through `launch_agent`; never use harness-native sub-agent tools or shell-spawned agents.",
   "",
   "TASK TRACKING: track multi-step work with the harness-native task tracking tool (if one exists), keeping statuses current as work progresses.",
+  "WAIT-ON-AGENTS: When waiting for agents to finish processing, utilize the SMCP (Subagent-MCP) wait tool on loop rather than less efficient harness native methods",
   "",
   "ORCHESTRATOR WORKTREE SETUP: for mutating work, first place sub-agents in a compliant linked worktree/work branch; the main checkout cwd applies only to read-only work or already-isolated target-tree contexts (sub-agents no longer self-isolate into per-agent worktrees). Serialize any sub-agents that write the same files — never run concurrent writers over overlapping paths (no cwd-level lock exists).",
   "",
   "READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.",
   "",
-  "ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a 5-question planning stop. At 40% utilization handoff-write/handoff-read/handoff-clear unlock for a clean session handoff; at 50% the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.",
+  "ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a 4-question planning stop. At 40% utilization handoff-write/handoff-read/handoff-clear unlock for a clean session handoff; at 50% the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.",
   "",
   "DROPOUT WHILE ON: if subagent-mcp stops responding while orchestration is ON, halt and ask the user; do nothing inline. Keep re-checking and stay halted until subagent-mcp is restored (no auto-degrade). The only user choices are keep-waiting (the default) or explicitly abandon the whole task; aborting ends the task, it never switches you to inline work.",
   "",
@@ -56,6 +59,20 @@ export const INIT_BLOCK = [
   "DISABLE: never on your own initiative; you may propose OFF on task-fit mismatch via the structured-question tool, and only explicit user approval may set enabled:false — per-session only; the next new session resumes ON; no mid-session re-enable.",
   "<!-- subagent-mcp:managed:end -->",
 ].join("\n");
+
+export function managedBlockContent(block = INIT_BLOCK): string {
+  const lines = block.split(/\r?\n/);
+  return lines.slice(1, -1).join("\n");
+}
+
+export function managedBlockHash(block = INIT_BLOCK): string {
+  return createHash("sha256").update(managedBlockContent(block), "utf8").digest("hex");
+}
+
+export function extractManagedBlock(body: string): string | null {
+  const text = body.charCodeAt(0) === 0xfeff ? body.slice(1) : body;
+  return text.match(MIGRATE_RE)?.[0] ?? null;
+}
 
 function detectEol(s: string): "\n" | "\r\n" {
   const crlf = s.indexOf("\r\n");
@@ -235,7 +252,7 @@ export function globalTargetFiles(home: string = os.homedir()): string[] {
   ];
 }
 
-function targetFiles(root: string, opts: ReturnType<typeof parseArgs>): string[] {
+export function targetFiles(root: string, opts: ReturnType<typeof parseArgs>): string[] {
   const resolveTarget = (f: string): string => {
     const target = isAbsolute(f) ? resolve(f) : resolve(root, f);
     const rel = relative(root, target);
@@ -296,6 +313,23 @@ export async function runInit(args = process.argv.slice(3)): Promise<number> {
     console.error("\nInit completed with issues:");
     for (const i of issues) console.error(`- ${i}`);
     return 1;
+  }
+  if (!opts.dryRun) {
+    const root = opts.global ? os.homedir() : resolve(opts.root);
+    try {
+      if (opts.remove) {
+        deregisterInitRun({ root, scope: opts.global ? "global" : "project", global: opts.global });
+      } else {
+        registerInitRun({
+          root,
+          files: results.map((r) => r.file),
+          scope: opts.global ? "global" : "project",
+          global: opts.global,
+        });
+      }
+    } catch (e) {
+      console.error(`registry warning: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
   return results.length > 0 ? 0 : 1;
 }

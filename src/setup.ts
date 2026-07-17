@@ -33,9 +33,13 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, execSync } from "node:child_process";
 import { stateDir } from "./orchestration/marker.js";
 import { STATUSLINE_TTL_MS } from "./orchestration/statusline-state.js";
+import { askLine, type PromptOptions } from "./prompt.js";
+import { runInit } from "./init.js";
+import { initRegistryHasAutoUpdate, readInitRegistry, writeInitRegistry } from "./init-registry.js";
 
 const cliArgs = process.argv.slice(3); // argv[2]='setup', flags start at [3]
 const DRY_RUN = cliArgs.includes("--dry-run");
+const UNATTENDED = cliArgs.includes("--unattended");
 
 export const SERVER_NAME = "subagent-mcp";
 
@@ -897,6 +901,76 @@ export interface CheckResult {
   detail: string;
 }
 
+type InitScope = "project" | "global";
+
+export interface SetupInitMenuOptions extends PromptOptions {
+  isTTY?: boolean;
+  unattended?: boolean;
+  dryRun?: boolean;
+  log?: (line: string) => void;
+}
+
+export async function chooseSetupInitScope(
+  opts: SetupInitMenuOptions = {}
+): Promise<InitScope> {
+  if (opts.unattended) {
+    opts.log?.("Init scope: unattended setup, defaulting to global.");
+    return "global";
+  }
+
+  const tty = opts.isTTY ?? process.stdin.isTTY;
+  if (!tty) {
+    opts.log?.("Init scope: non-TTY setup, defaulting to global.");
+    return "global";
+  }
+
+  opts.log?.("Choose init scope for first run:");
+  opts.log?.("  1. Project - upsert instruction blocks in this repository.");
+  opts.log?.("  2. Global  - upsert home instructions for Claude, Codex, and Gemini. (Recommended)");
+  for (;;) {
+    const answer = await askLine(opts, "Select [1-2, default 2 Global]: ");
+    if (answer === "" || answer === "2" || answer === "g" || answer === "global") return "global";
+    if (answer === "1" || answer === "p" || answer === "project") return "project";
+    opts.log?.("Enter 1 or 2.");
+  }
+}
+
+export async function runSetupInitMenu(
+  opts: SetupInitMenuOptions & { init?: (args: string[]) => Promise<number> } = {}
+): Promise<number> {
+  const scope = await chooseSetupInitScope(opts);
+  return (opts.init ?? runInit)([
+    ...(opts.dryRun ? ["--dry-run"] : []),
+    ...(scope === "global" ? ["--global"] : []),
+  ]);
+}
+
+export async function ensureSetupAutoUpdate(
+  opts: PromptOptions & { home?: string; isTTY?: boolean; unattended?: boolean; dryRun?: boolean; log?: (line: string) => void } = {}
+): Promise<boolean> {
+  const home = opts.home ?? homedir();
+  if (initRegistryHasAutoUpdate(home)) return readInitRegistry(home).autoUpdate;
+  const tty = opts.isTTY ?? process.stdin.isTTY;
+  let enabled = true;
+  if (opts.unattended) {
+    opts.log?.("Auto-update: unattended setup, defaulting to enabled.");
+  } else if (!tty) {
+    opts.log?.("Auto-update: non-TTY setup, defaulting to enabled.");
+  } else {
+    for (;;) {
+      const answer = await askLine(opts, "Enable auto-update? [Y/n] ");
+      if (answer === "" || answer === "y" || answer === "yes") break;
+      if (answer === "n" || answer === "no") {
+        enabled = false;
+        break;
+      }
+      opts.log?.("Enter y or n.");
+    }
+  }
+  if (!opts.dryRun) writeInitRegistry({ ...readInitRegistry(home), autoUpdate: enabled }, home);
+  return enabled;
+}
+
 /** Detail string for a CLI registration check; "CLI repair failed" only when a
  *  repair was actually attempted. */
 export function registrationDetail(registered: boolean, attemptedRepair: boolean): string {
@@ -1084,6 +1158,25 @@ export async function runSetup(): Promise<void> {
 
   if (hasCodex) wireCodex();
   else console.log("\nSkipping Codex CLI (not detected).");
+
+  console.log("\n--- Init Instructions ---");
+  await ensureSetupAutoUpdate({
+    unattended: UNATTENDED,
+    dryRun: DRY_RUN,
+    log: console.log,
+  });
+  const initCode = await runSetupInitMenu({
+    unattended: UNATTENDED,
+    dryRun: DRY_RUN,
+    log: console.log,
+  });
+  if (initCode !== 0) {
+    issues.push({
+      vendor: "init",
+      problem: `init command exited with code ${initCode}`,
+      repairPrompt: "Run subagent-mcp init --global or subagent-mcp init from the target project and fix any reported file issues.",
+    });
+  }
 
   // Read-back verification: report what is ACTUALLY on disk now.
   if (!DRY_RUN) {

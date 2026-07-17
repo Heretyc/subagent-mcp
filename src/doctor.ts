@@ -29,6 +29,7 @@ import {
 } from "./orchestration/update-check.js";
 import { probeProviderHead, type HeadProbeResult } from "./providers/provider-client.js";
 import { verifySmcpSkillsAndCommands } from "./setup.js";
+import { inspectInitRegistry } from "./init-registry.js";
 
 type Status = "PASS" | "WARN" | "FAIL" | "INFO";
 interface DoctorLine {
@@ -523,6 +524,25 @@ export function checkSmcpSkillsAndCommands(opts: DoctorOptions = {}): DoctorLine
   };
 }
 
+export function checkInitRegistry(opts: DoctorOptions = {}): DoctorLine {
+  const r = inspectInitRegistry(opts.home ?? homedir());
+  const detail = [
+    `globalInit=${r.globalInit}`,
+    `autoUpdate=${r.autoUpdate}`,
+    `entries=${r.entryCount}`,
+    `stale=${r.stalePaths.length}`,
+    `outOfDate=${r.outOfDate.length}`,
+    `lastUpdateCheck=${r.lastUpdateCheck}`,
+    `pendingVersion=${r.pendingVersion}`,
+  ].join("; ");
+  return {
+    status: r.stalePaths.length || r.outOfDate.length ? "WARN" : "PASS",
+    id: 11,
+    name: "init-registry",
+    detail,
+  };
+}
+
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   const results = [
     checkInstallMode(opts),
@@ -535,6 +555,7 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
     await checkUpdate(opts),
     await checkSessionState(opts),
     checkSmcpSkillsAndCommands(opts),
+    checkInitRegistry(opts),
   ];
   for (const r of results) console.log(line(r));
   const counts = { PASS: 0, WARN: 0, FAIL: 0, INFO: 0 };

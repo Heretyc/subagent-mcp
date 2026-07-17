@@ -1,5 +1,29 @@
 # Changelog
 
+## 3.1.0
+
+### Added
+
+- Interactive setup init-scope menu: project vs global; `--unattended` and
+  non-TTY runs default to global.
+- Init deployment registry at `~/.subagent-mcp/init-registry.json`, tracking
+  `globalInit`, `autoUpdate`, and entries. `update` auto-runs `init --global`
+  when flagged, prunes backups to the most recent, alerts registered dirs
+  (`--quiet`), `--force` re-inits all, handles stale-dir and empty-registry
+  backfill cases, `init --remove`/`uninstall` deregister, and `doctor` checks
+  the registry.
+- Default-on update notifier nag that never blocks stdio boot, honors
+  `NO_UPDATE_NOTIFIER`, skips CI/test, plus opt-in self-update with a 48h
+  cooldown, npm provenance gate, and one-line notice. Setup enable prompt
+  defaults YES; `--unattended` is YES.
+
+### Changed
+
+- `smcp-handoff` coaching now requires definable and achievable goals and
+  run-until-achieved.
+- 15% latch planning coaching reduced from 5 questions to 4 in a single call;
+  handoff-read pre-act confirmation aligned to 4.
+
 ## 3.0.3
 
 ### Changed

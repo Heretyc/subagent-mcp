@@ -21,8 +21,8 @@ fragment `.txt` files; convention + the mirror test enforce it).
 | **R-MARKERS** | section 8 schema=3 markers + union MIGRATE_RE + duplicate collapse |
 | **R-NO5CALL** | section 4 5-call rule DELETED everywhere; permanent grep gate |
 | **R-START-OFF** | section 4 default-OFF start per session; provider-metered context tracking; fail-safe ON when context size is undetectable |
-| **R-LATCH-15** | section 4/10 15% utilization latch: persisted force-enable + exactly-5-question planning stop (Claude 4+1 across two calls; Codex 1 call carrying 5); no re-ask once tripped; user-only orchestration-mode enabled:false (2h TTL) still honored |
-| **R-HANDOFF-40** | section 10/13 40% utilization: unlock handoff-write/read/clear; write gated >=40% with readable metering; 4000/8000-char limits; 10-question pre-write and 5-question pre-read coaching |
+| **R-LATCH-15** | section 4/10 15% utilization latch: persisted force-enable + exactly-4-question planning stop, single call both harnesses; no re-ask once tripped; user-only orchestration-mode enabled:false (2h TTL) still honored |
+| **R-HANDOFF-40** | section 10/13 40% utilization: unlock handoff-write/read/clear; write gated >=40% with readable metering; 4000/8000-char limits; 10-question pre-write and 4-question pre-read coaching |
 | **R-HANDOFF-WARN-50** | section 10/13 50% utilization: warn every turn to wind down (no big-work exemption) |
 | **R-TAG-TEMPLATE** | section 1 templated tag `<subagent-mcp state kind phase utilization>` + `Remaining Context=NN%` footer; any template/metering error => inject nothing |
 | **R-HOOK-COACH-DOCTRINE** | contextual hook coaching preferred over frontmatter/system-prompt bulk; frontmatter only states that hook injections coach correct subagent-mcp use (prevents data corruption, hallucination, resource contention) |
