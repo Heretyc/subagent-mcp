@@ -78,7 +78,7 @@
   once and force-enables orchestration for the remainder of that session. Records
   without the current `LATCH_REV` are treated inactive and best-effort unlinked on
   read; this lazily drops bug-era latches derived from stale context-window
-  arithmetic. The latch PERSISTS through the 50% handoff phase and does not
+  arithmetic. The latch PERSISTS through the 40% handoff phase and 50% warning threshold and does not
   re-trigger its own coaching once tripped (no per-turn re-ask, unlike the
   retired OFF-mode upgrade-ask). It never silently expires mid-session (no
   `ORCH_DISABLE_TTL_MS` expiry applies to it); only a brand-new session (new
@@ -92,7 +92,7 @@
   working in the same directory can read what its predecessor wrote via
   handoff-write. The write/read/clear cycle repeats at EACH successor session's
   50% crossing: the next session again winds down and may write a fresh handoff
-  at its own 50% phase, which resets any prior reader binding (`read_by_session`,
+  after its own 40% unlock, which resets any prior reader binding (`read_by_session`,
   `read_at`) and replaces the prior record. Only the session that ran
   handoff-read (`read_by_session === current`) re-appends the saved content
   verbatim to its LONG reminders. See `handoff.md`.
@@ -164,7 +164,7 @@ splits per harness. These three rows are binding.
 | Coaching trigger | Questions | Claude call shape | Codex call shape |
 |---|---|---|---|
 | 15% latch (plan phase) | 5 | 4 questions in one `AskUserQuestion` call + 1 question in a second `AskUserQuestion` call (four-plus-one, two calls; NEVER 5-in-one-call, NEVER any other split) | a single `request-user-input` call carrying all 5 questions (NOT split) |
-| handoff-write pre-write (>=50%) | 10 | three `AskUserQuestion` calls (4+4+2; each call takes at most 4 questions) | one `request-user-input` call carrying all 10 |
+| handoff-write pre-write (>=40%) | 10 | three `AskUserQuestion` calls (4+4+2; each call takes at most 4 questions) | one `request-user-input` call carrying all 10 |
 | handoff-read pre-act | 5 | one call | one call |
 
 Latch coaching bodies live in `directives/latch-claude.md` / `latch-codex.md`;

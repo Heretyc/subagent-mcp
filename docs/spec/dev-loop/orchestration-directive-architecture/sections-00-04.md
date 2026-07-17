@@ -186,15 +186,17 @@ metering-undetectable fail-safe. When OFF you work solo.
 - **Phase definitions (Section 0 constants):** given `used_percentage` (0-100,
   or `null` when undetectable):
   - `null` -> **normal**
-  - `used_percentage >= 50` (HANDOFF_UNLOCK_THRESHOLD_PCT) -> **handoff**
+  - `used_percentage >= 40` (HANDOFF_UNLOCK_THRESHOLD_PCT) -> **handoff**
   - `used_percentage >= 15` (PLAN_LATCH_THRESHOLD_PCT) -> **plan**
   - otherwise -> **normal**
 
   `near_limit` is true only when `used_percentage` is known and `>= 50`.
 - **plan phase (15%):** a persisted latch force-enables orchestration and
   coaches a one-time 5-question planning stop (see sections-10-13, R-LATCH-15).
-- **handoff phase (50%):** the hook warns every turn to wind down and unlocks
-  the handoff-write/read/clear tools (see handoff.md, R-HANDOFF-50).
+- **handoff phase (40%):** the handoff-write/read/clear tools unlock with no
+  wind-down warning before 50% (see handoff.md, R-HANDOFF-40).
+- **handoff warning (50%):** the hook warns every turn to wind down (see
+  R-HANDOFF-WARN-50).
 - **You never assert ON yourself in OFF mode** : you only work solo or ask;
   state is authoritative from the hook.
 

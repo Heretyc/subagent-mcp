@@ -40,7 +40,8 @@ cannot be measured.
 ## section 6 : Sub-Agent First-Line Exemption + `launch_agent` Upsert (D19 / D20 / S8)
 
 The first-line exemption and `SUBAGENT_MCP_SUBAGENT=1` spawn-env carve-out are
-unchanged by the context-metered redesign. Metering, the 15% latch, and the 50%
+unchanged by the context-metered redesign. Metering, the 15% latch, the 40%
+handoff unlock, and the 50%
 handoff phase do not alter these carve-outs.
 
 ### 6.1 The exemption (D19)
@@ -156,7 +157,7 @@ The context-metered redesign adds two session-keyed state files under
 | Record | File | Shape | Semantics |
 |---|---|---|---|
 | Enable | `orch-enable-<hashKey(sessionKey)>.json` | `{ enabled_at: number }` | explicit opt-in that raises a default-OFF hook-covered session to ON; same 2h TTL and lazy-GC pattern as disable; disable still wins |
-| Latch | `latch-<hashKey(sessionKey)>.json` | `{ latched: true, latched_at: number, session_id: string }` | written once at the first 15% plan-phase crossing; does not expire by time while the record exists; persists through the 50% phase for that session |
+| Latch | `latch-<hashKey(sessionKey)>.json` | `{ latched: true, latched_at: number, session_id: string }` | written once at the first 15% plan-phase crossing; does not expire by time while the record exists; persists through the 40% handoff phase and 50% warning threshold for that session |
 
 A brand-new session with a new `sessionKey` starts latch-free.
 

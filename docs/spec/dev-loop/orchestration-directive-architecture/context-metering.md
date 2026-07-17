@@ -51,7 +51,7 @@ default ladder above. Contradictions resolve to the model's top known tier
 and clamp percentage at 100%.
 
 ### 3. Phase Computation
-Given `used_percentage`: `null` maps to `normal`, `>= 50` maps to
+Given `used_percentage`: `null` maps to `normal`, `>= 40` maps to
 `handoff`, `>= 15` maps to `plan`, and all lower numeric values map to
 `normal`.
 

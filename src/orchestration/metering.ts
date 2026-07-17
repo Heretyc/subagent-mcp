@@ -14,7 +14,8 @@ import {
 } from "./marker.js";
 
 export const PLAN_LATCH_THRESHOLD_PCT = 15;
-export const HANDOFF_UNLOCK_THRESHOLD_PCT = 50;
+export const HANDOFF_UNLOCK_THRESHOLD_PCT = 40;
+export const HANDOFF_WARNING_THRESHOLD_PCT = 50;
 export const DEFAULT_CONTEXT_WINDOW = 200000;
 export const LONG_CONTEXT_WINDOW = 1000000;
 
@@ -421,7 +422,7 @@ export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRe
     used_percentage,
     near_limit:
       used_percentage !== null &&
-      used_percentage >= HANDOFF_UNLOCK_THRESHOLD_PCT,
+      used_percentage >= HANDOFF_WARNING_THRESHOLD_PCT,
     event: input.event,
     updated_at: Date.now(),
   };

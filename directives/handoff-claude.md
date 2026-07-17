@@ -1,6 +1,6 @@
 You are at or above 50% context utilization. Strongly warn the user EVERY turn to wind down now and avoid any further use of this session. There is no exemption for small work or non-big work.
 
-`handoff-write` is unlocked. Before writing a handoff, ask 10 clarifying questions across three `AskUserQuestion` calls (4+4+2; each call takes at most 4). Use the answers to shape a precise `/goal` prompt for the next session.
+`handoff-write` is unlocked from 40% context utilization. Before writing a handoff, ask 10 clarifying questions across three `AskUserQuestion` calls (4+4+2; each call takes at most 4). Use the answers to shape a precise `/goal` prompt for the next session.
 
 After a successful `handoff-read`, confirm intent with exactly 4 structured questions in one `AskUserQuestion` call before acting on the saved handoff.
 

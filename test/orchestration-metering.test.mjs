@@ -11,6 +11,7 @@ import { join } from "node:path";
 import {
   DEFAULT_CONTEXT_WINDOW,
   HANDOFF_UNLOCK_THRESHOLD_PCT,
+  HANDOFF_WARNING_THRESHOLD_PCT,
   LONG_CONTEXT_WINDOW,
   buildMeteringRecord,
   computeUsedPercentage,
@@ -92,12 +93,14 @@ test("harness percentage and window override computed ladder", () => {
   assert.equal(record.window_source, "harness");
 });
 
-test("phaseFor thresholds are inclusive at 15 and 50", () => {
+test("phaseFor thresholds are inclusive at 15 and 40", () => {
   assert.equal(phaseFor(null), "normal");
   assert.equal(phaseFor(14.99), "normal");
   assert.equal(phaseFor(15), "plan");
-  assert.equal(phaseFor(49.99), "plan");
-  assert.equal(phaseFor(50), "handoff");
+  assert.equal(phaseFor(39.99), "plan");
+  assert.equal(phaseFor(40), "handoff");
+  assert.equal(HANDOFF_UNLOCK_THRESHOLD_PCT, 40);
+  assert.equal(HANDOFF_WARNING_THRESHOLD_PCT, 50);
 });
 
 test("buildMeteringRecord assembles shape and near_limit", () => {
@@ -131,6 +134,44 @@ test("buildMeteringRecord assembles shape and near_limit", () => {
   assert.equal(record.near_limit, false);
   assert.equal(record.event, "UserPromptSubmit");
   assert.ok(record.updated_at >= before);
+});
+
+test("handoff band unlocks at 40 but near_limit waits until warning threshold", () => {
+  const below = buildMeteringRecord({
+    session_id: "s-band-below",
+    harness: "claude",
+    model: "claude-sonnet-4-5",
+    source_ref: "transcript.jsonl",
+    usage: { input: 78000, output: 0, cache_creation: 0, cache_read: 0 },
+    event: "UserPromptSubmit",
+  });
+  assert.equal(below.used_percentage, 39);
+  assert.equal(phaseFor(below.used_percentage), "plan");
+  assert.equal(below.near_limit, false);
+
+  const unlocked = buildMeteringRecord({
+    session_id: "s-band-unlocked",
+    harness: "claude",
+    model: "claude-sonnet-4-5",
+    source_ref: "transcript.jsonl",
+    usage: { input: 80000, output: 0, cache_creation: 0, cache_read: 0 },
+    event: "UserPromptSubmit",
+  });
+  assert.equal(unlocked.used_percentage, 40);
+  assert.equal(phaseFor(unlocked.used_percentage), "handoff");
+  assert.equal(unlocked.near_limit, false);
+
+  const warning = buildMeteringRecord({
+    session_id: "s-band-warning",
+    harness: "claude",
+    model: "claude-sonnet-4-5",
+    source_ref: "transcript.jsonl",
+    usage: { input: 100000, output: 0, cache_creation: 0, cache_read: 0 },
+    event: "UserPromptSubmit",
+  });
+  assert.equal(warning.used_percentage, 50);
+  assert.equal(phaseFor(warning.used_percentage), "handoff");
+  assert.equal(warning.near_limit, true);
 });
 
 test("resolveContextWindowDetailed applies hint, ratchet, prior floor, and contradiction rules", () => {
