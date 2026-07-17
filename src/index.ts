@@ -93,6 +93,7 @@ import {
 } from "./status-tracker.js";
 import { startLivenessHeartbeat } from "./orchestration/liveness.js";
 import { checkForNpmUpdate } from "./orchestration/update-check.js";
+import { applyRegistryAfterUpdate, prepareRegistryForUpdate } from "./init-registry.js";
 import { ensureParentMarker } from "./launch-prompt.js";
 import {
   pendingPermissionManager,
@@ -2351,6 +2352,16 @@ if (isMain) {
     process.exit(0);
   }
   if (arg === "update" || arg === "--update") {
+    const updateFlags = new Set(process.argv.slice(3));
+    const forceUpdate = updateFlags.has("--force");
+    const quietUpdate = updateFlags.has("--quiet");
+    for (const flag of updateFlags) {
+      if (flag !== "--force" && flag !== "--quiet") {
+        console.error(`unknown update argument: ${flag}`);
+        process.exit(1);
+      }
+    }
+    const initRegistry = await prepareRegistryForUpdate({ force: forceUpdate, quiet: quietUpdate });
     const pkg = readPkg();
     const scope = pkg.name.startsWith("@") ? pkg.name.split("/")[0] : null;
     const npmjsRegistryArgs = [
@@ -2503,6 +2514,7 @@ if (isMain) {
       console.log(
         "Update complete. Restart your CLI sessions so the MCP server picks up the new build."
       );
+      applyRegistryAfterUpdate(initRegistry, { force: forceUpdate, quiet: quietUpdate });
     }
     process.exit(code);
   }

@@ -7,8 +7,10 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import * as os from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { registerInitRun, deregisterInitRun } from "./init-registry.js";
 
 export type InitStatus = "created" | "added" | "updated" | "ok" | "removed" | "absent";
 
@@ -57,6 +59,20 @@ export const INIT_BLOCK = [
   "DISABLE: never on your own initiative; you may propose OFF on task-fit mismatch via the structured-question tool, and only explicit user approval may set enabled:false — per-session only; the next new session resumes ON; no mid-session re-enable.",
   "<!-- subagent-mcp:managed:end -->",
 ].join("\n");
+
+export function managedBlockContent(block = INIT_BLOCK): string {
+  const lines = block.split(/\r?\n/);
+  return lines.slice(1, -1).join("\n");
+}
+
+export function managedBlockHash(block = INIT_BLOCK): string {
+  return createHash("sha256").update(managedBlockContent(block), "utf8").digest("hex");
+}
+
+export function extractManagedBlock(body: string): string | null {
+  const text = body.charCodeAt(0) === 0xfeff ? body.slice(1) : body;
+  return text.match(MIGRATE_RE)?.[0] ?? null;
+}
 
 function detectEol(s: string): "\n" | "\r\n" {
   const crlf = s.indexOf("\r\n");
@@ -236,7 +252,7 @@ export function globalTargetFiles(home: string = os.homedir()): string[] {
   ];
 }
 
-function targetFiles(root: string, opts: ReturnType<typeof parseArgs>): string[] {
+export function targetFiles(root: string, opts: ReturnType<typeof parseArgs>): string[] {
   const resolveTarget = (f: string): string => {
     const target = isAbsolute(f) ? resolve(f) : resolve(root, f);
     const rel = relative(root, target);
@@ -297,6 +313,23 @@ export async function runInit(args = process.argv.slice(3)): Promise<number> {
     console.error("\nInit completed with issues:");
     for (const i of issues) console.error(`- ${i}`);
     return 1;
+  }
+  if (!opts.dryRun) {
+    const root = opts.global ? os.homedir() : resolve(opts.root);
+    try {
+      if (opts.remove) {
+        deregisterInitRun({ root, scope: opts.global ? "global" : "project", global: opts.global });
+      } else {
+        registerInitRun({
+          root,
+          files: results.map((r) => r.file),
+          scope: opts.global ? "global" : "project",
+          global: opts.global,
+        });
+      }
+    } catch (e) {
+      console.error(`registry warning: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
   return results.length > 0 ? 0 : 1;
 }

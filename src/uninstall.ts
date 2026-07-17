@@ -5,6 +5,7 @@ import { createBackup } from "./backup.js";
 import { isSubagentMcpHook, type JsonObj } from "./hook-match.js";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { askYesNo } from "./prompt.js";
+import { clearInitRegistry } from "./init-registry.js";
 
 export interface UninstallOptions {
   home?: string;
@@ -140,6 +141,7 @@ export async function runUninstall(opts: UninstallOptions = {}): Promise<number>
   }
 
   for (const [file, count] of Object.entries(removed)) log(`removed ${count}: ${file}`);
+  clearInitRegistry(home);
   const remaining = verifyNoSubagentMcp(home);
   log(remaining.length === 0 ? "verification: PASS, zero subagent-mcp hooks/registrations remain" : `verification: FAIL, remaining in ${remaining.join(", ")}`);
   log("Package not removed. To remove it: npm uninstall -g @heretyc/subagent-mcp");
