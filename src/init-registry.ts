@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { extractManagedBlock, globalTargetFiles, managedBlockHash, targetFiles, parseArgs, upsertInitBlock } from "./init.js";
 import { askLine, askYesNo, type PromptOptions } from "./prompt.js";
-import { readPendingUpdateNotice } from "./orchestration/update-check.js";
+import { readPendingUpdateNotice, readUpdateCheckStatus } from "./orchestration/update-check.js";
 
 export type InitScope = "project" | "global";
 
@@ -68,6 +68,15 @@ export function readInitRegistry(home = homedir()): InitRegistry {
   }
 }
 
+export function initRegistryHasAutoUpdate(home = homedir()): boolean {
+  try {
+    const raw = JSON.parse(stripBom(readFileSync(registryPath(home), "utf8"))) as Partial<InitRegistry>;
+    return Object.prototype.hasOwnProperty.call(raw, "autoUpdate");
+  } catch {
+    return false;
+  }
+}
+
 export function writeInitRegistry(registry: InitRegistry, home = homedir()): void {
   const file = registryPath(home);
   mkdirSync(dirname(file), { recursive: true });
@@ -119,13 +128,14 @@ export function inspectInitRegistry(home = homedir()) {
   const stalePaths = registry.entries.filter((e) => !existsSync(e.root)).map((e) => e.root);
   const outOfDate = registry.entries.filter((e) => existsSync(e.root) && entryOutOfDate(e)).map((e) => e.root);
   const pending = readPendingUpdateNotice();
+  const check = readUpdateCheckStatus();
   return {
     globalInit: registry.globalInit,
     autoUpdate: registry.autoUpdate,
     entryCount: registry.entries.length,
     stalePaths,
     outOfDate,
-    lastUpdateCheck: pending?.checked_at ?? "none",
+    lastUpdateCheck: check?.checked_at ?? pending?.checked_at ?? "none",
     pendingVersion: pending?.latest_version ?? "none",
   };
 }

@@ -223,11 +223,11 @@ test("latch and handoff directives carry provider-specific coaching counts", () 
   const handoffClaude = readFileSync(join(directivesDir, "handoff-claude.md"), "utf8");
   const handoffCodex = readFileSync(join(directivesDir, "handoff-codex.md"), "utf8");
 
-  assert.match(latchClaude, /EXACTLY 5/i, "latch-claude must require exactly 5 questions");
+  assert.match(latchClaude, /EXACTLY 4/i, "latch-claude must require exactly 4 questions");
   assert.match(latchClaude, /AskUserQuestion/, "latch-claude must name AskUserQuestion");
   assert.ok(!REQUEST_USER_INPUT_RE.test(latchClaude), "latch-claude must not name the Codex question tool");
 
-  assert.match(latchCodex, /EXACTLY 5/i, "latch-codex must require exactly 5 questions");
+  assert.match(latchCodex, /EXACTLY 4/i, "latch-codex must require exactly 4 questions");
   assert.match(latchCodex, REQUEST_USER_INPUT_RE, "latch-codex must name the Codex question tool");
   assert.ok(!latchCodex.includes("AskUserQuestion"), "latch-codex must not name AskUserQuestion");
 

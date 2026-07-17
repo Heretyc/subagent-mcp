@@ -35,6 +35,7 @@ import { stateDir } from "./orchestration/marker.js";
 import { STATUSLINE_TTL_MS } from "./orchestration/statusline-state.js";
 import { askLine, type PromptOptions } from "./prompt.js";
 import { runInit } from "./init.js";
+import { initRegistryHasAutoUpdate, readInitRegistry, writeInitRegistry } from "./init-registry.js";
 
 const cliArgs = process.argv.slice(3); // argv[2]='setup', flags start at [3]
 const DRY_RUN = cliArgs.includes("--dry-run");
@@ -944,6 +945,32 @@ export async function runSetupInitMenu(
   ]);
 }
 
+export async function ensureSetupAutoUpdate(
+  opts: PromptOptions & { home?: string; isTTY?: boolean; unattended?: boolean; dryRun?: boolean; log?: (line: string) => void } = {}
+): Promise<boolean> {
+  const home = opts.home ?? homedir();
+  if (initRegistryHasAutoUpdate(home)) return readInitRegistry(home).autoUpdate;
+  const tty = opts.isTTY ?? process.stdin.isTTY;
+  let enabled = true;
+  if (opts.unattended) {
+    opts.log?.("Auto-update: unattended setup, defaulting to enabled.");
+  } else if (!tty) {
+    opts.log?.("Auto-update: non-TTY setup, defaulting to enabled.");
+  } else {
+    for (;;) {
+      const answer = await askLine(opts, "Enable auto-update? [Y/n] ");
+      if (answer === "" || answer === "y" || answer === "yes") break;
+      if (answer === "n" || answer === "no") {
+        enabled = false;
+        break;
+      }
+      opts.log?.("Enter y or n.");
+    }
+  }
+  if (!opts.dryRun) writeInitRegistry({ ...readInitRegistry(home), autoUpdate: enabled }, home);
+  return enabled;
+}
+
 /** Detail string for a CLI registration check; "CLI repair failed" only when a
  *  repair was actually attempted. */
 export function registrationDetail(registered: boolean, attemptedRepair: boolean): string {
@@ -1133,6 +1160,11 @@ export async function runSetup(): Promise<void> {
   else console.log("\nSkipping Codex CLI (not detected).");
 
   console.log("\n--- Init Instructions ---");
+  await ensureSetupAutoUpdate({
+    unattended: UNATTENDED,
+    dryRun: DRY_RUN,
+    log: console.log,
+  });
   const initCode = await runSetupInitMenu({
     unattended: UNATTENDED,
     dryRun: DRY_RUN,

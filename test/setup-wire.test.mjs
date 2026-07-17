@@ -26,8 +26,10 @@ import {
   registrationDetail,
   reconcileClaudeSettings,
   deploySmcpSkillsAndCommands,
+  ensureSetupAutoUpdate,
   runSetupInitMenu,
 } from "../dist/setup.js";
+import { readInitRegistry, writeInitRegistry } from "../dist/init-registry.js";
 
 let passed = 0;
 let failed = 0;
@@ -75,7 +77,7 @@ function shellQuoteInner(command) {
 function withHome(fn) {
   const home = mkdtempSync(join(tmpdir(), "wire-home-"));
   try {
-    fn(home, vendorWireSpecs(P, home));
+    return fn(home, vendorWireSpecs(P, home));
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -356,6 +358,45 @@ await (async () => {
     passed++;
   } catch (e) {
     console.error("  FAIL: setup init menu: interactive selection dispatches selected init scope");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
+
+await (async () => {
+  try {
+    const home = mkdtempSync(join(tmpdir(), "wire-home-"));
+    try {
+      const lines = [];
+      assert.equal(await ensureSetupAutoUpdate({ home, unattended: true, log: (line) => lines.push(line) }), true);
+      assert.equal(readInitRegistry(home).autoUpdate, true);
+      assert.deepEqual(lines, ["Auto-update: unattended setup, defaulting to enabled."]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+    console.log("  PASS: setup auto-update: unattended defaults enabled and persists");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup auto-update: unattended defaults enabled and persists");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
+
+await (async () => {
+  try {
+    const home = mkdtempSync(join(tmpdir(), "wire-home-"));
+    try {
+      writeInitRegistry({ globalInit: false, autoUpdate: false, entries: [] }, home);
+      assert.equal(await ensureSetupAutoUpdate({ home, unattended: true }), false);
+      assert.equal(readInitRegistry(home).autoUpdate, false);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+    console.log("  PASS: setup auto-update: existing registry flag is not re-prompted");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup auto-update: existing registry flag is not re-prompted");
     console.error(`        ${e.message}`);
     failed++;
   }

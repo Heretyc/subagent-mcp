@@ -192,7 +192,7 @@ metering-undetectable fail-safe. When OFF you work solo.
 
   `near_limit` is true only when `used_percentage` is known and `>= 50`.
 - **plan phase (15%):** a persisted latch force-enables orchestration and
-  coaches a one-time 5-question planning stop (see sections-10-13, R-LATCH-15).
+  coaches a one-time 4-question planning stop (see sections-10-13, R-LATCH-15).
 - **handoff phase (40%):** the handoff-write/read/clear tools unlock with no
   wind-down warning before 50% (see handoff.md, R-HANDOFF-40).
 - **handoff warning (50%):** the hook warns every turn to wind down (see
