@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { extractManagedBlock, globalTargetFiles, managedBlockHash, upsertInitBlock } from "./init.js";
@@ -36,6 +36,7 @@ export interface UpdateRegistryOptions extends PromptOptions {
 
 const EMPTY: InitRegistry = { globalInit: false, autoUpdate: false, entries: [] };
 const SNAPSHOT_RE = /^\d{8}-\d{6}$/;
+const UPDATE_BACKUP_RE = /^(.+)\.bak-update-(.+)$/;
 
 export function registryPath(home = homedir()): string {
   return join(home, ".subagent-mcp", "init-registry.json");
@@ -154,6 +155,22 @@ export function pruneBackupsMostRecentOnly(home = homedir()): void {
   for (const name of dirs.slice(0, -1)) rmSync(join(root, name), { recursive: true, force: true });
 }
 
+export function pruneTempUpdateBackupsMostRecentPerBasename(dir = tmpdir()): void {
+  if (!existsSync(dir)) return;
+  const newest = new Map<string, string>();
+  const backups = readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isFile() && UPDATE_BACKUP_RE.test(d.name))
+    .map((d) => d.name);
+  for (const name of backups) {
+    const [, base, stamp] = name.match(UPDATE_BACKUP_RE)!;
+    const current = newest.get(base);
+    if (!current || stamp > current.match(UPDATE_BACKUP_RE)![2]) newest.set(base, name);
+  }
+  for (const name of backups) {
+    if (newest.get(name.match(UPDATE_BACKUP_RE)![1]) !== name) rmSync(join(dir, name), { force: true });
+  }
+}
+
 async function ensureInitializedForUpdate(registry: InitRegistry, opts: UpdateRegistryOptions): Promise<InitRegistry> {
   if (registry.entries.length || registry.globalInit) return registry;
   const code = await runSetupInitMenu(opts);
@@ -204,4 +221,5 @@ export function applyRegistryAfterUpdate(registry: InitRegistry, opts: UpdateReg
     }
   }
   pruneBackupsMostRecentOnly(home);
+  pruneTempUpdateBackupsMostRecentPerBasename();
 }

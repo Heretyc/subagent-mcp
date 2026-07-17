@@ -8,6 +8,7 @@ import {
   applyRegistryAfterUpdate,
   prepareRegistryForUpdate,
   pruneBackupsMostRecentOnly,
+  pruneTempUpdateBackupsMostRecentPerBasename,
   readInitRegistry,
   registryPath,
   registerInitRun,
@@ -81,6 +82,25 @@ test("clean update prunes backups to newest snapshot", () => withHome(({ home })
   }
   pruneBackupsMostRecentOnly(home);
   assert.deepEqual(readdirSync(backups), ["20260101-000003"]);
+}));
+
+test("clean update prunes temp backups to newest per basename", () => withHome(({ root }) => {
+  const dir = join(root, "tmp");
+  mkdirSync(dir, { recursive: true });
+  for (const base of ["advanced-ruleset.py", "global-subagent-mcp-config.jsonc"]) {
+    for (const stamp of ["1000", "2000", "3000"]) {
+      writeFileSync(join(dir, `${base}.bak-update-${stamp}`), `${base}:${stamp}`);
+    }
+  }
+  writeFileSync(join(dir, "advanced-ruleset.py.bak-setup-9999"), "unrelated");
+  writeFileSync(join(dir, "notes.tmp"), "unrelated");
+  pruneTempUpdateBackupsMostRecentPerBasename(dir);
+  assert.deepEqual(readdirSync(dir).sort(), [
+    "advanced-ruleset.py.bak-setup-9999",
+    "advanced-ruleset.py.bak-update-3000",
+    "global-subagent-mcp-config.jsonc.bak-update-3000",
+    "notes.tmp",
+  ]);
 }));
 
 test("stale registered dirs are kept and warned in non-TTY update", async () => withHome(async ({ home, root }) => {
