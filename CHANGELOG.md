@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.1
+
+### Changed
+
+- `update` now prompts the setup init-scope menu (project vs global;
+  non-TTY/--unattended = global) when the init registry is missing or empty,
+  replacing the previous directory-scan backfill.
+
+### Fixed
+
+- `update` now prunes its own temp backup files (`<name>.bak-update-*`) to
+  most-recent-per-basename after a clean update, preventing unbounded
+  accumulation.
+
 ## 3.1.0
 
 ### Added

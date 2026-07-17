@@ -793,7 +793,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.1.0",
+    version: "3.1.1",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
@@ -2334,6 +2334,7 @@ if (isMain) {
     "  doctor             check install and wiring health",
     "  upgrade            one-command upgrade with backup, hook repair, init-block check, and doctor",
     "  update, --update   update to the latest release (npm install -g)",
+    "                     flags: --force --quiet --unattended",
     "  version, --version, -v",
     "                     print the installed version",
     "  help, --help, -h   show this help",
@@ -2355,13 +2356,14 @@ if (isMain) {
     const updateFlags = new Set(process.argv.slice(3));
     const forceUpdate = updateFlags.has("--force");
     const quietUpdate = updateFlags.has("--quiet");
+    const unattendedUpdate = updateFlags.has("--unattended");
     for (const flag of updateFlags) {
-      if (flag !== "--force" && flag !== "--quiet") {
+      if (flag !== "--force" && flag !== "--quiet" && flag !== "--unattended") {
         console.error(`unknown update argument: ${flag}`);
         process.exit(1);
       }
     }
-    const initRegistry = await prepareRegistryForUpdate({ force: forceUpdate, quiet: quietUpdate });
+    const initRegistry = await prepareRegistryForUpdate({ force: forceUpdate, quiet: quietUpdate, unattended: unattendedUpdate });
     const pkg = readPkg();
     const scope = pkg.name.startsWith("@") ? pkg.name.split("/")[0] : null;
     const npmjsRegistryArgs = [

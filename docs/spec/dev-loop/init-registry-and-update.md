@@ -50,9 +50,10 @@ entries.
 
 Before install:
 
-- Empty registries are backfilled only on a TTY and only after a yes/no prompt.
-  The scan looks at `cwd`, `~/.claude`, `~/.codex`, and `~/.gemini` for managed
-  blocks in the project and global target files. Non-TTY skips backfill.
+- Missing or empty registries (`entries=[]` and `globalInit=false`) run the
+  same init-scope menu as `setup`: project init runs `runInit([])`, and global
+  init runs `runInit(["--global"])`. Non-TTY and `--unattended` update default
+  to global without prompting.
 - Stale registered roots prompt on a TTY: `Keep or remove? [K/r]`. Non-TTY keeps
   stale entries and logs a warning.
 - Unless `--quiet` is set, update prints registered project dirs, or `(none)`.
@@ -64,8 +65,10 @@ After install succeeds:
   project entry.
 - Successful update prunes `~/.subagent-mcp/backups` timestamp snapshots to the
   most recent directory only.
+- Successful update prunes temp update backups matching `*.bak-update-*` to the
+  most recent file per basename.
 
-`--force` and `--quiet` are the only accepted update flags.
+`--force`, `--quiet`, and `--unattended` are the only accepted update flags.
 
 ## Auto-Update
 
@@ -117,8 +120,8 @@ missing or out-of-date managed blocks; otherwise it is `PASS`.
 |---|---|
 | `setup` init scope | Defaults to `global`. |
 | `setup` auto-update | Defaults to enabled. |
+| update missing or empty registry | Runs global init without prompting. |
 | update stale roots | Keeps entries and logs a warning. |
-| update empty registry backfill | Skips scan and prompt. |
 
 ## Related Docs
 
