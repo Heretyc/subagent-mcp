@@ -63,8 +63,8 @@ next concrete action plus permission to proceed in this session.
 ## Handoff-resume Skill Deployment
 
 `subagent-mcp setup` deploys the packaged Claude Agent Skill from
-`skills/handoff-resume/SKILL.md` to
-`~/.claude/skills/handoff-resume/SKILL.md`. Missing or stale targets are
+`skills/smcp-handoff/SKILL.md` to
+`~/.claude/skills/smcp-handoff/SKILL.md`. Missing or stale targets are
 repaired by re-running setup. Codex is intentionally not targeted because
 Codex has no Agent Skill mechanism; the MCP instructions carry the handoff
 guidance there.
@@ -75,7 +75,7 @@ On a successful `handoff-write`, the MCP tool responds with EXACTLY the
 following string, character-for-character:
 
 ```
-We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `handoff-resume skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.
+We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `smcp-handoff skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.
 ```
 
 ## LONG-reminder re-append rule

@@ -1,5 +1,5 @@
 ---
-name: handoff-resume
+name: smcp-handoff
 version: 1.0.0
 description: Resume prior work from a saved subagent-mcp handoff when the user says "handoff-resume", "resume handoff", or "resume work"; call handoff-read, then confirm intent with exactly 4 structured questions before acting, and know the handoff-write/read/clear lifecycle.
 author: Lexi Blackburn (https://github.com/Heretyc/)

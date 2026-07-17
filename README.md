@@ -84,7 +84,7 @@ its own. `subagent-mcp setup` finds your Claude Code or Codex install and
 registers both the server and the per-turn orchestration hooks. For Claude Code
 it also registers or wraps `statusLine` so the hook can read Claude's
 authoritative context percentage without replacing your custom statusline, and
-deploys the `handoff-resume` Agent Skill to your Claude user scope.
+deploys the `smcp-handoff` Agent Skill to your Claude user scope.
 Preview first with `subagent-mcp setup --dry-run`.
 
 For provider config, run `subagent-mcp config init`, edit the generated `.env`

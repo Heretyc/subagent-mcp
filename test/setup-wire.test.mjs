@@ -23,7 +23,6 @@ import {
   wireMcpServer,
   registrationDetail,
   reconcileClaudeSettings,
-  deployHandoffResumeSkill,
   deploySmcpSkillsAndCommands,
 } from "../dist/setup.js";
 
@@ -62,6 +61,7 @@ const CANON_CLAUDE_ENTRY = { type: "stdio", command: "subagent-mcp", args: [], e
 const STALE_CLAUDE_ENTRY = { type: "stdio", command: "node", args: ["C:/stale/dist/index.js"], env: {} };
 const CANON_CODEX_TOML = `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${P.server}"]\n`;
 const STALE_CODEX_TOML = `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["C:/stale/dist/index.js"]\n`;
+const LEGACY_HANDOFF_SKILL = ["handoff", "resume"].join("-");
 
 function shellQuoteInner(command) {
   return process.platform === "win32"
@@ -81,18 +81,14 @@ function withHome(fn) {
 function withSkillRoot(fn) {
   const root = mkdtempSync(join(tmpdir(), "wire-root-"));
   try {
-    const skillDir = join(root, "skills", "handoff-resume");
-    mkdirSync(skillDir, { recursive: true });
-    const source = join(skillDir, "SKILL.md");
-    writeFileSync(source, "package skill\n");
-    fn(root, source);
+    fn(root);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }
 
 function writeSmcpAssets(root) {
-  for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+  for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     const skillDir = join(root, "skills", name);
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), `${name} skill\n`);
@@ -255,50 +251,30 @@ test("claude settings: statusLine foreign command wraps once and is idempotent",
 });
 
 // ---------------------------------------------------------------------------
-// Claude handoff-resume skill deployment
-// ---------------------------------------------------------------------------
-test("handoff-resume skill: setup deploys package copy", () => {
-  withHome((home) => withSkillRoot((root, source) => {
-    const r = deployHandoffResumeSkill(root, home);
-    const target = join(home, ".claude", "skills", "handoff-resume", "SKILL.md");
-    assert.equal(r.status, "added");
-    assert.equal(r.changed, true);
-    assert.equal(readFileSync(target, "utf8"), readFileSync(source, "utf8"));
-  }));
-});
-
-test("handoff-resume skill: second setup is unchanged", () => {
-  withHome((home) => withSkillRoot((root) => {
-    deployHandoffResumeSkill(root, home);
-    const r = deployHandoffResumeSkill(root, home);
-    assert.equal(r.status, "ok");
-    assert.equal(r.changed, false);
-  }));
-});
-
-test("handoff-resume skill: user-modified target is restored", () => {
-  withHome((home) => withSkillRoot((root, source) => {
-    deployHandoffResumeSkill(root, home);
-    const target = join(home, ".claude", "skills", "handoff-resume", "SKILL.md");
-    writeFileSync(target, "user edit\n");
-    const r = deployHandoffResumeSkill(root, home);
-    assert.equal(r.status, "repaired");
-    assert.equal(r.changed, true);
-    assert.equal(readFileSync(target, "utf8"), readFileSync(source, "utf8"));
-  }));
-});
-
 test("smcp skills and commands: setup deploys skills, siblings, and slash commands", () => {
   withHome((home) => withSkillRoot((root) => {
     writeSmcpAssets(root);
     const r = deploySmcpSkillsAndCommands(root, home);
     assert.equal(r.status, "added");
     assert.equal(r.changed, true);
-    for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+    for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
       assert.equal(readFileSync(join(home, ".claude", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);
       assert.equal(readFileSync(join(home, ".claude", "skills", name, "notes.txt"), "utf8"), `${name} sibling\n`);
       assert.equal(readFileSync(join(home, ".claude", "commands", `${name}.toml`), "utf8"), `${name} command\n`);
     }
+  }));
+});
+
+test("smcp skills and commands: removes legacy handoff skill after deploy", () => {
+  withHome((home) => withSkillRoot((root) => {
+    writeSmcpAssets(root);
+    const legacy = join(home, ".claude", "skills", LEGACY_HANDOFF_SKILL);
+    mkdirSync(legacy, { recursive: true });
+    writeFileSync(join(legacy, "SKILL.md"), "old skill\n");
+    const r = deploySmcpSkillsAndCommands(root, home);
+    assert.equal(r.status, "added");
+    assert.equal(r.changed, true);
+    assert.equal(existsSync(legacy), false);
   }));
 });
 

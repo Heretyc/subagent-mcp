@@ -2238,7 +2238,7 @@ server.tool(
 // byte-identity against handoff.md via source-text regex. Kept in lockstep
 // with handoff.HANDOFF_WRITE_SUCCESS (single verbatim string, two surfaces).
 const HANDOFF_WRITE_SUCCESS_MESSAGE =
-  "We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `handoff-resume skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.";
+  "We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `smcp-handoff skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.";
 
 // Tool 10: handoff-write
 server.tool(

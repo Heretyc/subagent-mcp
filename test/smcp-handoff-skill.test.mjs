@@ -5,10 +5,10 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const skillPath = join(repoRoot, "skills", "handoff-resume", "SKILL.md");
+const skillPath = join(repoRoot, "skills", "smcp-handoff", "SKILL.md");
 
-test("handoff-resume skill exists and declares resume triggers", () => {
-  assert.ok(existsSync(skillPath), "skills/handoff-resume/SKILL.md exists");
+test("smcp-handoff skill exists and declares resume triggers", () => {
+  assert.ok(existsSync(skillPath), "skills/smcp-handoff/SKILL.md exists");
 
   const body = readFileSync(skillPath, "utf8");
   for (const phrase of ["handoff-resume", "resume handoff", "resume work"]) {
@@ -16,7 +16,7 @@ test("handoff-resume skill exists and declares resume triggers", () => {
   }
 });
 
-test("handoff-resume skill documents handoff tool usage", () => {
+test("smcp-handoff skill documents handoff tool usage", () => {
   const body = readFileSync(skillPath, "utf8");
 
   for (const tool of ["handoff-write", "handoff-read", "handoff-clear"]) {
@@ -24,7 +24,7 @@ test("handoff-resume skill documents handoff tool usage", () => {
   }
 });
 
-test("package includes handoff-resume skill directory", () => {
+test("package includes smcp-handoff skill directory", () => {
   const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
-  assert.ok(pkg.files.includes("skills/handoff-resume"), "package.json files ships skills/handoff-resume");
+  assert.ok(pkg.files.includes("skills/smcp-handoff"), "package.json files ships skills/smcp-handoff");
 });

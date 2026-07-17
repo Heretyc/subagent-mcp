@@ -24,7 +24,7 @@ export const NO_HANDOFF_FOUND =
   "No handoff found for this directory. Resume the previous session and ask it to write one via handoff-write.";
 
 export const HANDOFF_WRITE_SUCCESS =
-  "We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `handoff-resume skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.";
+  "We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `smcp-handoff skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.";
 
 export interface HandoffRecord {
   content: string;

@@ -217,7 +217,7 @@ function verify(install) {
     "directives/reminder-on.md",
     "directives/reminder-off-claude.md",
     "directives/reminder-off-codex.md",
-    "skills/handoff-resume/SKILL.md",
+    "skills/smcp-handoff/SKILL.md",
     "node_modules/@modelcontextprotocol/sdk/package.json",
     "node_modules/zod/package.json",
   ];
@@ -352,18 +352,18 @@ function wireClaude(install) {
     console.error(`  added/updated Claude hooks -> ${sfile}`);
   }
 
-  const source = join(install, "skills", "handoff-resume", "SKILL.md");
-  const target = join(homedir(), ".claude", "skills", "handoff-resume", "SKILL.md");
+  const source = join(install, "skills", "smcp-handoff", "SKILL.md");
+  const target = join(homedir(), ".claude", "skills", "smcp-handoff", "SKILL.md");
   if (!existsSync(source)) {
-    console.error(`  handoff-resume skill source missing -> ${source}`);
+    console.error(`  smcp-handoff skill source missing -> ${source}`);
   } else {
     const body = readFileSync(source, "utf8");
     if (existsSync(target) && readFileSync(target, "utf8") === body) {
-      console.error("  handoff-resume skill already present - left as-is");
+      console.error("  smcp-handoff skill already present - left as-is");
     } else {
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, body);
-      console.error(`  deployed handoff-resume skill -> ${target}`);
+      console.error(`  deployed smcp-handoff skill -> ${target}`);
     }
   }
 }
