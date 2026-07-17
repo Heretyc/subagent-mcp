@@ -15,15 +15,18 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable, Writable } from "node:stream";
 
 import {
   SERVER_NAME,
+  chooseSetupInitScope,
   serverPaths,
   vendorWireSpecs,
   wireMcpServer,
   registrationDetail,
   reconcileClaudeSettings,
   deploySmcpSkillsAndCommands,
+  runSetupInitMenu,
 } from "../dist/setup.js";
 
 let passed = 0;
@@ -85,6 +88,10 @@ function withSkillRoot(fn) {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+}
+
+function sink() {
+  return new Writable({ write(_chunk, _enc, cb) { cb(); } });
 }
 
 function writeSmcpAssets(root) {
@@ -277,6 +284,82 @@ test("smcp skills and commands: removes legacy handoff skill after deploy", () =
     assert.equal(existsSync(legacy), false);
   }));
 });
+
+await (async () => {
+  try {
+    const calls = [];
+    const lines = [];
+    const code = await runSetupInitMenu({
+      unattended: true,
+      log: (line) => lines.push(line),
+      init: async (args) => {
+        calls.push(args);
+        return 0;
+      },
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(calls, [["--global"]]);
+    assert.deepEqual(lines, ["Init scope: unattended setup, defaulting to global."]);
+    console.log("  PASS: setup init menu: unattended dispatches real global init args");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup init menu: unattended dispatches real global init args");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
+
+await (async () => {
+  try {
+    const calls = [];
+    const code = await runSetupInitMenu({
+      isTTY: false,
+      log: () => {},
+      init: async (args) => {
+        calls.push(args);
+        return 0;
+      },
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(calls, [["--global"]]);
+    console.log("  PASS: setup init menu: non-TTY dispatches real global init args");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup init menu: non-TTY dispatches real global init args");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
+
+await (async () => {
+  try {
+    const calls = [];
+    const code = await runSetupInitMenu({
+      isTTY: true,
+      input: Readable.from(["1\n"]),
+      output: sink(),
+      log: () => {},
+      init: async (args) => {
+        calls.push(args);
+        return 0;
+      },
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(calls, [[]]);
+    assert.equal(await chooseSetupInitScope({
+      isTTY: true,
+      input: Readable.from(["2\n"]),
+      output: sink(),
+      log: () => {},
+    }), "global");
+    console.log("  PASS: setup init menu: interactive selection dispatches selected init scope");
+    passed++;
+  } catch (e) {
+    console.error("  FAIL: setup init menu: interactive selection dispatches selected init scope");
+    console.error(`        ${e.message}`);
+    failed++;
+  }
+})();
 
 // ---------------------------------------------------------------------------
 // Summary

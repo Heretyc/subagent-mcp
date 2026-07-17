@@ -2318,7 +2318,8 @@ if (isMain) {
     "Usage: subagent-mcp [command]",
     "",
     "  (no command)       start the MCP stdio server (how vendor CLIs run it)",
-    "  setup [--dry-run]  wire Claude Code CLI / Codex CLI (--dry-run: preview only)",
+    "  setup [--dry-run] [--unattended]",
+    "                     wire Claude Code CLI / Codex CLI and init instructions",
     "  init, --init [flags]",
     "                     upsert project instruction-file invariant blocks",
     "                     flags: --dry-run --remove --force --root <dir> --files <csv> --copilot --cursor",
@@ -2506,8 +2507,12 @@ if (isMain) {
     process.exit(code);
   }
   if (arg === "setup") {
-    if (!process.argv.slice(3).includes("--dry-run")) {
-      await ensureFirstRunPermissionCeiling({ log: console.log });
+    const setupArgs = process.argv.slice(3);
+    if (!setupArgs.includes("--dry-run")) {
+      await ensureFirstRunPermissionCeiling({
+        isTTY: setupArgs.includes("--unattended") ? false : undefined,
+        log: console.log,
+      });
     }
     const { runSetup } = await import("./setup.js");
     await runSetup();
