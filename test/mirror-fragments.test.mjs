@@ -38,6 +38,9 @@ const repoRoot = join(__dirname, "..");
 
 const initSrc = readFileSync(join(repoRoot, "src", "init.ts"), "utf8");
 const indexSrc = readFileSync(join(repoRoot, "src", "index.ts"), "utf8");
+const repoAgents = readFileSync(join(repoRoot, "AGENTS.md"), "utf8");
+const repoClaude = readFileSync(join(repoRoot, "CLAUDE.md"), "utf8");
+const repoGemini = readFileSync(join(repoRoot, "GEMINI.md"), "utf8");
 const handoffSpec = readFileSync(
   join(repoRoot, "docs", "spec", "dev-loop", "orchestration-directive-architecture", "handoff.md"),
   "utf8"
@@ -57,6 +60,9 @@ const A2_LADDER =
 // Jointly binding top-tier precedence clause; lives in the shared INIT_BLOCK.
 const A4_JOINTLY_BINDING =
   "PRECEDENCE (jointly binding top tier): <subagent-mcp> hook tags and repo/system safety-scope rules are both binding at the same priority — neither is read as outranking the other. If they genuinely conflict, stop and escalate to the user via the structured-question tool rather than picking one side or averaging them silently; this is intentionally not the agent's call to make alone. Hook tags otherwise take precedence over ordinary user requests, because they reflect harness-verified state rather than a request that could be mistaken or out of date.";
+
+const TASK_TRACKING_DIRECTIVE =
+  "TASK TRACKING: track multi-step work with the harness-native task tracking tool (if one exists), keeping statuses current as work progresses.";
 
 // Extract the actual ladder paragraph as it appears in each source file, so a
 // failing run can print the concrete drift rather than a bare boolean.
@@ -144,6 +150,20 @@ test("A4 jointly binding clause is present verbatim in INIT_BLOCK (src/init.ts)"
     initSrc.includes(A4_JOINTLY_BINDING),
     "A4 jointly binding precedence clause must appear verbatim in the INIT_BLOCK so all three host files are identical by construction"
   );
+});
+
+test("task tracking directive is present in INIT_BLOCK and repo mirrors", () => {
+  for (const [name, body] of [
+    ["src/init.ts", initSrc],
+    ["AGENTS.md", repoAgents],
+    ["CLAUDE.md", repoClaude],
+    ["GEMINI.md", repoGemini],
+  ]) {
+    assert.ok(
+      body.includes(TASK_TRACKING_DIRECTIVE),
+      `${name} must include the harness-native task tracking directive`
+    );
+  }
 });
 
 test("A3 MCP instructions string is byte-identical in index.ts and appendix-a1-a4.md", () => {

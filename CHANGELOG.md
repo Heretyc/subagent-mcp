@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.0.2
+
+### Fixed
+
+- `subagent-mcp setup` and `update` now install the `/smcp:*` Agent Skills
+  (`smcp-doctor`, `smcp-help`, `smcp-status`) and their slash-commands into
+  `~/.claude/skills/` and `~/.claude/commands/`. Previously only the
+  handoff-resume skill was deployed, so the smcp skills/commands never landed
+  in Claude Code after install.
+- `doctor` now checks for the installed smcp skills/commands and WARNs when
+  they are missing, instead of reporting all-green.
+- `package.json` `files` now ships `.claude-plugin/` and `.codex-plugin/` so the
+  plugin/marketplace path is available from the npm package.
+
+### Added
+
+- `init` managed block now directs agents to track multi-step work with the
+  harness-native task tracking tool (if one exists), injected into AGENTS.md,
+  CLAUDE.md, and GEMINI.md.
+
 ## 3.0.1
 
 ### Fixed

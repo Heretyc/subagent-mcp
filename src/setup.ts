@@ -63,6 +63,23 @@ export function handoffResumeSkillPaths(root: string = INSTALL_ROOT, home: strin
   };
 }
 
+const SMCP_AGENT_SKILLS = ["smcp-doctor", "smcp-help", "smcp-status"] as const;
+
+function smcpAssetPaths(root: string = INSTALL_ROOT, home: string = homedir()) {
+  return [
+    ...SMCP_AGENT_SKILLS.map((name) => ({
+      label: `claude: ${name} skill`,
+      source: join(root, "skills", name),
+      target: join(home, ".claude", "skills", name),
+    })),
+    ...SMCP_AGENT_SKILLS.map((name) => ({
+      label: `claude: ${name} command`,
+      source: join(root, "commands", `${name}.toml`),
+      target: join(home, ".claude", "commands", `${name}.toml`),
+    })),
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Pure helpers exported for tests and setup wiring.
 // ---------------------------------------------------------------------------
@@ -76,6 +93,13 @@ export interface HandoffResumeSkillResult {
   source: string;
   target: string;
   detail: string;
+}
+
+export interface SmcpSkillsAndCommandsResult {
+  changed: boolean;
+  status: WireStatus | "missing-source";
+  detail: string;
+  missingSources: string[];
 }
 
 function statuslineCommand(shimPath: string, innerCommand: string = ""): string {
@@ -613,16 +637,65 @@ export function deployHandoffResumeSkill(
       detail: `source missing at ${source}; reinstall @heretyc/subagent-mcp, then run subagent-mcp setup`,
     };
   }
-  const desired = readFileSync(source, "utf8");
-  if (existsSync(target) && readFileSync(target, "utf8") === desired) {
+  const changed = copyPackagePath(source, target);
+  if (!changed) {
     return { changed: false, status: "ok", source, target, detail: "deployed" };
   }
   const status: WireStatus = existsSync(target) ? "repaired" : "added";
-  if (!DRY_RUN) {
+  if (!DRY_RUN) copyPackagePath(source, target, true);
+  return { changed: true, status, source, target, detail: status === "added" ? "deployed" : "restored" };
+}
+
+function copyPackagePath(source: string, target: string, write = false): boolean {
+  const sourceStat = statSync(source);
+  if (sourceStat.isDirectory()) {
+    let changed = !existsSync(target);
+    for (const name of readdirSync(source)) {
+      changed = copyPackagePath(join(source, name), join(target, name), write) || changed;
+    }
+    return changed;
+  }
+  const desired = readFileSync(source, "utf8");
+  const changed = !existsSync(target) || readFileSync(target, "utf8") !== desired;
+  if (changed && write && !DRY_RUN) {
     mkdirSync(dirname(target), { recursive: true });
+    if (existsSync(target)) backup(target);
     writeFileSync(target, desired);
   }
-  return { changed: true, status, source, target, detail: status === "added" ? "deployed" : "restored" };
+  return changed;
+}
+
+export function deploySmcpSkillsAndCommands(
+  root: string = INSTALL_ROOT,
+  home: string = homedir()
+): SmcpSkillsAndCommandsResult {
+  const missingSources = smcpAssetPaths(root, home)
+    .map((p) => p.source)
+    .filter((source) => !existsSync(source));
+  if (missingSources.length > 0) {
+    return {
+      changed: false,
+      status: "missing-source",
+      detail: `source missing at ${missingSources.join(", ")}; reinstall @heretyc/subagent-mcp, then run subagent-mcp setup`,
+      missingSources,
+    };
+  }
+
+  const paths = smcpAssetPaths(root, home);
+  const changedPaths = paths.filter((p) => copyPackagePath(p.source, p.target));
+  if (changedPaths.length === 0) {
+    return { changed: false, status: "ok", detail: "deployed", missingSources: [] };
+  }
+  const status: WireStatus = changedPaths.some((p) => existsSync(p.target)) ? "repaired" : "added";
+  if (!DRY_RUN) {
+    for (const p of changedPaths) copyPackagePath(p.source, p.target, true);
+  }
+  return {
+    changed: true,
+    status,
+    detail: status === "added" ? "deployed" : "restored",
+    missingSources: [],
+  };
 }
 
 export function verifyHandoffResumeSkill(
@@ -649,6 +722,35 @@ export function verifyHandoffResumeSkill(
     label: "claude: handoff-resume skill",
     ok,
     detail: ok ? "deployed" : "stale - run subagent-mcp setup",
+  };
+}
+
+export function verifySmcpSkillsAndCommands(
+  root: string = INSTALL_ROOT,
+  home: string = homedir()
+): CheckResult {
+  const paths = smcpAssetPaths(root, home);
+  const missingSources = paths.filter((p) => !existsSync(p.source)).map((p) => p.source);
+  if (missingSources.length > 0) {
+    return {
+      label: "claude: smcp skills and commands",
+      ok: false,
+      detail: "source missing from install - reinstall @heretyc/subagent-mcp",
+    };
+  }
+  const missing = paths.filter((p) => !existsSync(p.target)).map((p) => p.label);
+  if (missing.length > 0) {
+    return {
+      label: "claude: smcp skills and commands",
+      ok: false,
+      detail: `missing ${missing.join(", ")} - run subagent-mcp setup`,
+    };
+  }
+  const stale = paths.filter((p) => copyPackagePath(p.source, p.target));
+  return {
+    label: "claude: smcp skills and commands",
+    ok: stale.length === 0,
+    detail: stale.length === 0 ? "deployed" : `stale ${stale.map((p) => p.label).join(", ")} - run subagent-mcp setup`,
   };
 }
 
@@ -794,6 +896,21 @@ function wireClaude(): void {
   } catch (e) {
     fail("claude", `could not deploy the handoff-resume skill: ${(e as Error).message}`);
   }
+
+  // 4) Claude /smcp:* Agent Skills and slash-commands.
+  try {
+    const r = deploySmcpSkillsAndCommands(INSTALL_ROOT);
+    if (r.status === "missing-source") {
+      fail("claude", r.detail);
+    } else {
+      if (r.status === "ok") console.log("  smcp skills and commands: already correct.");
+      else if (r.status === "added") console.log("  smcp skills and commands: added.");
+      else console.log("  smcp skills and commands: restored from package copy.");
+      if (r.changed && DRY_RUN) console.log("    (dry-run: not written)");
+    }
+  } catch (e) {
+    fail("claude", `could not deploy smcp skills and commands: ${(e as Error).message}`);
+  }
 }
 
 function wireCodex(): void {
@@ -925,6 +1042,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
         : `${sl.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
     results.push(verifyHandoffResumeSkill(root, home));
+    results.push(verifySmcpSkillsAndCommands(root, home));
   } else if (hasClaudeConfig) {
     const cj = readJson(join(home, ".claude.json"), {});
     const sj = readJson(join(home, ".claude", "settings.json"), {});
@@ -951,6 +1069,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
         : `${sl.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
     results.push(verifyHandoffResumeSkill(root, home));
+    results.push(verifySmcpSkillsAndCommands(root, home));
   }
 
   const hasCodexCli = findOnPath("codex") !== null;

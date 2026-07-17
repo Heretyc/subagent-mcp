@@ -792,7 +792,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.0.1",
+    version: "3.0.2",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },

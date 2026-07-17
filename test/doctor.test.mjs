@@ -12,6 +12,7 @@ import {
   checkProviderConfig,
   checkReachability,
   checkRoutingCoverage,
+  checkSmcpSkillsAndCommands,
   checkSessionState,
   checkUpdate,
 } from "../dist/doctor.js";
@@ -113,6 +114,15 @@ function writeInstalledManifest(pkgRoot, hooks) {
   writeJson(join(pkgRoot, "hooks", "hooks.json"), { hooks });
 }
 
+function writeSmcpSources(pkgRoot) {
+  for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+    mkdirSync(join(pkgRoot, "skills", name), { recursive: true });
+    writeFileSync(join(pkgRoot, "skills", name, "SKILL.md"), `${name} skill\n`);
+    mkdirSync(join(pkgRoot, "commands"), { recursive: true });
+    writeFileSync(join(pkgRoot, "commands", `${name}.toml`), `${name} command\n`);
+  }
+}
+
 test("install-mode: npm-global mode reports dist path", () => withRoot(({ home, fakeBin, pkgRoot }) => {
   const r = checkInstallMode({ home, env: env(fakeBin) });
   assert.equal(r.status, "PASS");
@@ -193,6 +203,23 @@ test("session-state: null get_status session_start_time warns", async () => with
   });
   assert.equal(r.status, "WARN");
   assert.match(r.detail, /session_start_time would be null/);
+}));
+
+test("smcp-skills-commands: missing warns, present passes", () => withRoot(({ home, fakeBin, pkgRoot }) => {
+  writeSmcpSources(pkgRoot);
+  const missing = checkSmcpSkillsAndCommands({ home, env: env(fakeBin) });
+  assert.equal(missing.status, "WARN");
+  assert.match(missing.detail, /run subagent-mcp setup/);
+
+  for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+    mkdirSync(join(home, ".claude", "skills", name), { recursive: true });
+    writeFileSync(join(home, ".claude", "skills", name, "SKILL.md"), `${name} skill\n`);
+    mkdirSync(join(home, ".claude", "commands"), { recursive: true });
+    writeFileSync(join(home, ".claude", "commands", `${name}.toml`), `${name} command\n`);
+  }
+  const present = checkSmcpSkillsAndCommands({ home, env: env(fakeBin) });
+  assert.equal(present.status, "PASS");
+  assert.equal(present.detail, "deployed");
 }));
 
 test("mcp-registration: stale mcp.json warns without failing live registration", async () => withRoot(async ({ home, fakeBin }) => {

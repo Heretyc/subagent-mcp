@@ -26,7 +26,9 @@ import {
   claudeAddArgs,
   codexAddArgs,
   deployHandoffResumeSkill,
+  deploySmcpSkillsAndCommands,
   verifyHandoffResumeSkill,
+  verifySmcpSkillsAndCommands,
 } from "../dist/setup.js";
 
 let passed = 0;
@@ -67,6 +69,17 @@ function withSkillRoot(fn) {
     fn(root);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function writeSmcpAssets(root) {
+  for (const name of ["smcp-doctor", "smcp-help", "smcp-status"]) {
+    const skillDir = join(root, "skills", name);
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), `${name} skill\n`);
+    const commandDir = join(root, "commands");
+    mkdirSync(commandDir, { recursive: true });
+    writeFileSync(join(commandDir, `${name}.toml`), `${name} command\n`);
   }
 }
 
@@ -382,6 +395,26 @@ test("handoff-resume skill verify: missing before setup, PASS after deploy", () 
 
       deployHandoffResumeSkill(root, home);
       const pass = verifyHandoffResumeSkill(root, home);
+      assert.equal(pass.ok, true);
+      assert.equal(pass.detail, "deployed");
+    });
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("smcp skills and commands verify: missing before setup, PASS after deploy", () => {
+  const home = mkdtempSync(join(tmpdir(), "repair-home-"));
+  try {
+    withSkillRoot((root) => {
+      writeSmcpAssets(root);
+      const missing = verifySmcpSkillsAndCommands(root, home);
+      assert.equal(missing.label, "claude: smcp skills and commands");
+      assert.equal(missing.ok, false);
+      assert.match(missing.detail, /run subagent-mcp setup/);
+
+      deploySmcpSkillsAndCommands(root, home);
+      const pass = verifySmcpSkillsAndCommands(root, home);
       assert.equal(pass.ok, true);
       assert.equal(pass.detail, "deployed");
     });
