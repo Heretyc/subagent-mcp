@@ -41,7 +41,7 @@ and cost-figure methodology, are retained in the audit sibling's metadata.
 Each branch has the same category keys in the same order as the RAG spine
 (`assets/routing-table.json` machine mirror) : the **fixed 14-category spine** (directly benchmarked parents + 4 composite-inferred; immutable input;
 never derived here). The validator mirrors the spine key-for-key. Each category value is an array
-of pairing objects, ordered best→worst by the branch's power-law score.
+of pairing objects, ordered best->worst by phase-2 synthesis rank where cited/pinned, then by the branch's power-law score.
 
 ---
 
@@ -49,7 +49,7 @@ of pairing objects, ordered best→worst by the branch's power-law score.
 
 | Field | Type | Notes |
 |---|---|---|
-| `provider` | string | `"claude"` for `claude-*` model ids, `"codex"` for `gpt-*` |
+| `provider` | string | Provider slot: `claude` (Anthropic), `codex` (OpenAI), or `api` for advisory families until adapters/model IDs are wired |
 | `model` | string | Real model id (e.g. `claude-opus-4-8`, `gpt-5.5`) |
 | `effort` | string or null | Effort ladder tier (e.g. `"high"`, `"medium"`, `null`) |
 | `rank` | integer | Dense 1..N within the branch/category (1 = best) |
@@ -100,7 +100,10 @@ The standalone checker enforces all of the following; any failure exits non-zero
 4. **Dense ranks** : within each category array, ranks are 1, 2, ... N with no gaps, and
    `rank[i]` equals ordered array position `i`. (No score-monotonicity check : `score` is gone.)
 5. **Lean pairing keys** : every pairing has EXACTLY `{provider, model, effort, rank}`.
-6. **Valid provider** : `provider` ∈ `{claude, codex}` and consistent with the model family.
+6. **Valid provider** : `provider` is one of `claude` (Anthropic), `codex` (OpenAI), or `api`
+   (generic advisory adapter slot), and is consistent with the model family. Launchable lean
+   routing rows are currently `{claude,codex}`; non-wired advisory families remain audit-only as
+   `api` until adapters/model IDs are wired.
 7. **Closed model/effort enums** : every `model` is a known real model id; every `effort` is a
    known ladder tier. Unknown values are flagged, never silently skipped. A no-effort sentinel on a
    model with selectable effort settings is invalid and fails validation.

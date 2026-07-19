@@ -64,18 +64,30 @@ function normalizeUrl(raw) {
     if (TRACKING.has(k.toLowerCase())) u.searchParams.delete(k);
   }
   let s = u.toString();
+  if (s.endsWith("/") && u.pathname !== "/") s = s.slice(0, -1);
   if (s.endsWith("/") && u.pathname === "/") s = s.slice(0, -1); // strip bare trailing slash
   return s;
 }
 function hostOf(normUrl) {
   try { return new URL(normUrl).host.replace(/^www\./, ""); } catch { return ""; }
 }
+const VALID_SITE_LABELS = new Set(["[SEED]", "[INFERRED]", "[ASSUMPTION]", "[UNVERIFIED]"]);
+function normalizeLabel(raw) {
+  const label = String(raw || "").trim();
+  if (!label) return "";
+  if (VALID_SITE_LABELS.has(label)) return label;
+  const lower = label.toLowerCase();
+  if (lower.includes("data_missing")) return "[ASSUMPTION]";
+  if (lower.includes("conflict") || lower.includes("unverified")) return "[UNVERIFIED]";
+  if (lower.includes("corroborated") || lower.includes("verified") || lower === "primary-confirmed") return "[INFERRED]";
+  return "[UNVERIFIED]";
+}
 function tierFromLabel(label) {
   const m = /^\[T(\d)\]$/.exec(label || "");
   return m ? Number(m[1]) : 0;
 }
 const sortUniq = (a) => [...new Set(a)].sort();
-// #17: attempt_ledger is append-only; runs ring capped to last N; accumulated counters never shrink.
+// #17: attempt_ledger keeps a run_id-deduped bounded ring; accumulated is recomputed from it.
 const LEDGER_RING_CAP = 10;
 
 // ---- harvest from audit (authoritative) -------------------------------------------
@@ -115,7 +127,8 @@ function addCite(url, label, category, tier, providerFamily, retrievedAt) {
   // not by regex on the provenance label — a [SEED]/[INFERRED]/[ASSUMPTION] label previously
   // masked the [Tn] tier and forced every site to tier 0.
   e.tier = mergeTier(e.tier, Number(tier));
-  if (label && !e.label) e.label = label;
+  const normalizedLabel = normalizeLabel(label);
+  if (normalizedLabel && !e.label) e.label = normalizedLabel;
   if (category) e.categories.add(category);
   e.sourceClasses.add("pairing_citation");
   // refinement #12: ledger inputs harvested from the SAME authoritative citation —
@@ -199,7 +212,8 @@ if (process.env.SEED_SOURCES_PATH && existsSync(process.env.SEED_SOURCES_PATH)) 
     // `s.tier`, if present, takes precedence over the label.
     const t = Number.isInteger(s.tier) ? s.tier : tierFromLabel(s.label);
     e.tier = mergeTier(e.tier, Number(t));
-    if (s.label && !e.label) e.label = s.label;
+    const normalizedLabel = normalizeLabel(s.label);
+    if (normalizedLabel && !e.label) e.label = normalizedLabel;
     for (const cat of s.categories || []) e.categories.add(cat);
     for (const bm of s.benchmarks || []) e.benchmarks.add(bm); // benchmarks ONLY from a real structured field
   }
@@ -208,13 +222,29 @@ if (process.env.SEED_SOURCES_PATH && existsSync(process.env.SEED_SOURCES_PATH)) 
 // ---- merge into existing seed file (accumulate) -----------------------------------
 let existing = { metadata: {}, sites: [] };
 if (existsSync(SEED_PATH)) existing = JSON.parse(readFileSync(SEED_PATH, "utf8"));
-const byUrl = new Map((existing.sites || []).map((s) => [s.url, s]));
+const byUrl = new Map();
+for (const site of existing.sites || []) {
+  const url = normalizeUrl(site.url);
+  if (!url) continue;
+  const normalized = { ...site, url, domain: hostOf(url), ...(site.label ? { label: normalizeLabel(site.label) } : {}) };
+  const prev = byUrl.get(url);
+  if (!prev) {
+    byUrl.set(url, normalized);
+  } else {
+    prev.tier = mergeTier(prev.tier || 0, Number(normalized.tier || 0));
+    prev.categories = sortUniq([...(prev.categories || []), ...(normalized.categories || [])]);
+    prev.benchmarks = sortUniq([...(prev.benchmarks || []), ...(normalized.benchmarks || [])]);
+    prev.source_classes = sortUniq([...(prev.source_classes || []), ...(normalized.source_classes || [])]);
+    prev.times_seen = Math.max(prev.times_seen || 1, normalized.times_seen || 1);
+    prev.first_seen = [prev.first_seen, normalized.first_seen].filter(Boolean).sort()[0] || prev.first_seen;
+    prev.last_seen = [prev.last_seen, normalized.last_seen].filter(Boolean).sort().at(-1) || prev.last_seen;
+    if (!prev.label && normalized.label) prev.label = normalized.label;
+  }
+}
 
-// #17: attempt_ledger is append-only: a bounded runs ring + accumulated-forever counters.
-// buildRunRecord builds the per-run snapshot for THIS run. buildAccumulated initialises
-// counters from a set of run records (used only for migration from old flat format).
-// appendToLedger migrates old flat format, appends the new record, caps the ring, and
-// increments accumulated counters — counters never shrink even as old runs roll off the ring.
+// #17: attempt_ledger is a bounded, run_id-deduped runs ring.
+// buildRunRecord builds the per-run snapshot for THIS run. appendToLedger migrates old flat
+// format, appends/dedupes the new record, caps the ring, then recomputes accumulated counters.
 function buildRunRecord(url, h) {
   const provFams = sortUniq([...h.providerFamilies]);
   const srcClasses = sortUniq([...h.sourceClasses]);
@@ -263,17 +293,17 @@ function appendToLedger(existing, newRecord) {
     runs = [];
     accumulated = { provider_family_counts: {}, category_counts: {}, total_runs: 0 };
   }
-  if (!newRecord) return { runs, accumulated }; // migration-only: shape fix, no new run
+  const dedupeRuns = (records) => {
+    const byRun = new Map();
+    for (const record of records) byRun.set(record.run_id, record);
+    return [...byRun.values()];
+  };
+  runs = dedupeRuns(runs);
+  if (!newRecord) return { runs, accumulated: buildAccumulated(runs) }; // migration-only: shape fix, no new run
+  runs = runs.filter((record) => record.run_id !== newRecord.run_id);
   runs.push(newRecord);
   if (runs.length > LEDGER_RING_CAP) runs = runs.slice(runs.length - LEDGER_RING_CAP);
-  for (const pf of newRecord.provider_family || []) {
-    accumulated.provider_family_counts[pf] = (accumulated.provider_family_counts[pf] || 0) + 1;
-  }
-  for (const cat of newRecord.categories || []) {
-    accumulated.category_counts[cat] = (accumulated.category_counts[cat] || 0) + 1;
-  }
-  accumulated.total_runs = (accumulated.total_runs || 0) + 1;
-  return { runs, accumulated };
+  return { runs, accumulated: buildAccumulated(runs) };
 }
 
 for (const [url, h] of harvested) {
@@ -314,21 +344,7 @@ for (const [url, h] of harvested) {
 // Happens to sites not cited in THIS run's audit (harvest loop never touched them).
 for (const s of byUrl.values()) {
   if (!s.attempt_ledger) continue;
-  if (!Array.isArray(s.attempt_ledger.runs)) {
-    // old flat format: full migration via appendToLedger (migration-only: newRecord=null)
-    s.attempt_ledger = appendToLedger(s.attempt_ledger, null);
-  } else {
-    // partial ring: inject run_id sentinel into any legacy run records that lack it
-    const needsInjection = s.attempt_ledger.runs.some((r) => !("run_id" in r));
-    if (needsInjection) {
-      s.attempt_ledger = {
-        ...s.attempt_ledger,
-        runs: s.attempt_ledger.runs.map((r) =>
-          ("run_id" in r) ? r : { run_id: "pre-#17-legacy", ...r }
-        ),
-      };
-    }
-  }
+  s.attempt_ledger = appendToLedger(s.attempt_ledger, null);
 }
 
 // ---- refinement #12: SELECTION policy — SEPARATE from storage, demote-without-delete ----------

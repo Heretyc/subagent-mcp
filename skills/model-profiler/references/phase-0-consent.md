@@ -43,7 +43,7 @@ When matched, use these Phase 0 answers:
 
 | # | Standing answer |
 |---|-----------------|
-| 1 | **Profiling scope:** current-generation fleet for every repository-supported provider family reachable through Subagent-MCP; recency window is public releases since the prior `research-seed-sites.json` `metadata.last_run_at`, plus current-generation models already retained in `src/routing-table.json`. Phase 1 discovers concrete model ids and effort ladders. |
+| 1 | **Profiling scope:** current-generation fleet for Anthropic, OpenAI, moonshotai, xAI, zai-org, Qwen, and deepseek-ai; recency window is public releases since the prior `research-seed-sites.json` `metadata.last_run_at`, plus current-generation models already retained in `src/routing-table.json`. Phase 1 discovers concrete model ids and effort ladders. Dispatch reachability is advisory-only for moonshotai/xAI/zai-org/Qwen/deepseek-ai until adapters/model IDs are wired; launchable routing remains on the wired Subagent-MCP provider slots. |
 | 2 | **Mode:** Fast. |
 | 3 | **Runtime / budget:** Fast-mode run capped at 90 wall-clock minutes and the current session's configured provider budget; stop as `blocked` on quota or timeout rather than guessing or retrying indefinitely. A reachable-but-single provider family is NOT a `blocked` condition : single-family is a fully-supported path (invariant #5). |
 | 4 | **Provider mix (optional):** use whichever Subagent-MCP provider families and effort tiers are reachable. Single-family and multi-family are both fully-supported, first-class paths; provider mix is never required. When only one family is reachable (e.g. Claude-only), dispatch single-family : not a degrade, not a halt. |

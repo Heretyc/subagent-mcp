@@ -76,6 +76,14 @@ fallback use in Gemini CLI, Cursor, Windsurf, Kiro, Copilot, and similar agents.
 - Config commands: `subagent-mcp config init`, `subagent-mcp config validate`,
   `subagent-mcp doctor`, `subagent-mcp upgrade`, `subagent-mcp rollback`.
 
+## Model Profiler
+
+- Skill: `skills/model-profiler/SKILL.md`.
+- Purpose: impartial cross-provider fleet profiler that refreshes
+  `src/routing-table.json` over the fixed 14-category taxonomy.
+- Run when a new model ships, routing needs rebalancing, or a fresh
+  "which model for X now?" answer is needed.
+
 ## Deeper Docs
 
 - Start with `retrieval-map.md` (repo root) to choose the smallest relevant doc.
