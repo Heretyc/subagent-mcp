@@ -1,6 +1,6 @@
 {
   "name": "subagent-mcp",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "Local MCP server for Claude Code and Codex sub-agent orchestration.",
   "hooks": "./codex/hooks.json"
 }
