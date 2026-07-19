@@ -14,7 +14,7 @@ const requiredMetadata = ["version", "schema_version", "generated", "author", "a
 // confidence are retained only in routing-table-audit.json).
 const requiredPairing = ["provider", "model", "effort", "rank"];
 
-const VALID_PROVIDERS = new Set(["claude", "codex"]);
+const VALID_PROVIDERS = new Set(["claude", "codex", "api"]);
 
 // Full effort ladder, weakest -> strongest. `null` is the fixed-low/unconfigured tier
 // (e.g. Haiku, gpt-5.5-pro). Any effort outside this ladder is flagged, never silently skipped.
@@ -147,14 +147,18 @@ function arraysEqual(left, right) {
 }
 
 // Provider implied by a model id's family — used to assert the explicit `provider` field is
-// consistent with the model. Explicit prefix -> family map (claude-* -> claude;
-// gpt-*/codex-* -> codex). The universe is capped at two families (Anthropic + OpenAI);
-// an unrecognized prefix is a scope error, so we THROW rather than silently skip the
-// consistency check and let a mislabeled provider through.
+// consistent with the model. Launchable routing providers are {claude, codex, api}; non-wired
+// advisory families use the generic "api" adapter slot until adapters/model ids are wired.
 const PROVIDER_FAMILY_PREFIXES = [
   ["claude-", "claude"],
   ["gpt-", "codex"],
   ["codex-", "codex"],
+  ["moonshotai/", "api"],
+  ["zai-org/", "api"],
+  ["deepseek-ai/", "api"],
+  ["qwen/", "api"],
+  ["xai/", "api"],
+  ["openai-direct/", "api"],
 ];
 function impliedProvider(model) {
   for (const [prefix, family] of PROVIDER_FAMILY_PREFIXES) {
@@ -255,9 +259,13 @@ function deriveUniverse(provider, spine) {
 // exclusion there); cost_efficiency omits no-effort pairings in the excluded
 // categories only.
 function expectedUniverseForCategory(provider, branch, category, universeSet) {
+  const audit = readJson(auditPath, "src/routing-table-audit.json", []);
+  const exclusions = audit?.metadata?.composite_inference?.category_pairing_exclusions?.[category];
+  const excluded = new Set(Array.isArray(exclusions) ? exclusions : []);
+  const filteredUniverse = new Set([...universeSet].filter((key) => !excluded.has(key)));
   if (branch === "performance") {
     const floorUniverse = new Set(
-      [...universeSet].filter((key) =>
+      [...filteredUniverse].filter((key) =>
         meetsPerformanceEffortFloor(key.slice(key.lastIndexOf("@") + 1))
       )
     );
@@ -274,11 +282,11 @@ function expectedUniverseForCategory(provider, branch, category, universeSet) {
         }
       }
     }
-    return keys;
+    return new Set([...keys].filter((key) => !excluded.has(key)));
   }
-  if (!NO_EFFORT_EXCLUDED_CATEGORIES.has(category)) return universeSet;
+  if (!NO_EFFORT_EXCLUDED_CATEGORIES.has(category)) return filteredUniverse;
   return new Set(
-    [...universeSet].filter((key) => {
+    [...filteredUniverse].filter((key) => {
       const effort = key.slice(key.lastIndexOf("@") + 1);
       return !NO_EFFORT_SENTINELS.has(effort);
     })
@@ -446,6 +454,9 @@ function validateCompositeRankings(provider, spine, issues) {
     for (const [category, parents] of Object.entries(COMPOSITE_PARENT_CATEGORIES)) {
       const entries = provider[branch][category];
       if (!Array.isArray(entries)) continue;
+      const audit = readJson(auditPath, "src/routing-table-audit.json", []);
+      const override = audit?.metadata?.composite_inference?.order_overrides?.[branch]?.[category];
+      if (Array.isArray(override)) continue;
       const parentRanks = parents.map((parent) => {
         const map = new Map();
         const parentEntries = provider[branch][parent];
@@ -499,7 +510,7 @@ function validatePairingArray(label, entries, universeSet, issues) {
         `${label}[${index}] keys must be exactly {${requiredPairing.join(", ")}}; got {${Object.keys(entry).join(", ")}}`
       );
     }
-    // provider in {claude, codex} and consistent with the model family.
+    // provider in {claude, codex, api} and consistent with the model family.
     // #22: catch impliedProvider throw (unknown prefix) and record as an issue rather than crash.
     if (typeof entry.provider !== "string" || !VALID_PROVIDERS.has(entry.provider)) {
       issues.push(`${label}[${index}].provider must be one of ${[...VALID_PROVIDERS].join("|")}`);

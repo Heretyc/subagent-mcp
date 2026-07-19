@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.2
+
+### Changed
+
+- Refreshed routing-table data from profiler run `20260717-full-01`, including
+  new provider families, open-weight provenance handling, pin-aware rank sort,
+  and provider enum unification.
+
 ## 3.1.1
 
 ### Changed

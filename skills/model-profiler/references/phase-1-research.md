@@ -44,6 +44,10 @@ category, record it as out-of-spine context and flag it; the spine does not chan
 composite-inferred tiles (11:14) carry no benchmark : never map a raw score onto them; their
 competency is composed from parent scores in Phase 2.
 
+**Open-weight rule:** open-weight models are profiled ONLY on quantizations/checkpoints with
+published benchmark provenance. Do not infer quality from unknown quants. Name models by canonical
+HuggingFace `org/model` id.
+
 > **No-effort exclusion (SKILL.md invariant #14):** models whose ONLY effort is a no-effort sentinel
 > (`null`/`none`/`n/a`) are NOT ranked in `agentic_execution`, `architecture`, `security_review`,
 > `debugging`, `quality_review`, `knowledge_synthesis`. They REMAIN ranked in `math_proof`,
@@ -110,6 +114,8 @@ CONTEXT: profiling scope = <in-scope provider families + recency window> (see co
   research-seed-sites.json to DIFF, not inherit.
 TASK: discover/measure your domain on the web. Map every score onto the directly benchmarked parent categories via the
   family map (composite tiles 11:14 carry no benchmark : never score them directly). APA-cite ORIGINAL sources only. Label [SEED]/[INFERRED]/[ASSUMPTION]/[UNVERIFIED].
+  Open-weight models: profile only quantizations/checkpoints with published benchmark provenance;
+  do not infer quality from unknown quants; name by canonical HuggingFace org/model id.
   For a brand-new model with sparse corroboration, use task-split framing and mark assumptions.
   If a model has selectable effort tiers, do not emit `none` as one of its model+effort pairings
   (this is an owner directive enforced independent of vendor documentation:exclude such pairings).

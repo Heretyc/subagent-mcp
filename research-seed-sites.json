@@ -3,29 +3,35 @@
     "author": "Lexi Blackburn",
     "author_url": "https://github.com/Heretyc/",
     "schema_version": "1",
-    "generated": "2026-06",
-    "last_run_at": "2026-06-09T00:00:00Z",
-    "run_id": "run-2026-06-09",
-    "site_count": 39,
+    "generated": "2026-07",
+    "last_run_at": "2026-07-18T00:00:00Z",
+    "run_id": "20260717-full-01",
+    "site_count": 49,
     "corpus_skew": {
       "by_tier": {
-        "0": 11,
-        "2": 13,
-        "3": 9,
+        "0": 6,
+        "1": 1,
+        "2": 17,
+        "3": 19,
         "5": 6
       },
       "by_domain": {
         "artificialanalysis.ai": 4,
-        "benchlm.ai": 7,
+        "benchlm.ai": 8,
         "bird-bench.github.io": 1,
         "buildfast.io": 1,
         "dev.to": 1,
         "gorilla.cs.berkeley.edu": 1,
+        "huggingface.co": 4,
         "interestingengineering.com": 1,
-        "kingy.ai": 1,
+        "interfaze.ai": 1,
+        "kilo.ai": 1,
+        "kingy.ai": 2,
         "labs.scale.com": 1,
         "llm-stats.com": 2,
+        "metr.org": 1,
         "morphllm.com": 1,
+        "semgrep.dev": 1,
         "spider2-sql.github.io": 1,
         "thezvi.wordpress.com": 1,
         "venturebeat.com": 1,
@@ -42,33 +48,40 @@
         "vellum.ai": 1
       },
       "by_provider_family": {
-        "claude": 21,
-        "codex": 16
+        "claude": 29,
+        "codex": 28,
+        "api": 10
       },
-      "demoted_count": 25
+      "demoted_count": 45
     }
   },
   "sites": [
     {
       "url": "https://artificialanalysis.ai",
       "domain": "artificialanalysis.ai",
-      "tier": 2,
+      "tier": 3,
       "categories": [
-        "knowledge_synthesis"
+        "data_analysis",
+        "knowledge_synthesis",
+        "mechanical",
+        "molecular_biology",
+        "prompt_engineering",
+        "quality_review"
       ],
       "benchmarks": [
         "AA-Omniscience accuracy",
         "AA-Omniscience hallucination",
         "GPQA Diamond",
-        "HLE"
+        "HLE",
+        "phase2_rank_quality_review"
       ],
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
       ],
       "first_seen": "2026-06-09",
-      "last_seen": "2026-06-09",
-      "times_seen": 4,
+      "last_seen": "2026-07-18",
+      "times_seen": 14,
       "attempt_ledger": {
         "runs": [
           {
@@ -97,75 +110,27 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
               "claude",
               "codex"
             ],
             "categories": [
-              "knowledge_synthesis"
+              "data_analysis",
+              "knowledge_synthesis",
+              "mechanical",
+              "molecular_biology",
+              "prompt_engineering",
+              "quality_review"
             ],
             "source_class": [
               "pairing_citation",
               "scale_anchor"
             ],
             "benchmark_names": [
-              "AA-Omniscience accuracy",
-              "AA-Omniscience hallucination",
-              "GPQA Diamond",
-              "HLE"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "knowledge_synthesis"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AA-Omniscience accuracy",
-              "AA-Omniscience hallucination",
-              "GPQA Diamond",
-              "HLE"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "knowledge_synthesis"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AA-Omniscience accuracy",
-              "AA-Omniscience hallucination",
-              "GPQA Diamond",
-              "HLE"
+              "phase2_rank_quality_review"
             ],
             "rejection_reason": null,
             "http_status": null,
@@ -174,13 +139,18 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 4,
-            "codex": 4
+            "claude": 2,
+            "codex": 2
           },
           "category_counts": {
-            "knowledge_synthesis": 4
+            "knowledge_synthesis": 2,
+            "data_analysis": 1,
+            "mechanical": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "quality_review": 1
           },
-          "total_runs": 4
+          "total_runs": 2
         }
       },
       "label": "[UNVERIFIED]",
@@ -215,22 +185,79 @@
     {
       "url": "https://artificialanalysis.ai/evaluations/artificial-analysis-intelligence-index",
       "domain": "artificialanalysis.ai",
-      "tier": 0,
+      "tier": 3,
       "categories": [
         "knowledge_synthesis",
-        "mechanical"
+        "math_proof",
+        "mechanical",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "prompt_engineering",
+        "quality_review"
       ],
-      "benchmarks": [],
+      "benchmarks": [
+        "phase2_rank_knowledge_synthesis"
+      ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 3,
+      "last_seen": "2026-07-18",
+      "times_seen": 13,
       "label": "[INFERRED]",
       "selection": {
         "demoted": true,
         "health": "demoted",
         "demote_reasons": [
-          "low_health_tier0"
+          "over_source_class_cap"
         ]
+      },
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "knowledge_synthesis",
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "prompt_engineering",
+              "quality_review"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_knowledge_synthesis"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "knowledge_synthesis": 1,
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "quality_review": 1
+          },
+          "total_runs": 1
+        }
       }
     },
     {
@@ -259,18 +286,29 @@
       "domain": "benchlm.ai",
       "tier": 5,
       "categories": [
-        "mechanical"
+        "math_proof",
+        "mechanical",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "prompt_engineering",
+        "quality_review",
+        "security_review",
+        "vulnerability_research"
       ],
       "benchmarks": [
-        "IFEval"
+        "IFEval",
+        "phase2_rank_math_proof",
+        "phase2_rank_mechanical",
+        "phase2_rank_quality_review",
+        "phase2_rank_security_review"
       ],
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
       ],
       "first_seen": "2026-06-09",
-      "last_seen": "2026-06-09",
-      "times_seen": 1,
+      "last_seen": "2026-07-18",
+      "times_seen": 11,
       "attempt_ledger": {
         "runs": [
           {
@@ -298,43 +336,127 @@
             ],
             "http_status": null,
             "last_checked": null
+          },
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "api",
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "mechanical",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "prompt_engineering",
+              "quality_review",
+              "security_review",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_math_proof",
+              "phase2_rank_mechanical",
+              "phase2_rank_quality_review",
+              "phase2_rank_security_review"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 1
+            "claude": 2,
+            "api": 1,
+            "codex": 1
           },
           "category_counts": {
-            "mechanical": 1
+            "mechanical": 2,
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "quality_review": 1,
+            "security_review": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 1
+          "total_runs": 2
         }
       },
       "label": "[UNVERIFIED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
       "url": "https://benchlm.ai/benchmarks/frontierMath",
       "domain": "benchlm.ai",
-      "tier": 0,
+      "tier": 2,
       "categories": [
-        "math_proof"
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
       ],
       "benchmarks": [],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 3,
+      "last_seen": "2026-07-18",
+      "times_seen": 13,
       "label": "[INFERRED]",
       "selection": {
         "demoted": true,
         "health": "demoted",
         "demote_reasons": [
-          "low_health_tier0"
+          "over_source_class_cap"
         ]
+      },
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 1
+          },
+          "category_counts": {
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1
+          },
+          "total_runs": 1
+        }
       }
     },
     {
@@ -343,14 +465,18 @@
       "tier": 3,
       "categories": [
         "coding",
-        "debugging"
+        "debugging",
+        "ml_accelerator_design",
+        "prompt_engineering",
+        "vulnerability_research"
       ],
       "benchmarks": [
-        "SWE-bench Verified"
+        "SWE-bench Verified",
+        "phase2_rank_debugging"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 9,
+      "last_seen": "2026-07-18",
+      "times_seen": 19,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -379,17 +505,49 @@
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
+          },
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "api",
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "coding",
+              "debugging",
+              "ml_accelerator_design",
+              "prompt_engineering",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_debugging"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 1
+            "claude": 2,
+            "api": 1,
+            "codex": 1
           },
           "category_counts": {
-            "coding": 1,
-            "debugging": 1
+            "coding": 2,
+            "debugging": 2,
+            "ml_accelerator_design": 1,
+            "prompt_engineering": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 1
+          "total_runs": 2
         }
       },
       "selection": {
@@ -405,18 +563,25 @@
       "domain": "benchlm.ai",
       "tier": 5,
       "categories": [
-        "coding"
+        "architecture",
+        "coding",
+        "debugging",
+        "ml_accelerator_design",
+        "prompt_engineering",
+        "vulnerability_research"
       ],
       "benchmarks": [
-        "SWE-bench Verified"
+        "SWE-bench Verified",
+        "phase2_rank_architecture",
+        "phase2_rank_coding"
       ],
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
       ],
       "first_seen": "2026-06-09",
-      "last_seen": "2026-06-09",
-      "times_seen": 4,
+      "last_seen": "2026-07-18",
+      "times_seen": 14,
       "attempt_ledger": {
         "runs": [
           {
@@ -441,63 +606,29 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "claude"
+              "api",
+              "claude",
+              "codex"
             ],
             "categories": [
-              "coding"
+              "architecture",
+              "coding",
+              "debugging",
+              "ml_accelerator_design",
+              "prompt_engineering",
+              "vulnerability_research"
             ],
             "source_class": [
               "pairing_citation",
               "scale_anchor"
             ],
             "benchmark_names": [
-              "SWE-bench Verified"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified"
+              "phase2_rank_architecture",
+              "phase2_rank_coding"
             ],
             "rejection_reason": null,
             "http_status": null,
@@ -506,12 +637,19 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 4
+            "claude": 2,
+            "api": 1,
+            "codex": 1
           },
           "category_counts": {
-            "coding": 4
+            "coding": 2,
+            "architecture": 1,
+            "debugging": 1,
+            "ml_accelerator_design": 1,
+            "prompt_engineering": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 4
+          "total_runs": 2
         }
       },
       "label": "[UNVERIFIED]",
@@ -526,7 +664,10 @@
       "domain": "benchlm.ai",
       "tier": 2,
       "categories": [
-        "mechanical"
+        "knowledge_synthesis",
+        "mechanical",
+        "molecular_biology",
+        "prompt_engineering"
       ],
       "benchmarks": [
         "OfficeQA Pro"
@@ -536,33 +677,11 @@
         "scale_anchor"
       ],
       "first_seen": "2026-06-06",
-      "last_seen": "2026-06-06",
-      "times_seen": 11,
+      "last_seen": "2026-07-18",
+      "times_seen": 21,
       "attempt_ledger": {
         "runs": [
           {
-            "run_id": "pre-#17-legacy",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "mechanical"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "OfficeQA Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
             "run_id": "run-2026-06-06",
             "attempted_at": "2026-06-06T00:00:00Z",
             "outcome": "harvested",
@@ -585,133 +704,21 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "claude",
               "codex"
             ],
             "categories": [
-              "mechanical"
+              "knowledge_synthesis",
+              "molecular_biology",
+              "prompt_engineering"
             ],
             "source_class": [
-              "pairing_citation",
-              "scale_anchor"
+              "pairing_citation"
             ],
-            "benchmark_names": [
-              "OfficeQA Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "mechanical"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "OfficeQA Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "mechanical"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "OfficeQA Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "mechanical"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "OfficeQA Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "mechanical"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "OfficeQA Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "mechanical"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "OfficeQA Pro"
-            ],
+            "benchmark_names": [],
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
@@ -719,20 +726,25 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8,
-            "codex": 8
+            "claude": 1,
+            "codex": 2
           },
           "category_counts": {
-            "mechanical": 8
+            "mechanical": 1,
+            "knowledge_synthesis": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1
           },
-          "total_runs": 8
+          "total_runs": 2
         }
       },
       "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
@@ -743,44 +755,19 @@
         "agentic_execution"
       ],
       "benchmarks": [
-        "BenchLM Agentic composite"
+        "BenchLM Agentic composite",
+        "phase2_rank_agentic_execution"
       ],
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
       ],
       "first_seen": "2026-06-06",
-      "last_seen": "2026-06-06",
-      "times_seen": 11,
+      "last_seen": "2026-07-18",
+      "times_seen": 21,
       "attempt_ledger": {
         "runs": [
           {
-            "run_id": "pre-#17-legacy",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "agentic_execution"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BenchLM Agentic composite"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BenchLM Agentic composite",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
             "run_id": "run-2026-06-06",
             "attempted_at": "2026-06-06T00:00:00Z",
             "outcome": "harvested",
@@ -807,11 +794,12 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "claude"
+              "claude",
+              "codex"
             ],
             "categories": [
               "agentic_execution"
@@ -821,156 +809,22 @@
               "scale_anchor"
             ],
             "benchmark_names": [
-              "BenchLM Agentic composite"
+              "phase2_rank_agentic_execution"
             ],
-            "rejection_reason": [
-              {
-                "benchmark": "BenchLM Agentic composite",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "agentic_execution"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BenchLM Agentic composite"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BenchLM Agentic composite",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "agentic_execution"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BenchLM Agentic composite"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BenchLM Agentic composite",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "agentic_execution"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BenchLM Agentic composite"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BenchLM Agentic composite",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "agentic_execution"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BenchLM Agentic composite"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BenchLM Agentic composite",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "agentic_execution"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BenchLM Agentic composite"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BenchLM Agentic composite",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
+            "rejection_reason": null,
             "http_status": null,
             "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8
+            "claude": 2,
+            "codex": 1
           },
           "category_counts": {
-            "agentic_execution": 8
+            "agentic_execution": 2
           },
-          "total_runs": 8
+          "total_runs": 2
         }
       },
       "label": "[INFERRED]",
@@ -985,16 +839,19 @@
     {
       "url": "https://benchlm.ai/math",
       "domain": "benchlm.ai",
-      "tier": 2,
+      "tier": 3,
       "categories": [
-        "math_proof"
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
       ],
       "benchmarks": [
-        "HMMT Feb 2026"
+        "HMMT Feb 2026",
+        "phase2_rank_math_proof"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 9,
+      "last_seen": "2026-07-18",
+      "times_seen": 19,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -1027,6 +884,95 @@
             ],
             "http_status": null,
             "last_checked": null
+          },
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_math_proof"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1,
+            "codex": 1
+          },
+          "category_counts": {
+            "math_proof": 2,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1
+          },
+          "total_runs": 2
+        }
+      },
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://benchlm.ai/models/claude-fable-5",
+      "domain": "benchlm.ai",
+      "tier": 1,
+      "categories": [
+        "math_proof",
+        "mechanical",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "security_review",
+        "vulnerability_research"
+      ],
+      "benchmarks": [],
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "mechanical",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "security_review",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
           }
         ],
         "accumulated": {
@@ -1034,11 +980,17 @@
             "claude": 1
           },
           "category_counts": {
-            "math_proof": 1
+            "math_proof": 1,
+            "mechanical": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "security_review": 1,
+            "vulnerability_research": 1
           },
           "total_runs": 1
         }
       },
+      "label": "[ASSUMPTION]",
       "selection": {
         "demoted": true,
         "health": "demoted",
@@ -1052,7 +1004,8 @@
       "domain": "bird-bench.github.io",
       "tier": 3,
       "categories": [
-        "data_analysis"
+        "data_analysis",
+        "molecular_biology"
       ],
       "benchmarks": [
         "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
@@ -1062,8 +1015,8 @@
         "scale_anchor"
       ],
       "first_seen": "2026-06-09",
-      "last_seen": "2026-06-09",
-      "times_seen": 4,
+      "last_seen": "2026-07-18",
+      "times_seen": 14,
       "attempt_ledger": {
         "runs": [
           {
@@ -1093,99 +1046,44 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "codex"
+              "claude"
             ],
             "categories": [
-              "data_analysis"
+              "data_analysis",
+              "molecular_biology"
             ],
             "source_class": [
-              "pairing_citation",
-              "scale_anchor"
+              "pairing_citation"
             ],
-            "benchmark_names": [
-              "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "data_analysis"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "data_analysis"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BIRD-SQL (test set; Execution Accuracy EX %; oracle knowledge)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
             "http_status": null,
             "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "codex": 4
+            "codex": 1,
+            "claude": 1
           },
           "category_counts": {
-            "data_analysis": 4
+            "data_analysis": 2,
+            "molecular_biology": 1
           },
-          "total_runs": 4
+          "total_runs": 2
         }
       },
-      "label": "[VERIFIED-DOM]",
+      "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
@@ -1245,22 +1143,60 @@
     {
       "url": "https://dev.to/blamsa0mine/swe-bench-agentic-coding-and-what-actually-changed-from-claude-sonnet-45-to-46-1gig",
       "domain": "dev.to",
-      "tier": 0,
+      "tier": 2,
       "categories": [
         "agentic_execution",
-        "coding"
+        "coding",
+        "debugging",
+        "vulnerability_research"
       ],
       "benchmarks": [],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 3,
+      "last_seen": "2026-07-18",
+      "times_seen": 13,
       "label": "[UNVERIFIED]",
       "selection": {
         "demoted": true,
         "health": "demoted",
         "demote_reasons": [
-          "low_health_tier0"
+          "over_source_class_cap"
         ]
+      },
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "debugging",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 1
+          },
+          "category_counts": {
+            "debugging": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
+        }
       }
     },
     {
@@ -1271,15 +1207,16 @@
         "mechanical"
       ],
       "benchmarks": [
-        "BFCL V4"
+        "BFCL V4",
+        "phase2_rank_mechanical"
       ],
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
       ],
       "first_seen": "2026-06-09",
-      "last_seen": "2026-06-09",
-      "times_seen": 4,
+      "last_seen": "2026-07-18",
+      "times_seen": 14,
       "attempt_ledger": {
         "runs": [
           {
@@ -1309,11 +1246,11 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-18T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "claude"
+              "codex"
             ],
             "categories": [
               "mechanical"
@@ -1323,78 +1260,319 @@
               "scale_anchor"
             ],
             "benchmark_names": [
-              "BFCL V4"
+              "phase2_rank_mechanical"
             ],
-            "rejection_reason": [
-              {
-                "benchmark": "BFCL V4",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "mechanical"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BFCL V4"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BFCL V4",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "mechanical"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "BFCL V4"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "BFCL V4",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
+            "rejection_reason": null,
             "http_status": null,
             "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 4
+            "claude": 1,
+            "codex": 1
           },
           "category_counts": {
-            "mechanical": 4
+            "mechanical": 2
           },
-          "total_runs": 4
+          "total_runs": 2
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro",
+      "domain": "huggingface.co",
+      "tier": 2,
+      "categories": [
+        "knowledge_synthesis",
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "prompt_engineering"
+      ],
+      "benchmarks": [],
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "api"
+            ],
+            "categories": [
+              "knowledge_synthesis",
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "prompt_engineering"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "api": 1
+          },
+          "category_counts": {
+            "knowledge_synthesis": 1,
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://huggingface.co/moonshotai/Kimi-K2.6",
+      "domain": "huggingface.co",
+      "tier": 3,
+      "categories": [
+        "architecture",
+        "debugging",
+        "knowledge_synthesis",
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "prompt_engineering",
+        "vulnerability_research"
+      ],
+      "benchmarks": [],
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "api"
+            ],
+            "categories": [
+              "architecture",
+              "debugging",
+              "knowledge_synthesis",
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "prompt_engineering",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "api": 1
+          },
+          "category_counts": {
+            "architecture": 1,
+            "debugging": 1,
+            "knowledge_synthesis": 1,
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://huggingface.co/zai-org/GLM-5",
+      "domain": "huggingface.co",
+      "tier": 3,
+      "categories": [
+        "coding",
+        "debugging",
+        "knowledge_synthesis",
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "prompt_engineering",
+        "vulnerability_research"
+      ],
+      "benchmarks": [],
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "api"
+            ],
+            "categories": [
+              "coding",
+              "debugging",
+              "knowledge_synthesis",
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "prompt_engineering",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "api": 1
+          },
+          "category_counts": {
+            "coding": 1,
+            "debugging": 1,
+            "knowledge_synthesis": 1,
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://huggingface.co/zai-org/GLM-5-FP8",
+      "domain": "huggingface.co",
+      "tier": 2,
+      "categories": [
+        "coding",
+        "debugging",
+        "math_proof",
+        "mechanical",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "prompt_engineering",
+        "vulnerability_research"
+      ],
+      "benchmarks": [
+        "phase2_rank_coding"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "api"
+            ],
+            "categories": [
+              "coding",
+              "debugging",
+              "math_proof",
+              "mechanical",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "prompt_engineering",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_coding"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "api": 1
+          },
+          "category_counts": {
+            "coding": 1,
+            "debugging": 1,
+            "math_proof": 1,
+            "mechanical": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
         }
       },
       "label": "[UNVERIFIED]",
@@ -1427,7 +1605,198 @@
       }
     },
     {
-      "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026/",
+      "url": "https://interfaze.ai/leaderboards/spider-2-lite",
+      "domain": "interfaze.ai",
+      "tier": 2,
+      "categories": [
+        "data_analysis",
+        "molecular_biology"
+      ],
+      "benchmarks": [
+        "phase2_rank_data_analysis"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-18T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "api",
+              "claude"
+            ],
+            "categories": [
+              "data_analysis",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_data_analysis"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "api": 1,
+            "claude": 1
+          },
+          "category_counts": {
+            "data_analysis": 1,
+            "molecular_biology": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://kilo.ai",
+      "domain": "kilo.ai",
+      "tier": 3,
+      "categories": [
+        "coding",
+        "ml_accelerator_design",
+        "prompt_engineering",
+        "vulnerability_research"
+      ],
+      "benchmarks": [],
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "api"
+            ],
+            "categories": [
+              "coding",
+              "ml_accelerator_design",
+              "prompt_engineering",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "api": 1
+          },
+          "category_counts": {
+            "coding": 1,
+            "ml_accelerator_design": 1,
+            "prompt_engineering": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://kingy.ai",
+      "domain": "kingy.ai",
+      "tier": 2,
+      "categories": [
+        "security_review",
+        "vulnerability_research"
+      ],
+      "benchmarks": [
+        "phase2_rank_security_review"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "security_review",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_security_review"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 1
+          },
+          "category_counts": {
+            "security_review": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[UNVERIFIED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://kingy.ai/ai/claude-mythos-preview-vs-gpt-5-5-a-benchmark-by-benchmark-showdown-between-the-two-most-important-frontier-models-of-april-2026",
       "domain": "kingy.ai",
       "tier": 2,
       "categories": [
@@ -1505,172 +1874,16 @@
             ],
             "http_status": null,
             "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "FrontierMath"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "FrontierMath",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "FrontierMath"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "FrontierMath",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "FrontierMath"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "FrontierMath",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "FrontierMath"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "FrontierMath",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "FrontierMath"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "FrontierMath",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "FrontierMath"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "FrontierMath",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "codex": 8
+            "codex": 2
           },
           "category_counts": {
-            "math_proof": 8
+            "math_proof": 2
           },
-          "total_runs": 8
+          "total_runs": 2
         }
       },
       "selection": {
@@ -1684,18 +1897,20 @@
     {
       "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public",
       "domain": "labs.scale.com",
-      "tier": 2,
+      "tier": 3,
       "categories": [
         "architecture",
         "coding",
-        "debugging"
+        "debugging",
+        "ml_accelerator_design"
       ],
       "benchmarks": [
-        "SWE-bench Pro (public set; Resolve Rate %)"
+        "SWE-bench Pro (public set; Resolve Rate %)",
+        "phase2_rank_architecture"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-09",
-      "times_seen": 7,
+      "last_seen": "2026-07-18",
+      "times_seen": 17,
       "label": "[INFERRED]",
       "selection": {
         "demoted": true,
@@ -1705,6 +1920,7 @@
         ]
       },
       "source_classes": [
+        "pairing_citation",
         "scale_anchor"
       ],
       "attempt_ledger": {
@@ -1733,81 +1949,37 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": null,
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
-            "provider_family": null,
+            "provider_family": [
+              "claude"
+            ],
             "categories": [
-              "architecture"
+              "architecture",
+              "ml_accelerator_design"
             ],
             "source_class": [
+              "pairing_citation",
               "scale_anchor"
             ],
             "benchmark_names": [
-              "SWE-bench Pro (public set; Resolve Rate %)"
+              "phase2_rank_architecture"
             ],
-            "rejection_reason": [
-              {
-                "benchmark": "SWE-bench Pro (public set; Resolve Rate %)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": null,
-            "outcome": "harvested",
-            "provider_family": null,
-            "categories": [
-              "architecture"
-            ],
-            "source_class": [
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Pro (public set; Resolve Rate %)"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "SWE-bench Pro (public set; Resolve Rate %)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": null,
-            "outcome": "harvested",
-            "provider_family": null,
-            "categories": [
-              "architecture"
-            ],
-            "source_class": [
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Pro (public set; Resolve Rate %)"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "SWE-bench Pro (public set; Resolve Rate %)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
+            "rejection_reason": null,
             "http_status": null,
             "last_checked": null
           }
         ],
         "accumulated": {
-          "provider_family_counts": {},
-          "category_counts": {
-            "architecture": 4
+          "provider_family_counts": {
+            "claude": 1
           },
-          "total_runs": 4
+          "category_counts": {
+            "architecture": 2,
+            "ml_accelerator_design": 1
+          },
+          "total_runs": 2
         }
       }
     },
@@ -1816,15 +1988,20 @@
       "domain": "llm-stats.com",
       "tier": 5,
       "categories": [
-        "math_proof"
+        "data_analysis",
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
       ],
       "benchmarks": [
         "FrontierMath",
-        "FrontierMath Tier 4"
+        "FrontierMath Tier 4",
+        "phase2_rank_data_analysis",
+        "phase2_rank_math_proof"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-09",
-      "times_seen": 13,
+      "last_seen": "2026-07-18",
+      "times_seen": 23,
       "label": "[SEED]",
       "source_classes": [
         "pairing_citation",
@@ -1885,63 +2062,23 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
               "codex"
             ],
             "categories": [
-              "math_proof"
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
             ],
             "source_class": [
               "pairing_citation",
               "scale_anchor"
             ],
             "benchmark_names": [
-              "FrontierMath"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "FrontierMath"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "FrontierMath"
+              "phase2_rank_math_proof"
             ],
             "rejection_reason": null,
             "http_status": null,
@@ -1950,12 +2087,14 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "codex": 5
+            "codex": 3
           },
           "category_counts": {
-            "math_proof": 5
+            "math_proof": 3,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1
           },
-          "total_runs": 5
+          "total_runs": 3
         }
       },
       "selection": {
@@ -1986,22 +2125,89 @@
       }
     },
     {
+      "url": "https://metr.org",
+      "domain": "metr.org",
+      "tier": 3,
+      "categories": [
+        "agentic_execution"
+      ],
+      "benchmarks": [],
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 1
+          },
+          "category_counts": {
+            "agentic_execution": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
       "url": "https://morphllm.com",
       "domain": "morphllm.com",
       "tier": 5,
       "categories": [
-        "knowledge_synthesis"
+        "agentic_execution",
+        "architecture",
+        "coding",
+        "debugging",
+        "knowledge_synthesis",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "prompt_engineering",
+        "security_review",
+        "vulnerability_research"
       ],
       "benchmarks": [
-        "GPQA Diamond"
+        "GPQA Diamond",
+        "phase2_rank_agentic_execution",
+        "phase2_rank_coding",
+        "phase2_rank_debugging",
+        "phase2_rank_knowledge_synthesis"
       ],
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
       ],
       "first_seen": "2026-06-09",
-      "last_seen": "2026-06-09",
-      "times_seen": 4,
+      "last_seen": "2026-07-18",
+      "times_seen": 14,
       "attempt_ledger": {
         "runs": [
           {
@@ -2026,63 +2232,33 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
               "claude"
             ],
             "categories": [
-              "knowledge_synthesis"
+              "agentic_execution",
+              "architecture",
+              "coding",
+              "debugging",
+              "knowledge_synthesis",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "prompt_engineering",
+              "security_review",
+              "vulnerability_research"
             ],
             "source_class": [
               "pairing_citation",
               "scale_anchor"
             ],
             "benchmark_names": [
-              "GPQA Diamond"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "knowledge_synthesis"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "GPQA Diamond"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "knowledge_synthesis"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "GPQA Diamond"
+              "phase2_rank_agentic_execution",
+              "phase2_rank_coding",
+              "phase2_rank_debugging",
+              "phase2_rank_knowledge_synthesis"
             ],
             "rejection_reason": null,
             "http_status": null,
@@ -2091,12 +2267,21 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 4
+            "claude": 2
           },
           "category_counts": {
-            "knowledge_synthesis": 4
+            "knowledge_synthesis": 2,
+            "agentic_execution": 1,
+            "architecture": 1,
+            "coding": 1,
+            "debugging": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "security_review": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 4
+          "total_runs": 2
         }
       },
       "label": "[UNVERIFIED]",
@@ -2107,22 +2292,87 @@
       }
     },
     {
+      "url": "https://semgrep.dev",
+      "domain": "semgrep.dev",
+      "tier": 3,
+      "categories": [
+        "security_review",
+        "vulnerability_research"
+      ],
+      "benchmarks": [
+        "phase2_rank_security_review"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-07-18",
+      "last_seen": "2026-07-18",
+      "times_seen": 10,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "security_review",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_security_review"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 1
+          },
+          "category_counts": {
+            "security_review": 1,
+            "vulnerability_research": 1
+          },
+          "total_runs": 1
+        }
+      },
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
       "url": "https://spider2-sql.github.io",
       "domain": "spider2-sql.github.io",
       "tier": 3,
       "categories": [
-        "data_analysis"
+        "data_analysis",
+        "molecular_biology"
       ],
       "benchmarks": [
-        "Spider 2.0-Snow (text-to-SQL; execution score %)"
+        "Spider 2.0-Snow (text-to-SQL; execution score %)",
+        "phase2_rank_data_analysis"
       ],
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
       ],
       "first_seen": "2026-06-09",
-      "last_seen": "2026-06-09",
-      "times_seen": 4,
+      "last_seen": "2026-07-18",
+      "times_seen": 14,
       "attempt_ledger": {
         "runs": [
           {
@@ -2152,103 +2402,52 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
+              "claude",
               "codex"
             ],
             "categories": [
-              "data_analysis"
+              "data_analysis",
+              "molecular_biology"
             ],
             "source_class": [
               "pairing_citation",
               "scale_anchor"
             ],
             "benchmark_names": [
-              "Spider 2.0-Snow (text-to-SQL; execution score %)"
+              "phase2_rank_data_analysis"
             ],
-            "rejection_reason": [
-              {
-                "benchmark": "Spider 2.0-Snow (text-to-SQL; execution score %)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "data_analysis"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "Spider 2.0-Snow (text-to-SQL; execution score %)"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "Spider 2.0-Snow (text-to-SQL; execution score %)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "data_analysis"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "Spider 2.0-Snow (text-to-SQL; execution score %)"
-            ],
-            "rejection_reason": [
-              {
-                "benchmark": "Spider 2.0-Snow (text-to-SQL; execution score %)",
-                "reason": "single-observation population (<2 reporters); normalized to 0.5 so it cannot define the category max (SOP-3 thin -> down-weight)"
-              }
-            ],
+            "rejection_reason": null,
             "http_status": null,
             "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "codex": 4
+            "codex": 2,
+            "claude": 1
           },
           "category_counts": {
-            "data_analysis": 4
+            "data_analysis": 2,
+            "molecular_biology": 1
           },
-          "total_runs": 4
+          "total_runs": 2
         }
       },
-      "label": "[VERIFIED-DOM]",
+      "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
-      "url": "https://thezvi.wordpress.com/2026/05/29/claude-opus-4-8-the-system-card/",
+      "url": "https://thezvi.wordpress.com/2026/05/29/claude-opus-4-8-the-system-card",
       "domain": "thezvi.wordpress.com",
       "tier": 2,
       "categories": [
@@ -2310,149 +2509,17 @@
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "quality_review",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "unavailable-tool hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "quality_review",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "unavailable-tool hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "quality_review",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "unavailable-tool hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "quality_review",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "unavailable-tool hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "quality_review",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "unavailable-tool hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "quality_review",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "unavailable-tool hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8
+            "claude": 2
           },
           "category_counts": {
-            "quality_review": 8,
-            "security_review": 8
+            "quality_review": 2,
+            "security_review": 2
           },
-          "total_runs": 8
+          "total_runs": 2
         }
       },
       "label": "[INFERRED]",
@@ -2591,135 +2658,78 @@
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 2,
+            "codex": 2
           },
+          "category_counts": {
+            "security_review": 2
+          },
+          "total_runs": 2
+        }
+      },
+      "label": "[SEED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://www.anthropic.com/news/claude-opus-4-8",
+      "domain": "anthropic.com",
+      "tier": 2,
+      "categories": [
+        "agentic_execution",
+        "knowledge_synthesis",
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology",
+        "quality_review",
+        "security_review",
+        "vulnerability_research"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-07-18",
+      "times_seen": 13,
+      "label": "[ASSUMPTION]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      },
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "attempt_ledger": {
+        "runs": [
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "claude",
-              "codex"
+              "claude"
             ],
             "categories": [
-              "security_review"
+              "agentic_execution",
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology",
+              "security_review",
+              "vulnerability_research"
             ],
             "source_class": [
-              "pairing_citation",
-              "scale_anchor"
+              "pairing_citation"
             ],
-            "benchmark_names": [
-              "AISI Expert-tier CTF"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AISI Expert-tier CTF"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AISI Expert-tier CTF"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AISI Expert-tier CTF"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AISI Expert-tier CTF"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AISI Expert-tier CTF"
-            ],
+            "benchmark_names": [],
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
@@ -2727,45 +2737,22 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8,
-            "codex": 8
+            "claude": 1
           },
           "category_counts": {
-            "security_review": 8
+            "agentic_execution": 1,
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "security_review": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 8
+          "total_runs": 1
         }
-      },
-      "label": "[SEED]",
-      "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
       }
     },
     {
-      "url": "https://www.anthropic.com/news/claude-opus-4-8",
-      "domain": "anthropic.com",
-      "tier": 0,
-      "categories": [
-        "knowledge_synthesis",
-        "quality_review"
-      ],
-      "benchmarks": [],
-      "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 3,
-      "label": "[ASSUMPTION]",
-      "selection": {
-        "demoted": true,
-        "health": "demoted",
-        "demote_reasons": [
-          "low_health_tier0"
-        ]
-      }
-    },
-    {
-      "url": "https://www.cometapi.com/gpt-5-5-vs-claude-opus-4-7-which-ai-to-use-when-hallucination-matters-2026-benchmark-data/",
+      "url": "https://www.cometapi.com/gpt-5-5-vs-claude-opus-4-7-which-ai-to-use-when-hallucination-matters-2026-benchmark-data",
       "domain": "cometapi.com",
       "tier": 2,
       "categories": [
@@ -2826,171 +2813,48 @@
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "quality_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AA-Omniscience hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "quality_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AA-Omniscience hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "quality_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AA-Omniscience hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "quality_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AA-Omniscience hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "quality_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AA-Omniscience hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "quality_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "AA-Omniscience hallucination"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8,
-            "codex": 8
+            "claude": 2,
+            "codex": 2
           },
           "category_counts": {
-            "quality_review": 8
+            "quality_review": 2
           },
-          "total_runs": 8
+          "total_runs": 2
         }
       },
       "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
       "url": "https://www.datacamp.com/blog/claude-opus-4-8",
       "domain": "datacamp.com",
-      "tier": 2,
+      "tier": 3,
       "categories": [
-        "knowledge_synthesis"
+        "debugging",
+        "knowledge_synthesis",
+        "molecular_biology",
+        "prompt_engineering",
+        "quality_review",
+        "security_review",
+        "vulnerability_research"
       ],
       "benchmarks": [
-        "GraphWalks BFS 1M"
+        "GraphWalks BFS 1M",
+        "phase2_rank_knowledge_synthesis"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 9,
+      "last_seen": "2026-07-18",
+      "times_seen": 19,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -3018,16 +2882,49 @@
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
+          },
+          {
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "debugging",
+              "knowledge_synthesis",
+              "molecular_biology",
+              "prompt_engineering",
+              "quality_review",
+              "security_review",
+              "vulnerability_research"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "phase2_rank_knowledge_synthesis"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 1
+            "claude": 2
           },
           "category_counts": {
-            "knowledge_synthesis": 1
+            "knowledge_synthesis": 2,
+            "debugging": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "quality_review": 1,
+            "security_review": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 1
+          "total_runs": 2
         }
       },
       "selection": {
@@ -3045,16 +2942,20 @@
       "categories": [
         "agentic_execution",
         "architecture",
+        "coding",
         "data_analysis",
         "debugging",
-        "quality_review"
+        "ml_accelerator_design",
+        "prompt_engineering",
+        "quality_review",
+        "vulnerability_research"
       ],
       "benchmarks": [
         "Finance Agent v2"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-06",
-      "times_seen": 14,
+      "last_seen": "2026-07-18",
+      "times_seen": 24,
       "label": "[INFERRED]",
       "selection": {
         "demoted": true,
@@ -3070,30 +2971,6 @@
       "attempt_ledger": {
         "runs": [
           {
-            "run_id": "pre-#17-legacy",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "architecture",
-              "data_analysis",
-              "debugging"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "Finance Agent v2"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
             "run_id": "run-2026-06-06",
             "attempted_at": "2026-06-06T00:00:00Z",
             "outcome": "harvested",
@@ -3118,145 +2995,22 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "claude",
-              "codex"
+              "claude"
             ],
             "categories": [
-              "architecture",
-              "data_analysis",
-              "debugging"
+              "coding",
+              "ml_accelerator_design",
+              "prompt_engineering",
+              "vulnerability_research"
             ],
             "source_class": [
-              "pairing_citation",
-              "scale_anchor"
+              "pairing_citation"
             ],
-            "benchmark_names": [
-              "Finance Agent v2"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "architecture",
-              "data_analysis",
-              "debugging"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "Finance Agent v2"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "architecture",
-              "data_analysis",
-              "debugging"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "Finance Agent v2"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "architecture",
-              "data_analysis",
-              "debugging"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "Finance Agent v2"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "architecture",
-              "data_analysis",
-              "debugging"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "Finance Agent v2"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "architecture",
-              "data_analysis",
-              "debugging"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "Finance Agent v2"
-            ],
+            "benchmark_names": [],
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
@@ -3264,15 +3018,19 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8,
-            "codex": 8
+            "claude": 2,
+            "codex": 1
           },
           "category_counts": {
-            "architecture": 8,
-            "data_analysis": 8,
-            "debugging": 8
+            "architecture": 1,
+            "data_analysis": 1,
+            "debugging": 1,
+            "coding": 1,
+            "ml_accelerator_design": 1,
+            "prompt_engineering": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 8
+          "total_runs": 2
         }
       }
     },
@@ -3406,100 +3164,27 @@
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "debugging",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "ExploitBench (Cap%)",
-              "FrontierCode (Diamond)",
-              "SWE-Bench Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "debugging",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "ExploitBench (Cap%)",
-              "FrontierCode (Diamond)",
-              "SWE-Bench Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "debugging",
-              "security_review"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "ExploitBench (Cap%)",
-              "FrontierCode (Diamond)",
-              "SWE-Bench Pro"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
           }
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 4,
-            "codex": 4
+            "claude": 1,
+            "codex": 1
           },
           "category_counts": {
-            "debugging": 4,
-            "security_review": 4
+            "debugging": 1,
+            "security_review": 1
           },
-          "total_runs": 4
+          "total_runs": 1
         }
       },
       "label": "[UNVERIFIED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
@@ -3562,129 +3247,67 @@
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 2
           },
+          "category_counts": {
+            "math_proof": 2
+          },
+          "total_runs": 2
+        }
+      },
+      "label": "[SEED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://www.hackerone.com/blog/vulnerability-exploitability-benchmark-gpt-5-5-vs-claude",
+      "domain": "hackerone.com",
+      "tier": 2,
+      "categories": [
+        "security_review",
+        "vulnerability_research"
+      ],
+      "benchmarks": [],
+      "first_seen": "2026-06-04",
+      "last_seen": "2026-07-18",
+      "times_seen": 13,
+      "label": "[INFERRED]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      },
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "attempt_ledger": {
+        "runs": [
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
-              "claude"
+              "codex"
             ],
             "categories": [
-              "math_proof"
+              "security_review",
+              "vulnerability_research"
             ],
             "source_class": [
-              "pairing_citation",
-              "scale_anchor"
+              "pairing_citation"
             ],
-            "benchmark_names": [
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "USAMO-2026"
-            ],
+            "benchmark_names": [],
             "rejection_reason": null,
             "http_status": null,
             "last_checked": null
@@ -3692,39 +3315,14 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8
+            "codex": 1
           },
           "category_counts": {
-            "math_proof": 8
+            "security_review": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 8
+          "total_runs": 1
         }
-      },
-      "label": "[SEED]",
-      "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
-      }
-    },
-    {
-      "url": "https://www.hackerone.com/blog/vulnerability-exploitability-benchmark-gpt-5-5-vs-claude",
-      "domain": "hackerone.com",
-      "tier": 0,
-      "categories": [
-        "security_review"
-      ],
-      "benchmarks": [],
-      "first_seen": "2026-06-04",
-      "last_seen": "2026-06-04",
-      "times_seen": 3,
-      "label": "[INFERRED]",
-      "selection": {
-        "demoted": true,
-        "health": "demoted",
-        "demote_reasons": [
-          "low_health_tier0"
-        ]
       }
     },
     {
@@ -3771,171 +3369,6 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (self-report)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (self-report)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (self-report)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (self-report)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (self-report)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation"
-            ],
-            "benchmark_names": [],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
             "run_id": "run-2026-06-09",
             "attempted_at": "2026-06-09T00:00:00Z",
             "outcome": "harvested",
@@ -3959,13 +3392,13 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8,
-            "codex": 4
+            "claude": 1,
+            "codex": 1
           },
           "category_counts": {
-            "coding": 12
+            "coding": 2
           },
-          "total_runs": 12
+          "total_runs": 2
         }
       },
       "selection": {
@@ -4002,6 +3435,7 @@
         "agentic_execution"
       ],
       "benchmarks": [
+        "phase2_rank_agentic_execution",
         "terminal-bench-2.0"
       ],
       "source_classes": [
@@ -4009,8 +3443,8 @@
         "scale_anchor"
       ],
       "first_seen": "2026-06-09",
-      "last_seen": "2026-06-09",
-      "times_seen": 4,
+      "last_seen": "2026-07-18",
+      "times_seen": 14,
       "attempt_ledger": {
         "runs": [
           {
@@ -4036,10 +3470,11 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
+              "api",
               "claude",
               "codex"
             ],
@@ -4051,51 +3486,7 @@
               "scale_anchor"
             ],
             "benchmark_names": [
-              "terminal-bench-2.0"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "agentic_execution"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "terminal-bench-2.0"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-09",
-            "attempted_at": "2026-06-09T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "agentic_execution"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "terminal-bench-2.0"
+              "phase2_rank_agentic_execution"
             ],
             "rejection_reason": null,
             "http_status": null,
@@ -4104,20 +3495,23 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 4,
-            "codex": 4
+            "claude": 2,
+            "codex": 2,
+            "api": 1
           },
           "category_counts": {
-            "agentic_execution": 4
+            "agentic_execution": 2
           },
-          "total_runs": 4
+          "total_runs": 2
         }
       },
-      "label": "primary-confirmed",
+      "label": "[INFERRED]",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
@@ -4125,43 +3519,28 @@
       "domain": "vals.ai",
       "tier": 3,
       "categories": [
-        "coding"
+        "coding",
+        "debugging",
+        "ml_accelerator_design",
+        "prompt_engineering",
+        "quality_review",
+        "vulnerability_research"
       ],
       "benchmarks": [
-        "SWE-bench Verified (held-out)"
+        "SWE-bench Verified (held-out)",
+        "phase2_rank_coding",
+        "phase2_rank_debugging"
       ],
       "source_classes": [
         "pairing_citation",
         "scale_anchor"
       ],
       "first_seen": "2026-06-06",
-      "last_seen": "2026-06-06",
-      "times_seen": 11,
+      "last_seen": "2026-07-18",
+      "times_seen": 21,
       "attempt_ledger": {
         "runs": [
           {
-            "run_id": "pre-#17-legacy",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (held-out)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
             "run_id": "run-2026-06-06",
             "attempted_at": "2026-06-06T00:00:00Z",
             "outcome": "harvested",
@@ -4184,132 +3563,28 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
               "claude",
               "codex"
             ],
             "categories": [
-              "coding"
+              "coding",
+              "debugging",
+              "ml_accelerator_design",
+              "prompt_engineering",
+              "quality_review",
+              "vulnerability_research"
             ],
             "source_class": [
               "pairing_citation",
               "scale_anchor"
             ],
             "benchmark_names": [
-              "SWE-bench Verified (held-out)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (held-out)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (held-out)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (held-out)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (held-out)"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "coding"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "SWE-bench Verified (held-out)"
+              "phase2_rank_coding",
+              "phase2_rank_debugging"
             ],
             "rejection_reason": null,
             "http_status": null,
@@ -4318,13 +3593,18 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8,
-            "codex": 8
+            "claude": 2,
+            "codex": 2
           },
           "category_counts": {
-            "coding": 8
+            "coding": 2,
+            "debugging": 1,
+            "ml_accelerator_design": 1,
+            "prompt_engineering": 1,
+            "quality_review": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 8
+          "total_runs": 2
         }
       },
       "label": "[SEED]",
@@ -4348,7 +3628,12 @@
         "knowledge_synthesis",
         "math_proof",
         "mechanical",
-        "quality_review"
+        "ml_accelerator_design",
+        "molecular_biology",
+        "prompt_engineering",
+        "quality_review",
+        "security_review",
+        "vulnerability_research"
       ],
       "benchmarks": [
         "GPQA Diamond",
@@ -4359,11 +3644,13 @@
         "SWE-bench Pro",
         "Terminal-Bench 2.1 (Terminus-2)",
         "Terminus-2 (shared harness)",
-        "USAMO-2026"
+        "USAMO-2026",
+        "phase2_rank_architecture",
+        "phase2_rank_knowledge_synthesis"
       ],
       "first_seen": "2026-06-04",
-      "last_seen": "2026-06-06",
-      "times_seen": 23,
+      "last_seen": "2026-07-18",
+      "times_seen": 33,
       "label": "[INFERRED]",
       "source_classes": [
         "pairing_citation",
@@ -4372,36 +3659,6 @@
       "attempt_ledger": {
         "runs": [
           {
-            "run_id": "pre-#17-legacy",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "agentic_execution",
-              "architecture",
-              "coding",
-              "debugging",
-              "knowledge_synthesis",
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "HLE (no-tools)",
-              "SWE-bench Pro",
-              "Terminus-2 (shared harness)",
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
             "run_id": "run-2026-06-06",
             "attempted_at": "2026-06-06T00:00:00Z",
             "outcome": "harvested",
@@ -4432,180 +3689,29 @@
             "last_checked": null
           },
           {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
+            "run_id": "20260717-full-01",
+            "attempted_at": "2026-07-17T00:00:00Z",
             "outcome": "harvested",
             "provider_family": [
               "claude",
               "codex"
             ],
             "categories": [
-              "agentic_execution",
               "architecture",
-              "coding",
-              "debugging",
               "knowledge_synthesis",
-              "math_proof"
+              "ml_accelerator_design",
+              "molecular_biology",
+              "prompt_engineering",
+              "security_review",
+              "vulnerability_research"
             ],
             "source_class": [
               "pairing_citation",
               "scale_anchor"
             ],
             "benchmark_names": [
-              "HLE (no-tools)",
-              "SWE-bench Pro",
-              "Terminus-2 (shared harness)",
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "agentic_execution",
-              "architecture",
-              "coding",
-              "debugging",
-              "knowledge_synthesis",
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "HLE (no-tools)",
-              "SWE-bench Pro",
-              "Terminus-2 (shared harness)",
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "agentic_execution",
-              "architecture",
-              "coding",
-              "debugging",
-              "knowledge_synthesis",
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "HLE (no-tools)",
-              "SWE-bench Pro",
-              "Terminus-2 (shared harness)",
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "agentic_execution",
-              "architecture",
-              "coding",
-              "debugging",
-              "knowledge_synthesis",
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "HLE (no-tools)",
-              "SWE-bench Pro",
-              "Terminus-2 (shared harness)",
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "agentic_execution",
-              "architecture",
-              "coding",
-              "debugging",
-              "knowledge_synthesis",
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "HLE (no-tools)",
-              "SWE-bench Pro",
-              "Terminus-2 (shared harness)",
-              "USAMO-2026"
-            ],
-            "rejection_reason": null,
-            "http_status": null,
-            "last_checked": null
-          },
-          {
-            "run_id": "run-2026-06-06",
-            "attempted_at": "2026-06-06T00:00:00Z",
-            "outcome": "harvested",
-            "provider_family": [
-              "claude",
-              "codex"
-            ],
-            "categories": [
-              "agentic_execution",
-              "architecture",
-              "coding",
-              "debugging",
-              "knowledge_synthesis",
-              "math_proof"
-            ],
-            "source_class": [
-              "pairing_citation",
-              "scale_anchor"
-            ],
-            "benchmark_names": [
-              "HLE (no-tools)",
-              "SWE-bench Pro",
-              "Terminus-2 (shared harness)",
-              "USAMO-2026"
+              "phase2_rank_architecture",
+              "phase2_rank_knowledge_synthesis"
             ],
             "rejection_reason": null,
             "http_status": null,
@@ -4614,24 +3720,31 @@
         ],
         "accumulated": {
           "provider_family_counts": {
-            "claude": 8,
-            "codex": 8
+            "claude": 2,
+            "codex": 2
           },
           "category_counts": {
-            "agentic_execution": 8,
-            "architecture": 8,
-            "coding": 8,
-            "debugging": 8,
-            "knowledge_synthesis": 8,
-            "math_proof": 8
+            "agentic_execution": 1,
+            "architecture": 2,
+            "coding": 1,
+            "debugging": 1,
+            "knowledge_synthesis": 2,
+            "math_proof": 1,
+            "ml_accelerator_design": 1,
+            "molecular_biology": 1,
+            "prompt_engineering": 1,
+            "security_review": 1,
+            "vulnerability_research": 1
           },
-          "total_runs": 8
+          "total_runs": 2
         }
       },
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     }
   ]

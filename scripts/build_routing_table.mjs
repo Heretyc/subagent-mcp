@@ -19,6 +19,7 @@ import { dirname, resolve, isAbsolute } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { isLaunchableModel } from "./lib/launchable-models.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -431,6 +432,22 @@ for (const [model, spec] of Object.entries(MODELS)) {
   }
 }
 
+const CATEGORY_PAIRING_EXCLUSIONS = dataset.category_pairing_exclusions || {};
+function excludedPairingsFor(category) {
+  const list = CATEGORY_PAIRING_EXCLUSIONS[category];
+  return new Set(Array.isArray(list) ? list : []);
+}
+function isPairingExcluded(category, p) {
+  return excludedPairingsFor(category).has(p.id);
+}
+
+const COMPOSITE_ORDER_OVERRIDES = dataset.composite_order_overrides || {};
+function orderOverrideFor(branch, category) {
+  const branchOverrides = COMPOSITE_ORDER_OVERRIDES[branch] || {};
+  const list = branchOverrides[category];
+  return Array.isArray(list) ? list : null;
+}
+
 function modelSupportsSelectableEffort(model) {
   const ladder = MODELS[model]?.effort_ladder;
   return Array.isArray(ladder) && ladder.some((effort) => !NO_EFFORT_SENTINELS.has(effortKey(effort)));
@@ -787,6 +804,7 @@ function buildCategoryScores(category) {
 
     const tierFloor = Math.min(...selected.map((r) => Number(r.tier)).filter((t) => Number.isFinite(t)));
     const perfOnly = selected.length > 0 && selected.every(r => r.performance_only === true);
+    const rowInterpolated = selected.length > 0 && selected.every((r) => r.interpolated === true);
     result.set(p.id, {
       score: performanceRaw,
       rows: selected,
@@ -794,6 +812,7 @@ function buildCategoryScores(category) {
       tierFloor: Number.isFinite(tierFloor) ? tierFloor : null,
       thinBasis, // refinement #3: score rests entirely on neutralized single-obs evidence
       performanceOnly: perfOnly,
+      interpolated: rowInterpolated,
       basis: new Set(selected.map((r) => r.label).filter(Boolean)),
     });
   }
@@ -1032,13 +1051,19 @@ function primaryGapReason(category) {
 }
 
 // ---- provider derivation (owner schema A) -----------------------------------------
-// Explicit prefix -> family map. The universe is capped at two families
-// (Anthropic + OpenAI); an unrecognized prefix is a data/scope error, not a silent
-// default, so we THROW rather than mislabel an unknown third family as "codex".
+// Explicit prefix -> provider slot map. Launchable routing providers are {claude, codex};
+// non-wired advisory families use the generic "api" adapter slot until real adapters/model
+// ids are wired. Unknown prefixes are data/scope errors, not silent defaults.
 const PROVIDER_FAMILY_PREFIXES = [
   ["claude-", "claude"],
   ["gpt-", "codex"],
   ["codex-", "codex"],
+  ["moonshotai/", "api"],
+  ["zai-org/", "api"],
+  ["deepseek-ai/", "api"],
+  ["qwen/", "api"],
+  ["xai/", "api"],
+  ["openai-direct/", "api"],
 ];
 function providerOf(model) {
   for (const [prefix, family] of PROVIDER_FAMILY_PREFIXES) {
@@ -1192,8 +1217,9 @@ function buildFullPairingObject(item, category) {
 
 // Per-category ranked universe: drop no-effort pairings from the excluded categories.
 function categoryUniverse(category) {
-  if (!NO_EFFORT_EXCLUDED_CATEGORIES.has(category)) return UNIVERSE;
-  return UNIVERSE.filter((p) => !NO_EFFORT_SENTINELS.has(p.effortK));
+  const filtered = UNIVERSE.filter((p) => !isPairingExcluded(category, p));
+  if (!NO_EFFORT_EXCLUDED_CATEGORIES.has(category)) return filtered;
+  return filtered.filter((p) => !NO_EFFORT_SENTINELS.has(p.effortK));
 }
 
 // #2 honest pairing-level coverage: per-category measured/positive ratios.
@@ -1262,6 +1288,37 @@ function computePairingCoverageRatios() {
 }
 const PAIRING_COVERAGE_RATIOS = computePairingCoverageRatios();
 
+const VALID_CITATION_LABELS = new Set(["[SEED]", "[INFERRED]", "[ASSUMPTION]", "[UNVERIFIED]"]);
+function provenanceLabel(raw, interpolated = false) {
+  const label = String(raw || "").trim();
+  if (VALID_CITATION_LABELS.has(label)) return label;
+  const lower = label.toLowerCase();
+  if (lower.includes("data_missing") || interpolated) return "[ASSUMPTION]";
+  if (lower.includes("conflict") || lower.includes("unverified")) return "[UNVERIFIED]";
+  if (lower.includes("corroborated") || lower.includes("verified") || lower === "primary-confirmed") return "[INFERRED]";
+  return "[UNVERIFIED]";
+}
+function oneSentenceAnnotation(row) {
+  const prefix = `${row.model}@${row.effort} supports ${row.benchmark} for ${row.category || "this category"}: `;
+  const original = String(row.annotation || `${row.model} ${row.benchmark} = ${row.raw}${row.unit === "pct" ? "%" : ""}`)
+    .replace(/\[[^\]]+\]/g, (m) => m === "[DATA_MISSING]" ? "data missing" : m.replace(/[\[\]]/g, "").toLowerCase())
+    .replace(/\s+/g, " ")
+    .replace(/[;]+/g, ",")
+    .replace(/[.!?]+\s+/g, ", ")
+    .trim()
+    .replace(/[.!?]+$/g, "");
+  return `${original.startsWith(prefix) ? original : prefix + original}.`;
+}
+
+function phase2RankFor(category, scoreDetail) {
+  const pattern = new RegExp(`\\bphase2\\s+${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+rank\\s+(\\d+)\\b`, "i");
+  for (const row of scoreDetail?.rows || []) {
+    const match = pattern.exec(String(row.annotation || ""));
+    if (match) return Number(match[1]);
+  }
+  return null;
+}
+
 function buildBaseFullBranch(branch, exponents) {
   const out = {};
   for (const category of BASE_SPINE) {
@@ -1324,8 +1381,18 @@ function buildCompositeCategory(branch, category, branchFull) {
   const items = [...byPairing.values()].map((item) => ({
     ...item,
     meanRank: item.parentRanks.reduce((sum, rank) => sum + rank, 0) / item.parentRanks.length,
-  }));
+  })).filter((item) => !excludedPairingsFor(category).has(pairingId(item.model, effortKey(item.effort))));
   items.sort((a, b) => {
+    const override = orderOverrideFor(branch, category);
+    if (override) {
+      const ai = override.indexOf(pairingId(a.model, effortKey(a.effort)));
+      const bi = override.indexOf(pairingId(b.model, effortKey(b.effort)));
+      if (ai !== -1 || bi !== -1) {
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        if (ai !== bi) return ai - bi;
+      }
+    }
     if (a.meanRank !== b.meanRank) return a.meanRank - b.meanRank;
     const ae = EFFORT_INDEX.get(effortKey(a.effort)) ?? 0;
     const be = EFFORT_INDEX.get(effortKey(b.effort)) ?? 0;
@@ -1346,9 +1413,12 @@ function buildCompositeCategory(branch, category, branchFull) {
     rank: idx + 1,
     score: 1 / item.meanRank,
     cost_figure_used: COST.get(pairingId(item.model, effortKey(item.effort)))?.perToken ?? null,
-    interpolated: false,
+    interpolated: true,
     confidence: item.parentRanks.length === parents.length ? "high" : "medium",
-    basis: [`parent-rank mean ${item.meanRank.toFixed(4)} (${item.parentRankNotes.join(", ")})`],
+    basis: [
+      `parent-rank mean ${item.meanRank.toFixed(4)} (${item.parentRankNotes.join(", ")})`,
+      ...(orderOverrideFor(branch, category) ? [`phase-2 synthesis order override for ${branch}.${category}`] : []),
+    ],
     citations: dedupeCitations(item.citations),
   }));
 }
@@ -1364,8 +1434,8 @@ function buildFullBranch(branch, exponents) {
   return out;
 }
 
-// Rank a branch by power-law score (desc), dense 1..N. Both branches use the same
-// score = perf_norm^a / cost_norm^b form; only the exponents differ.
+// Rank a branch by score/order authority, dense 1..N. cost_efficiency uses power-law
+// score; performance lets owner pins and Phase-2 ranks override score where present.
 // `dataMissing` (refinement #2): when the WHOLE category is data-free (every pairing is a
 // sentinel), the score tie cascades into version_rank-desc / model-id-ascending — a
 // de-facto, MEANINGLESS capability proxy. For such categories we instead order by the
@@ -1398,6 +1468,7 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
       hasScore,
       costPerfOnly,
       branchScore,
+      phase2Rank: branch === "performance" ? phase2RankFor(category, s) : null,
       effIdx: EFFORT_INDEX.get(p.effortK) ?? 0,
       versionRank: MODELS[p.model].version_rank,
       lineage: MODELS[p.model].version_lineage,
@@ -1411,6 +1482,12 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
     const bPin = b.perfPinned;
     if (aPin !== bPin) return aPin ? -1 : 1;
     if (aPin && bPin && a.effIdx !== b.effIdx) return b.effIdx - a.effIdx;
+    // Phase-2 synthesis rows are the performance ordering authority when present.
+    if (branch === "performance" && (a.phase2Rank !== null || b.phase2Rank !== null)) {
+      if (a.phase2Rank === null) return 1;
+      if (b.phase2Rank === null) return -1;
+      if (a.phase2Rank !== b.phase2Rank) return a.phase2Rank - b.phase2Rank;
+    }
     // #1 fix (performance branch only): same model + equal measured perf_norm → effort descending
     // (max-effort first), before cost can discriminate. Cost separates only ACROSS models here.
     // Bound: non-null, non-interpolated scores; sentinels (null) stay last via SENTINEL constant.
@@ -1418,7 +1495,6 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
       branch === "performance" &&
       a.p.model === b.p.model &&
       a.s.score !== null && b.s.score !== null &&
-      a.s.score === b.s.score &&
       a.effIdx !== b.effIdx
     ) return b.effIdx - a.effIdx;
     if (b.branchScore !== a.branchScore) return b.branchScore - a.branchScore;
@@ -1538,9 +1614,9 @@ function citationsFor(detail, category) {
     const cite = {
       url: r.source_url || "",
       retrieved_at: retrieved,
-      annotation: r.annotation || `${r.model} ${r.benchmark} = ${r.raw}${r.unit === "pct" ? "%" : ""}.`,
+      annotation: oneSentenceAnnotation({ ...r, category }),
     };
-    if (r.tier) cite.label = r.label || `[T${r.tier}]`;
+    cite.label = provenanceLabel(r.label, r.interpolated);
     // refinement #7: emit the row's NUMERIC tier directly on the citation, ALONGSIDE the
     // provenance label. Previously the [Tn] tier was only ever encoded into `cite.label`, and
     // a provenance label ([SEED]/[INFERRED]/[ASSUMPTION]) on the row MASKED it — so the seed
@@ -1548,7 +1624,7 @@ function citationsFor(detail, category) {
     // Carrying the numeric tier on its own field lets update_seed_sites read the real tier.
     const numericTier = Number.isFinite(Number(r.tier)) ? Number(r.tier) : null;
     if (numericTier !== null) cite.tier = numericTier;
-    if (r.label) cite.source_id = r.label;
+    if (r.label && r.label !== cite.label) cite.source_id = String(r.label).replace(/[\[\]]/g, "");
     cites.push(cite);
   }
   if (detail.promotedFrom) {
@@ -1599,15 +1675,42 @@ for (const category of SPINE) {
 // Pairings carry EXACTLY {provider, model, effort, rank}; metadata EXACTLY the 5 keys.
 // All removed detail (score, cost_figure_used, basis, interpolated, confidence, formula
 // definitions, universe, exponents, citations) lives ONLY in the audit sibling below.
-function leanBranch(fullBranch) {
+function leanBranch(fullBranch, branch) {
   const out = {};
   for (const category of SPINE) {
-    out[category] = fullBranch[category].map((e) => ({
+    out[category] = fullBranch[category].filter((e) => isLaunchableModel(e.model)).map((e, idx) => ({
       provider: e.provider,
       model: e.model,
       effort: e.effort,
-      rank: e.rank,
+      rank: idx + 1,
     }));
+  }
+  for (const [category, parents] of Object.entries(COMPOSITE_PARENT_CATEGORIES)) {
+    if (orderOverrideFor(branch, category)) {
+      continue;
+    }
+    const parentRanks = parents.map((parent) => {
+      const map = new Map();
+      for (const entry of out[parent] || []) {
+        map.set(pairingId(entry.model, effortKey(entry.effort)), entry.rank);
+      }
+      return map;
+    });
+    out[category].sort((a, b) => {
+      const mean = (entry) => {
+        const key = pairingId(entry.model, effortKey(entry.effort));
+        const ranks = parentRanks.map((map) => map.get(key)).filter(Number.isInteger);
+        return ranks.reduce((sum, rank) => sum + rank, 0) / ranks.length;
+      };
+      const am = mean(a);
+      const bm = mean(b);
+      if (am !== bm) return am - bm;
+      const ae = EFFORT_INDEX.get(effortKey(a.effort)) ?? 0;
+      const be = EFFORT_INDEX.get(effortKey(b.effort)) ?? 0;
+      if (ae !== be) return be - ae;
+      return pairingId(a.model, effortKey(a.effort)) < pairingId(b.model, effortKey(b.effort)) ? -1 : 1;
+    });
+    out[category] = out[category].map((e, idx) => ({ ...e, rank: idx + 1 }));
   }
   return out;
 }
@@ -1622,17 +1725,31 @@ const metadata = {
 
 const providerTable = {
   metadata,
-  performance: leanBranch(performanceFull),
-  cost_efficiency: leanBranch(costEfficiencyFull),
+  performance: leanBranch(performanceFull, "performance"),
+  cost_efficiency: leanBranch(costEfficiencyFull, "cost_efficiency"),
 };
 
 // ---- audit sibling (full per-pairing detail + citations; src/routing-table-audit.json)
 // The audit is the ONLY place the removed detail is retained. Its metadata MAY carry the
 // richer fields and records the realized exponents + cost-figure methodology.
-function auditBranch(fullBranch) {
+function auditBranch(fullBranch, branch) {
   const out = {};
   for (const category of SPINE) {
-    out[category] = fullBranch[category].map((e) => {
+    let entries = fullBranch[category];
+    if (branch === "cost_efficiency" && COMPOSITE_CATEGORIES.has(category)) {
+      const leanOrder = new Map((providerTable[branch]?.[category] || []).map((e, i) => [pairingId(e.model, effortKey(e.effort)), i]));
+      entries = [...entries].sort((a, b) => {
+        const ai = leanOrder.get(pairingId(a.model, effortKey(a.effort)));
+        const bi = leanOrder.get(pairingId(b.model, effortKey(b.effort)));
+        if (ai !== undefined || bi !== undefined) {
+          if (ai === undefined) return 1;
+          if (bi === undefined) return -1;
+          return ai - bi;
+        }
+        return a.rank - b.rank;
+      }).map((e, idx) => ({ ...e, rank: idx + 1 }));
+    }
+    out[category] = entries.map((e) => {
       const detail = perfScores.get(category)?.get(pairingId(e.model, effortKey(e.effort)));
       const { _detail, citations, ...rest } = e;
       return { ...rest, citations: citations || citationsFor(detail, category) };
@@ -1937,6 +2054,8 @@ const auditTable = {
     generated_at: GENERATED_AT,
     schema_version: "2",
     version: "2.1.0",
+    ...(dataset.audit_basis ? { basis: dataset.audit_basis } : {}),
+    ...(dataset.provider_mapping ? { provider_mapping: dataset.provider_mapping } : {}),
     audits: "src/routing-table.json",
     seed_sites_pointer: "research-seed-sites.json",
     model_effort_universe: UNIVERSE_IDS,
@@ -1970,6 +2089,8 @@ const auditTable = {
     composite_inference: {
       method: "simple_mean_of_available_parent_ranks_per_branch",
       parent_categories: COMPOSITE_PARENT_CATEGORIES,
+      category_pairing_exclusions: CATEGORY_PAIRING_EXCLUSIONS,
+      order_overrides: COMPOSITE_ORDER_OVERRIDES,
     },
     // refinement #9: dataset.gaps surfaced into the audit (reason + affected model +
     // remediation), grouped per category with each DATA_MISSING category's coverage state.
@@ -2029,6 +2150,9 @@ const auditTable = {
       performance_branch_tiebreak:
         "same-model equal measured perf_norm → effort descending (max-effort first) before cost " +
         "can discriminate. Cost separates only across models on the performance branch. (#1 fix)",
+      performance_branch_ordering:
+        "performance_rank_pin rows sort first, then phase-2 synthesis ranks where cited, then " +
+        "power-law branch score.",
     },
     cost_blend: {
       label: "reference-blend cost",
@@ -2038,8 +2162,8 @@ const auditTable = {
       above_cliff_cost_figure: ABOVE_CLIFF_COST_FIGURE,
     },
   },
-  performance: auditBranch(performanceFull),
-  cost_efficiency: auditBranch(costEfficiencyFull),
+  performance: auditBranch(performanceFull, "performance"),
+  cost_efficiency: auditBranch(costEfficiencyFull, "cost_efficiency"),
 };
 
 // ---- write (#25 atomic: stage to .tmp, validate set, rename to final) ----------------

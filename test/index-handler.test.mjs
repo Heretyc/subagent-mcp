@@ -34,7 +34,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const distIndex = join(repoRoot, "dist", "index.js");
 const preloadPath = join(repoRoot, "test", "fixtures", "fake-ruleset-preload.cjs");
 const { currentUserSlotNamespace } = await import("../dist/concurrency.js");
-const { TASK_CATEGORIES } = await import("../dist/routing.js");
+const { TASK_CATEGORIES, buildCandidates, loadRoutingTable } = await import("../dist/routing.js");
 const {
   anonKey,
   disablePath,
@@ -537,6 +537,17 @@ const EXPLICIT_CLAUDE_SONNET = {
   model: "sonnet",
   effort: "medium",
 };
+// A provider+model override (no effort) is provider_model mode: the server
+// reads the live routing table on the cost_efficiency branch and resolves the
+// top-ranked matching pairing. Derive the expected selection from the same
+// production logic (buildCandidates over the current table) rather than
+// hard-coding an effort, so a routing-table refresh never leaves this stale.
+const OVERRIDE_CLAUDE_SONNET_ARCHITECTURE = buildCandidates(
+  loadRoutingTable(),
+  "architecture",
+  { provider: "claude", model: "sonnet" },
+  "cost_efficiency"
+).candidates[0];
 
 function assertNoRoutingTier(payload, label) {
   assert.equal(payload.routing_tier, undefined, `${label} must not expose routing_tier`);
@@ -1199,7 +1210,7 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       provider: "claude",
       model: "sonnet",
     });
-    assertSelection(r3.launchPayload, EXPLICIT_CLAUDE_SONNET,
+    assertSelection(r3.launchPayload, OVERRIDE_CLAUDE_SONNET_ARCHITECTURE,
       "override launch must honor the override selection");
     await killAgent(session, r3.agentId);
 

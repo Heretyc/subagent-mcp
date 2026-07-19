@@ -23,7 +23,7 @@ model card for the specific self-reported number + config, read symmetrically (T
 the *live* number. **Rule:** never rank on vendor cards alone : they are the self-claim, corroborated
 at Tier 2/3.
 
-**Source count: 41 distinct sources/venues** (5 Tier-1 vendor families · 7 Tier-2 hubs · ~20 Tier-3
+**Source count: ~50 distinct sources/venues** (Tier-1 vendor sources · 7 Tier-2 hubs · ~20 Tier-3
 official boards across 10 category rows · 6 Tier-4 venues · 3 Tier-5 trackers).
 
 ---
@@ -67,7 +67,7 @@ category is measured (strong / moderate / proxy).
 | openai.com (system cards, Preparedness evals) · platform.openai.com/docs | that vendor's self-reported scores + preparedness/cyber evals | same caveat |
 | deepmind.google · ai.google.dev (Gemini tech reports, model cards, Frontier Safety) | that vendor's self-reported scores + frontier-safety evals | same caveat |
 | ai.meta.com · llama.com (model cards; Purple Llama / CyberSecEval) | that vendor's scores + the CyberSecEval security suite | same caveat |
-| docs.mistral.ai · x.ai/docs · DeepSeek & Qwen tech reports · Microsoft (Phi) cards | respective vendors' self-reported scores | read symmetrically |
+| docs.mistral.ai · xAI (x.ai/docs) · moonshotai/zai-org/Qwen/deepseek-ai tech reports · Microsoft (Phi) cards | respective vendors' self-reported scores | read symmetrically |
 
 ## Tier 2 : Independent live leaderboards & standardized eval hubs (impartiality backbone)
 
@@ -119,7 +119,7 @@ HELM is NOT a model registry (DO-NOT-ADOPT #1). Use publicly published model-lis
 
 | # | Source | What to check |
 |---|--------|--------------|
-| 1 | Provider release blogs (Anthropic/OpenAI) | New model announcements in recency window |
+| 1 | Provider release blogs (Anthropic/OpenAI/moonshotai/xAI/zai-org/Qwen/deepseek-ai) | New model announcements in recency window |
 | 2 | Public provider model-list documentation and release announcements (no authenticated API calls, no API keys) | Published model IDs and availability statements |
 | 3 | OpenRouter public model catalog documentation and release announcements (no authenticated API calls, no API keys) | Third-party hosted models, aliased IDs, availability |
 | 4 | Official system/model cards | Supported effort tiers, sampling locks, context in/out, modality |
