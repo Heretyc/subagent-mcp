@@ -32,6 +32,17 @@ let audit, provider;
 try { audit = JSON.parse(readFileSync(AUDIT_PATH, "utf8").replace(/^﻿/, "")); } catch (e) { fail(`audit unparseable: ${e.message}`); }
 try { provider = JSON.parse(readFileSync(PROVIDER_PATH, "utf8").replace(/^﻿/, "")); } catch (e) { fail(`routing-table unparseable: ${e.message}`); }
 
+const runManifest = audit.metadata?.run_manifest;
+const override = runManifest?.gap_stub_override;
+if (runManifest?.completeness_state === "gap_stubbed") {
+  if (!override || override.override_used !== true || typeof override.reason !== "string" || !override.reason.trim()) {
+    fail("run_manifest.completeness_state=gap_stubbed requires gap_stub_override.override_used=true with a non-empty reason");
+  }
+}
+if (override?.override_used === true) {
+  warn(`gap_stub_override recorded: ${override.reason}`);
+}
+
 // 1. Structural mirror: same branches and categories as the routing table.
 const BRANCHES = ["performance", "cost_efficiency"];
 for (const branch of BRANCHES) {

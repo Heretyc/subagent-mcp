@@ -1253,6 +1253,21 @@ function sameTriples(a: Candidate[], b: Candidate[]): boolean {
   );
 }
 
+function reattachCandidateMetadata(original: Candidate[], returned: Candidate[]): Candidate[] {
+  const buckets = new Map<string, Candidate[]>();
+  for (const candidate of original) {
+    const key = `${candidate.provider}\0${candidate.model}\0${candidate.effort}`;
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(candidate);
+    else buckets.set(key, [candidate]);
+  }
+  return returned.map((candidate) => {
+    const key = `${candidate.provider}\0${candidate.model}\0${candidate.effort}`;
+    const match = buckets.get(key)?.shift();
+    return match?.apiProvider ? { ...candidate, apiProvider: match.apiProvider } : candidate;
+  });
+}
+
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
@@ -1350,6 +1365,9 @@ server.tool(
     }
 
     let candidates = result.candidates;
+    if (pureAuto && process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1") {
+      candidates = slotInsert(candidates, loadApiProviders(), task_category);
+    }
     let rulesetApplied = false;
     let rulesetOriginalSelection: { provider: string; model: string; effort: string } | undefined;
 
@@ -1386,17 +1404,17 @@ server.tool(
       }
       rulesetApplied = !sameTriples(candidates, applied.candidates);
       if (rulesetApplied) {
-        rulesetOriginalSelection = { ...candidates[0] };
+        rulesetOriginalSelection = {
+          provider: candidates[0].provider,
+          model: candidates[0].model,
+          effort: candidates[0].effort,
+        };
       }
-      candidates = applied.candidates;
+      candidates = reattachCandidateMetadata(candidates, applied.candidates);
     }
 
     // 6. Attempt loop: best→worst. Register on first successful driver start; silently
     //    advance on launch-time failure. Sub-agent task outcome is NEVER a trigger.
-    if (process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1") {
-      candidates = slotInsert(candidates, loadApiProviders(), task_category);
-    }
-
     const apiGate = modelMode.gateLaunch(agentCwd, {
       provider,
       model,
@@ -1494,6 +1512,7 @@ server.tool(
                   model: candidate.model,
                   effort: candidate.effort,
                   task_category,
+                  ...(routingTier ? { routing_tier: routingTier } : {}),
                   permissions_applied: {
                     ceiling: permissionSnapshot.ceiling,
                     escalation: permissionSnapshot.escalation,
@@ -1636,6 +1655,7 @@ server.tool(
             id: agent.id,
             provider: agent.provider,
             model: agent.model,
+            ...(agent.routingTier ? { routing_tier: agent.routingTier } : {}),
             status: agent.status,
             exit_code: agent.exitCode,
             started_at: agent.startedAt,

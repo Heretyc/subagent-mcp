@@ -51,6 +51,13 @@ the repo. The emission is **deterministic code** (sanity Rule 5), not free-hand 
    ```powershell
    node scripts/build_routing_table.mjs
    ```
+   **Coverage block (fail-loud):** the builder exits non-zero if any category is
+   `DATA_MISSING` or the overall `measured_pairing_ratio` is `< 0.30`. Override
+   only for a disclosed interim regeneration by setting
+   `SUBAGENT_MCP_ALLOW_GAP_STUBBED=1` or passing `--allow-gap-stubbed`; the
+   override, its reason, and the marker are recorded in
+   `metadata.run_manifest.gap_stub_override`. Dataset models the spine cannot
+   support are skipped and listed in `metadata.run_manifest.skipped_models`.
 4. **Merge this run's citations into the seed registry.** `update_seed_sites.mjs` reads
    `src/routing-table-audit.json`, harvests every non-empty-url citation, and accumulates into
    `research-seed-sites.json` (the spine is fixed : never re-derive it):

@@ -33,6 +33,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const preloadPath = join(repoRoot, "test", "fixtures", "fake-ruleset-preload.cjs");
 const fixtureTablePath = join(repoRoot, "test", "fixtures", "ruleset-routing-table.fixture.json");
+const { TASK_CATEGORIES } = await import("../dist/routing.js");
 
 // Verbatim duplicates of the spec'd strings (house convention: tests duplicate
 // exact strings so source drift fails loudly). The hard-fail message carries
@@ -48,8 +49,8 @@ const CE_RANK1 = { provider: "claude", model: "sonnet", effort: "medium" };
 const CE_RANK2 = { provider: "codex", model: "gpt-5.5", effort: "xhigh" };
 const PERF_RANK1 = { provider: "claude", model: "opus-4-8", effort: "high" };
 
-function assertNoRoutingTier(payload, label) {
-  assert.equal(payload.routing_tier, undefined, `${label} must not expose routing_tier`);
+function assertRoutingTier(payload, expected, label) {
+  assert.equal(payload.routing_tier, expected, `${label} routing_tier`);
 }
 
 function assertSelection(payload, expected, label) {
@@ -248,9 +249,10 @@ rl.on("line", (line) => {
 }
 
 async function launchAndPoll(session, launchArgs) {
+  const { __expectedRoutingTier, ...wireArgs } = launchArgs;
   const launchResp = await session.request("tools/call", {
     name: "launch_agent",
-    arguments: launchArgs,
+    arguments: wireArgs,
   });
   const launchText = launchResp.result.content[0].text;
   if (launchResp.result.isError) {
@@ -264,8 +266,13 @@ async function launchAndPoll(session, launchArgs) {
     arguments: { agent_id: agentId },
   });
   const pollPayload = JSON.parse(pollResp.result.content[0].text);
-  assertNoRoutingTier(launchPayload, "launch_agent payload");
-  assertNoRoutingTier(pollPayload, "poll_agent payload");
+  const expectedTier = __expectedRoutingTier ?? (wireArgs.provider && wireArgs.model && wireArgs.effort
+    ? "manual"
+    : wireArgs.deadlock
+      ? "performance"
+      : "cost_efficiency");
+  assertRoutingTier(launchPayload, expectedTier, "launch_agent payload");
+  assertRoutingTier(pollPayload, expectedTier, "poll_agent payload");
   return { agentId, launchPayload, pollPayload };
 }
 
@@ -347,6 +354,28 @@ function makeRulesetTempEnv(initialMode) {
 
 function logLines(logFile) {
   return readFileSync(logFile, "utf8").split("\n").map((l) => l.trim()).filter(Boolean);
+}
+
+function writeApiProviders(home, provider) {
+  const configDir = join(home, ".subagent-mcp");
+  mkdirSync(configDir, { recursive: true });
+  const routing = Object.fromEntries(
+    TASK_CATEGORIES
+      .filter((category) => category !== "fallback_default")
+      .map((category) => [category, category === "coding" ? 1 : -1])
+  );
+  writeFileSync(join(configDir, "providers.jsonc"), JSON.stringify({
+    providers: {
+      api: {
+        name: "api",
+        api_style: "openai",
+        base_url: provider.base_url,
+        model: provider.model ?? "api-model",
+        key_env: "API_KEY",
+        routing,
+      },
+    },
+  }));
 }
 
 function assertNoRulesetFields(payload, label) {
@@ -481,7 +510,7 @@ await test("passthrough: ruleset ran but did not alter — visibility fields ABS
 //    and the visibility fields are how the caller learns its request was
 //    overridden.
 // ---------------------------------------------------------------------------
-await test("explicit-mode override: ruleset replaces the requested triple; routing_tier absent", async () => {
+await test("explicit-mode override: ruleset replaces the requested triple; routing_tier manual", async () => {
   const { tempRoot, workDir, env, entrypoint } = makeRulesetTempEnv("ok-enabled-replace");
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
@@ -503,6 +532,38 @@ await test("explicit-mode override: ruleset replaces the requested triple; routi
       { provider: "claude", model: "sonnet", effort: "medium" },
       "original selection must be the caller's explicit triple");
     assert.equal(pollPayload.ruleset_applied, true);
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("pure-auto ruleset stdin includes api slot candidates", async () => {
+  const { tempRoot, workDir, env, entrypoint } = makeRulesetTempEnv("ok-enabled-reorder");
+  const captureFile = join(tempRoot, "ruleset-stdin.json");
+  writeApiProviders(tempRoot, { base_url: "http://127.0.0.1:9" });
+  const session = createMcpSession(entrypoint, {
+    cwd: workDir,
+    env: {
+      ...env,
+      HOME: tempRoot,
+      USERPROFILE: tempRoot,
+      API_KEY: "test-key",
+      FAKE_RULESET_STDIN_CAPTURE: captureFile,
+    },
+  });
+  try {
+    await session.initialize();
+    await enableManualSelection(session);
+    const { agentId } = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "capture api candidate stdin",
+    });
+    const payload = JSON.parse(readFileSync(captureFile, "utf8"));
+    assert.deepEqual(payload.candidates[0],
+      { provider: "api", model: "api-model", effort: "medium", rank: 1 });
+    assert.equal(payload.context.selection_mode, "auto");
     await killAgent(session, agentId);
   } finally {
     await session.close();
@@ -705,11 +766,19 @@ await test("deadlock window: ruleset failure does not consume a window counter",
     //      If the failed launch had consumed a counter, launch 4 would already
     //      be cost_efficiency.
     writeFileSync(modeFile, "ok-enabled-passthrough");
-    const r3 = await launchAndPoll(session, { task_category: "coding", prompt: "post-failure one" });
+    const r3 = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "post-failure one",
+      __expectedRoutingTier: "performance",
+    });
     assertSelection(r3.launchPayload, PERF_RANK1, "window must still hold 2 counters after the ruleset failure");
     await killAgent(session, r3.agentId);
 
-    const r4 = await launchAndPoll(session, { task_category: "coding", prompt: "post-failure two" });
+    const r4 = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "post-failure two",
+      __expectedRoutingTier: "performance",
+    });
     assertSelection(r4.launchPayload, PERF_RANK1,
       "the ruleset hard-fail must NOT have consumed a window counter");
     await killAgent(session, r4.agentId);

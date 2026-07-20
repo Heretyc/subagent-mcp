@@ -105,7 +105,7 @@ output; critics are fresh and distinct (self-review ban / Anti-Pattern D).
 | Two hard gates / specs irreducibly conflict | Surface to owner (`needs_user`) |
 | Evidence suggests the FIXED taxonomy is wrong | Surface to owner (`needs_user`); never alter the spine here |
 | A KB leaf would exceed 200 lines | Split into an index + same-named subdir before writing |
-| One or more Phase-1 agents stall, fail, or hit provider limits | Apply finite-wait + fallback + GAP-stub policy (`dispatch-mechanics.md`); continue to Phase 2 with GAP stubs |
+| One or more Phase-1 agents stall, fail, or hit provider limits | Apply finite-wait + fallback (`dispatch-mechanics.md`); if fresh ranking-relevant data is still unobtainable, ABORT as `blocked` |
 | Provider/model fallback chain exhausted mid-run | Report `blocked`; persist partial provenance |
 | Brand-new model has sparse corroboration | Use task-split framing; mark assumption-based claims |
 

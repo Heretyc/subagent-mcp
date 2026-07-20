@@ -259,7 +259,7 @@ async function runBehavioralPollPayloadGuard() {
       prompt: "index guard payload",
     });
     assert.equal(launch.response.result.isError, undefined, launch.text);
-    assert.equal(launch.payload.routing_tier, undefined);
+    assert.equal(launch.payload.routing_tier, "cost_efficiency");
 
     const compact = await waitForPoll(
       session,
@@ -267,7 +267,7 @@ async function runBehavioralPollPayloadGuard() {
       (payload) => payload.status === "finished",
       "compact poll payload"
     );
-    assert.equal(compact.routing_tier, undefined);
+    assert.equal(compact.routing_tier, "cost_efficiency");
     assert.equal(compact.stdout_tail, undefined);
     assert.equal(compact.stderr_tail, undefined);
     assert.equal(compact.final_output, undefined);
@@ -276,7 +276,7 @@ async function runBehavioralPollPayloadGuard() {
       agent_id: launch.payload.agent_id,
       verbose: true,
     });
-    assert.equal(verbose.payload.routing_tier, undefined);
+    assert.equal(verbose.payload.routing_tier, "cost_efficiency");
     assert.equal(typeof verbose.payload.stdout_tail, "string");
     assert.match(verbose.payload.stdout_tail, /^\[UNTRUSTED SUB-AGENT OUTPUT/);
     assert.doesNotMatch(verbose.payload.stdout_tail, /<subagent-mcp state="ON">/);
