@@ -45,6 +45,7 @@ const SUBAGENT_SOURCE_STRINGS = new Set([
   "subAgentThreadSpawn",
   "subAgentOther",
 ]);
+const ABSURD_FALLBACK_TOKEN_MULTIPLE = 4;
 
 export interface LiftedUsage {
   harness: MeteringHarness;
@@ -166,6 +167,14 @@ function modelFromTurnContext(obj: Record<string, unknown>): string | null {
   return stringField(obj, "model") ?? stringField(nestedRecord(obj, "payload"), "model");
 }
 
+function tokenUsageTotal(usage: Record<string, unknown>): number | null {
+  const total = usage.total_tokens;
+  if (finiteNumber(total)) return total;
+  const input = usage.input_tokens;
+  const output = usage.output_tokens;
+  return finiteNumber(input) && finiteNumber(output) ? input + output : null;
+}
+
 function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUsage | null {
   let latestTokenInfo: Record<string, unknown> | null = null;
   let latestModel: string | null = null;
@@ -188,23 +197,34 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
     }
   }
 
-  const total = nestedRecord(latestTokenInfo, "total_token_usage");
-  if (!total || !latestModel || !transcriptPath) return null;
+  const last = nestedRecord(latestTokenInfo, "last_token_usage");
+  const fallbackTotal = last ? null : nestedRecord(latestTokenInfo, "total_token_usage");
+  const current = last ?? fallbackTotal;
+  if (!current || !latestModel || !transcriptPath) return null;
 
-  const input = total.input_tokens;
-  const output = total.output_tokens;
-  const cacheRead = total.cached_input_tokens;
+  const input = current.input_tokens;
+  const output = current.output_tokens;
+  const cacheRead = current.cached_input_tokens;
   if (!finiteNumber(input) || !finiteNumber(output) || !finiteNumber(cacheRead)) {
     return null;
   }
   const nonCachedInput = Math.max(0, input - cacheRead);
 
   const modelContextWindow = latestTokenInfo?.model_context_window;
-  const totalTokens = total.total_tokens;
+  const totalTokens = tokenUsageTotal(current);
+  if (
+    fallbackTotal &&
+    finiteNumber(modelContextWindow) &&
+    modelContextWindow > 0 &&
+    totalTokens !== null &&
+    totalTokens > modelContextWindow * ABSURD_FALLBACK_TOKEN_MULTIPLE
+  ) {
+    return null;
+  }
   const harnessPercentage =
     finiteNumber(modelContextWindow) &&
     modelContextWindow > 0 &&
-    finiteNumber(totalTokens)
+    totalTokens !== null
       ? (totalTokens / modelContextWindow) * 100
       : null;
 

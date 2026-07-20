@@ -33,6 +33,9 @@ test("mapModel sonnet -> claude-sonnet-4-6", () => {
 test("mapModel haiku -> claude-haiku-4-5", () => {
   assert.equal(mapModel("claude", "haiku"), "claude-haiku-4-5");
 });
+test("mapModel codex gpt-5.6 -> gpt-5.6-sol", () => {
+  assert.equal(mapModel("codex", "gpt-5.6"), "gpt-5.6-sol");
+});
 
 // 2. (claude, opus, ultracode) buildCommand: args include "--settings"; file exists with {"ultracode":true}; no "--effort"
 test("(claude,opus,ultracode) buildCommand has --settings, no --effort, file contains ultracode:true", () => {

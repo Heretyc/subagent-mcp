@@ -65,7 +65,7 @@ export function isClaudeSessionLimit(text: string): boolean {
 }
 
 const TRANSIENT_FAILURE_RE =
-  /\b429\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*5\d{2}\b|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
+  /\b(?:401|403|429)\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*(?:401|403|429|5\d{2})\b|auth(?:entication|orization)?|unauthori[sz]ed|forbidden|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
 
 export function claudeMessageText(message: any): string | null {
   if (message?.type === "assistant") {
@@ -719,7 +719,7 @@ export class CodexAppServerDriver implements ProviderDriver {
     });
     await this.notify("initialized");
     const thread = await this.request("thread/start", {
-      model: this.options.model,
+      model: mapModel(this.options.provider, this.options.model),
       cwd: this.options.cwd,
       approvalPolicy: this.codexLaunchValues.approvalPolicy,
       sandbox: this.codexLaunchValues.threadSandbox,
@@ -784,7 +784,7 @@ export class CodexAppServerDriver implements ProviderDriver {
         threadId: this.threadId,
         input: [textInput(inputText)],
         cwd: this.options.cwd,
-        model: this.options.model,
+        model: mapModel(this.options.provider, this.options.model),
         effort: this.options.effort,
         approvalPolicy: this.codexLaunchValues.approvalPolicy,
         sandboxPolicy: this.codexLaunchValues.turnSandboxPolicy,

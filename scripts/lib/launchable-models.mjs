@@ -18,7 +18,7 @@ export const LAUNCHABLE_TABLE_MODELS = new Set([
   "claude-haiku-4-5",
   "claude-fable-5",
   "gpt-5.5",
-  "gpt-5.6",
+  "gpt-5.6-sol",
 ]);
 
 // Known benchmarked-but-non-launchable ids intentionally absent from the shipped

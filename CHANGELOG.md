@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.1.5
+
+### Fixed
+
+- Codex context metering now uses `last_token_usage` for current context
+  occupancy and ignores absurd cumulative-token fallbacks, preventing cached
+  billing totals from forcing a false 100% orchestration state.
+- Codex `gpt-5.6` launches now route to the current `gpt-5.6-sol` backend id in
+  shipped routing data and app-server requests.
+- Auto-mode failover now treats `401`, `403`, `429`, `5xx`, and auth-like launch
+  errors as transient provider failures across CLI and API providers.
+
 ## 3.1.1
 
 ### Changed

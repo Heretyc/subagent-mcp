@@ -93,8 +93,9 @@ Claude ladder:
 
 Codex ladder:
 1. `token_count.info.model_context_window` plus
-   `total_token_usage.total_tokens` is authoritative and provides a
-   harness-reported percentage for that turn. It has primacy over the mapping.
+   `last_token_usage.total_tokens` is authoritative for current context
+   occupancy when present. `total_token_usage` is cumulative accounting data;
+   use it only as a guarded fallback when no last-turn usage exists.
 2. Static fallback uses exact entries from `context-windows.json`. Values are
    effective usable windows, not raw catalog maxima.
 3. The in-id marker upgrades to `long` only when the mapping entry has a

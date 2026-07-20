@@ -460,18 +460,24 @@ test("codex currentTurn: unreadable transcript -> 0", () => {
   assert.equal(codexAdapter.currentTurn(undefined), 0);
 });
 
-test("codex liftUsage: prefers harness percentage when model_context_window is present", () => {
+test("codex liftUsage: uses last_token_usage for current context occupancy", () => {
   const { dir, file } = writeJsonl([
     { type: "turn_context", model: "gpt-5" },
     {
       type: "token_count",
       info: {
-        model_context_window: 1000,
+        model_context_window: 258400,
         total_token_usage: {
-          input_tokens: 200,
-          output_tokens: 50,
-          cached_input_tokens: 25,
-          total_tokens: 300,
+          input_tokens: 174860000,
+          output_tokens: 10739,
+          cached_input_tokens: 174800000,
+          total_tokens: 174870739,
+        },
+        last_token_usage: {
+          input_tokens: 62000,
+          output_tokens: 4000,
+          cached_input_tokens: 0,
+          total_tokens: 66000,
         },
       },
     },
@@ -483,13 +489,15 @@ test("codex liftUsage: prefers harness percentage when model_context_window is p
       model: "gpt-5",
       source_ref: file,
       usage: {
-        input: 175,
-        output: 50,
+        input: 62000,
+        output: 4000,
         cache_creation: 0,
-        cache_read: 25,
+        cache_read: 0,
       },
-      harnessPercentage: 30,
+      harnessPercentage: (66000 / 258400) * 100,
     });
+    const pct = codexAdapter.liftUsage({ cwd: dir }, {}, file)?.harnessPercentage ?? 0;
+    assert.ok(pct > 25 && pct < 26, "regression must meter about 26%, not clamp to 100%");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -526,6 +534,29 @@ test("codex liftUsage: returns static-map-computable usage without harness perce
       },
       harnessPercentage: null,
     });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex liftUsage: ignores absurd total_token_usage fallback when last usage is absent", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    {
+      type: "token_count",
+      info: {
+        model_context_window: 258400,
+        total_token_usage: {
+          input_tokens: 174860000,
+          output_tokens: 10739,
+          cached_input_tokens: 174800000,
+          total_tokens: 174870739,
+        },
+      },
+    },
+  ]);
+  try {
+    assert.equal(codexAdapter.liftUsage({ cwd: dir }, {}, file), null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

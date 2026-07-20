@@ -378,6 +378,29 @@ await test("Codex app-server driver starts a thread, sends turns, and kills", as
   }
 });
 
+await test("Codex app-server driver maps gpt-5.6 alias to gpt-5.6-sol backend id", async () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-sol-"));
+  try {
+    const logFile = join(tempRoot, "app-server.log");
+    const script = writeFakeAppServer(tempRoot, logFile);
+    const child = spawnFakeAppServer(script, { APP_SERVER_LOG: logFile });
+    const driver = new CodexAppServerDriver(child, { ...options("codex"), model: "gpt-5.6" });
+    const stdout = collect(driver.process.stdout);
+    await once(driver.process, "spawn");
+
+    await driver.start("first");
+    await waitFor(() => readTurnStarts(logFile).length === 1, "first Codex turn/start");
+    await waitFor(() => stdout().includes("done:first"), "first Codex completion");
+    const messages = readLog(logFile);
+    assert.equal(messages.find((msg) => msg.method === "thread/start")?.params?.model, "gpt-5.6-sol");
+    assert.equal(messages.find((msg) => msg.method === "turn/start")?.params?.model, "gpt-5.6-sol");
+
+    driver.kill();
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 await test("Codex send enqueues behind an active turn without blocking for output", async () => {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-queue-"));
   try {
