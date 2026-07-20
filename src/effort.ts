@@ -13,7 +13,10 @@ export function mapModel(provider: Provider, model: string): string {
     if (model === "fable") return "claude-fable-5";
     return model;
   }
-  if (provider === "codex") return model; // gpt-5.5, gpt-5.6
+  if (provider === "codex") {
+    if (model === "gpt-5.6") return "gpt-5.6-sol";
+    return model; // gpt-5.5
+  }
   throw new Error("api provider dispatch not implemented");
 }
 

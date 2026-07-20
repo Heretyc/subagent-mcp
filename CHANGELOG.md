@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.1.4-beta.1
+
+### Fixed
+
+- Provider failover no longer stalls terminal sub-agent startup and in-turn
+  turns: a failed primary provider now fails over cleanly at both launch and
+  mid-turn instead of hanging.
+- Context metering no longer reports a false 100% utilization; the meter
+  reflects actual context usage.
+- Fresh parent `GH_TOKEN` is now injected into child sub-agent environments so
+  spawned agents inherit current GitHub credentials.
+
+### Changed
+
+- Codex `gpt-5.6` now maps to the correct wire model identifier.
+- Handoff artifacts are more portable across environments.
+
 ## 3.1.1
 
 ### Changed

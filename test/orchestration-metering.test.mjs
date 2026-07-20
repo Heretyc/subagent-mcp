@@ -93,6 +93,41 @@ test("harness percentage and window override computed ladder", () => {
   assert.equal(record.window_source, "harness");
 });
 
+test("harnessContextWindow prevents false 100% clamp when usage exceeds static map (NEWI-001)", () => {
+  // Regression: a Codex turn whose prompt-side tokens exceed the static-map
+  // window (gpt-5 default 258400, long=null) would otherwise resolve to
+  // window_source="contradiction" and clamp used_percentage to 100% (Remaining
+  // Context=0%). Forwarding the harness-reported window fixes both.
+  const usage = { input: 300000, output: 10000, cache_creation: 0, cache_read: 0 };
+
+  // Without a harness window: static map contradicts and clamps to 100%.
+  const staticRecord = buildMeteringRecord({
+    session_id: "s-newi-static",
+    harness: "codex",
+    model: "gpt-5",
+    source_ref: "rollout.jsonl",
+    usage,
+    event: "UserPromptSubmit",
+  });
+  assert.equal(staticRecord.window_source, "contradiction");
+  assert.equal(staticRecord.used_percentage, 100);
+
+  // With the harness window forwarded: window_source="harness", no false clamp.
+  const harnessRecord = buildMeteringRecord({
+    session_id: "s-newi-harness",
+    harness: "codex",
+    model: "gpt-5",
+    source_ref: "rollout.jsonl",
+    usage,
+    event: "UserPromptSubmit",
+    harnessContextWindow: 400000,
+  });
+  assert.equal(harnessRecord.window_source, "harness");
+  assert.equal(harnessRecord.context_window_size, 400000);
+  assert.equal(harnessRecord.used_percentage, 77.5);
+  assert.ok(harnessRecord.used_percentage < 100);
+});
+
 test("phaseFor thresholds are inclusive at 15 and 40", () => {
   assert.equal(phaseFor(null), "normal");
   assert.equal(phaseFor(14.99), "normal");

@@ -3,7 +3,7 @@
  *
  * The suite owns the failover surface only: launch_agent should advance through
  * candidate launch failures in a single call, expose failover metadata on
- * success, and keep explicit provider/model/effort launches single-attempt.
+ * success, and let override requests fall back to de-duped auto candidates.
  */
 
 import assert from "node:assert/strict";
@@ -421,9 +421,29 @@ await test("terminalTurnFailure detects codex/claude first-turn errors but not n
     terminalTurnFailure("codex", JSON.stringify({ method: "error", params: { willRetry: false, message: "gpt-5.6 model not supported" } })) || "",
     /gpt-5\.6 model not supported/
   );
+  assert.match(
+    terminalTurnFailure("codex", JSON.stringify({ method: "error", params: { willRetry: false }, error: { message: "unsupported model gpt-5.6" } })) || "",
+    /unsupported model gpt-5\.6/
+  );
   assert.equal(
     terminalTurnFailure("codex", JSON.stringify({ method: "thread/status/changed", params: { status: "systemError" } })),
     "codex thread status systemError"
+  );
+  assert.equal(
+    terminalTurnFailure("codex", JSON.stringify({ method: "thread/status/changed", params: { thread: { status: "systemError" } } })),
+    "codex thread status systemError"
+  );
+  assert.match(
+    terminalTurnFailure("codex", JSON.stringify({ method: "thread/systemError", params: { message: "unsupported model" } })) || "",
+    /unsupported model/
+  );
+  assert.match(
+    terminalTurnFailure("codex", JSON.stringify({ method: "turn/failed", params: { error: { message: "unsupported model" } } })) || "",
+    /unsupported model/
+  );
+  assert.match(
+    terminalTurnFailure("codex", JSON.stringify({ method: "turn/error", params: { message: "unsupported model" } })) || "",
+    /unsupported model/
   );
   assert.match(
     terminalTurnFailure("claude", JSON.stringify({ type: "result", is_error: true, error: "model unavailable" })) || "",
@@ -476,8 +496,8 @@ await test("first-candidate success: no failover_occurred, failover_from, or fai
   });
 });
 
-await test("explicit provider/model/effort plus transient failure hard-fails with auto-mode note", async () => {
-  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-always" }, async ({ session }) => {
+await test("explicit provider/model/effort failure falls back to de-duped auto candidates", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-once", claudeMode: "stall" }, async ({ session }) => {
     const modeResp = await callTool(session, "model-selection-mode", { mode: "user-approved-overrides" });
     assert.notEqual(modeResp.result.isError, true);
     const response = await launch(session, {
@@ -487,17 +507,17 @@ await test("explicit provider/model/effort plus transient failure hard-fails wit
       model: "sonnet",
       effort: "medium",
     });
-    const text = textOf(response);
-    assert.equal(response.result.isError, true);
-    assert.ok(text.startsWith("Error: explicit launch sonnet@medium (claude) failed:"));
-    assert.match(text, /Note: this failure appears transient/);
-    assert.match(text, /Switch to auto mode/);
-    assert.ok(text.includes(AUTO_HINT));
-    assert.doesNotMatch(text, /gpt-5\.5@xhigh/);
+    const payload = JSON.parse(textOf(response));
+    assert.notEqual(response.result.isError, true);
+    assert.equal(payload.provider, CE_RANK2.provider);
+    assert.equal(payload.model, CE_RANK2.model);
+    assert.equal(payload.effort, CE_RANK2.effort);
+    assertFailoverFrom(payload.failover_from[0], CE_RANK1, "transient_provider");
+    await killAgent(session, payload.agent_id);
   });
 });
 
-await test("user-approved-overrides explicit selectors still hard-fail without a second attempt", async () => {
+await test("explicit fallback does not retry the same triple from auto candidates", async () => {
   await withEnv("stall", GRACE_MS, { mockHookMode: "transient-always" }, async ({ session }) => {
     const modeResp = await callTool(session, "model-selection-mode", { mode: "user-approved-overrides" });
     assert.notEqual(modeResp.result.isError, true);
@@ -510,14 +530,15 @@ await test("user-approved-overrides explicit selectors still hard-fail without a
     });
     const text = textOf(response);
     assert.equal(response.result.isError, true);
-    assert.ok(text.startsWith("Error: explicit launch sonnet@medium (claude) failed:"));
-    assert.match(text, /Note: this failure appears transient/);
-    assert.doesNotMatch(text, /  2\. gpt-5\.5@xhigh/);
+    assert.ok(text.startsWith("Error: all 2 candidate launches failed for task_category coding:"));
+    assert.match(text, /  1\. sonnet@medium \(claude\) \[transient_provider\]:/);
+    assert.match(text, /  2\. gpt-5\.5@xhigh \(codex\) \[transient_provider\]:/);
+    assert.doesNotMatch(text, /  3\. sonnet@medium/);
   });
 });
 
-await test("user-approved-overrides provider selector hard-fails without ERR_ALL_FAILED", async () => {
-  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-always" }, async ({ session }) => {
+await test("user-approved-overrides provider selector falls back after requested candidates", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "transient-once", claudeMode: "stall" }, async ({ session }) => {
     const modeResp = await callTool(session, "model-selection-mode", { mode: "user-approved-overrides" });
     assert.notEqual(modeResp.result.isError, true);
     const response = await launch(session, {
@@ -525,12 +546,12 @@ await test("user-approved-overrides provider selector hard-fails without ERR_ALL
       prompt: "provider override transient failure",
       provider: "claude",
     });
-    const text = textOf(response);
-    assert.equal(response.result.isError, true);
-    assert.ok(text.startsWith("Error: override launch sonnet@medium (claude) failed:"));
-    assert.match(text, /Note: this failure appears transient/);
-    assert.doesNotMatch(text, /Error: all 1 candidate launches failed/);
-    assert.doesNotMatch(text, /  2\. /);
+    const payload = JSON.parse(textOf(response));
+    assert.notEqual(response.result.isError, true);
+    assert.equal(payload.provider, CE_RANK2.provider);
+    assert.equal(payload.model, CE_RANK2.model);
+    assertFailoverFrom(payload.failover_from[0], CE_RANK1, "transient_provider");
+    await killAgent(session, payload.agent_id);
   });
 });
 
