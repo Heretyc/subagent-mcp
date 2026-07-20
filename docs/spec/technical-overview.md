@@ -10,6 +10,10 @@ in `providers.jsonc`: `key_env` names an environment variable, and actual keys
 live in the adjacent gitignored `.env`.
 
 API provider routing folds into the same 14-category table by slot insertion.
+Slot insertion runs in pure-auto mode ONLY: `provider`/`provider_model`/
+`explicit` override launches attempt exactly the user-requested candidate and
+never receive inserted `providers.jsonc` API slots. Set
+`SUBAGENT_MCP_DISABLE_API_PROVIDERS=1` to disable insertion entirely.
 subagent-mcp is not a general HTTP proxy or model gateway.
 
 The API isolation grep gate (`test/no-api-keys.test.mjs`, in the default

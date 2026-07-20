@@ -19,6 +19,7 @@ import { dirname, resolve, isAbsolute } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { isLaunchableModel } from "./lib/launchable-models.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -35,6 +36,9 @@ const DATASET_PATH = process.env.DATASET_PATH
 const SPINE_PATH = resolve(ROOT, ".spec/references/assets/routing-table.json");
 const OUT_PROVIDER = resolve(ROOT, "src/routing-table.json");
 const OUT_AUDIT = resolve(ROOT, "src/routing-table-audit.json");
+const ALLOW_GAP_STUBBED =
+  process.env.SUBAGENT_MCP_ALLOW_GAP_STUBBED === "1" ||
+  process.argv.includes("--allow-gap-stubbed");
 
 // ---- fail-loud guards (run BEFORE deriving GENERATED_MONTH) ------------------------
 // refinement #21: DATASET_DATE is REQUIRED — fail loud rather than defaulting to a stale
@@ -283,6 +287,10 @@ function recordNeutralized(benchmark, category, model, reason) {
   _NEUTRALIZED_SEEN.add(key);
   NEUTRALIZED_BENCHMARKS.push({ benchmark, category, model, reason });
 }
+const PROXY_EVIDENCE_RE = /\[(?:ASSUMPTION|INFERRED)\]/i;
+function rowIsProxyEvidence(row) {
+  return PROXY_EVIDENCE_RE.test(String(row.label || ""));
+}
 const NORMALIZATION = {
   method: "min-max",
   params: {
@@ -309,6 +317,23 @@ function effortKey(effort) {
   return effort === null ? "null" : String(effort);
 }
 
+const PROVIDER_FAMILY_PREFIXES = [
+  ["claude-", "claude"],
+  ["gpt-", "codex"],
+  ["codex-", "codex"],
+];
+function supportsFleetProvider(model) {
+  return PROVIDER_FAMILY_PREFIXES.some(([prefix]) => String(model || "").startsWith(prefix));
+}
+function providerOf(model) {
+  for (const [prefix, family] of PROVIDER_FAMILY_PREFIXES) {
+    if (model.startsWith(prefix)) return family;
+  }
+  throw new Error(
+    `providerOf: unrecognized model prefix for '${model}'; expected one of ${PROVIDER_FAMILY_PREFIXES.map(([p]) => p).join(", ")}`
+  );
+}
+
 // Universe pairing id used in metadata.model_effort_universe and pairing keys.
 function pairingId(model, effortK) {
   return `${model}@${effortK}`;
@@ -322,6 +347,46 @@ const _rawDataset = readFileSync(DATASET_PATH, "utf8").replace(/^﻿/, "");
 const DATASET_HASH_SHORT = createHash("sha256").update(_rawDataset).digest("hex").slice(0, 12);
 const DATASET_SHA256 = createHash("sha256").update(_rawDataset).digest("hex");
 const dataset = JSON.parse(_rawDataset);
+
+const SKIPPED_MODEL_REASONS = new Map();
+function recordSkippedModel(model, reason = "unsupported provider") {
+  if (model && !supportsFleetProvider(model) && !SKIPPED_MODEL_REASONS.has(model)) {
+    SKIPPED_MODEL_REASONS.set(model, reason);
+  }
+}
+function modelFromPairingId(entry) {
+  const at = String(entry).lastIndexOf("@");
+  return at >= 0 ? String(entry).slice(0, at) : String(entry);
+}
+for (const model of Object.keys(dataset.models || {})) recordSkippedModel(model);
+for (const entry of dataset.model_effort_universe || []) recordSkippedModel(modelFromPairingId(entry));
+for (const rows of Object.values(dataset.category_benchmarks || {})) {
+  for (const row of Array.isArray(rows) ? rows : []) recordSkippedModel(row?.model);
+}
+for (const gap of dataset.gaps || []) recordSkippedModel(gap?.model);
+for (const row of dataset.withdrawn || []) recordSkippedModel(row?.model);
+const SKIPPED_MODELS = [...SKIPPED_MODEL_REASONS.entries()]
+  .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+  .map(([model, reason]) => ({ model, reason }));
+if (SKIPPED_MODELS.length > 0) {
+  console.warn(
+    `SKIPPING UNSUPPORTED DATASET MODELS: ${SKIPPED_MODELS.map((m) => `${m.model} (${m.reason})`).join(", ")}`
+  );
+}
+if (dataset.models && typeof dataset.models === "object") {
+  dataset.models = Object.fromEntries(Object.entries(dataset.models).filter(([model]) => supportsFleetProvider(model)));
+}
+if (Array.isArray(dataset.model_effort_universe)) {
+  dataset.model_effort_universe = dataset.model_effort_universe.filter((entry) => supportsFleetProvider(modelFromPairingId(entry)));
+}
+if (dataset.category_benchmarks && typeof dataset.category_benchmarks === "object") {
+  for (const [category, rows] of Object.entries(dataset.category_benchmarks)) {
+    if (Array.isArray(rows)) dataset.category_benchmarks[category] = rows.filter((row) => supportsFleetProvider(row?.model));
+  }
+}
+if (Array.isArray(dataset.gaps)) dataset.gaps = dataset.gaps.filter((gap) => supportsFleetProvider(gap?.model));
+if (Array.isArray(dataset.withdrawn)) dataset.withdrawn = dataset.withdrawn.filter((row) => supportsFleetProvider(row?.model));
+
 const spineRoot = readJsonStripBom(SPINE_PATH);
 // Post taxonomy-freeze, the provider routing-table spine is the canonical 14 categories
 // recorded in the machine-mirror `categories` object (== classification_precedence):
@@ -412,24 +477,6 @@ validateDatasetShape(dataset);
 
 const MODELS = dataset.models;
 const UNIVERSE_MODELS = new Set(Object.keys(MODELS));
-
-// performance_rank_pin: Map<category, Set<model>> — performance branch only; no cost_efficiency effect.
-const SPINE_SET = new Set(SPINE);
-const PERF_RANK_PINS = new Map();
-for (const [model, spec] of Object.entries(MODELS)) {
-  const pin = spec.performance_rank_pin;
-  if (!pin) continue;
-  if (!Array.isArray(pin.categories)) {
-    throw new Error(`MODELS.${model}.performance_rank_pin.categories must be an array of SPINE categories`);
-  }
-  for (const cat of pin.categories) {
-    if (!SPINE_SET.has(cat)) {
-      throw new Error(`MODELS.${model}.performance_rank_pin.categories: unknown category '${cat}' (must be a known SPINE category)`);
-    }
-    if (!PERF_RANK_PINS.has(cat)) PERF_RANK_PINS.set(cat, new Set());
-    PERF_RANK_PINS.get(cat).add(model);
-  }
-}
 
 function modelSupportsSelectableEffort(model) {
   const ladder = MODELS[model]?.effort_ladder;
@@ -729,6 +776,15 @@ function buildCategoryScores(category) {
       n = Math.max(n, NORM_EPSILON_FLOOR);
     }
     if (rowIsLowerBetter(category, row)) n = 1 - n;
+    if (rowIsProxyEvidence(row)) {
+      n = Math.min(n, THIN_NEUTRAL_N);
+      recordNeutralized(
+        row.benchmark,
+        category,
+        row.model,
+        `proxy evidence (${row.label}); normalized to ${THIN_NEUTRAL_N} so assumed/inferred rows cannot outrank measured data`
+      );
+    }
     return n;
   }
 
@@ -779,7 +835,7 @@ function buildCategoryScores(category) {
     // Confidence (design §1): measured if >=1 exact-effort non-thin row; high if
     // exact-effort thin OR any-effort non-thin; medium if only any-effort thin.
     const hasExact = selected.some((r) => effortKey(r.effort) === p.effortK);
-    const nonThin = selected.some((r) => Number(r.tier) >= 2 && Number(r.tier) <= 3);
+    const nonThin = selected.some((r) => !rowIsProxyEvidence(r) && Number(r.tier) >= 2 && Number(r.tier) <= 3);
     let confidence;
     if (hasExact && nonThin) confidence = "measured";
     else if ((hasExact && !nonThin) || (!hasExact && nonThin)) confidence = "high";
@@ -982,12 +1038,36 @@ for (const category of BASE_SPINE) {
 // never makes the lean table sparse (every category stays dense 1..N).
 function categoryHasMeasuredSignal(category) {
   if (COMPOSITE_CATEGORIES.has(category)) return true;
+  return categoryMeasuredStats(category).measured_pairings > 0;
+}
+function categoryMeasuredStats(category) {
   const scores = perfScores.get(category);
-  for (const p of UNIVERSE) {
-    const s = scores.get(p.id);
-    if (s && s.score !== null) return true;
+  if (!scores) {
+    return {
+      total_pairings: 0,
+      measured_pairings: 0,
+      positive_score_pairings: 0,
+      measured_pairing_ratio: 0,
+      positive_score_pairing_ratio: 0,
+    };
   }
-  return false;
+  const catUniverse = categoryUniverse(category);
+  let measured = 0, positive = 0;
+  for (const p of catUniverse) {
+    const s = scores.get(p.id);
+    if (s && s.score !== null) {
+      measured++;
+      if (s.score > 0) positive++;
+    }
+  }
+  const total = catUniverse.length;
+  return {
+    total_pairings: total,
+    measured_pairings: measured,
+    positive_score_pairings: positive,
+    measured_pairing_ratio: total > 0 ? measured / total : 0,
+    positive_score_pairing_ratio: total > 0 ? positive / total : 0,
+  };
 }
 const DATA_MISSING_CATEGORIES = new Set(
   SPINE.filter((category) => !categoryHasMeasuredSignal(category))
@@ -1012,41 +1092,31 @@ for (const gap of dataset.gaps || []) {
   arr.push({ model: gap.model, effort: gap.effort, reason: gap.reason });
   GAPS_BY_CATEGORY.set(gap.category, arr);
 }
-// Structured gaps for audit.metadata.gaps, deterministically ordered: DATA_MISSING
-// categories in SPINE order first (the ones these gaps explain), then any remaining
-// gap categories in SPINE order, preserving each category's source gap order within.
-const _gapCatOrder = [
-  ...SPINE.filter((c) => GAPS_BY_CATEGORY.has(c)),
-  ...[...GAPS_BY_CATEGORY.keys()].filter((c) => !SPINE.includes(c)),
-];
-const GAPS_AUDIT = _gapCatOrder.map((category) => ({
-  category,
-  state: CATEGORY_COMPLETENESS[category] || "measured",
-  entries: GAPS_BY_CATEGORY.get(category),
-}));
+const DATA_FREE_GAP_RE = /\b(data[- ]?free|all[- ]sentinels?|sentinel[- ]only|no measured(?: benchmark)? rows?)\b/i;
+function gapEntryWithCoverage(category, gap) {
+  const stats = categoryMeasuredStats(category);
+  const measured = stats.measured_pairings;
+  const total = stats.total_pairings;
+  const out = {
+    ...gap,
+    measured_pairings: measured,
+    measured_pairing_ratio: Math.round(stats.measured_pairing_ratio * 10000) / 10000,
+  };
+  const reason = String(gap.reason || "");
+  if (measured > 0 && DATA_FREE_GAP_RE.test(reason)) {
+    out.original_reason = reason;
+    out.reason = `Measured coverage present (${measured}/${total}); gap retained as pairing-specific coverage note.`;
+  } else if (measured === 0 && !DATA_FREE_GAP_RE.test(reason)) {
+    out.original_reason = reason;
+    out.reason = `DATA_MISSING: all emitted pairings are data-free sentinels (${measured}/${total}); ${reason}`;
+  }
+  return out;
+}
 // First gap reason per DATA_MISSING category — the specific basis/citation text the
 // sentinel pairings reference instead of the generic "no measured benchmark rows".
 function primaryGapReason(category) {
   const arr = GAPS_BY_CATEGORY.get(category);
-  return arr && arr.length ? arr[0].reason : null;
-}
-
-// ---- provider derivation (owner schema A) -----------------------------------------
-// Explicit prefix -> family map. The universe is capped at two families
-// (Anthropic + OpenAI); an unrecognized prefix is a data/scope error, not a silent
-// default, so we THROW rather than mislabel an unknown third family as "codex".
-const PROVIDER_FAMILY_PREFIXES = [
-  ["claude-", "claude"],
-  ["gpt-", "codex"],
-  ["codex-", "codex"],
-];
-function providerOf(model) {
-  for (const [prefix, family] of PROVIDER_FAMILY_PREFIXES) {
-    if (model.startsWith(prefix)) return family;
-  }
-  throw new Error(
-    `providerOf: unrecognized model prefix for '${model}'; expected one of ${PROVIDER_FAMILY_PREFIXES.map(([p]) => p).join(", ")}`
-  );
+  return arr && arr.length ? gapEntryWithCoverage(category, arr[0]).reason : null;
 }
 
 // ---- cost normalization: cost_norm in (0,1] (owner schema C) -----------------------
@@ -1160,10 +1230,6 @@ function buildFullPairingObject(item, category) {
   if (item.costPerfOnly) {
     basis.push("[ASSUMPTION] performance-only pin: excluded from cost_efficiency scoring (owner: exception is performance-branch only); ranked by cost");
   }
-  if (item.perfPinned) {
-    const pin = MODELS[item.p.model]?.performance_rank_pin;
-    basis.push(pin?.basis ?? "[ASSUMPTION] owner-directed performance rank-pin; performance branch only; not a measured benchmark");
-  }
   if (s.score === null) {
     basis.push("data-free sentinel (no measured rows; SOP-1 guard-blocked)");
     // refinement #2: in a DATA_MISSING category the rank order is non-semantic.
@@ -1216,19 +1282,10 @@ function computePairingCoverageRatios() {
       };
       continue;
     }
-    const catUniverse = categoryUniverse(category);
-    const scores = perfScores.get(category);
-    const total = catUniverse.length;
-    let measured = 0, positive = 0;
-    for (const p of catUniverse) {
-      const s = scores && scores.get(p.id);
-      if (s && s.score !== null) {
-        measured++;
-        if (s.score > 0) positive++;
-      }
-    }
-    const mRatio = total > 0 ? measured / total : 0;
-    const pRatio = total > 0 ? positive / total : 0;
+    const stats = categoryMeasuredStats(category);
+    const { total_pairings: total, measured_pairings: measured, positive_score_pairings: positive } = stats;
+    const mRatio = stats.measured_pairing_ratio;
+    const pRatio = stats.positive_score_pairing_ratio;
     perCategory[category] = {
       total_pairings: total,
       measured_pairings: measured,
@@ -1261,6 +1318,34 @@ function computePairingCoverageRatios() {
   };
 }
 const PAIRING_COVERAGE_RATIOS = computePairingCoverageRatios();
+// Structured gaps for audit.metadata.gaps, deterministically ordered: DATA_MISSING
+// categories in SPINE order first (the ones these gaps explain), then any remaining
+// gap categories in SPINE order, preserving each category's source gap order within.
+const _gapCatOrder = [
+  ...SPINE.filter((c) => GAPS_BY_CATEGORY.has(c)),
+  ...[...GAPS_BY_CATEGORY.keys()].filter((c) => !SPINE.includes(c)),
+];
+const GAPS_AUDIT = _gapCatOrder.map((category) => {
+  const stats = categoryMeasuredStats(category);
+  return {
+    category,
+    state: CATEGORY_COMPLETENESS[category] || "measured",
+    measured_pairings: stats.measured_pairings,
+    measured_pairing_ratio: Math.round(stats.measured_pairing_ratio * 10000) / 10000,
+    entries: GAPS_BY_CATEGORY.get(category).map((gap) => gapEntryWithCoverage(category, gap)),
+  };
+});
+for (const gap of GAPS_AUDIT) {
+  for (const entry of gap.entries) {
+    const dataFreeClaim = DATA_FREE_GAP_RE.test(entry.reason || "");
+    if (entry.measured_pairings > 0 && dataFreeClaim) {
+      throw new Error(`gap narrative mismatch: ${gap.category} has measured pairings but claims data-free/all sentinels`);
+    }
+    if (entry.measured_pairings === 0 && !dataFreeClaim) {
+      throw new Error(`gap narrative mismatch: ${gap.category} is DATA_MISSING but lacks data-free/all-sentinel narrative`);
+    }
+  }
+}
 
 function buildBaseFullBranch(branch, exponents) {
   const out = {};
@@ -1391,7 +1476,6 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
     const costPerfOnly = (branch === "cost_efficiency" && s.performanceOnly === true);
     const hasScore = s.score !== null && !costPerfOnly;
     const branchScore = hasScore ? powerScore(p, s, exponents, costNormMap) : SENTINEL;
-    const perfPinned = branch === "performance" && (PERF_RANK_PINS.get(category)?.has(p.model) ?? false);
     return {
       p,
       s,
@@ -1401,16 +1485,10 @@ function rankBranch(branch, scores, exponents, universe = UNIVERSE, dataMissing 
       effIdx: EFFORT_INDEX.get(p.effortK) ?? 0,
       versionRank: MODELS[p.model].version_rank,
       lineage: MODELS[p.model].version_lineage,
-      perfPinned,
     };
   });
 
   items.sort((a, b) => {
-    // performance_rank_pin: pinned pairings sort above ALL non-pinned (performance branch only).
-    const aPin = a.perfPinned;
-    const bPin = b.perfPinned;
-    if (aPin !== bPin) return aPin ? -1 : 1;
-    if (aPin && bPin && a.effIdx !== b.effIdx) return b.effIdx - a.effIdx;
     // #1 fix (performance branch only): same model + equal measured perf_norm → effort descending
     // (max-effort first), before cost can discriminate. Cost separates only ACROSS models here.
     // Bound: non-null, non-interpolated scores; sentinels (null) stay last via SENTINEL constant.
@@ -1479,20 +1557,6 @@ function spliceVersionPromotions(items) {
 // now rank by the same power law at fixed a:b ratios, so there is no exponent to search.
 const performanceFull = buildFullBranch("performance", PERF_EXP);
 const costEfficiencyFull = buildFullBranch("cost_efficiency", COST_EXP);
-
-// Performance effort floor vs performance_rank_pin: the floor is FINAL and
-// wins, but a pin whose model has NO surviving >=high pairing in a pinned
-// category would otherwise no-op silently — surface the directive conflict.
-for (const [category, models] of PERF_RANK_PINS) {
-  for (const model of models) {
-    if (!performanceFull[category]?.some((e) => e.model === model)) {
-      console.warn(
-        `performance effort floor purged ALL pairings of rank-pinned model '${model}' from ` +
-        `performance.${category} — the pin no-ops (floor is FINAL and overrides the pin)`
-      );
-    }
-  }
-}
 
 // Performance effort floor — post-build hard assertion (belt to the filter's
 // suspenders). A single below-'high' pairing in any performance category fails
@@ -1602,12 +1666,23 @@ for (const category of SPINE) {
 function leanBranch(fullBranch) {
   const out = {};
   for (const category of SPINE) {
-    out[category] = fullBranch[category].map((e) => ({
+    out[category] = fullBranch[category].filter((e) => isLaunchableModel(e.model)).map((e, i) => ({
       provider: e.provider,
       model: e.model,
       effort: e.effort,
-      rank: e.rank,
+      rank: i + 1,
     }));
+  }
+  for (const [category, parents] of Object.entries(COMPOSITE_PARENT_CATEGORIES)) {
+    const parentRanks = parents.map((parent) => new Map(out[parent].map((e) => [pairingId(e.model, effortKey(e.effort)), e.rank])));
+    out[category] = out[category]
+      .map((e) => {
+        const key = pairingId(e.model, effortKey(e.effort));
+        const ranks = parentRanks.map((m) => m.get(key)).filter((rank) => Number.isFinite(rank));
+        return { ...e, _meanParentRank: ranks.length ? ranks.reduce((a, b) => a + b, 0) / ranks.length : Number.POSITIVE_INFINITY };
+      })
+      .sort((a, b) => a._meanParentRank - b._meanParentRank || a.rank - b.rank)
+      .map(({ _meanParentRank, ...e }, i) => ({ ...e, rank: i + 1 }));
   }
   return out;
 }
@@ -1826,18 +1901,36 @@ const COMPLETENESS_STATE =
     : _overallMeasuredRatio < COVERAGE_BLOCK_THRESHOLD
     ? "thin_coverage"
     : "full";
-if (COMPLETENESS_STATE === "gap_stubbed") {
-  console.warn(
-    `run_manifest.completeness_state=gap_stubbed (${_dataMissingCats.length} DATA_MISSING ` +
-    `categor${_dataMissingCats.length === 1 ? "y" : "ies"}: ${_dataMissingCats.join(", ")}). ` +
-    `Recorded audit-only; not gated (keep-green).`
+const COVERAGE_BLOCK_REASONS = [];
+if (_dataMissingCats.length > 0) {
+  COVERAGE_BLOCK_REASONS.push(
+    `${_dataMissingCats.length} DATA_MISSING categor${_dataMissingCats.length === 1 ? "y" : "ies"}: ${_dataMissingCats.join(", ")}`
   );
-} else if (COMPLETENESS_STATE === "thin_coverage") {
-  console.warn(
-    `run_manifest.completeness_state=thin_coverage: overall measured_pairing_ratio=` +
-    `${_overallMeasuredRatio.toFixed(3)} < block threshold ${COVERAGE_BLOCK_THRESHOLD}. ` +
-    `Recorded audit-only; not gated (keep-green). (#2)`
+}
+if (_overallMeasuredRatio < COVERAGE_BLOCK_THRESHOLD) {
+  COVERAGE_BLOCK_REASONS.push(
+    `overall measured_pairing_ratio=${_overallMeasuredRatio.toFixed(3)} < block threshold ${COVERAGE_BLOCK_THRESHOLD}`
   );
+}
+const GAP_STUB_OVERRIDE = {
+  override_used: ALLOW_GAP_STUBBED,
+  reason: ALLOW_GAP_STUBBED
+    ? "interim regeneration pending full fresh profiler re-run (NEWA-PROFILER-RERUN)"
+    : (COVERAGE_BLOCK_REASONS.length > 0
+      ? `Explicit interim regeneration override for ${COVERAGE_BLOCK_REASONS.join("; ")}`
+      : null),
+  marker: ALLOW_GAP_STUBBED
+    ? (process.argv.includes("--allow-gap-stubbed") ? "--allow-gap-stubbed" : "SUBAGENT_MCP_ALLOW_GAP_STUBBED=1")
+    : null,
+};
+if (COVERAGE_BLOCK_REASONS.length > 0) {
+  const message =
+    `coverage block: ${COVERAGE_BLOCK_REASONS.join("; ")}. ` +
+    `Set SUBAGENT_MCP_ALLOW_GAP_STUBBED=1 or pass --allow-gap-stubbed only for disclosed interim regeneration.`;
+  if (!ALLOW_GAP_STUBBED) {
+    throw new Error(message);
+  }
+  console.warn(`OVERRIDE USED: ${message}`);
 }
 
 // #16 agent-provenance: which agent produced vs critiqued each artifact. No agent/build context
@@ -1904,8 +1997,10 @@ const RUN_MANIFEST = {
   generated_at: GENERATED_AT,
   // #4 completeness umbrella
   completeness_state: COMPLETENESS_STATE,
+  gap_stub_override: GAP_STUB_OVERRIDE,
   // model discovery diff (derivable)
   model_discovery: MODEL_DISCOVERY,
+  skipped_models: SKIPPED_MODELS,
   // source attempt counts by provider/category/outcome — NOT derivable: the ephemeral dataset
   // carries no per-source attempt log in this offline build.
   source_attempt_counts: "unavailable_offline",

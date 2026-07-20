@@ -52,7 +52,10 @@ It must print `PASS`. It checks: `src/routing-table-audit.json` exists and struc
 every pairing has a non-empty `citations` array; each citation has ISO8601 `retrieved_at`,
 single-sentence `annotation`, and `url` or `[SENTINEL]`/`[SOP-1]` label. Tier and label are checked
 (soft-warn if absent). **Sentinel-never-#1 (#16):** hard-fails if any category's rank=1 pairing is a
-no-effort sentinel (effort `null`/`"none"`/`"n/a"`). This validator does NOT require non-null
+no-effort sentinel (effort `null`/`"none"`/`"n/a"`). **Gap-stub marker (PROF-2):** if
+`run_manifest.completeness_state` is `"gap_stubbed"`, it hard-**FAILS** unless
+`run_manifest.gap_stub_override` records `override_used: true` with a non-empty `reason`; when that
+override marker is present it passes with a **WARN**. This validator does NOT require non-null
 run-manifest fields (those are honestly `unavailable_offline` in the offline build : DO-NOT-ADOPT #5).
 Wired into `npm test`.
 

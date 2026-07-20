@@ -68,8 +68,9 @@ await test("validateRulesetOutput: accepts all legal triples; strips rank/extra 
     { provider: "claude", model: "fable", effort: "max" },
     { provider: "claude", model: "opus", effort: "ultracode" },
     { provider: "claude", model: "opus-4-8", effort: "max" },
+    { provider: "api", model: "api-model", effort: "medium" },
   ]);
-  assert.equal(result.ok, true, "all five triples are launchable and must validate");
+  assert.equal(result.ok, true, "all triples are launchable and must validate");
   assert.deepEqual(result.candidates, [
     { provider: "claude", model: "sonnet", effort: "high" },
     { provider: "codex", model: "gpt-5.5", effort: "xhigh" },
@@ -77,6 +78,7 @@ await test("validateRulesetOutput: accepts all legal triples; strips rank/extra 
     { provider: "claude", model: "fable", effort: "max" },
     { provider: "claude", model: "opus", effort: "ultracode" },
     { provider: "claude", model: "opus-4-8", effort: "max" },
+    { provider: "api", model: "api-model", effort: "medium" },
   ], "candidates must carry exactly provider/model/effort — rank and extra keys stripped");
 });
 
@@ -114,6 +116,8 @@ await test("validateRulesetOutput: rejection matrix (per-model effort legality, 
     [{ provider: "claude", model: "gpt-5.5", effort: "high" }, "provider↔model mismatch (claude cannot run gpt-5.5)"],
     [{ provider: "claude", model: "gpt-5.6", effort: "high" }, "provider↔model mismatch (claude cannot run gpt-5.6)"],
     [{ provider: "codex", model: "sonnet", effort: "high" }, "provider↔model mismatch (codex only runs gpt-5.5 or gpt-5.6)"],
+    [{ provider: "api", model: "api-model", effort: "high" }, "api efforts are fixed to medium"],
+    [{ provider: "api", model: "", effort: "medium" }, "api model must be non-empty"],
     [{ provider: "claude", model: "sonnet" }, "missing effort key (non-string)"],
   ];
   for (const [el, why] of bad) {

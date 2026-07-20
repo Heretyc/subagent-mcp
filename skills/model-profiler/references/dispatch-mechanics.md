@@ -106,7 +106,7 @@ $p | codex exec -C <workdir> -m <member-id> -c 'model_reasoning_effort="<effort>
 - **Verify the output FILE on disk** : introspection into the external process is limited, so the
   scratch/output file is the source of truth, not the process stream.
 
-## Finite wait, fallback, and GAP-stub policy
+## Finite wait, fallback, and strict abort policy
 
 **Maximum wait.** After launching an agent, poll (`mcp__subagent-mcp__poll_agent`) at most
 **5 times** (≥5 min between polls, ≤25 min wall-clock). If no terminal status after 5 polls,
@@ -120,28 +120,16 @@ treat the agent as **STALLED**.
      usage-limited or unavailable, even if this makes the fallback single-family. Single-family is a
      fully-supported path (invariant #5); no risk logging required for the provider mix itself.
 2. Poll the fallback up to **5 times** (≥5 min each).
-3. If fallback also stalls or errors: write a **GAP stub** at the expected output path and
-   continue. Do not halt the run for a single domain's GAP.
-
-**GAP stub** : minimal markdown at the agent's expected output path:
-
-```markdown
-# [GAP] Phase-1 Agent N : <domain>
-Agent N did not complete. Reason: STALLED | FAILED | PROVIDER_LIMITED.
-Fallback: <provider/model> : also failed or unavailable.
-All pairings in domain "<domain>" are [DATA_MISSING] for this run.
-Phase 2 judges must treat this domain as [GAP] and flag it in risks.
-Remediation: [future run may re-profile this domain with expanded budget]
-```
+3. If fallback also stalls or errors: **ABORT** the run as `blocked`. Record the missing
+   domain and reason in `risks`; do not write a GAP stub or continue to Phase 2.
 
 Budget exhaustion is **NOT** a legitimate stub reason. Per the FRESH-DATA mandate (SKILL.md
 Highest-Priority Mandates) there is no bounded-continuation: if the session budget cannot cover fresh
 research, **ABORT** the run as `blocked` (`fresh-data-unsatisfiable: budget`) rather than GAP-stubbing
-to bypass it. GAP stubs remain valid ONLY for a genuinely STALLED/FAILED/PROVIDER_LIMITED single
-benchmark agent (provider resilience), never to substitute stale/prior data or to dodge budget.
+to bypass it. Fresh ranking-relevant data that remains unobtainable after fallback blocks the run.
 
-Do **not** hang indefinitely. A run with provider-resilience GAP stubs continues; a stalled run blocks;
-a budget/fresh-data shortfall ABORTS.
+Do **not** hang indefinitely. Fallback exhaustion, stalled fresh research, or any budget/fresh-data
+shortfall ABORTS.
 
 ## Dogfood the route when picking tiers
 

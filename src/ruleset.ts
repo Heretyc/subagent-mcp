@@ -285,6 +285,16 @@ export function validateRulesetOutput(
     if (provider !== "claude" && provider !== "codex" && provider !== "api") {
       return { ok: false, error: `candidate ${i}: unknown provider ${provider}` };
     }
+    if (provider === "api") {
+      if (model.length === 0) {
+        return { ok: false, error: `candidate ${i}: api model must be non-empty` };
+      }
+      if (effort !== "medium") {
+        return { ok: false, error: `candidate ${i}: api effort must be medium` };
+      }
+      candidates.push({ provider: "api", model, effort });
+      continue;
+    }
     if (!(LAUNCH_MODELS as readonly string[]).includes(model)) {
       return { ok: false, error: `candidate ${i}: unknown model ${model}` };
     }

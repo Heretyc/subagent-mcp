@@ -538,8 +538,8 @@ const EXPLICIT_CLAUDE_SONNET = {
   effort: "medium",
 };
 
-function assertNoRoutingTier(payload, label) {
-  assert.equal(payload.routing_tier, undefined, `${label} must not expose routing_tier`);
+function assertRoutingTier(payload, expected, label) {
+  assert.equal(payload.routing_tier, expected, `${label} routing_tier`);
 }
 
 function assertSelection(payload, expected, label) {
@@ -556,9 +556,10 @@ function selectionOf(payload) {
 // Helpers for routing e2e tests (4b-4f)
 // ---------------------------------------------------------------------------
 async function launchAndPoll(session, launchArgs) {
+  const { __expectedRoutingTier, ...wireArgs } = launchArgs;
   const launchResp = await session.request("tools/call", {
     name: "launch_agent",
-    arguments: launchArgs,
+    arguments: wireArgs,
   });
   const launchText = launchResp.result.content[0].text;
   if (launchResp.result.isError) {
@@ -572,8 +573,13 @@ async function launchAndPoll(session, launchArgs) {
     arguments: { agent_id: agentId },
   });
   const pollPayload = JSON.parse(pollResp.result.content[0].text);
-  assertNoRoutingTier(launchPayload, "launch_agent payload");
-  assertNoRoutingTier(pollPayload, "poll_agent payload");
+  const expectedTier = __expectedRoutingTier ?? (wireArgs.provider && wireArgs.model && wireArgs.effort
+    ? "manual"
+    : wireArgs.deadlock
+      ? "performance"
+      : "cost_efficiency");
+  assertRoutingTier(launchPayload, expectedTier, "launch_agent payload");
+  assertRoutingTier(pollPayload, expectedTier, "poll_agent payload");
   return { agentId, launchPayload, pollPayload };
 }
 
@@ -1106,12 +1112,12 @@ await test("orchestration-mode enabled:false is session-keyed and refuses keyles
 });
 
 // ---------------------------------------------------------------------------
-// 4b. pure-auto launch uses cost_efficiency internally without exposing it.
+// 4b. pure-auto launch uses cost_efficiency internally and exposes it.
 //     WHY: with no deadlock window active, pure-auto must route through
 //     cost_efficiency (the default branch). If "performance" is returned, the
 //     default branch is wrong.
 // ---------------------------------------------------------------------------
-await test("pure-auto launch: cost_efficiency selection, routing_tier absent", async () => {
+await test("pure-auto launch: cost_efficiency selection, routing_tier present", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   const session = createMcpSession(distIndex, { cwd: workDir, env });
   try {
@@ -1186,6 +1192,7 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
     const r2 = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "pure auto one",
+      __expectedRoutingTier: "performance",
     });
     assert.deepEqual(selectionOf(r2.launchPayload), performanceSelection,
       "pure-auto with active window (2 remaining) must use performance branch");
@@ -1199,14 +1206,15 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       provider: "claude",
       model: "sonnet",
     });
-    assertSelection(r3.launchPayload, EXPLICIT_CLAUDE_SONNET,
-      "override launch must honor the override selection");
+    assert.equal(r3.launchPayload.provider, "claude", "override launch provider");
+    assert.equal(r3.launchPayload.model, "sonnet", "override launch model");
     await killAgent(session, r3.agentId);
 
     // 4. pure-auto → consume(→0). Performance (3rd and final consume).
     const r4 = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "third consume",
+      __expectedRoutingTier: "performance",
     });
     assert.deepEqual(selectionOf(r4.launchPayload), performanceSelection,
       "pure-auto on last window counter must still route performance before depleting");
@@ -1250,6 +1258,7 @@ await test("re-arm: second deadlock=true resets window for 3 more performance la
     const r2 = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "pure auto before re-arm",
+      __expectedRoutingTier: "performance",
     });
     assert.deepEqual(selectionOf(r2.launchPayload), performanceSelection, "pure auto before re-arm");
     await killAgent(session, r2.agentId);
@@ -1267,6 +1276,7 @@ await test("re-arm: second deadlock=true resets window for 3 more performance la
     const r4 = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "pure auto post-rearm one",
+      __expectedRoutingTier: "performance",
     });
     assert.deepEqual(selectionOf(r4.launchPayload), performanceSelection, "second of 3 performance launches after re-arm");
     await killAgent(session, r4.agentId);
@@ -1274,6 +1284,7 @@ await test("re-arm: second deadlock=true resets window for 3 more performance la
     const r5 = await launchAndPoll(session, {
       task_category: "architecture",
       prompt: "pure auto post-rearm two",
+      __expectedRoutingTier: "performance",
     });
     assert.deepEqual(selectionOf(r5.launchPayload), performanceSelection, "third of 3 performance launches after re-arm");
     await killAgent(session, r5.agentId);
@@ -1391,6 +1402,39 @@ await test("explicit fable launch: zod enum accepts model and selection is honor
     await session.close();
     rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+await test("explicit launch with api slot configured keeps the requested triple", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  let calls = 0;
+  await withHttpJson((_req, res) => {
+    calls += 1;
+    res.writeHead(500);
+    res.end();
+  }, async (baseUrl) => {
+    writeApiProviders(tempRoot, { base_url: baseUrl });
+    const session = createMcpSession(distIndex, {
+      cwd: workDir,
+      env: { ...env, HOME: tempRoot, USERPROFILE: tempRoot, API_KEY: "test-key" },
+    });
+    try {
+      await session.initialize();
+      await enableManualSelection(session);
+      const { agentId, launchPayload } = await launchAndPoll(session, {
+        task_category: "coding",
+        prompt: "explicit ignores api slot",
+        provider: "claude",
+        model: "sonnet",
+        effort: "medium",
+      });
+      assertSelection(launchPayload, EXPLICIT_CLAUDE_SONNET, "explicit api-slot launch");
+      assert.equal(calls, 0, "explicit mode must not attempt configured API providers");
+      await killAgent(session, agentId);
+    } finally {
+      await session.close();
+    }
+  });
+  rmSync(tempRoot, { recursive: true, force: true });
 });
 
 await test("api provider slot dispatch retries one transient failure and records status", async () => {

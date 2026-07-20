@@ -16,9 +16,9 @@ The script prints ONE JSON object to stdout:
 - Both keys REQUIRED, both booleans. The second key is `"load-rules"` with a
   HYPHEN : not `load_rules`, not `loadRules`.
 - Extra keys are ignored. Missing/non-boolean keys, or `"ready": false`, are
-  failures (→ hard fail, non-latching; `execution-contract.md`).
+  failures (-> hard fail, non-latching; `execution-contract.md`).
 
-## Routing mode stdin (server → script)
+## Routing mode stdin (server -> script)
 
 One JSON object, written to stdin then EOF. Example (valid JSON):
 
@@ -27,7 +27,8 @@ One JSON object, written to stdin then EOF. Example (valid JSON):
   "candidates": [
     { "provider": "claude", "model": "opus-4-8", "effort": "ultracode", "rank": 1 },
     { "provider": "codex",  "model": "gpt-5.5",  "effort": "xhigh",     "rank": 2 },
-    { "provider": "claude", "model": "haiku",    "effort": "none",      "rank": 3 }
+    { "provider": "api",    "model": "team-fast", "effort": "medium",   "rank": 3 },
+    { "provider": "claude", "model": "haiku",    "effort": "none",      "rank": 4 }
   ],
   "context": {
     "task_category": "coding",
@@ -42,7 +43,7 @@ One JSON object, written to stdin then EOF. Example (valid JSON):
 
 | Field | Contract |
 |---|---|
-| `candidates[]` | The already-filtered LAUNCHABLE list (best→worst). Short model ids, normalized efforts; haiku rows carry effort `"none"`. |
+| `candidates[]` | The already-filtered LAUNCHABLE list (best-to-worst), after `providers.jsonc` API slot insertion. Short model ids for CLI providers, configured model strings for provider `"api"`; normalized efforts; haiku rows carry effort `"none"`. |
 | `candidates[].rank` | Dense positional 1..N over THIS list (raw table ranks gap after launchability filtering; explicit mode has no table rank). |
 | `context.task_category` | The validated category string. |
 | `context.cwd` | The launch working directory (`params.cwd \|\| process.cwd()`). |
@@ -53,7 +54,11 @@ The context deliberately EXCLUDES deadlock status, branch, tier, and window
 counters : the script must never learn them. OS environment variables are
 visible natively (`os.environ`); use them for machine-local policy inputs.
 
-## Routing mode stdout (script → server)
+The candidate list is complete when the ruleset receives it: `slotInsert` has
+already added any `providers.jsonc` API slot candidates, whose provider value is
+`"api"`.
+
+## Routing mode stdout (script -> server)
 
 A BARE JSON array : the modified candidate list (reorder / filter / replace
 allowed). Template:
@@ -61,6 +66,7 @@ allowed). Template:
 ```json
 [
   { "provider": "claude", "model": "sonnet",  "effort": "high"  },
+  { "provider": "api",    "model": "team-fast", "effort": "medium" },
   { "provider": "codex",  "model": "gpt-5.5", "effort": "xhigh" }
 ]
 ```
@@ -76,11 +82,11 @@ output; use short launch id `fable` for `claude-fable-5`.
 |---|---|
 | Top level | Bare JSON array. An object wrapper (e.g. `{"candidates": [...]}`) is INVALID. `[]` is VALID : see Veto below. |
 | Element | Object with string `provider`, `model`, `effort`. All other keys : including `rank` : are IGNORED on output. |
-| `provider` | `claude` or `codex`. |
-| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude) or `gpt-5.5`, `gpt-5.6` (codex); the provider↔model pair must be legal. |
+| `provider` | `claude`, `codex`, or `api`. |
+| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude); `gpt-5.5`, `gpt-5.6` (codex); or the configured provider model string for `api`. CLI provider/model pairs must be legal. |
 | `effort` | Per-model table below; the validator does its OWN membership checks. |
 | Duplicates | Allowed : the attempt loop simply tries them in order. |
-| Anything else | Ruleset failure → hard fail. |
+| Anything else | Ruleset failure -> hard fail. |
 
 Per-model effort legality:
 
@@ -92,6 +98,7 @@ Per-model effort legality:
 | `opus`, `opus-4-8` | `medium`, `high`, `xhigh`, `max`, `ultracode` |
 | `gpt-5.5` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
 | `gpt-5.6` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
+| `api` provider candidates | configured slot effort (currently `medium`) |
 
 HAZARD : the validator must not delegate effort checks to the launch path:
 `resolveEffort` has a lenient fallback that silently coerces
@@ -138,17 +145,17 @@ subagent ruleset erroring. Please ask the system administrator to debug before c
 - The failure does NOT latch: the next `launch_agent` retries
   (`execution-contract.md`).
 
-## Anti-examples (all → hard fail unless noted)
+## Anti-examples (all -> hard fail unless noted)
 
-- Script prints `ok` or a Python traceback to stdout → unparseable → hard fail.
+- Script prints `ok` or a Python traceback to stdout -> unparseable -> hard fail.
   Diagnostics belong on stderr.
-- Output is `{"candidates": [...]}` → not a bare array → hard fail.
-- Output names `gpt-5.5-pro` or `claude-fable-5` → not a launchable model id →
+- Output is `{"candidates": [...]}` -> not a bare array -> hard fail.
+- Output names `gpt-5.5-pro` or `claude-fable-5` -> not a launchable model id ->
   hard fail (table ids are not launch ids; use `fable`).
-- `{"provider":"codex","model":"gpt-5.5","effort":"max"}` → illegal effort for
-  codex → hard fail. Same for sonnet + `ultracode`.
-- `{"provider":"claude","model":"sonnet","effort":"banana"}` → hard fail (the
+- `{"provider":"codex","model":"gpt-5.5","effort":"max"}` -> illegal effort for
+  codex -> hard fail. Same for sonnet + `ultracode`.
+- `{"provider":"claude","model":"sonnet","effort":"banana"}` -> hard fail (the
   effort.ts fallback leniency would have coerced it; the validator must not).
-- A rule that calls a slow network API → exceeds 120000 ms → killed → hard
+- A rule that calls a slow network API -> exceeds 120000 ms -> killed -> hard
   fail. Keep rules lean; they run inside EVERY launch.
-- `[]` → NOT a hard fail: deliberate veto, exact veto text above.
+- `[]` -> NOT a hard fail: deliberate veto, exact veto text above.
