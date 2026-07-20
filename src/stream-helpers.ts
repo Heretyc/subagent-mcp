@@ -237,6 +237,61 @@ export function isTurnCompletedLine(provider: string, line: string): boolean {
   return false;
 }
 
+// Detect a TERMINAL provider/model error on a turn (systemError / invalid_request
+// / model-not-supported class): the provider reports the turn failed rather than
+// completing it. Returns a short reason string on a match, else null. Callers pair
+// this with a "no visible output yet" guard so only a FIRST-turn terminal failure
+// (a launch-equivalent condition) triggers silent failover to the next candidate.
+export function terminalTurnFailure(provider: string, line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  let evt: Record<string, unknown>;
+  try {
+    evt = JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const pick = (...cands: unknown[]): string => {
+    for (const c of cands) {
+      if (typeof c === "string" && c.trim()) return c.trim();
+      if (c && typeof c === "object") {
+        const m = (c as Record<string, unknown>).message;
+        if (typeof m === "string" && m.trim()) return m.trim();
+      }
+    }
+    return "";
+  };
+  if (provider === "codex") {
+    const method = typeof evt.method === "string" ? evt.method : "";
+    const params = (evt.params && typeof evt.params === "object" ? evt.params : {}) as Record<string, unknown>;
+    // An error notification the provider will not itself retry.
+    if (method === "error" && params.willRetry !== true) {
+      return pick(params.message, params.error) || "codex reported a terminal error";
+    }
+    // The thread transitioned into a system/error state.
+    if (method === "thread/status/changed") {
+      const status = typeof params.status === "string" ? params.status : "";
+      if (/error/i.test(status)) return `codex thread status ${status}`;
+    }
+    // The turn ended in a failed (not completed) status.
+    if (method === "turn/completed" || evt.type === "turn.completed") {
+      const turn = (params.turn && typeof params.turn === "object" ? params.turn : {}) as Record<string, unknown>;
+      const status = typeof turn.status === "string" ? turn.status.toLowerCase() : "";
+      if (status === "failed" || status === "error") {
+        return pick(turn.error, turn.message) || "codex turn failed";
+      }
+    }
+    return null;
+  }
+  if (provider === "claude") {
+    // A Claude result event flagged as an error (no assistant output produced).
+    if (evt.type === "result" && evt.is_error === true) {
+      return pick(evt.error, evt.result, evt.subtype) || "claude turn failed";
+    }
+  }
+  return null;
+}
+
 // Append new items to a rolling buffer, retaining only the last `n`.
 export function retainLastN<T>(buffer: T[], items: T[], n: number): T[] {
   if (items.length === 0) return buffer;

@@ -580,6 +580,7 @@ export class MockJsonlDriver implements ProviderDriver {
   static transientPreStartHook: ((provider: Provider) => void) | null = null;
   static sessionLimitPreStartHook: ((provider: Provider) => void) | null = null;
   static postStartErrorHook: ((provider: Provider) => void) | null = null;
+  static firstTurnFailureHook: ((provider: Provider) => void) | null = null;
 
   readonly process: DriverProcess;
   private _definitelyStartedResolve!: () => void;
@@ -628,6 +629,19 @@ export class MockJsonlDriver implements ProviderDriver {
         this.process.stderr.write(err.message);
         (this.process as LogicalProcess).close(1);
       }, 0);
+      return Promise.resolve();
+    }
+    if (MockJsonlDriver.firstTurnFailureHook) {
+      // Simulate a provider that starts fine but whose FIRST turn terminally
+      // fails with a model/provider error and no output (e.g. codex model not
+      // supported). definitelyStarted stays pending (turn never really started);
+      // the process survives so only the stream failure signal drives failover.
+      MockJsonlDriver.firstTurnFailureHook(this.provider);
+      const line =
+        this.provider === "codex"
+          ? JSON.stringify({ method: "turn/completed", params: { turn: { status: "failed", items: [] } } })
+          : JSON.stringify({ type: "result", is_error: true, subtype: "error_during_execution" });
+      this.process.stdout.write(line + "\n");
       return Promise.resolve();
     }
     if (MockJsonlDriver.postStartErrorHook) {

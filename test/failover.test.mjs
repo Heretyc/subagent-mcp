@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { classifyFailureReason } from "../dist/index.js";
+import { terminalTurnFailure } from "../dist/stream-helpers.js";
 import { slotDir } from "../dist/concurrency.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -249,6 +250,10 @@ if (mode === "transient-once") {
   MockJsonlDriver.postStartErrorHook = () => {
     MockJsonlDriver.postStartErrorHook = null;
   };
+} else if (mode === "first-turn-fail-once") {
+  MockJsonlDriver.firstTurnFailureHook = () => {
+    MockJsonlDriver.firstTurnFailureHook = null;
+  };
 }
 `;
   writeFileSync(hookPath, script);
@@ -390,6 +395,44 @@ await test("transient pre-start hook: quota/429 class failure fails over with tr
     assert.match(payload.failover_note, /transient provider error/);
     await killAgent(session, payload.agent_id);
   });
+});
+
+await test("first-turn terminal provider error advances to the next candidate and reports failover", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "first-turn-fail-once", claudeMode: "stall" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "first turn terminal failover" });
+    const text = textOf(response);
+    assert.notEqual(response.result.isError, true, `a surviving candidate 2 must make the launch succeed: ${text}`);
+    const payload = JSON.parse(text);
+    assert.equal(payload.provider, CE_RANK2.provider);
+    assert.equal(payload.model, CE_RANK2.model);
+    assert.equal(payload.effort, CE_RANK2.effort);
+    assert.equal(payload.failover_occurred, true);
+    assertFailoverFrom(payload.failover_from[0], CE_RANK1, "permanent");
+    await killAgent(session, payload.agent_id);
+  });
+});
+
+await test("terminalTurnFailure detects codex/claude first-turn errors but not normal completions", () => {
+  assert.equal(
+    terminalTurnFailure("codex", JSON.stringify({ method: "turn/completed", params: { turn: { status: "failed", items: [] } } })),
+    "codex turn failed"
+  );
+  assert.match(
+    terminalTurnFailure("codex", JSON.stringify({ method: "error", params: { willRetry: false, message: "gpt-5.6 model not supported" } })) || "",
+    /gpt-5\.6 model not supported/
+  );
+  assert.equal(
+    terminalTurnFailure("codex", JSON.stringify({ method: "thread/status/changed", params: { status: "systemError" } })),
+    "codex thread status systemError"
+  );
+  assert.match(
+    terminalTurnFailure("claude", JSON.stringify({ type: "result", is_error: true, error: "model unavailable" })) || "",
+    /model unavailable/
+  );
+  // A retryable error, a successful turn, and a normal result are NOT terminal.
+  assert.equal(terminalTurnFailure("codex", JSON.stringify({ method: "error", params: { willRetry: true } })), null);
+  assert.equal(terminalTurnFailure("codex", JSON.stringify({ method: "turn/completed", params: { turn: { status: "completed" } } })), null);
+  assert.equal(terminalTurnFailure("claude", JSON.stringify({ type: "result", is_error: false })), null);
 });
 
 await test("transient classification: HTTP 5xx launch failures are transient_provider", async () => {

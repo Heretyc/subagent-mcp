@@ -35,6 +35,7 @@ import {
   flushStream,
   isTurnCompletedLine,
   retainLastN,
+  terminalTurnFailure,
   type VisibleStreamItem,
 } from "./stream-helpers.js";
 import {
@@ -134,6 +135,11 @@ interface AgentState {
   // flush handlers). The grace window's sole success exception keys on this
   // flag — NOT on status, which any code-0 exit also sets to "finished".
   turnCompleted?: boolean;
+  // Set ONLY when the FIRST turn terminally failed with a provider/model error
+  // (systemError / invalid_request / model-not-supported) before any visible
+  // output. The launch grace window consults this to treat the attempt as a
+  // launch-equivalent failure and silently fall over to the next candidate.
+  launchTurnFailure?: { reason: string; failure_type: FailureType };
   // Rolling buffer of the last 3 parsed visible provider stream items.
   // Each item is stamped with its capture time (`at`, ms).
   visibleStream: VisibleStreamItem[];
@@ -704,6 +710,21 @@ function handleCompletedStdoutLines(agent: AgentState, lines: string[], at: numb
     if (turnWasComplete && isClaudeBackgroundWakeLine(line)) {
       noteBackgroundResumeSignal(agent, at);
     }
+    // A terminal provider/model error on the FIRST turn (before any visible
+    // output) is a launch-equivalent failure, not a legitimate fast completion:
+    // record it (so the grace window can fail over) and never mark the turn
+    // completed — a failed turn/completed must not be read as success.
+    if (
+      !turnWasComplete &&
+      agent.launchTurnFailure === undefined &&
+      agent.visibleStream.length === 0
+    ) {
+      const failureReason = terminalTurnFailure(agent.provider, line);
+      if (failureReason !== null) {
+        agent.launchTurnFailure = { reason: failureReason, failure_type: "permanent" };
+        continue;
+      }
+    }
     if (isTurnCompletedLine(agent.provider, line)) {
       turnWasComplete = true;
       agent.turnCompleted = true;
@@ -793,7 +814,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.1.2",
+    version: "3.1.3-beta.1",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
@@ -817,6 +838,21 @@ function cleanupUcSettingsPath(ucSettingsPath?: string, ucSettingsDir?: string):
   try {
     if (existsSync(ucSettingsDir)) rmSync(ucSettingsDir, { recursive: true, force: true });
   } catch {}
+}
+
+// Compose the environment for a spawned child agent. GH_TOKEN / GITHUB_TOKEN are
+// stripped by default so a stale inherited token cannot override the child's own
+// `gh` keyring auth. Opt back in with SUBAGENT_MCP_PASS_GH_TOKENS=1.
+export function buildChildEnv(
+  parentEnv: NodeJS.ProcessEnv,
+  overrides: Record<string, string>
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...parentEnv, ...overrides };
+  if (parentEnv.SUBAGENT_MCP_PASS_GH_TOKENS !== "1") {
+    delete env.GH_TOKEN;
+    delete env.GITHUB_TOKEN;
+  }
+  return env;
 }
 
 // Attempt to spawn + register a single candidate. Resolves to the agent_id on a
@@ -923,11 +959,10 @@ async function tryLaunchCandidate(
       command: cmd,
       args: buildResult.args,
       cwd: agentCwd,
-      env: {
-        ...process.env,
+      env: buildChildEnv(process.env, {
         SUBAGENT_MCP_SUBAGENT: "1",
         SUBAGENT_MCP_DEPTH: String(currentLaunchDepth() + 1),
-      },
+      }),
       model: candidate.model,
       effort: candidate.effort,
       ucSettingsPath: buildResult.ucSettingsPath,
@@ -1234,6 +1269,22 @@ async function tryLaunchCandidate(
       return {
         reason: startError.message,
         failure_type: failureTypeForError(startError, agentState.stderr),
+      };
+    }
+
+    // Terminal first-turn provider/model error surfaced through the stream
+    // (systemError / invalid_request / model-not-supported) with no visible
+    // output and no process exit: treat it as a launch-equivalent failure so the
+    // attempt loop silently advances to the next-best candidate, recording the
+    // failover exactly like a launch failure.
+    if (agentState.launchTurnFailure && !agentState.turnCompleted && agentState.visibleStream.length === 0) {
+      try {
+        driver.kill();
+      } catch {}
+      cleanupUcSettings(agentState);
+      return {
+        reason: agentState.launchTurnFailure.reason,
+        failure_type: agentState.launchTurnFailure.failure_type,
       };
     }
   }
@@ -2226,7 +2277,7 @@ server.tool(
 // Tool 9: model-selection-mode
 server.tool(
   "model-selection-mode",
-  "Set or query per-project MODEL SELECTION MODE, which gates launch_agent's `provider`/`model`/`effort` selectors. `mode`: \"smart\" or \"user-approved-overrides\"; omit to query. \"smart\" is the DEFAULT (used whenever unset): launch_agent REJECTS any call supplying provider/model/effort and the server auto-picks the best model for the task_category. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (reverts to smart on the next launch_agent call after the 30 min elapse); re-enabling does NOT extend an active window. HONOR-BASED, parallel to orchestration-mode: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex; a plain yes/no if neither exists). This tool CANNOT verify that authorization — never enable on your own initiative. PERSISTENCE: state keyed by cwd; both the mode and the override-window timestamp survive server restarts (remaining window is restored, not reset).",
+  "Set or query per-project MODEL SELECTION MODE, which gates launch_agent's `provider`/`model`/`effort` selectors. `mode`: \"smart\" or \"user-approved-overrides\"; omit to query. \"smart\" is the DEFAULT (used whenever unset): launch_agent REJECTS any call supplying provider/model/effort and the server auto-picks the best model for the task_category. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (reverts to smart on the next launch_agent call after the 30 min elapse); re-enabling does NOT extend an active window. HONOR-BASED, parallel to orchestration-mode: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex; a plain yes/no if neither exists). This tool CANNOT verify that authorization — never enable on your own initiative. PERSISTENCE: state keyed by stable repo identity when cwd is inside git, else cwd; both the mode and the override-window timestamp survive server restarts (remaining window is restored, not reset).",
   {
     mode: z.enum(["smart", "user-approved-overrides"]).optional(),
   },
