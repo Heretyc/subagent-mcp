@@ -23,6 +23,7 @@
   },
   "codex": {
     "gpt-5.5": { "default": 258400, "long": null },
+    "gpt-5.6-sol": { "default": 258400, "long": 997500 },
     "gpt-5.6": { "default": 258400, "long": 997500 },
     "gpt-5.4": { "default": 258400, "long": 950000 },
     "gpt-5.4-mini": { "default": 258400, "long": null },

@@ -456,9 +456,16 @@ await test("terminalTurnFailure detects codex/claude first-turn errors but not n
 });
 
 await test("transient classification: HTTP 5xx launch failures are transient_provider", async () => {
+  assert.equal(classifyFailureReason("process exited (code 1) within 600ms of spawn: HTTP 500 server error", ""), "transient_provider");
   assert.equal(classifyFailureReason("process exited (code 1) within 600ms of spawn: HTTP 503 service unavailable", ""), "transient_provider");
   assert.equal(classifyFailureReason("provider failed with status 502", ""), "transient_provider");
   assert.equal(classifyFailureReason("log line 523 in worker output", ""), "permanent");
+});
+
+await test("transient classification: auth-like launch failures are transient_provider", async () => {
+  assert.equal(classifyFailureReason("HTTP 403 forbidden", ""), "transient_provider");
+  assert.equal(classifyFailureReason("provider failed with status 401 unauthorized", ""), "transient_provider");
+  assert.equal(classifyFailureReason("authentication failed", ""), "transient_provider");
 });
 
 await test("transient classification: network timeout and reset launch failures are transient_provider", async () => {
@@ -621,6 +628,7 @@ await test("failover_note identifies rank-1 failure and selected winner", async 
 
 await test("classifyFailureReason covers transient and permanent patterns", () => {
   assert.equal(classifyFailureReason("process exited with 429", ""), "transient_provider");
+  assert.equal(classifyFailureReason("process exited with 403", ""), "transient_provider");
   assert.equal(classifyFailureReason("process exited with status 503", ""), "transient_provider");
   assert.equal(classifyFailureReason("quota exceeded", ""), "transient_provider");
   assert.equal(classifyFailureReason("rate limit", ""), "transient_provider");

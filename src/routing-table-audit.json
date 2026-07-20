@@ -19,8 +19,8 @@
       "claude-sonnet-4-6@max",
       "gpt-5.5@high",
       "gpt-5.5@xhigh",
-      "gpt-5.6@high",
-      "gpt-5.6@max",
+      "gpt-5.6-sol@high",
+      "gpt-5.6-sol@max",
       "claude-haiku-4-5@null",
       "gpt-5.6-luna@high",
       "gpt-5.6-terra@high"
@@ -48,7 +48,7 @@
       {
         "benchmark": "phase2_rank_math_proof",
         "category": "math_proof",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "reason": "proxy evidence ([INFERRED]); normalized to 0.5 so assumed/inferred rows cannot outrank measured data"
       },
       {
@@ -72,7 +72,7 @@
       {
         "benchmark": "phase2_rank_security_review",
         "category": "security_review",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "reason": "proxy evidence ([INFERRED]); normalized to 0.5 so assumed/inferred rows cannot outrank measured data"
       },
       {
@@ -114,7 +114,7 @@
       {
         "benchmark": "phase2_rank_quality_review",
         "category": "quality_review",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "reason": "proxy evidence ([ASSUMPTION]); normalized to 0.5 so assumed/inferred rows cannot outrank measured data"
       },
       {
@@ -144,7 +144,7 @@
       {
         "benchmark": "phase2_rank_architecture",
         "category": "architecture",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "reason": "proxy evidence ([INFERRED]); normalized to 0.5 so assumed/inferred rows cannot outrank measured data"
       },
       {
@@ -162,7 +162,7 @@
       {
         "benchmark": "phase2_rank_agentic_execution",
         "category": "agentic_execution",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "reason": "proxy evidence ([INFERRED]); normalized to 0.5 so assumed/inferred rows cannot outrank measured data"
       },
       {
@@ -216,7 +216,7 @@
       {
         "benchmark": "phase2_rank_knowledge_synthesis",
         "category": "knowledge_synthesis",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "reason": "proxy evidence ([INFERRED]); normalized to 0.5 so assumed/inferred rows cannot outrank measured data"
       },
       {
@@ -237,7 +237,7 @@
         "category": "math_proof",
         "benchmark": "phase2_rank_math_proof",
         "role": "max",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "url": "https://benchlm.ai/math",
         "raw": 1,
         "tier": 3,
@@ -247,7 +247,7 @@
         "category": "math_proof",
         "benchmark": "phase2_rank_math_proof",
         "role": "max",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "url": "https://llm-stats.com/benchmarks/frontiermath",
         "raw": 1,
         "tier": 3,
@@ -277,7 +277,7 @@
         "category": "security_review",
         "benchmark": "phase2_rank_security_review",
         "role": "max",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "url": "https://kingy.ai",
         "raw": 1,
         "tier": 2,
@@ -287,7 +287,7 @@
         "category": "security_review",
         "benchmark": "phase2_rank_security_review",
         "role": "max",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "url": "https://semgrep.dev",
         "raw": 1,
         "tier": 3,
@@ -627,7 +627,7 @@
         "category": "mechanical",
         "benchmark": "phase2_rank_mechanical",
         "role": "max",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "url": "https://benchlm.ai",
         "raw": 1,
         "tier": 2,
@@ -637,7 +637,7 @@
         "category": "mechanical",
         "benchmark": "phase2_rank_mechanical",
         "role": "max",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "url": "https://gorilla.cs.berkeley.edu/leaderboard.html",
         "raw": 1,
         "tier": 2,
@@ -888,7 +888,7 @@
         "measured_pairing_ratio": 0.8,
         "entries": [
           {
-            "model": "gpt-5.6",
+            "model": "gpt-5.6-sol",
             "effort": "max",
             "reason": "Thin GAP: IF/BFCL/StructEval coverage sparse and metric-incompatible.",
             "measured_pairings": 12,
@@ -1035,7 +1035,7 @@
           "claude-opus-4-8",
           "claude-sonnet-4-6",
           "gpt-5.5",
-          "gpt-5.6",
+          "gpt-5.6-sol",
           "gpt-5.6-luna",
           "gpt-5.6-terra"
         ],
@@ -1045,7 +1045,7 @@
           "claude-opus-4-8",
           "claude-sonnet-4-6",
           "gpt-5.5",
-          "gpt-5.6",
+          "gpt-5.6-sol",
           "gpt-5.6-luna",
           "gpt-5.6-terra"
         ],
@@ -1465,7 +1465,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 5,
         "score": 0.6196380138320534,
@@ -1479,7 +1479,7 @@
           {
             "url": "https://llm-stats.com/benchmarks/frontiermath",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -1488,7 +1488,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 6,
         "score": 0.6871734684241302,
@@ -1502,7 +1502,7 @@
           {
             "url": "https://benchlm.ai/math",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -1700,7 +1700,7 @@
     "security_review": [
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 1,
         "score": 1.196438500037556,
@@ -1714,7 +1714,7 @@
           {
             "url": "https://kingy.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_security_review for security_review: SEC-Bench/ExploitBench table, phase2 security_review rank 2, comp 0.95, cost 5/30, one rung down.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_security_review for security_review: SEC-Bench/ExploitBench table, phase2 security_review rank 2, comp 0.95, cost 5/30, one rung down.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -1795,7 +1795,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 5,
         "score": 0.6196380138320534,
@@ -1809,7 +1809,7 @@
           {
             "url": "https://semgrep.dev",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_security_review for security_review: CTF 96.7 corrob, METR reward-hacking gate, phase2 security_review rank 1, comp 1, cost 5/30, CTF-capture 96.7 corroborated (kingy+semgrep, card High-below-Critical), SEC-Bench Pro 71.2 single. RAW #1, M1 gate → not routing pick.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_security_review for security_review: CTF 96.7 corrob, METR reward-hacking gate, phase2 security_review rank 1, comp 1, cost 5/30, CTF-capture 96.7 corroborated (kingy+semgrep, card High-below-Critical), SEC-Bench Pro 71.2 single. RAW #1, M1 gate → not routing pick.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -2214,7 +2214,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 9,
         "score": 0.2573007483974991,
@@ -2228,7 +2228,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_debugging for debugging: Sol 82.2 steel.dev only, phase2 debugging rank 10, comp 0.8, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_debugging for debugging: Sol 82.2 steel.dev only, phase2 debugging rank 10, comp 0.8, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -2237,7 +2237,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 10,
         "score": 0.2853444168329488,
@@ -2251,7 +2251,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_debugging for debugging: Sol coding rows, phase2 debugging rank 11, comp 0.785, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_debugging for debugging: Sol coding rows, phase2 debugging rank 11, comp 0.785, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -2491,7 +2491,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 7,
         "score": 0.447986622907914,
@@ -2505,7 +2505,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_quality_review for quality_review: Elo 1592/42, METR judge-trust, phase2 quality_review rank 7, comp 0.72, cost 5/30, AA-Briefcase Elo 1592 / Rubric 42% proxy, M1 judge-trust demotion below Opus.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_quality_review for quality_review: Elo 1592/42, METR judge-trust, phase2 quality_review rank 7, comp 0.72, cost 5/30, AA-Briefcase Elo 1592 / Rubric 42% proxy, M1 judge-trust demotion below Opus.",
             "label": "[ASSUMPTION]",
             "tier": 2,
             "source_id": "[ASSUMPTION]"
@@ -2514,7 +2514,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 8,
         "score": 0.4968134856146549,
@@ -2528,7 +2528,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_quality_review for quality_review: proxy, phase2 quality_review rank 8, comp 0.7, cost 5/30, interpolated.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_quality_review for quality_review: proxy, phase2 quality_review rank 8, comp 0.7, cost 5/30, interpolated.",
             "label": "[ASSUMPTION]",
             "tier": 2,
             "source_id": "[ASSUMPTION]"
@@ -2814,7 +2814,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 7,
         "score": 0.5400465034410423,
@@ -2828,7 +2828,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_architecture for architecture: Sol SWE-Pro 64.6 corrob, phase2 architecture rank 7, comp 0.78, cost 5/30, SWE-Pro 64.6 corroborated (kingy+AA/codingfleet), M1 long-horizon caveat.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_architecture for architecture: Sol SWE-Pro 64.6 corrob, phase2 architecture rank 7, comp 0.78, cost 5/30, SWE-Pro 64.6 corroborated (kingy+AA/codingfleet), M1 long-horizon caveat.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -2837,7 +2837,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 8,
         "score": 0.5989071370635589,
@@ -2851,7 +2851,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_architecture for architecture: Sol SWE-Pro, phase2 architecture rank 8, comp 0.76, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_architecture for architecture: Sol SWE-Pro, phase2 architecture rank 8, comp 0.76, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -3138,7 +3138,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 7,
         "score": 0.5304950606798582,
@@ -3152,7 +3152,7 @@
           {
             "url": "https://metr.org",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_agentic_execution for agentic_execution: Sol reward-hacking/concealment 2026-06-26, TB2.1 88.8 single, phase2 agentic_execution rank 7, comp 0.8, cost 5/30, TB2.1 88.8 RAW single-hub (Ultra 91.9 = compute mode, not a rung) BUT M1 reward-hacking/concealment + lowest reliability 91.4 → demoted below verified/trusted cluster.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_agentic_execution for agentic_execution: Sol reward-hacking/concealment 2026-06-26, TB2.1 88.8 single, phase2 agentic_execution rank 7, comp 0.8, cost 5/30, TB2.1 88.8 RAW single-hub (Ultra 91.9 = compute mode, not a rung) BUT M1 reward-hacking/concealment + lowest reliability 91.4 → demoted below verified/trusted cluster.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -3161,7 +3161,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 8,
         "score": 0.5883146654847633,
@@ -3175,7 +3175,7 @@
           {
             "url": "https://benchlm.ai/llm-agent-benchmarks",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_agentic_execution for agentic_execution: Sol agent rows, phase2 agentic_execution rank 8, comp 0.78, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_agentic_execution for agentic_execution: Sol agent rows, phase2 agentic_execution rank 8, comp 0.78, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -3560,7 +3560,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 11,
         "score": 0.004762107459912216,
@@ -3581,7 +3581,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 12,
         "score": 0.004762107459912216,
@@ -3833,7 +3833,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 9,
         "score": 0.2479010353296428,
@@ -3847,7 +3847,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -3856,7 +3856,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 10,
         "score": 0.2749202122379396,
@@ -3870,7 +3870,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -4084,7 +4084,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 6,
         "score": 0.6196380138320534,
@@ -4098,7 +4098,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -4107,7 +4107,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 7,
         "score": 0.6871734684241302,
@@ -4121,7 +4121,7 @@
           {
             "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -4294,7 +4294,7 @@
     "mechanical": [
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 1,
         "score": 1.0788524439623715,
@@ -4308,7 +4308,7 @@
           {
             "url": "https://gorilla.cs.berkeley.edu/leaderboard.html",
             "retrieved_at": "2026-07-18T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_mechanical for mechanical: BFCL stale, Sol AA-IFBench 72.7 + weighted-IF 86.8, phase2 mechanical rank 1, comp 1, cost 5/30, AA-IFBench 72.7 + weighted-IF 86.8 (single-hub, incompatible metrics, presence-breadth decides) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_mechanical for mechanical: BFCL stale, Sol AA-IFBench 72.7 + weighted-IF 86.8, phase2 mechanical rank 1, comp 1, cost 5/30, AA-IFBench 72.7 + weighted-IF 86.8 (single-hub, incompatible metrics, presence-breadth decides) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -4317,7 +4317,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 2,
         "score": 1.196438500037556,
@@ -4331,7 +4331,7 @@
           {
             "url": "https://benchlm.ai",
             "retrieved_at": "2026-07-18T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_mechanical for mechanical: Sol IF rows, phase2 mechanical rank 2, comp 0.97, cost 5/30, one rung, = cost_efficiency price-perf pick.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_mechanical for mechanical: Sol IF rows, phase2 mechanical rank 2, comp 0.97, cost 5/30, one rung, = cost_efficiency price-perf pick.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -4890,7 +4890,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 8,
         "score": 0.13636363636363638,
@@ -4904,7 +4904,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -4912,7 +4912,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -4920,7 +4920,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_quality_review for quality_review: Elo 1592/42, METR judge-trust, phase2 quality_review rank 7, comp 0.72, cost 5/30, AA-Briefcase Elo 1592 / Rubric 42% proxy, M1 judge-trust demotion below Opus.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_quality_review for quality_review: Elo 1592/42, METR judge-trust, phase2 quality_review rank 7, comp 0.72, cost 5/30, AA-Briefcase Elo 1592 / Rubric 42% proxy, M1 judge-trust demotion below Opus.",
             "label": "[ASSUMPTION]",
             "tier": 2,
             "source_id": "[ASSUMPTION]"
@@ -4968,7 +4968,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 10,
         "score": 0.12,
@@ -4982,7 +4982,7 @@
           {
             "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -4990,7 +4990,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -4998,7 +4998,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_quality_review for quality_review: proxy, phase2 quality_review rank 8, comp 0.7, cost 5/30, interpolated.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_quality_review for quality_review: proxy, phase2 quality_review rank 8, comp 0.7, cost 5/30, interpolated.",
             "label": "[ASSUMPTION]",
             "tier": 2,
             "source_id": "[ASSUMPTION]"
@@ -5371,7 +5371,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 7,
         "score": 0.14285714285714285,
@@ -5385,7 +5385,7 @@
           {
             "url": "https://kingy.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_security_review for security_review: SEC-Bench/ExploitBench table, phase2 security_review rank 2, comp 0.95, cost 5/30, one rung down.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_security_review for security_review: SEC-Bench/ExploitBench table, phase2 security_review rank 2, comp 0.95, cost 5/30, one rung down.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -5393,7 +5393,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_debugging for debugging: Sol coding rows, phase2 debugging rank 11, comp 0.785, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_debugging for debugging: Sol coding rows, phase2 debugging rank 11, comp 0.785, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -5401,7 +5401,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -5449,7 +5449,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 9,
         "score": 0.13043478260869565,
@@ -5463,7 +5463,7 @@
           {
             "url": "https://semgrep.dev",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_security_review for security_review: CTF 96.7 corrob, METR reward-hacking gate, phase2 security_review rank 1, comp 1, cost 5/30, CTF-capture 96.7 corroborated (kingy+semgrep, card High-below-Critical), SEC-Bench Pro 71.2 single. RAW #1, M1 gate → not routing pick.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_security_review for security_review: CTF 96.7 corrob, METR reward-hacking gate, phase2 security_review rank 1, comp 1, cost 5/30, CTF-capture 96.7 corroborated (kingy+semgrep, card High-below-Critical), SEC-Bench Pro 71.2 single. RAW #1, M1 gate → not routing pick.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -5471,7 +5471,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_debugging for debugging: Sol 82.2 steel.dev only, phase2 debugging rank 10, comp 0.8, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_debugging for debugging: Sol 82.2 steel.dev only, phase2 debugging rank 10, comp 0.8, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -5479,7 +5479,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -5899,7 +5899,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 7,
         "score": 0.13043478260869565,
@@ -5913,7 +5913,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -5927,7 +5927,7 @@
           {
             "url": "https://llm-stats.com/benchmarks/frontiermath",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -5975,7 +5975,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 9,
         "score": 0.125,
@@ -5989,7 +5989,7 @@
           {
             "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -6003,7 +6003,7 @@
           {
             "url": "https://benchlm.ai/math",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -6509,7 +6509,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 9,
         "score": 0.14285714285714285,
@@ -6523,7 +6523,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_architecture for architecture: Sol SWE-Pro 64.6 corrob, phase2 architecture rank 7, comp 0.78, cost 5/30, SWE-Pro 64.6 corroborated (kingy+AA/codingfleet), M1 long-horizon caveat.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_architecture for architecture: Sol SWE-Pro 64.6 corrob, phase2 architecture rank 7, comp 0.78, cost 5/30, SWE-Pro 64.6 corroborated (kingy+AA/codingfleet), M1 long-horizon caveat.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -6531,7 +6531,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -6539,7 +6539,7 @@
           {
             "url": "https://llm-stats.com/benchmarks/frontiermath",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -6548,7 +6548,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 10,
         "score": 0.125,
@@ -6562,7 +6562,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_architecture for architecture: Sol SWE-Pro, phase2 architecture rank 8, comp 0.76, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_architecture for architecture: Sol SWE-Pro, phase2 architecture rank 8, comp 0.76, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -6570,7 +6570,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -6578,7 +6578,7 @@
           {
             "url": "https://benchlm.ai/math",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -6835,7 +6835,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 5,
         "score": 1.4365359242198068,
@@ -6849,7 +6849,7 @@
           {
             "url": "https://benchlm.ai/math",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -6858,7 +6858,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 6,
         "score": 1.0532500810458376,
@@ -6872,7 +6872,7 @@
           {
             "url": "https://llm-stats.com/benchmarks/frontiermath",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -7115,7 +7115,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 2,
         "score": 1.8955205161174862,
@@ -7129,7 +7129,7 @@
           {
             "url": "https://kingy.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_security_review for security_review: SEC-Bench/ExploitBench table, phase2 security_review rank 2, comp 0.95, cost 5/30, one rung down.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_security_review for security_review: SEC-Bench/ExploitBench table, phase2 security_review rank 2, comp 0.95, cost 5/30, one rung down.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -7232,7 +7232,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 7,
         "score": 1.0532500810458376,
@@ -7246,7 +7246,7 @@
           {
             "url": "https://semgrep.dev",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_security_review for security_review: CTF 96.7 corrob, METR reward-hacking gate, phase2 security_review rank 1, comp 1, cost 5/30, CTF-capture 96.7 corroborated (kingy+semgrep, card High-below-Critical), SEC-Bench Pro 71.2 single. RAW #1, M1 gate → not routing pick.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_security_review for security_review: CTF 96.7 corrob, METR reward-hacking gate, phase2 security_review rank 1, comp 1, cost 5/30, CTF-capture 96.7 corroborated (kingy+semgrep, card High-below-Critical), SEC-Bench Pro 71.2 single. RAW #1, M1 gate → not routing pick.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -7560,7 +7560,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 7,
         "score": 0.9256951518670623,
@@ -7574,7 +7574,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_debugging for debugging: Sol coding rows, phase2 debugging rank 11, comp 0.785, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_debugging for debugging: Sol coding rows, phase2 debugging rank 11, comp 0.785, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -7629,7 +7629,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 10,
         "score": 0.678708048500246,
@@ -7643,7 +7643,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_debugging for debugging: Sol 82.2 steel.dev only, phase2 debugging rank 10, comp 0.8, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_debugging for debugging: Sol 82.2 steel.dev only, phase2 debugging rank 10, comp 0.8, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -7766,7 +7766,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 2,
         "score": 1.221462075852704,
@@ -7780,7 +7780,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_quality_review for quality_review: proxy, phase2 quality_review rank 8, comp 0.7, cost 5/30, interpolated.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_quality_review for quality_review: proxy, phase2 quality_review rank 8, comp 0.7, cost 5/30, interpolated.",
             "label": "[ASSUMPTION]",
             "tier": 2,
             "source_id": "[ASSUMPTION]"
@@ -7883,7 +7883,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 7,
         "score": 0.8955606391013075,
@@ -7897,7 +7897,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_quality_review for quality_review: Elo 1592/42, METR judge-trust, phase2 quality_review rank 7, comp 0.72, cost 5/30, AA-Briefcase Elo 1592 / Rubric 42% proxy, M1 judge-trust demotion below Opus.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_quality_review for quality_review: Elo 1592/42, METR judge-trust, phase2 quality_review rank 7, comp 0.72, cost 5/30, AA-Briefcase Elo 1592 / Rubric 42% proxy, M1 judge-trust demotion below Opus.",
             "label": "[ASSUMPTION]",
             "tier": 2,
             "source_id": "[ASSUMPTION]"
@@ -8111,7 +8111,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 3,
         "score": 1.3411058093596184,
@@ -8125,7 +8125,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_architecture for architecture: Sol SWE-Pro, phase2 architecture rank 8, comp 0.76, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_architecture for architecture: Sol SWE-Pro, phase2 architecture rank 8, comp 0.76, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -8228,7 +8228,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 8,
         "score": 0.9832819204756132,
@@ -8242,7 +8242,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_architecture for architecture: Sol SWE-Pro 64.6 corrob, phase2 architecture rank 7, comp 0.78, cost 5/30, SWE-Pro 64.6 corroborated (kingy+AA/codingfleet), M1 long-horizon caveat.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_architecture for architecture: Sol SWE-Pro 64.6 corrob, phase2 architecture rank 7, comp 0.78, cost 5/30, SWE-Pro 64.6 corroborated (kingy+AA/codingfleet), M1 long-horizon caveat.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -8484,7 +8484,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 5,
         "score": 1.329193279592965,
@@ -8498,7 +8498,7 @@
           {
             "url": "https://benchlm.ai/llm-agent-benchmarks",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_agentic_execution for agentic_execution: Sol agent rows, phase2 agentic_execution rank 8, comp 0.78, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_agentic_execution for agentic_execution: Sol agent rows, phase2 agentic_execution rank 8, comp 0.78, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -8600,7 +8600,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 10,
         "score": 0.9745478034022773,
@@ -8614,7 +8614,7 @@
           {
             "url": "https://metr.org",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_agentic_execution for agentic_execution: Sol reward-hacking/concealment 2026-06-26, TB2.1 88.8 single, phase2 agentic_execution rank 7, comp 0.8, cost 5/30, TB2.1 88.8 RAW single-hub (Ultra 91.9 = compute mode, not a rung) BUT M1 reward-hacking/concealment + lowest reliability 91.4 → demoted below verified/trusted cluster.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_agentic_execution for agentic_execution: Sol reward-hacking/concealment 2026-06-26, TB2.1 88.8 single, phase2 agentic_execution rank 7, comp 0.8, cost 5/30, TB2.1 88.8 RAW single-hub (Ultra 91.9 = compute mode, not a rung) BUT M1 reward-hacking/concealment + lowest reliability 91.4 → demoted below verified/trusted cluster.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -9016,7 +9016,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 14,
         "score": 0.11959825912572142,
@@ -9037,7 +9037,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 15,
         "score": 0.11959825912572142,
@@ -9201,7 +9201,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 7,
         "score": 0.9086290858588683,
@@ -9215,7 +9215,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -9270,7 +9270,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 10,
         "score": 0.6661954234393542,
@@ -9284,7 +9284,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -9474,7 +9474,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 4,
         "score": 1.4365359242198068,
@@ -9488,7 +9488,7 @@
           {
             "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -9614,7 +9614,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 10,
         "score": 1.0532500810458376,
@@ -9628,7 +9628,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -9730,7 +9730,7 @@
     "mechanical": [
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 1,
         "score": 1.8955205161174862,
@@ -9744,7 +9744,7 @@
           {
             "url": "https://benchlm.ai",
             "retrieved_at": "2026-07-18T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_mechanical for mechanical: Sol IF rows, phase2 mechanical rank 2, comp 0.97, cost 5/30, one rung, = cost_efficiency price-perf pick.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_mechanical for mechanical: Sol IF rows, phase2 mechanical rank 2, comp 0.97, cost 5/30, one rung, = cost_efficiency price-perf pick.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -9776,7 +9776,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 3,
         "score": 1.3897718139621749,
@@ -9790,7 +9790,7 @@
           {
             "url": "https://gorilla.cs.berkeley.edu/leaderboard.html",
             "retrieved_at": "2026-07-18T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_mechanical for mechanical: BFCL stale, Sol AA-IFBench 72.7 + weighted-IF 86.8, phase2 mechanical rank 1, comp 1, cost 5/30, AA-IFBench 72.7 + weighted-IF 86.8 (single-hub, incompatible metrics, presence-breadth decides) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_mechanical for mechanical: BFCL stale, Sol AA-IFBench 72.7 + weighted-IF 86.8, phase2 mechanical rank 1, comp 1, cost 5/30, AA-IFBench 72.7 + weighted-IF 86.8 (single-hub, incompatible metrics, presence-breadth decides) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -10153,7 +10153,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 3,
         "score": 0.23076923076923078,
@@ -10167,7 +10167,7 @@
           {
             "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -10175,7 +10175,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -10183,7 +10183,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_quality_review for quality_review: proxy, phase2 quality_review rank 8, comp 0.7, cost 5/30, interpolated.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_quality_review for quality_review: proxy, phase2 quality_review rank 8, comp 0.7, cost 5/30, interpolated.",
             "label": "[ASSUMPTION]",
             "tier": 2,
             "source_id": "[ASSUMPTION]"
@@ -10465,7 +10465,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 11,
         "score": 0.1111111111111111,
@@ -10479,7 +10479,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -10487,7 +10487,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -10495,7 +10495,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_quality_review for quality_review: Elo 1592/42, METR judge-trust, phase2 quality_review rank 7, comp 0.72, cost 5/30, AA-Briefcase Elo 1592 / Rubric 42% proxy, M1 judge-trust demotion below Opus.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_quality_review for quality_review: Elo 1592/42, METR judge-trust, phase2 quality_review rank 7, comp 0.72, cost 5/30, AA-Briefcase Elo 1592 / Rubric 42% proxy, M1 judge-trust demotion below Opus.",
             "label": "[ASSUMPTION]",
             "tier": 2,
             "source_id": "[ASSUMPTION]"
@@ -10772,7 +10772,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 5,
         "score": 0.1875,
@@ -10786,7 +10786,7 @@
           {
             "url": "https://kingy.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_security_review for security_review: SEC-Bench/ExploitBench table, phase2 security_review rank 2, comp 0.95, cost 5/30, one rung down.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_security_review for security_review: SEC-Bench/ExploitBench table, phase2 security_review rank 2, comp 0.95, cost 5/30, one rung down.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -10794,7 +10794,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_debugging for debugging: Sol coding rows, phase2 debugging rank 11, comp 0.785, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_debugging for debugging: Sol coding rows, phase2 debugging rank 11, comp 0.785, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -10802,7 +10802,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -10928,7 +10928,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 9,
         "score": 0.1111111111111111,
@@ -10942,7 +10942,7 @@
           {
             "url": "https://semgrep.dev",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_security_review for security_review: CTF 96.7 corrob, METR reward-hacking gate, phase2 security_review rank 1, comp 1, cost 5/30, CTF-capture 96.7 corroborated (kingy+semgrep, card High-below-Critical), SEC-Bench Pro 71.2 single. RAW #1, M1 gate → not routing pick.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_security_review for security_review: CTF 96.7 corrob, METR reward-hacking gate, phase2 security_review rank 1, comp 1, cost 5/30, CTF-capture 96.7 corroborated (kingy+semgrep, card High-below-Critical), SEC-Bench Pro 71.2 single. RAW #1, M1 gate → not routing pick.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -10950,7 +10950,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_debugging for debugging: Sol 82.2 steel.dev only, phase2 debugging rank 10, comp 0.8, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_debugging for debugging: Sol 82.2 steel.dev only, phase2 debugging rank 10, comp 0.8, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -10958,7 +10958,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -11438,7 +11438,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 8,
         "score": 0.13043478260869565,
@@ -11452,7 +11452,7 @@
           {
             "url": "https://www.vellum.ai/blog/claude-opus-4-8-benchmarks-explained",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_knowledge_synthesis for knowledge_synthesis: MRCR/BrowseComp, phase2 knowledge_synthesis rank 5, comp 0.92, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -11466,7 +11466,7 @@
           {
             "url": "https://benchlm.ai/math",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -11619,7 +11619,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 13,
         "score": 0.0967741935483871,
@@ -11633,7 +11633,7 @@
           {
             "url": "https://artificialanalysis.ai",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_knowledge_synthesis for knowledge_synthesis: GPQA-D 94.35 corrob, MRCR 91.5/BrowseComp 92.2 single, phase2 knowledge_synthesis rank 4, comp 0.94, cost 5/30, CORROBORATED co-anchor (CR-2): GPQA-D 94.35 (94.1|94.6) corroborated + MRCR 91.5 + BrowseComp 92.2 (only long-context evidence), M1 faithfulness/citation-verify gate, retrieval specialist.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -11647,7 +11647,7 @@
           {
             "url": "https://llm-stats.com/benchmarks/frontiermath",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -11796,7 +11796,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "high",
         "rank": 3,
         "score": 0.2,
@@ -11810,7 +11810,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_architecture for architecture: Sol SWE-Pro, phase2 architecture rank 8, comp 0.76, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_architecture for architecture: Sol SWE-Pro, phase2 architecture rank 8, comp 0.76, cost 5/30, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -11818,7 +11818,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_coding for coding: Sol coding rows, phase2 coding rank 11, comp 0.8, cost 5/30, one rung.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -11826,7 +11826,7 @@
           {
             "url": "https://benchlm.ai/math",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
+            "annotation": "gpt-5.6-sol@high supports phase2_rank_math_proof for math_proof: Sol math board, sub-max, phase2 math_proof rank 2, comp 0.94, cost 5/30, same anchors, one rung.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -12026,7 +12026,7 @@
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 9,
         "score": 0.125,
@@ -12040,7 +12040,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_architecture for architecture: Sol SWE-Pro 64.6 corrob, phase2 architecture rank 7, comp 0.78, cost 5/30, SWE-Pro 64.6 corroborated (kingy+AA/codingfleet), M1 long-horizon caveat.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_architecture for architecture: Sol SWE-Pro 64.6 corrob, phase2 architecture rank 7, comp 0.78, cost 5/30, SWE-Pro 64.6 corroborated (kingy+AA/codingfleet), M1 long-horizon caveat.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"
@@ -12048,7 +12048,7 @@
           {
             "url": "https://benchlm.ai/coding",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_coding for coding: Sol 82.2 third-party, phase2 coding rank 10, comp 0.815, cost 5/30, SWE-V 82.2 third-party single-board (OpenAI published none) → LC.",
             "label": "[UNVERIFIED]",
             "tier": 2,
             "source_id": "[UNVERIFIED]"
@@ -12056,7 +12056,7 @@
           {
             "url": "https://llm-stats.com/benchmarks/frontiermath",
             "retrieved_at": "2026-07-17T00:00:00Z",
-            "annotation": "gpt-5.6@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
+            "annotation": "gpt-5.6-sol@max supports phase2_rank_math_proof for math_proof: FM-v2 T4 83.0 corrob by AA 35.4→83.0 swing, GPQA-D 94.35, phase2 math_proof rank 1, comp 1, cost 5/30, FrontierMath-v2 T4 83.0 corroborated + GPQA-D 94.35 (94.1|94.6 Q2-mean), T1-3 89.0 single-hub.",
             "label": "[INFERRED]",
             "tier": 3,
             "source_id": "[INFERRED]"

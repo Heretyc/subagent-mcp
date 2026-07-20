@@ -45,6 +45,7 @@ const SUBAGENT_SOURCE_STRINGS = new Set([
   "subAgentThreadSpawn",
   "subAgentOther",
 ]);
+const ABSURD_FALLBACK_TOKEN_MULTIPLE = 4;
 
 export interface LiftedUsage {
   harness: MeteringHarness;
@@ -167,6 +168,11 @@ function modelFromTurnContext(obj: Record<string, unknown>): string | null {
   return stringField(obj, "model") ?? stringField(nestedRecord(obj, "payload"), "model");
 }
 
+function tokenUsageTotal(usage: Record<string, unknown>): number | null {
+  const total = usage.total_tokens;
+  return finiteNumber(total) ? total : null;
+}
+
 function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUsage | null {
   let latestTokenInfo: Record<string, unknown> | null = null;
   let latestModel: string | null = null;
@@ -189,19 +195,30 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
     }
   }
 
-  const total = nestedRecord(latestTokenInfo, "total_token_usage");
-  if (!total || !latestModel || !transcriptPath) return null;
+  const last = nestedRecord(latestTokenInfo, "last_token_usage");
+  const fallbackTotal = last ? null : nestedRecord(latestTokenInfo, "total_token_usage");
+  const current = last ?? fallbackTotal;
+  if (!current || !latestModel || !transcriptPath) return null;
 
-  const input = total.input_tokens;
-  const output = total.output_tokens;
-  const cacheRead = total.cached_input_tokens;
+  const input = current.input_tokens;
+  const output = current.output_tokens;
+  const cacheRead = current.cached_input_tokens;
   if (!finiteNumber(input) || !finiteNumber(output) || !finiteNumber(cacheRead)) {
     return null;
   }
   const nonCachedInput = Math.max(0, input - cacheRead);
 
   const modelContextWindow = latestTokenInfo?.model_context_window;
-  const totalTokens = total.total_tokens;
+  const totalTokens = tokenUsageTotal(current);
+  if (
+    fallbackTotal &&
+    finiteNumber(modelContextWindow) &&
+    modelContextWindow > 0 &&
+    totalTokens !== null &&
+    totalTokens > modelContextWindow * ABSURD_FALLBACK_TOKEN_MULTIPLE
+  ) {
+    return null;
+  }
   // Capture the harness-reported window whenever Codex advertises one, even if
   // total_tokens is absent/non-finite (so harnessPercentage cannot be derived).
   // Forwarding the window lets metering resolve window_source="harness" and
@@ -211,7 +228,7 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
       ? modelContextWindow
       : null;
   const harnessPercentage =
-    harnessContextWindow !== null && finiteNumber(totalTokens)
+    harnessContextWindow !== null && totalTokens !== null
       ? (totalTokens / harnessContextWindow) * 100
       : null;
 

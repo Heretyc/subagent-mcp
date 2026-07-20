@@ -12,6 +12,7 @@
       "claude-haiku-4-5@none",
       "gpt-5.5@xhigh",
       "gpt-5.5@max",
+      "gpt-5.6-sol@high",
       "gpt-5.5-pro@high",
       "claude-opus-4-7@high",
       "unknown-model-xyz@high"
@@ -126,6 +127,50 @@
         "rank": 2,
         "score": 0.88,
         "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
+    "broken_claude": [
+      {
+        "model": "claude-sonnet-4-6",
+        "effort": "none",
+        "rank": 1,
+        "score": 0.90,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-fable-5",
+        "effort": "high",
+        "rank": 2,
+        "score": 0.80,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
+    "broken_codex": [
+      {
+        "model": "gpt-5.5",
+        "effort": "none",
+        "rank": 1,
+        "score": 0.90,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 2,
+        "score": 0.80,
+        "cost_figure_used": 0.000010,
         "interpolated": false,
         "confidence": "measured",
         "basis": ["[MEASURED]"]

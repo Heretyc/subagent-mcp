@@ -595,7 +595,7 @@ export function classifyFailureReason(reason: string, stderr: string): FailureTy
 }
 
 const TRANSIENT_FAILURE_RE =
-  /\b429\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*5\d{2}\b|quota|usage.?cap|rate.?limit|timeout|connection.?reset|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
+  /\b(?:401|403|429)\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*(?:401|403|429|5\d{2})\b|auth(?:entication|orization)?|unauthori[sz]ed|forbidden|quota|usage.?cap|rate.?limit|timeout|connection.?reset|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
 
 function buildFailoverNote(
   skipped: { provider: string; model: string; effort: string; failure_type: string }[],
@@ -830,7 +830,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.1.4",
+    version: "3.1.5-beta.1",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },

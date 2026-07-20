@@ -65,7 +65,7 @@ export function isClaudeSessionLimit(text: string): boolean {
 }
 
 const TRANSIENT_FAILURE_RE =
-  /\b429\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*5\d{2}\b|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
+  /\b(?:401|403|429)\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*(?:401|403|429|5\d{2})\b|auth(?:entication|orization)?|unauthori[sz]ed|forbidden|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
 
 export function claudeMessageText(message: any): string | null {
   if (message?.type === "assistant") {

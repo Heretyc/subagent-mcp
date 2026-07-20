@@ -15,7 +15,7 @@ export function mapModel(provider: Provider, model: string): string {
   }
   if (provider === "codex") {
     if (model === "gpt-5.6") return "gpt-5.6-sol";
-    return model; // gpt-5.5
+    return model;
   }
   throw new Error("api provider dispatch not implemented");
 }
