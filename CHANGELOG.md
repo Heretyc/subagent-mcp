@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.4-beta.1
+## 3.1.4
 
 ### Fixed
 
