@@ -580,6 +580,7 @@ export class MockJsonlDriver implements ProviderDriver {
   static transientPreStartHook: ((provider: Provider) => void) | null = null;
   static sessionLimitPreStartHook: ((provider: Provider) => void) | null = null;
   static postStartErrorHook: ((provider: Provider) => void) | null = null;
+  static firstTurnFailureHook: ((provider: Provider) => void) | null = null;
 
   readonly process: DriverProcess;
   private _definitelyStartedResolve!: () => void;
@@ -628,6 +629,19 @@ export class MockJsonlDriver implements ProviderDriver {
         this.process.stderr.write(err.message);
         (this.process as LogicalProcess).close(1);
       }, 0);
+      return Promise.resolve();
+    }
+    if (MockJsonlDriver.firstTurnFailureHook) {
+      // Simulate a provider that starts fine but whose FIRST turn terminally
+      // fails with a model/provider error and no output (e.g. codex model not
+      // supported). definitelyStarted stays pending (turn never really started);
+      // the process survives so only the stream failure signal drives failover.
+      MockJsonlDriver.firstTurnFailureHook(this.provider);
+      const line =
+        this.provider === "codex"
+          ? JSON.stringify({ method: "turn/completed", params: { turn: { status: "failed", items: [] } } })
+          : JSON.stringify({ type: "result", is_error: true, subtype: "error_during_execution" });
+      this.process.stdout.write(line + "\n");
       return Promise.resolve();
     }
     if (MockJsonlDriver.postStartErrorHook) {
@@ -690,9 +704,11 @@ export class CodexAppServerDriver implements ProviderDriver {
   private readonly maxPendingApprovals = 16;
   private readonly permissionSnapshot: PermissionSnapshot;
   private readonly codexLaunchValues: CodexLaunchValues;
+  private readonly wireModel: string;
   constructor(private readonly child: ChildProcess, private readonly options: DriverLaunchOptions) {
     this.permissionSnapshot = permissionSnapshotForLaunch(options);
     this.codexLaunchValues = resolveCodexLaunchValues(this.permissionSnapshot);
+    this.wireModel = mapModel(options.provider, options.model);
     this.process = new LogicalProcess(child.pid);
     child.once("spawn", () => this.process.emit("spawn"));
     child.once("error", (err) => this.fail(err));
@@ -719,7 +735,7 @@ export class CodexAppServerDriver implements ProviderDriver {
     });
     await this.notify("initialized");
     const thread = await this.request("thread/start", {
-      model: mapModel(this.options.provider, this.options.model),
+      model: this.wireModel,
       cwd: this.options.cwd,
       approvalPolicy: this.codexLaunchValues.approvalPolicy,
       sandbox: this.codexLaunchValues.threadSandbox,
@@ -784,7 +800,7 @@ export class CodexAppServerDriver implements ProviderDriver {
         threadId: this.threadId,
         input: [textInput(inputText)],
         cwd: this.options.cwd,
-        model: mapModel(this.options.provider, this.options.model),
+        model: this.wireModel,
         effort: this.options.effort,
         approvalPolicy: this.codexLaunchValues.approvalPolicy,
         sandboxPolicy: this.codexLaunchValues.turnSandboxPolicy,

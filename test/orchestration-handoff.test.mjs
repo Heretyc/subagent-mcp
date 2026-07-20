@@ -2,7 +2,8 @@
  * orchestration-handoff.test.mjs - Unit tests for context handoff state.
  */
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,6 +21,7 @@ import {
   readHandoff,
   writeHandoff,
 } from "../dist/orchestration/handoff.js";
+import { cwdHash, stateDir } from "../dist/orchestration/marker.js";
 
 let passed = 0;
 let failed = 0;
@@ -182,6 +184,84 @@ test("new write after prior read resets read_by_session to null", () => {
     assert.equal(second.record.read_by_session, null);
     assert.equal(readHandoff(cwd)?.read_by_session, null);
   });
+});
+
+test("legacy exact-cwd handoff path remains readable and clearable", () => {
+  const root = mkdtempSync(join(tmpdir(), "handoff-legacy-"));
+  const cwd = join(root, "repo");
+  try {
+    execFileSync("git", ["init", cwd], { stdio: "ignore" });
+    clearHandoff(cwd);
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    const overflowPath = join(root, "overflow.md");
+    const record = {
+      content: "legacy handoff body",
+      overflow_path: overflowPath,
+      created_at: 1,
+      created_by_session: "legacy-writer",
+      read_by_session: null,
+      read_at: null,
+    };
+    const legacyPath = join(stateDir, "handoff-" + cwdHash(cwd) + ".json");
+    writeFileSync(overflowPath, "legacy overflow", "utf8");
+    writeFileSync(legacyPath, JSON.stringify(record), "utf8");
+
+    assert.notEqual(handoffPath(cwd), legacyPath,
+      "git repos use the new common-dir key, not the legacy cwd hash");
+    assert.deepEqual(readHandoff(cwd), record,
+      "new readers still find legacy exact-cwd handoffs");
+
+    clearHandoff(cwd);
+    assert.equal(existsSync(legacyPath), false, "clear removes the legacy record");
+    assert.equal(existsSync(overflowPath), false, "clear removes legacy overflow");
+  } finally {
+    clearHandoff(cwd);
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Claude-write -> Codex-read uses repo identity and cross-harness clear", () => {
+  const root = mkdtempSync(join(tmpdir(), "handoff-git-"));
+  const claudeCwd = join(root, "main");
+  const codexCwd = join(root, "linked");
+  try {
+    execFileSync("git", ["init", claudeCwd], { stdio: "ignore" });
+    execFileSync("git", ["-C", claudeCwd, "commit", "--allow-empty", "-m", "init"], {
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Test",
+        GIT_AUTHOR_EMAIL: "test@example.invalid",
+        GIT_COMMITTER_NAME: "Test",
+        GIT_COMMITTER_EMAIL: "test@example.invalid",
+      },
+    });
+    execFileSync("git", ["-C", claudeCwd, "worktree", "add", "-b", "codex-linked", codexCwd], {
+      stdio: "ignore",
+    });
+
+    clearHandoff(claudeCwd);
+    const written = writeHandoff(claudeCwd, {
+      content: "cross-harness handoff body",
+      overflowContent: "cross-harness overflow",
+      createdBySession: "claude-session",
+    });
+    assert.equal(written.ok, true);
+    assert.equal(handoffPath(claudeCwd), handoffPath(codexCwd),
+      "linked worktrees share one git-common-dir handoff path");
+
+    assert.deepEqual(readHandoff(codexCwd), written.record,
+      "Codex cwd reads the exact record written through the Claude cwd");
+
+    clearHandoff(codexCwd);
+    assert.equal(readHandoff(claudeCwd), null, "Claude cwd sees absence after Codex clear");
+    assert.equal(readHandoff(codexCwd), null, "Codex cwd sees absence after Codex clear");
+    assert.equal(existsSync(written.record.overflow_path), false,
+      "cross-harness clear removes overflow too");
+  } finally {
+    clearHandoff(claudeCwd);
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

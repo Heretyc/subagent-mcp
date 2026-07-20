@@ -18,7 +18,7 @@ the server auto-selects): see [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_IN
 | claude | sonnet | medium, high, xhigh, max | Passed to the Claude Agent SDK where supported |
 | claude | opus / opus-4-8 | medium, high, xhigh, max, **ultracode** | `opus` and `opus-4-8` both map to `claude-opus-4-8` |
 | claude | fable | medium, high, xhigh, max | Maps to `claude-fable-5` |
-| codex | gpt-5.5 | medium, high, xhigh | Passed in the app-server `turn/start` request |
+| codex | gpt-5.5, gpt-5.6 | medium, high, xhigh | Passed in the app-server `turn/start` request; public `gpt-5.6` maps to wire model `gpt-5.6-sol` |
 
 **Ultracode mechanism:** The Claude CLI rejects `--effort ultracode` with an error. Ultracode is the Claude Code interactive reasoning mode (sets reasoning effort to xhigh AND grants standing dynamic-workflow permission). To activate it headlessly, the server writes a temporary JSON file `{"ultracode":true}` to the OS temp directory and passes `--settings <file>` to the CLI instead of an `--effort` flag. The temp file is deleted on agent exit. Requesting `ultracode` on any non-Opus-4.8 model (including `fable` and `gpt-5.5`) returns an error.
 
@@ -85,7 +85,7 @@ Pass `verbose: true` to also get `final_output`, the agent's final assistant tur
 { "tool": "poll_agent", "arguments": { "agent_id": "abc-123", "verbose": true } }
 ```
 
-**Launch a Codex gpt-5.5 xhigh agent:**
+**Launch a Codex gpt-5.5/gpt-5.6 xhigh agent:**
 
 ```json
 {

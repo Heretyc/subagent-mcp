@@ -53,6 +53,7 @@ export interface LiftedUsage {
   source_ref: string;
   usage: MeteringUsage;
   harnessPercentage?: number | null;
+  harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
 }
 
@@ -169,10 +170,7 @@ function modelFromTurnContext(obj: Record<string, unknown>): string | null {
 
 function tokenUsageTotal(usage: Record<string, unknown>): number | null {
   const total = usage.total_tokens;
-  if (finiteNumber(total)) return total;
-  const input = usage.input_tokens;
-  const output = usage.output_tokens;
-  return finiteNumber(input) && finiteNumber(output) ? input + output : null;
+  return finiteNumber(total) ? total : null;
 }
 
 function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUsage | null {
@@ -221,11 +219,17 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
   ) {
     return null;
   }
+  // Capture the harness-reported window whenever Codex advertises one, even if
+  // total_tokens is absent/non-finite (so harnessPercentage cannot be derived).
+  // Forwarding the window lets metering resolve window_source="harness" and
+  // avoids the static-mapping/contradiction path that can clamp to 100%.
+  const harnessContextWindow =
+    finiteNumber(modelContextWindow) && modelContextWindow > 0
+      ? modelContextWindow
+      : null;
   const harnessPercentage =
-    finiteNumber(modelContextWindow) &&
-    modelContextWindow > 0 &&
-    totalTokens !== null
-      ? (totalTokens / modelContextWindow) * 100
+    harnessContextWindow !== null && totalTokens !== null
+      ? (totalTokens / harnessContextWindow) * 100
       : null;
 
   // Always return the lift even when neither a harness percentage nor a static
@@ -244,6 +248,7 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
       cache_read: cacheRead,
     },
     harnessPercentage,
+    harnessContextWindow,
   };
 }
 

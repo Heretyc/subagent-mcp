@@ -108,25 +108,9 @@ bare three-digit numbers without HTTP-status context) : from
 regardless of classification; it carries no `failover_occurred` field (it is an
 error, not a success).
 
-Single-attempt override failure (override selector mode, the attempt failed). No
-fallback. The leading line is byte-identical to one of the forms below; when
-`classifyFailureReason` labels the failure `transient_provider`, ONE extra note
-line is appended before `<AUTO_HINT>`:
-
-```
-Error: explicit launch <model>@<effort> (<provider>) failed: <reason>.
-Error: override launch <model>@<effort> (<provider>) failed: <reason>.
-Note: this failure appears transient (quota/rate-limit/network). Switch to auto mode (omit provider/model/effort) for automatic silent failover to the next-best provider.
-<AUTO_HINT>
-```
-
-The `Note:` line is present ONLY when `failure_type === "transient_provider"`;
-for a `permanent` failure the message is just the matching leading line plus
-`<AUTO_HINT>`. Override selector modes never fail over automatically : they are
-single-attempt by contract; the note merely advises switching to auto mode, where
-auto-mode same-call failover is enabled. `user-approved-overrides` model-
-selection-mode does NOT change this: supplying selectors is still a single
-hard-fail attempt (`../model-selection-mode/_INDEX.md`).
+Override selector modes use `ERR_ALL_FAILED` if every requested and fallback
+candidate fails. The requested route appears first in the numbered list; any
+valid auto candidates are appended after de-duping.
 
 ## Anti-examples (what must NOT happen)
 
@@ -134,10 +118,7 @@ hard-fail attempt (`../model-selection-mode/_INDEX.md`).
   the old behavior; auto-mode resolves effort from the pairing.
 - Do NOT crash or return an empty/`undefined` payload when the table is missing
   : return `ERR_TABLE_MISSING`.
-- Do NOT fall back past an override selector-mode attempt : one try only, then
-  the hard-fail shape (with the transient `Note:` line appended when the failure
-  classifies as `transient_provider`). Override selector modes never attempt
-  same-call failover, even on a transient provider error.
+- Do NOT retry the same `{provider,model,effort}` triple in one launch call.
 - Do NOT treat a sub-agent's eventual TASK failure as a fallback trigger :
   only launch-time failures fall back (`routing-table-contract.md`).
   Launch-time failure INCLUDES any exit within the post-spawn grace window

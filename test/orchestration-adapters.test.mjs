@@ -495,6 +495,7 @@ test("codex liftUsage: uses last_token_usage for current context occupancy", () 
         cache_read: 0,
       },
       harnessPercentage: (66000 / 258400) * 100,
+      harnessContextWindow: 258400,
     });
     const pct = codexAdapter.liftUsage({ cwd: dir }, {}, file)?.harnessPercentage ?? 0;
     assert.ok(pct > 25 && pct < 26, "regression must meter about 26%, not clamp to 100%");
@@ -533,6 +534,42 @@ test("codex liftUsage: returns static-map-computable usage without harness perce
         cache_read: 250,
       },
       harnessPercentage: null,
+      harnessContextWindow: null,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex liftUsage: returns harnessContextWindow when total_tokens is missing", () => {
+  // Codex advertises model_context_window and provider usage fields, but
+  // total_token_usage.total_tokens is absent -> harnessPercentage cannot be
+  // derived, yet the harness window must still be forwarded so metering resolves
+  // window_source="harness" instead of falling back to the static map.
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5-codex" },
+    {
+      type: "token_count",
+      info: {
+        model_context_window: 272000,
+        total_token_usage: {
+          input_tokens: 1000,
+          output_tokens: 500,
+          cached_input_tokens: 250,
+          // total_tokens deliberately omitted (non-finite)
+        },
+      },
+    },
+  ]);
+  try {
+    const lifted = codexAdapter.liftUsage({ cwd: dir }, {}, file);
+    assert.equal(lifted.harnessPercentage, null);
+    assert.equal(lifted.harnessContextWindow, 272000);
+    assert.deepEqual(lifted.usage, {
+      input: 750,
+      output: 500,
+      cache_creation: 0,
+      cache_read: 250,
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });

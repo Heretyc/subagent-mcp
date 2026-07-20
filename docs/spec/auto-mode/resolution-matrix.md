@@ -15,13 +15,13 @@ cannot launch it.
 | C | P | M | E | Outcome |
 |---|---|---|---|---|
 | launchable valid | : | : | : | `auto` mode; build candidate list, attempt loop |
-| launchable valid | yes | : | : | `provider` mode; candidate list, single attempt, no fallback |
-| launchable valid | yes | yes | : | `provider_model` mode; candidate list, single attempt, no fallback |
-| launchable valid | yes | yes | yes | `explicit` mode; single direct attempt, no fallback |
+| launchable valid | yes | : | : | `provider` mode; requested candidates first, then de-duplicated auto fallback candidates |
+| launchable valid | yes | yes | : | `provider_model` mode; requested candidates first, then de-duplicated auto fallback candidates |
+| launchable valid | yes | yes | yes | `explicit` mode; requested triple first, then de-duplicated auto fallback candidates |
 | fallback_default | : | : | : | **ERR_FALLBACK_DEFAULT** |
 | fallback_default | yes | : | : | **ERR_FALLBACK_DEFAULT** |
 | fallback_default | yes | yes | : | **ERR_FALLBACK_DEFAULT** |
-| fallback_default | yes | yes | yes | `explicit` mode; single direct attempt, no fallback |
+| fallback_default | yes | yes | yes | `explicit` mode; requested triple first; no table fallback category |
 | launchable valid/fallback_default | : | yes | : | **ERR_MODEL_NEEDS_PROVIDER** |
 | launchable valid/fallback_default | : | yes | yes | **ERR_EFFORT_NEEDS_BOTH** (effort rule checked first; see Validation order) |
 | launchable valid/fallback_default | : | : | yes | **ERR_EFFORT_NEEDS_BOTH** |

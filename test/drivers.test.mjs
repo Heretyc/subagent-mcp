@@ -166,6 +166,14 @@ function readTurnStarts(logFile) {
     .filter((msg) => msg.method === "turn/start");
 }
 
+function readThreadStarts(logFile) {
+  return readFileSync(logFile, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .filter((msg) => msg.method === "thread/start");
+}
+
 function readLog(logFile) {
   return readFileSync(logFile, "utf8")
     .split("\n")
@@ -378,8 +386,8 @@ await test("Codex app-server driver starts a thread, sends turns, and kills", as
   }
 });
 
-await test("Codex app-server driver maps gpt-5.6 alias to gpt-5.6-sol backend id", async () => {
-  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-sol-"));
+await test("Codex app-server maps public gpt-5.6 to gpt-5.6-sol on thread/start and turn/start", async () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-model-map-"));
   try {
     const logFile = join(tempRoot, "app-server.log");
     const script = writeFakeAppServer(tempRoot, logFile);
@@ -390,11 +398,12 @@ await test("Codex app-server driver maps gpt-5.6 alias to gpt-5.6-sol backend id
 
     await driver.start("first");
     await waitFor(() => readTurnStarts(logFile).length === 1, "first Codex turn/start");
-    await waitFor(() => stdout().includes("done:first"), "first Codex completion");
-    const messages = readLog(logFile);
-    assert.equal(messages.find((msg) => msg.method === "thread/start")?.params?.model, "gpt-5.6-sol");
-    assert.equal(messages.find((msg) => msg.method === "turn/start")?.params?.model, "gpt-5.6-sol");
+    await driver.send("second");
+    await waitFor(() => readTurnStarts(logFile).length === 2, "second Codex turn/start");
+    await waitFor(() => stdout().includes("done:second"), "second Codex completion");
 
+    assert.equal(readThreadStarts(logFile)[0].params.model, "gpt-5.6-sol");
+    assert.deepEqual(readTurnStarts(logFile).map((msg) => msg.params.model), ["gpt-5.6-sol", "gpt-5.6-sol"]);
     driver.kill();
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
