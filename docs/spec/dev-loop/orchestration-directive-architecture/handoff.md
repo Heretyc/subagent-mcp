@@ -1,9 +1,11 @@
 # Handoff tools
 
 Normative spec for the three handoff tools (`handoff-write`, `handoff-read`,
-`handoff-clear`). State is cwd-keyed (see context-metering.md for the state
-dir and file-naming scheme: `handoff-<cwdHash(cwd)>.json`, plus an optional
-overflow file `handoff-overflow-<cwdHash(cwd)>-<unix_ms>.md`).
+`handoff-clear`). State uses the same stable project key as model-selection
+mode: git common-dir when cwd is inside a repo, otherwise normalized cwd hash.
+Files are named `handoff-<projectKey>.json`, plus optional overflow
+`handoff-overflow-<projectKey>-<unix_ms>.md`; reads and clears also check the
+legacy exact-cwd hash path so existing handoffs are not silently stranded.
 
 ## Gating rules
 
@@ -62,12 +64,11 @@ next concrete action plus permission to proceed in this session.
 
 ## Handoff-resume Skill Deployment
 
-`subagent-mcp setup` deploys the packaged Claude Agent Skill from
-`skills/smcp-handoff/SKILL.md` to
-`~/.claude/skills/smcp-handoff/SKILL.md`. Missing or stale targets are
-repaired by re-running setup. Codex is intentionally not targeted because
-Codex has no Agent Skill mechanism; the MCP instructions carry the handoff
-guidance there.
+`subagent-mcp setup` deploys the packaged Agent Skills to
+`~/.claude/skills/<name>` for Claude Code and `$HOME/.agents/skills/<name>` for
+Codex CLI. Missing or stale targets are repaired by re-running setup. Codex
+skills appear through Codex's normal skill discovery; the MCP instructions still
+carry fallback handoff guidance.
 
 ## Post-write response (exact, byte-for-byte)
 

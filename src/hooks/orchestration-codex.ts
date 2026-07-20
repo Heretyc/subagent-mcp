@@ -52,6 +52,7 @@ export interface LiftedUsage {
   source_ref: string;
   usage: MeteringUsage;
   harnessPercentage?: number | null;
+  harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
 }
 
@@ -201,11 +202,17 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
 
   const modelContextWindow = latestTokenInfo?.model_context_window;
   const totalTokens = total.total_tokens;
+  // Capture the harness-reported window whenever Codex advertises one, even if
+  // total_tokens is absent/non-finite (so harnessPercentage cannot be derived).
+  // Forwarding the window lets metering resolve window_source="harness" and
+  // avoids the static-mapping/contradiction path that can clamp to 100%.
+  const harnessContextWindow =
+    finiteNumber(modelContextWindow) && modelContextWindow > 0
+      ? modelContextWindow
+      : null;
   const harnessPercentage =
-    finiteNumber(modelContextWindow) &&
-    modelContextWindow > 0 &&
-    finiteNumber(totalTokens)
-      ? (totalTokens / modelContextWindow) * 100
+    harnessContextWindow !== null && finiteNumber(totalTokens)
+      ? (totalTokens / harnessContextWindow) * 100
       : null;
 
   // Always return the lift even when neither a harness percentage nor a static
@@ -224,6 +231,7 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
       cache_read: cacheRead,
     },
     harnessPercentage,
+    harnessContextWindow,
   };
 }
 

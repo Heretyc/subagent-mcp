@@ -8,6 +8,7 @@ import { isAbsolute, join } from "node:path";
 import { atomicWriteJson } from "./atomic-write.js";
 import { cwdHash, stateDir } from "./marker.js";
 import { HANDOFF_UNLOCK_THRESHOLD_PCT } from "./metering.js";
+import { modelModeKey } from "./model-mode.js";
 
 export const HANDOFF_THRESHOLD_PCT = HANDOFF_UNLOCK_THRESHOLD_PCT;
 export const HANDOFF_CONTENT_LIMIT = 4000;
@@ -61,11 +62,11 @@ export type HandoffGateResult =
   | { ok: false; error: typeof UNAVAILABLE_NO_METERING | typeof UNAVAILABLE_BELOW_40 };
 
 export function handoffPath(cwd: string): string {
-  return join(stateDir, "handoff-" + cwdHash(cwd) + ".json");
+  return join(stateDir, "handoff-" + modelModeKey(cwd) + ".json");
 }
 
 export function handoffOverflowPath(cwd: string, now = Date.now()): string {
-  return join(stateDir, "handoff-overflow-" + cwdHash(cwd) + "-" + now + ".md");
+  return join(stateDir, "handoff-overflow-" + modelModeKey(cwd) + "-" + now + ".md");
 }
 
 export function checkHandoffWriteAvailable(metering: HandoffMetering | null | undefined): HandoffGateResult {
@@ -80,8 +81,12 @@ export function checkHandoffWriteAvailable(metering: HandoffMetering | null | un
 }
 
 export function readHandoff(cwd: string): HandoffRecord | null {
+  return readHandoffAt(handoffPath(cwd)) ?? readHandoffAt(legacyHandoffPath(cwd));
+}
+
+function readHandoffAt(path: string): HandoffRecord | null {
   try {
-    const raw = readFileSync(handoffPath(cwd), "utf8");
+    const raw = readFileSync(path, "utf8");
     return validateHandoffRecord(JSON.parse(raw));
   } catch {
     return null;
@@ -145,11 +150,18 @@ export function markRead(cwd: string, sessionKey: string): HandoffRecord | null 
 }
 
 export function clearHandoff(cwd: string): void {
-  const record = readHandoff(cwd);
+  const records = [handoffPath(cwd), legacyHandoffPath(cwd)].map(readHandoffAt);
   unlinkIfPresent(handoffPath(cwd));
-  if (record?.overflow_path) {
-    unlinkIfPresent(record.overflow_path);
+  unlinkIfPresent(legacyHandoffPath(cwd));
+  for (const record of records) {
+    if (record?.overflow_path) {
+      unlinkIfPresent(record.overflow_path);
+    }
   }
+}
+
+function legacyHandoffPath(cwd: string): string {
+  return join(stateDir, "handoff-" + cwdHash(cwd) + ".json");
 }
 
 function unlinkIfPresent(path: string): void {

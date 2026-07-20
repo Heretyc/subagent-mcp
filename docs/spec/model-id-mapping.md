@@ -8,4 +8,4 @@
 | `opus-4-8` | `claude-opus-4-8` | claude |
 | `fable` | `claude-fable-5` | claude |
 | `gpt-5.5` | `gpt-5.5` (passed as-is) | codex |
-| `gpt-5.6` | `gpt-5.6` (passed as-is) | codex |
+| `gpt-5.6` | `gpt-5.6-sol` on the Codex app-server wire; reported publicly as `gpt-5.6` | codex |

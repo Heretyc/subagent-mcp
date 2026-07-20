@@ -87,10 +87,12 @@
   is STILL honored after the latch trips and wins over the latch, so the
   disable-check precedes the latch OR in the effective-active computation. See
   `context-metering.md` and `sections-00-04.md` (phase thresholds).
-- **Handoff persistence (cwd-keyed, cross-session cycle).** A handoff record
-  (`handoff-<cwdHash>.json`) is keyed by cwd, not session, so a successor session
-  working in the same directory can read what its predecessor wrote via
-  handoff-write. The write/read/clear cycle repeats at EACH successor session's
+- **Handoff persistence (project-keyed, cross-session cycle).** A handoff record
+  (`handoff-<projectKey>.json`) uses the same git common-dir key as
+  model-selection mode when cwd is inside a repo, else normalized cwd hash. It is
+  not session-keyed, so a successor session working in the same repo/cwd identity
+  can read what its predecessor wrote via handoff-write. The write/read/clear
+  cycle repeats at EACH successor session's
   50% crossing: the next session again winds down and may write a fresh handoff
   after its own 40% unlock, which resets any prior reader binding (`read_by_session`,
   `read_at`) and replaces the prior record. Only the session that ran

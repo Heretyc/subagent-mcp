@@ -13,12 +13,13 @@
  *     is NEVER touched.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import {
   findOnPath,
+  serverPaths,
   reconcileClaudeSettings,
   reconcileClaudeJson,
   reconcileCodexToml,
@@ -27,6 +28,7 @@ import {
   codexAddArgs,
   deploySmcpSkillsAndCommands,
   verifySmcpSkillsAndCommands,
+  verifyWiring,
 } from "../dist/setup.js";
 
 let passed = 0;
@@ -391,6 +393,74 @@ test("smcp skills and commands verify: missing before setup, PASS after deploy",
       const pass = verifySmcpSkillsAndCommands(root, home);
       assert.equal(pass.ok, true);
       assert.equal(pass.detail, "deployed");
+
+      const codexMissing = verifySmcpSkillsAndCommands(root, home, "codex");
+      assert.equal(codexMissing.label, "codex: smcp skills");
+      assert.equal(codexMissing.ok, false);
+
+      deploySmcpSkillsAndCommands(root, home, "codex");
+      const codexPass = verifySmcpSkillsAndCommands(root, home, "codex");
+      assert.equal(codexPass.ok, true);
+      assert.equal(readFileSync(join(home, ".agents", "skills", "smcp-handoff", "SKILL.md"), "utf8"), "smcp-handoff skill\n");
+    });
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("verifyWiring reports codex hook and installed skills", () => {
+  const home = mkdtempSync(join(tmpdir(), "repair-home-"));
+  try {
+    withSkillRoot((root) => {
+      writeSmcpAssets(root);
+      for (const rel of [
+        "dist/index.js",
+        "dist/advanced-ruleset.py",
+        "dist/global-subagent-mcp-config.jsonc",
+        "dist/hooks/orchestration-claude.js",
+        "dist/hooks/orchestration-claude-pretool.js",
+        "dist/hooks/statusline-claude.js",
+        "dist/hooks/orchestration-codex.js",
+        "directives/carryover-claude.md",
+        "directives/carryover-codex.md",
+        "directives/orchestration-claude.md",
+        "directives/orchestration-codex.md",
+        "directives/short-on.md",
+        "directives/short-off.md",
+        "directives/reminder-on.md",
+        "directives/reminder-off-claude.md",
+        "directives/reminder-off-codex.md",
+      ]) {
+        const file = join(root, ...rel.split("/"));
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, "");
+      }
+      mkdirSync(join(home, ".codex"), { recursive: true });
+      const p = serverPaths(root);
+      writeFileSync(join(home, ".codex", "config.toml"), `[mcp_servers.subagent-mcp]\ncommand = "node"\nargs = ["${p.server}"]\n`);
+      const hook = { type: "command", command: `node "${p.codexHook}"`, commandWindows: `node "${p.codexHook}"`, timeout: 10 };
+      writeFileSync(join(home, ".codex", "hooks.json"), JSON.stringify({
+        hooks: {
+          SessionStart: [{ hooks: [hook] }],
+          UserPromptSubmit: [{ hooks: [{ ...hook }] }],
+        },
+      }));
+      deploySmcpSkillsAndCommands(root, home, "codex");
+      const oldPath = process.env.PATH;
+      const oldPathWin = process.env.Path;
+      let rows;
+      try {
+        process.env.PATH = "";
+        process.env.Path = "";
+        rows = verifyWiring(root, false, home);
+      } finally {
+        if (oldPath === undefined) delete process.env.PATH;
+        else process.env.PATH = oldPath;
+        if (oldPathWin === undefined) delete process.env.Path;
+        else process.env.Path = oldPathWin;
+      }
+      assert.equal(rows.find((r) => r.label === "codex: SessionStart + UserPromptSubmit hooks").ok, true);
+      assert.equal(rows.find((r) => r.label === "codex: smcp skills").ok, true);
     });
   } finally {
     rmSync(home, { recursive: true, force: true });

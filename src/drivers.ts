@@ -704,9 +704,11 @@ export class CodexAppServerDriver implements ProviderDriver {
   private readonly maxPendingApprovals = 16;
   private readonly permissionSnapshot: PermissionSnapshot;
   private readonly codexLaunchValues: CodexLaunchValues;
+  private readonly wireModel: string;
   constructor(private readonly child: ChildProcess, private readonly options: DriverLaunchOptions) {
     this.permissionSnapshot = permissionSnapshotForLaunch(options);
     this.codexLaunchValues = resolveCodexLaunchValues(this.permissionSnapshot);
+    this.wireModel = mapModel(options.provider, options.model);
     this.process = new LogicalProcess(child.pid);
     child.once("spawn", () => this.process.emit("spawn"));
     child.once("error", (err) => this.fail(err));
@@ -733,7 +735,7 @@ export class CodexAppServerDriver implements ProviderDriver {
     });
     await this.notify("initialized");
     const thread = await this.request("thread/start", {
-      model: this.options.model,
+      model: this.wireModel,
       cwd: this.options.cwd,
       approvalPolicy: this.codexLaunchValues.approvalPolicy,
       sandbox: this.codexLaunchValues.threadSandbox,
@@ -798,7 +800,7 @@ export class CodexAppServerDriver implements ProviderDriver {
         threadId: this.threadId,
         input: [textInput(inputText)],
         cwd: this.options.cwd,
-        model: this.options.model,
+        model: this.wireModel,
         effort: this.options.effort,
         approvalPolicy: this.codexLaunchValues.approvalPolicy,
         sandboxPolicy: this.codexLaunchValues.turnSandboxPolicy,

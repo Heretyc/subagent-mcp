@@ -607,6 +607,22 @@ function buildFailoverNote(
   return `Rank-1 candidate ${topLabel} failed with ${top.failure_type === "transient_provider" ? "a transient provider error" : "a permanent error"}; auto-selected ${winnerLabel}.`;
 }
 
+function candidateKey(candidate: Candidate): string {
+  return `${candidate.provider}\0${candidate.model}\0${candidate.effort}`;
+}
+
+function appendDedupedCandidates(first: Candidate[], rest: Candidate[]): Candidate[] {
+  const seen = new Set<string>();
+  const out: Candidate[] = [];
+  for (const candidate of [...first, ...rest]) {
+    const key = candidateKey(candidate);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(candidate);
+  }
+  return out;
+}
+
 function failureTypeForError(error: Error, stderr: string): FailureType {
   return (error as Error & { isTransient?: boolean }).isTransient
     ? "transient_provider"
@@ -814,7 +830,7 @@ const SUBAGENT_INSTRUCTIONS =
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.1.3",
+    version: "3.1.4-beta.1",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
@@ -842,17 +858,73 @@ function cleanupUcSettingsPath(ucSettingsPath?: string, ucSettingsDir?: string):
 
 // Compose the environment for a spawned child agent. GH_TOKEN / GITHUB_TOKEN are
 // stripped by default so a stale inherited token cannot override the child's own
-// `gh` keyring auth. Opt back in with SUBAGENT_MCP_PASS_GH_TOKENS=1.
+// `gh` keyring auth. When a freshly-minted token is supplied it is injected as
+// GH_TOKEN (only) after stripping, giving Codex children usable gh auth without
+// leaking the parent's stale token. Opt back into verbatim pass-through with
+// SUBAGENT_MCP_PASS_GH_TOKENS=1, which preserves both parent tokens and ignores
+// any supplied fresh token.
 export function buildChildEnv(
   parentEnv: NodeJS.ProcessEnv,
-  overrides: Record<string, string>
+  overrides: Record<string, string>,
+  freshGhToken?: string
 ): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...parentEnv, ...overrides };
-  if (parentEnv.SUBAGENT_MCP_PASS_GH_TOKENS !== "1") {
-    delete env.GH_TOKEN;
-    delete env.GITHUB_TOKEN;
+  if (parentEnv.SUBAGENT_MCP_PASS_GH_TOKENS === "1") {
+    // Pass-through: keep parent GH_TOKEN / GITHUB_TOKEN verbatim, ignore fresh token.
+    return env;
+  }
+  delete env.GH_TOKEN;
+  delete env.GITHUB_TOKEN;
+  if (typeof freshGhToken === "string" && freshGhToken.length > 0) {
+    env.GH_TOKEN = freshGhToken;
   }
   return env;
+}
+
+// Result of invoking `gh auth token` (a spawnSync-shaped subset). Injectable so
+// tests can exercise the resolver without spawning a real `gh`.
+export type GhTokenRunResult = {
+  status?: number | null;
+  stdout?: string | null;
+  error?: Error;
+};
+export type GhTokenRunner = (env: NodeJS.ProcessEnv) => GhTokenRunResult;
+
+// Default runner: invoke `gh auth token` with a short timeout and hidden window.
+// The env passed in already has GH_TOKEN / GITHUB_TOKEN stripped by the resolver.
+function defaultGhTokenRunner(env: NodeJS.ProcessEnv): GhTokenRunResult {
+  const res = spawnSync("gh", ["auth", "token"], {
+    env,
+    encoding: "utf8",
+    timeout: 5000,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return { status: res.status, stdout: res.stdout, error: res.error };
+}
+
+// Obtain a fresh gh token for injection into child envs. Returns the trimmed
+// token, or undefined to signal strip-only fallback (gh failure, timeout, empty
+// stdout, or pass-through mode). Never logs token values. The env used to invoke
+// gh has GH_TOKEN / GITHUB_TOKEN stripped so gh re-derives from its keyring.
+export function resolveFreshGhToken(
+  parentEnv: NodeJS.ProcessEnv,
+  runner: GhTokenRunner = defaultGhTokenRunner
+): string | undefined {
+  // Pass-through mode manages tokens verbatim; never fetch/inject.
+  if (parentEnv.SUBAGENT_MCP_PASS_GH_TOKENS === "1") return undefined;
+  const ghEnv: NodeJS.ProcessEnv = { ...parentEnv };
+  delete ghEnv.GH_TOKEN;
+  delete ghEnv.GITHUB_TOKEN;
+  try {
+    const res = runner(ghEnv);
+    if (!res || res.error) return undefined;
+    if (res.status != null && res.status !== 0) return undefined;
+    const token = typeof res.stdout === "string" ? res.stdout.trim() : "";
+    return token.length > 0 ? token : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // Attempt to spawn + register a single candidate. Resolves to the agent_id on a
@@ -952,6 +1024,12 @@ async function tryLaunchCandidate(
     return { reason: `CLI executable not found: ${cmd}`, failure_type: "permanent" };
   }
 
+  // Mint a fresh gh token immediately before spawn so children get usable gh
+  // auth without inheriting the parent's (possibly stale) GH_TOKEN. Resolver
+  // strips token vars before invoking gh and falls back to strip-only on any
+  // failure/timeout/empty output. No-op in pass-through mode.
+  const freshGhToken = resolveFreshGhToken(process.env);
+
   let driver: ProviderDriver;
   try {
     driver = await createProviderDriver({
@@ -962,7 +1040,7 @@ async function tryLaunchCandidate(
       env: buildChildEnv(process.env, {
         SUBAGENT_MCP_SUBAGENT: "1",
         SUBAGENT_MCP_DEPTH: String(currentLaunchDepth() + 1),
-      }),
+      }, freshGhToken),
       model: candidate.model,
       effort: candidate.effort,
       ucSettingsPath: buildResult.ucSettingsPath,
@@ -1272,21 +1350,22 @@ async function tryLaunchCandidate(
       };
     }
 
-    // Terminal first-turn provider/model error surfaced through the stream
-    // (systemError / invalid_request / model-not-supported) with no visible
-    // output and no process exit: treat it as a launch-equivalent failure so the
-    // attempt loop silently advances to the next-best candidate, recording the
-    // failover exactly like a launch failure.
-    if (agentState.launchTurnFailure && !agentState.turnCompleted && agentState.visibleStream.length === 0) {
-      try {
-        driver.kill();
-      } catch {}
-      cleanupUcSettings(agentState);
-      return {
-        reason: agentState.launchTurnFailure.reason,
-        failure_type: agentState.launchTurnFailure.failure_type,
-      };
-    }
+  }
+
+  // Terminal first-turn provider/model error surfaced through the stream
+  // (systemError / invalid_request / model-not-supported) with no visible
+  // output and no process exit: treat it as a launch-equivalent failure so the
+  // attempt loop silently advances to the next-best candidate, recording the
+  // failover exactly like a launch failure.
+  if (agentState.launchTurnFailure && !agentState.turnCompleted && agentState.visibleStream.length === 0) {
+    try {
+      driver.kill();
+    } catch {}
+    cleanupUcSettings(agentState);
+    return {
+      reason: agentState.launchTurnFailure.reason,
+      failure_type: agentState.launchTurnFailure.failure_type,
+    };
   }
 
   agents.set(agentId, agentState);
@@ -1382,8 +1461,7 @@ server.tool(
     const branch: RoutingBranch = (pureAuto && deadlockWindow.active()) ? "performance" : "cost_efficiency";
     const routingTier = isExplicit ? "manual" : branch;
 
-    // explicit mode never reads the table; all other modes do.
-    const table = isExplicit ? null : loadRoutingTable();
+    const table = loadRoutingTable();
     if (!isExplicit && table === null) {
       return errorResult(
         `Error: routing table not populated for ${task_category} (routing-table file missing or unreadable). Either run the model-profiler to populate it, or pass provider+model+effort explicitly for a fully-specified launch.\n${AUTO_HINT}`
@@ -1392,8 +1470,11 @@ server.tool(
 
     const result = buildCandidates(table, task_category, overrides, branch);
     const mode: SelectionMode = result.mode;
+    const autoCandidates = pureAuto || table === null
+      ? []
+      : buildCandidates(table, task_category, {}, branch).candidates;
 
-    if (!isExplicit && result.noCandidates) {
+    if (!isExplicit && result.noCandidates && autoCandidates.length === 0) {
       let scope = "";
       if (mode === "provider") scope = ` matching provider ${provider}`;
       else if (mode === "provider_model") scope = ` matching model ${model}`;
@@ -1415,7 +1496,7 @@ server.tool(
       return errorResult(RULESET_HARD_FAIL_MSG);
     }
 
-    let candidates = result.candidates;
+    let candidates = appendDedupedCandidates(result.candidates, autoCandidates);
     if (pureAuto && process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1") {
       candidates = slotInsert(candidates, loadApiProviders(), task_category);
     }
@@ -1605,9 +1686,6 @@ server.tool(
           reason: outcome.reason,
           failure_type: outcome.failure_type,
         });
-        if (!pureAuto) {
-          break;
-        }
       }
     } finally {
       if (!launched) {
@@ -1615,18 +1693,7 @@ server.tool(
       }
     }
 
-    // 7. All candidates failed. Override selector modes are single-attempt hard
-    //    failures; pure auto mode reports the attempted candidates.
-    if (!pureAuto) {
-      const f = skipped[0];
-      const transientNote = f.failure_type === "transient_provider"
-        ? `\nNote: this failure appears transient (quota/rate-limit/network). Switch to auto mode (omit provider/model/effort) for automatic silent failover to the next-best provider.`
-        : "";
-      const label = isExplicit ? "explicit" : "override";
-      return errorResult(
-        `Error: ${label} launch ${f.model}@${f.effort} (${f.provider}) failed: ${f.reason}.${transientNote}\n${AUTO_HINT}`
-      );
-    }
+    // 7. All candidates failed.
     const lines = skipped
       .map((s, i) => `  ${i + 1}. ${s.model}@${s.effort} (${s.provider}) [${s.failure_type}]: ${s.reason}`)
       .join("\n");

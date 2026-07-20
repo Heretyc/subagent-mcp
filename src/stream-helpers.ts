@@ -265,13 +265,20 @@ export function terminalTurnFailure(provider: string, line: string): string | nu
     const method = typeof evt.method === "string" ? evt.method : "";
     const params = (evt.params && typeof evt.params === "object" ? evt.params : {}) as Record<string, unknown>;
     // An error notification the provider will not itself retry.
-    if (method === "error" && params.willRetry !== true) {
-      return pick(params.message, params.error) || "codex reported a terminal error";
+    if (method === "error" && params.willRetry !== true && evt.willRetry !== true) {
+      return pick(params.message, params.error, evt.error) || "codex reported a terminal error";
     }
     // The thread transitioned into a system/error state.
     if (method === "thread/status/changed") {
-      const status = typeof params.status === "string" ? params.status : "";
+      const thread = (params.thread && typeof params.thread === "object" ? params.thread : {}) as Record<string, unknown>;
+      const status = typeof params.status === "string" ? params.status : typeof thread.status === "string" ? thread.status : "";
       if (/error/i.test(status)) return `codex thread status ${status}`;
+    }
+    if (method === "thread/systemError" || method === "thread/error") {
+      return pick(params.message, params.error, evt.error) || "codex thread systemError";
+    }
+    if (method === "turn/failed" || method === "turn/error") {
+      return pick(params.message, params.error, evt.error) || "codex turn failed";
     }
     // The turn ended in a failed (not completed) status.
     if (method === "turn/completed" || evt.type === "turn.completed") {

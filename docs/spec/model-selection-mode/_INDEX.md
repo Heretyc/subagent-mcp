@@ -111,16 +111,8 @@ cwd hash.
 6. Scope is limited to `launch_agent`'s `provider`/`model`/`effort` selectors;
    no other tool is gated.
 7. Failover behavior by mode. `smart` mode rejects any supplied selector and
-   auto-selects, so the auto-mode attempt loop runs and same-call failover on
-   transient provider errors applies (the loop silently advances across
-   ruleset-selected candidates; `../auto-mode/routing-table-contract.md`).
-   `user-approved-overrides` mode, when the caller supplies any selector,
-   produces an override launch: a SINGLE attempt, NO failover. If that attempt
-   fails, the error is `explicit launch ... failed` for all three selectors
-   (`provider + model + effort`) or `override launch ... failed` for partial
-   selectors; when the failure classifies as `transient_provider`
-   (`classifyFailureReason`), a `Note:` line is appended advising the caller to
-   switch to auto mode (omit the selectors) for automatic silent failover
-   (`../auto-mode/resolution-matrix.md`). Enabling `user-approved-overrides`
-   does NOT grant failover - override-mode single-attempt hard-fail semantics
-   apply regardless of model-selection-mode.
+   auto-selects, so the auto-mode attempt loop runs. `user-approved-overrides`
+   mode permits selectors; requested candidates are tried first, then
+   de-duplicated valid auto candidates for the same task category
+   (`../auto-mode/routing-table-contract.md`). If all candidates fail, the error
+   is `ERR_ALL_FAILED`.

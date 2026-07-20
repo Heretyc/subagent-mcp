@@ -119,18 +119,20 @@ From the selected branch's `<task_category>` array (per section Branch selection
 - `provider_model`: pairings whose `model` == the supplied model (mapped
   provider must also equal supplied provider; mismatch is impossible if the
   existing provider↔model check passed, but filter on model).
-- `explicit`: do NOT read the table for candidates. Build exactly ONE candidate
-  from the user's `{provider, model, effort}` and attempt it directly, even if
-  it is absent from the table (explicit user choice). No fallback.
+- `explicit`: build the user's `{provider, model, effort}` candidate first,
+  even if it is absent from the table. If the table is available, append
+  de-duplicated valid auto candidates for the same task category.
 
-After filtering, if the list is empty in auto/provider/provider_model mode →
-`ERR_NO_CANDIDATES` with the matching `<scope>` (`resolution-matrix.md`).
+After filtering and appending valid auto candidates, if the list is empty in
+auto/provider/provider_model mode -> `ERR_NO_CANDIDATES` with the matching
+`<scope>` (`resolution-matrix.md`).
 
 ## Attempt loop with SILENT fallback
 
-This fallback loop applies to pure `auto` mode only. Override selector modes
-(`provider`, `provider_model`, `explicit`) make one launch attempt; on failure
-they stop and return the matching hard-fail shape with the auto-mode hint.
+This fallback loop applies to auto and override selector modes. Override
+requests try their requested candidates first, then valid de-duplicated auto
+candidates for the same task category. The same `{provider,model,effort}` triple
+is never retried in one `launch_agent` call.
 
 For each candidate in order (best→worst):
 
@@ -180,12 +182,10 @@ If ALL candidates fail → `ERR_ALL_FAILED` listing each
 `<model>@<effort> (<provider>) [<failure_type>]: <reason>` (`resolution-matrix.md`);
 each numbered line now carries the `[transient_provider]`/`[permanent]` label.
 
-Override selector modes: one attempt; on failure -> hard-fail (no loop).
-
 ## Empty / missing table behavior (summary)
 | Condition | auto/provider/provider_model | explicit |
 |---|---|---|
-| `dist/routing-table.json` missing/unreadable | `ERR_TABLE_MISSING` | works; table not read |
+| `dist/routing-table.json` missing/unreadable | `ERR_TABLE_MISSING` | requested triple only |
 | category has zero pairings | `ERR_NO_CANDIDATES` (`<scope>`=empty) | works |
 | constraint matches no pairing | `ERR_NO_CANDIDATES` (`<scope>`=provider/model) | n/a |
 

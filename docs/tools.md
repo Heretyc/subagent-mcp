@@ -26,7 +26,7 @@ Returns: `{ agent_id, status, provider, model, effort, task_category }`, plus `r
 
 **Auto mode (recommended):** pass only `prompt` + `task_category`. The server reads its routing table, builds a best→worst candidate list for that category, starts the first interactive candidate that accepts startup, and silently falls back to the next-best on a launch-time failure.
 
-**Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. Rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`. Passing all three is `explicit` mode : a single direct attempt with no fallback. Omitting or partially supplying them on a bad combination is a hard error (see the spec).
+**Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. Rules: if you pass `model` you must pass `provider`; if you pass `effort` you must pass both `provider` and `model`. Requested candidates are tried first; on launch-equivalent failure the server falls back to de-duplicated valid auto candidates for the same `task_category`. Omitting or partially supplying them on a bad combination is a hard error (see the spec).
 
 Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable`. Codex accepts `gpt-5.5` or `gpt-5.6`.
 
