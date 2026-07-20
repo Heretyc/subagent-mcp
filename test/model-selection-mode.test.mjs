@@ -17,6 +17,7 @@
  * regresses is worthless, so every assertion pins a specific value/reason.
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -166,7 +167,39 @@ test("(e) re-enabling an active override does NOT reset the 30-min window", (cwd
   assert.equal(r.enabled_at, t0, "enabled_at unchanged after re-enable");
 });
 
-test("(f) API-routed launch gets one session gate, then stays approved", (cwd) => {
+test("(f) linked worktree cwd shares the main repo override window", (cwd) => {
+  const main = join(cwd, "main");
+  const linked = join(cwd, "linked");
+  execFileSync("git", ["init", main], { stdio: "ignore" });
+  execFileSync("git", ["-C", main, "commit", "--allow-empty", "-m", "init"], {
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: "Test",
+      GIT_AUTHOR_EMAIL: "test@example.invalid",
+      GIT_COMMITTER_NAME: "Test",
+      GIT_COMMITTER_EMAIL: "test@example.invalid",
+    },
+  });
+  execFileSync("git", ["-C", main, "worktree", "add", "-b", "linked", linked], {
+    stdio: "ignore",
+  });
+
+  setMode(main, "user-approved-overrides", t0);
+  assert.equal(modelModePath(main), modelModePath(linked),
+    "main checkout and linked worktree must share the same model-mode marker");
+
+  const active = gateLaunch(linked, { provider: "claude" }, t0 + 60_000);
+  assert.equal(active.allowed, true,
+    "launch_agent cwd inside a linked worktree must see the main repo override window");
+  assert.equal(active.mode, "user-approved-overrides");
+
+  const expired = gateLaunch(linked, { provider: "claude" }, t0 + WINDOW_MS + 1);
+  assert.equal(expired.allowed, false, "linked-worktree launch rejects after expiry");
+  assert.equal(expired.reverted, true, "expiry is still lazy on launch");
+});
+
+test("(g) API-routed launch gets one session gate, then stays approved", (cwd) => {
   const first = gateLaunch(cwd, { dispatchSource: "api-provider" }, t0);
   assert.equal(first.allowed, false, "first API-routed launch in smart mode must gate");
   assert.equal(first.message, SELECTOR_REJECTION_MESSAGE,
