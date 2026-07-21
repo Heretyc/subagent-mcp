@@ -22,6 +22,8 @@ import {
 } from "../orchestration/hook-core.js";
 import * as marker from "../orchestration/marker.js";
 import {
+  phaseFor,
+  readMetering,
   type MeteringHarness,
   type MeteringUsage,
 } from "../orchestration/metering.js";
@@ -343,11 +345,34 @@ export function runCodexHook(
       const m = marker.readMarker(cwd);
       const kind = classifyOwnerClaim(m, current);
 
+      // SessionStart is turn 0: no fresh usage can be lifted for the in-flight
+      // turn (it has no completed assistant response yet). But if a PRIOR turn
+      // of THIS owner already persisted a metering record that is still fresh,
+      // render its USED utilization / phase on the turn-0 tag instead of the
+      // "unknown" fallback. readMetering enforces the existing
+      // ORCH_DISABLE_TTL_MS freshness horizon and drops stale records, so a
+      // stale/absent record correctly yields null (unknown) — we never lift
+      // stale data forward.
+      const meteringRecord = readMetering(current);
+      const usedPercentage = meteringRecord?.used_percentage ?? null;
+      const phase = phaseFor(usedPercentage);
+
       // Claim/re-claim + emit via the SHARED claim path (one copy of the
       // semantics — FULL + ON reminder, ack-latched CARRYOVER prepend, counter
       // re-baseline). SessionStart claims even on SAME-SESSION (resume) so
       // turn 0 is always covered.
-      return claimAndEmit(cwd, current, turn, m, kind, env, adapter);
+      return claimAndEmit(
+        cwd,
+        current,
+        turn,
+        m,
+        kind,
+        env,
+        adapter,
+        true,
+        phase,
+        usedPercentage
+      );
     }
     // UserPromptSubmit (and any other event) -> normal cadence.
     return runHook(payload, env, adapter);

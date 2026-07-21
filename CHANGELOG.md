@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.1.6-beta.1
+
+### Fixed
+
+- Codex context-window reporting: the harness-advertised
+  `token_count.info.model_context_window` is now forwarded as the metering
+  window (`window_source: "harness"`), so a 155K-used / 258K-window turn meters
+  ~60% USED (~40% remaining) from `last_token_usage` instead of the cumulative
+  `total_token_usage`, preventing a false 100%/unknown state.
+- Codex `SessionStart` (turn 0) now renders the USED utilization and phase from
+  a still-fresh persisted metering record for the current owner; a stale or
+  absent record stays `unknown` (no stale data is lifted forward).
+
 ## 3.1.5
 
 ### Fixed
