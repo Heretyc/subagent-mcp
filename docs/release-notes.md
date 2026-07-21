@@ -13,9 +13,9 @@ Historical entries:
 
 ---
 
-## v3.1.6-beta.1
+## v3.1.6
 
-### Codex context-window metering (beta)
+### Codex context-window metering
 
 - Codex now forwards the harness-reported `model_context_window` as the metering
   window, so occupancy is computed as `last_token_usage / model_context_window`.
