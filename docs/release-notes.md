@@ -13,6 +13,22 @@ Historical entries:
 
 ---
 
+## v3.1.6-beta.1
+
+### Codex context-window metering (beta)
+
+- Codex now forwards the harness-reported `model_context_window` as the metering
+  window, so occupancy is computed as `last_token_usage / model_context_window`.
+  A 155K-used / 258K-window turn reports ~60% USED / ~40% remaining instead of a
+  false 100% driven by cumulative token accounting.
+- Codex `SessionStart` renders the USED utilization from a fresh persisted
+  metering record for the current session; stale or absent records stay unknown.
+- Semantics unchanged and clarified in docs: the hook tag `utilization` is the
+  USED percentage and the footer `Remaining Context` is the remaining
+  percentage.
+
+---
+
 ## v3.1.5
 
 ### Codex metering and routing

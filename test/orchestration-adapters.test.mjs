@@ -35,6 +35,11 @@ import {
 } from "../dist/orchestration/marker.js";
 import { sessionKey } from "../dist/orchestration/hook-core.js";
 import {
+  buildMeteringRecord,
+  meteringPath,
+  writeMetering,
+} from "../dist/orchestration/metering.js";
+import {
   statuslinePathForSession,
   writeStatuslineRecord,
 } from "../dist/orchestration/statusline-state.js";
@@ -504,6 +509,67 @@ test("codex liftUsage: uses last_token_usage for current context occupancy", () 
   }
 });
 
+// Sanitized 155K-used / 258K-window fixture. The harness itself renders this as
+// "42% left / 155K used / 258K"; occupancy MUST be computed from
+// last_token_usage / model_context_window (about 60% USED, about 40% remaining),
+// NOT from the huge cumulative total_token_usage (which would falsely clamp to
+// 100%). Do not compare our USED tag to the harness LEFT figure.
+test("codex liftUsage: 155K/258K meters ~60% USED via last_token_usage, window_source=harness", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    {
+      type: "token_count",
+      info: {
+        model_context_window: 258400,
+        // Cumulative accounting data; cached input dominates. Must be IGNORED
+        // for occupancy so it cannot force a false 100%.
+        total_token_usage: {
+          input_tokens: 174860000,
+          output_tokens: 10739,
+          cached_input_tokens: 174800000,
+          total_tokens: 174870739,
+        },
+        last_token_usage: {
+          input_tokens: 150000,
+          output_tokens: 5000,
+          cached_input_tokens: 0,
+          total_tokens: 155000,
+        },
+      },
+    },
+  ]);
+  try {
+    const lifted = codexAdapter.liftUsage({ cwd: dir }, {}, file);
+    assert.equal(lifted.harnessContextWindow, 258400,
+      "harness window is forwarded so metering resolves window_source=harness");
+    const usedPct = lifted.harnessPercentage;
+    assert.ok(usedPct > 59 && usedPct < 61,
+      `USED occupancy is ~60% (155000/258400), got ${usedPct}`);
+    const remaining = 100 - usedPct;
+    assert.ok(remaining > 39 && remaining < 41,
+      `remaining context is ~40%, got ${remaining}`);
+
+    // Shared metering must persist window_source="harness" and the exact
+    // 258400 window for this fixture, preventing the false-100%/unknown path.
+    const record = buildMeteringRecord({
+      session_id: "codex-155k",
+      harness: lifted.harness,
+      model: lifted.model,
+      source_ref: lifted.source_ref,
+      usage: lifted.usage,
+      event: "UserPromptSubmit",
+      harnessPercentage: lifted.harnessPercentage,
+      harnessContextWindow: lifted.harnessContextWindow,
+    });
+    assert.equal(record.window_source, "harness");
+    assert.equal(record.context_window_size, 258400);
+    assert.ok(record.used_percentage > 59 && record.used_percentage < 61,
+      `metering used_percentage is ~60%, got ${record.used_percentage}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("codex liftUsage: returns static-map-computable usage without harness percentage", () => {
   const { dir, file } = writeJsonl([
     { type: "turn_context", model: "gpt-5-codex" },
@@ -678,6 +744,79 @@ test("codex SessionStart: active + not subagent -> FULL + ON reminder, counter r
     assert.equal(readReminder(cwd).counts[owner], 0,
       "SessionStart re-baselines the session's reminder count to 0 (claim IS a LONG turn)");
     assert.equal(readCurrentSession(cwd), owner, "SessionStart writes the resolved owner pointer");
+  } finally {
+    rmSync(markerPath(cwd), { force: true });
+    rmSync(reminderPath(cwd), { force: true });
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("codex SessionStart: renders persisted USED utilization when a fresh metering record exists", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "orch-cx-cwd-"));
+  const root = mkdtempSync(join(tmpdir(), "orch-cx-root-"));
+  const ddir = join(root, "directives");
+  mkdirSync(ddir, { recursive: true });
+  writeFileSync(join(ddir, "orchestration-codex.md"), "CODEX-FULL", "utf8");
+  writeFileSync(join(ddir, "reminder-on.md"), "CODEX-REM-ON", "utf8");
+  const env = { PLUGIN_ROOT: root, npm_config_prefix: root };
+  const owner = anonKey(cwd, "codex");
+  try {
+    writeFreshMarker(cwd);
+    // A prior turn of THIS owner persisted ~60% USED (155K/258K harness window).
+    writeMetering(
+      owner,
+      buildMeteringRecord({
+        session_id: owner,
+        harness: "codex",
+        model: "gpt-5",
+        source_ref: "rollout.jsonl",
+        usage: { input: 150000, output: 5000, cache_creation: 0, cache_read: 0 },
+        event: "UserPromptSubmit",
+        harnessPercentage: (155000 / 258400) * 100,
+        harnessContextWindow: 258400,
+      })
+    );
+    const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, env);
+    // used_percentage ~60% -> utilization="60%", phase="handoff" (>=40),
+    // footer Remaining Context=40%. Utilization is USED, footer is REMAINING.
+    assert.match(
+      out,
+      /utilization="60%"/,
+      "SessionStart renders the persisted USED percentage, not unknown"
+    );
+    assert.match(out, /phase="handoff"/, "phaseFor(60) is handoff");
+    assert.match(
+      out,
+      /Remaining Context=40%/,
+      "footer shows REMAINING context (100 - used)"
+    );
+  } finally {
+    rmSync(meteringPath(owner), { force: true });
+    rmSync(markerPath(cwd), { force: true });
+    rmSync(reminderPath(cwd), { force: true });
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("codex SessionStart: no persisted metering -> utilization unknown (no lifted stale data)", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "orch-cx-cwd-"));
+  const root = mkdtempSync(join(tmpdir(), "orch-cx-root-"));
+  const ddir = join(root, "directives");
+  mkdirSync(ddir, { recursive: true });
+  writeFileSync(join(ddir, "orchestration-codex.md"), "CODEX-FULL", "utf8");
+  writeFileSync(join(ddir, "reminder-on.md"), "CODEX-REM-ON", "utf8");
+  const env = { PLUGIN_ROOT: root, npm_config_prefix: root };
+  try {
+    writeFreshMarker(cwd);
+    const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, env);
+    assert.match(
+      out,
+      /utilization="unknown"/,
+      "absent metering keeps turn-0 utilization unknown/null"
+    );
+    assert.ok(!/Remaining Context=/.test(out), "no footer without a numeric percentage");
   } finally {
     rmSync(markerPath(cwd), { force: true });
     rmSync(reminderPath(cwd), { force: true });
