@@ -178,6 +178,7 @@ test("update deploys smcp skills and slash commands", () => withRoot(async (r) =
   for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     assert.equal(readFileSync(join(r.home, ".claude", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);
     assert.equal(readFileSync(join(r.home, ".claude", "commands", `${name}.toml`), "utf8"), `${name} command\n`);
+    assert.equal(readFileSync(join(r.home, ".agents", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);
   }
 }));
 

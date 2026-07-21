@@ -199,6 +199,10 @@ test("mapModelToProvider: gpt-5.5 -> 'codex'", () => {
   assert.equal(mapModelToProvider("gpt-5.5"), "codex");
 });
 
+test("mapModelToProvider: gpt-5.6-sol -> 'codex'", () => {
+  assert.equal(mapModelToProvider("gpt-5.6-sol"), "codex");
+});
+
 test("mapModelToProvider: gpt-5.5-pro -> 'codex' (but non-launchable; not in launch enum)", () => {
   // Even non-launchable codex siblings must map to 'codex' so the filter logic
   // works correctly (they are then skipped at the launch-enum step, not here).
@@ -438,6 +442,29 @@ test("auto mode with gpt-5.5@xhigh: candidate retained with concrete selectable 
     "gpt-5.5 table entry must produce gpt-5.5 launch model");
   assert.equal(gpt55Candidate.effort, "xhigh",
     "gpt-5.5 must retain its concrete selectable effort instead of a no-effort sentinel");
+});
+
+test("broken Claude routing row is skipped and next usable Claude model is retained", () => {
+  const result = buildCandidates(fixtureTable, "broken_claude", { provider: "claude" }, "performance");
+  assert.equal(result.noCandidates, undefined);
+  assert.deepEqual(
+    result.candidates.map((c) => `${c.provider}/${c.model}@${c.effort}`),
+    ["claude/fable@high"],
+    "claude-sonnet-4-6@none is invalid routing data and must not block fallback"
+  );
+});
+
+test("broken Codex routing row is skipped and gpt-5.6-sol maps to public gpt-5.6", () => {
+  const result = buildCandidates(fixtureTable, "broken_codex", {
+    provider: "codex",
+    model: "gpt-5.6",
+  }, "performance");
+  assert.equal(result.noCandidates, undefined);
+  assert.deepEqual(
+    result.candidates.map((c) => `${c.provider}/${c.model}@${c.effort}`),
+    ["codex/gpt-5.6@high"],
+    "gpt-5.5@none is invalid and gpt-5.6-sol must resolve to the gpt-5.6 launch alias"
+  );
 });
 
 // ---------------------------------------------------------------------------

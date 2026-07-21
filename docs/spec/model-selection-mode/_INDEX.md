@@ -89,9 +89,9 @@ orchestration marker.
 - Because the timer is lazy, a window that already expired during downtime
   simply reverts on the next `launch_agent` call.
 
-State file location: `os.tmpdir()/subagent-mcp/model-<cwdHash>.json`, mirroring
-the orchestration marker (`orch-<cwdHash>.flag`). `cwdHash` keys the file to the
-project working directory.
+State file location: `os.tmpdir()/subagent-mcp/model-<modelModeKey>.json`.
+`modelModeKey` is the git common-dir hash when cwd is inside a repo, else the
+cwd hash.
 
 ## The locked decisions
 
@@ -106,21 +106,13 @@ project working directory.
 4. 30-minute window, wall-clock from enable, enforced LAZILY on each
    `launch_agent` call. No background timer. No refresh on re-enable.
 5. Mode + enable-timestamp persist across restarts in a per-project state file
-   (`model-<cwdHash>.json`, sibling to the orchestration marker); on restart the
+   keyed by git common-dir when cwd is inside a repo, else cwd; on restart the
    mode is restored, not reset.
 6. Scope is limited to `launch_agent`'s `provider`/`model`/`effort` selectors;
    no other tool is gated.
 7. Failover behavior by mode. `smart` mode rejects any supplied selector and
-   auto-selects, so the auto-mode attempt loop runs and same-call failover on
-   transient provider errors applies (the loop silently advances across
-   ruleset-selected candidates; `../auto-mode/routing-table-contract.md`).
-   `user-approved-overrides` mode, when the caller supplies any selector,
-   produces an override launch: a SINGLE attempt, NO failover. If that attempt
-   fails, the error is `explicit launch ... failed` for all three selectors
-   (`provider + model + effort`) or `override launch ... failed` for partial
-   selectors; when the failure classifies as `transient_provider`
-   (`classifyFailureReason`), a `Note:` line is appended advising the caller to
-   switch to auto mode (omit the selectors) for automatic silent failover
-   (`../auto-mode/resolution-matrix.md`). Enabling `user-approved-overrides`
-   does NOT grant failover - override-mode single-attempt hard-fail semantics
-   apply regardless of model-selection-mode.
+   auto-selects, so the auto-mode attempt loop runs. `user-approved-overrides`
+   mode permits selectors; requested candidates are tried first, then
+   de-duplicated valid auto candidates for the same task category
+   (`../auto-mode/routing-table-contract.md`). If all candidates fail, the error
+   is `ERR_ALL_FAILED`.

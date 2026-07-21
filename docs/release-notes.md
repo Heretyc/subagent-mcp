@@ -13,6 +13,36 @@ Historical entries:
 
 ---
 
+## v3.1.6
+
+### Codex context-window metering
+
+- Codex now forwards the harness-reported `model_context_window` as the metering
+  window, so occupancy is computed as `last_token_usage / model_context_window`.
+  A 155K-used / 258K-window turn reports ~60% USED / ~40% remaining instead of a
+  false 100% driven by cumulative token accounting.
+- Codex `SessionStart` renders the USED utilization from a fresh persisted
+  metering record for the current session; stale or absent records stay unknown.
+- Semantics unchanged and clarified in docs: the hook tag `utilization` is the
+  USED percentage and the footer `Remaining Context` is the remaining
+  percentage.
+
+---
+
+## v3.1.5
+
+### Codex metering and routing
+
+- Fixed Codex context metering to use `last_token_usage` for current context
+  occupancy. Cumulative `total_token_usage` remains accounting data and no
+  longer trips orchestration to 100% when cached input dominates.
+- Updated shipped Codex routing so the public `gpt-5.6` selector launches the
+  current `gpt-5.6-sol` backend id.
+- Expanded provider failover classification for `401`, `403`, `429`, `5xx`, and
+  auth-like launch errors, including direct API-provider retries.
+
+---
+
 ## v2.12.11
 
 ### Session-5 audit hardening

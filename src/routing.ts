@@ -42,6 +42,7 @@ const FULL_TO_SHORT: Record<string, LaunchModel | Set<LaunchModel>> = {
   "claude-haiku-4-5": "haiku",
   "claude-fable-5": "fable",
   "gpt-5.5": "gpt-5.5",
+  "gpt-5.6-sol": "gpt-5.6",
   "gpt-5.6": "gpt-5.6",
   // Short ids may already appear in a hand-authored table; map them through.
   haiku: "haiku",

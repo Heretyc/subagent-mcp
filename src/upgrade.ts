@@ -167,7 +167,8 @@ export async function runUpgrade(opts: UpgradeOptions = {}): Promise<number> {
   const repaired = repairStaleHooks(home, repairRoot);
   actions.push(`repaired-hooks=${repaired}`);
   const smcp = deploySmcpSkillsAndCommands(repairRoot, home);
-  actions.push(`smcp-assets=${smcp.status}`);
+  const codexSmcp = deploySmcpSkillsAndCommands(repairRoot, home, "codex");
+  actions.push(`smcp-assets=${smcp.status}`, `codex-smcp-skills=${codexSmcp.status}`);
   const init = await manageGlobalInitBlocks(opts);
   actions.push(`init-updated=${init.updated}`, `init-skipped=${init.skipped}`);
 

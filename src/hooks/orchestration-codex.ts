@@ -22,6 +22,8 @@ import {
 } from "../orchestration/hook-core.js";
 import * as marker from "../orchestration/marker.js";
 import {
+  phaseFor,
+  readMetering,
   type MeteringHarness,
   type MeteringUsage,
 } from "../orchestration/metering.js";
@@ -45,6 +47,7 @@ const SUBAGENT_SOURCE_STRINGS = new Set([
   "subAgentThreadSpawn",
   "subAgentOther",
 ]);
+const ABSURD_FALLBACK_TOKEN_MULTIPLE = 4;
 
 export interface LiftedUsage {
   harness: MeteringHarness;
@@ -52,6 +55,7 @@ export interface LiftedUsage {
   source_ref: string;
   usage: MeteringUsage;
   harnessPercentage?: number | null;
+  harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
 }
 
@@ -166,6 +170,11 @@ function modelFromTurnContext(obj: Record<string, unknown>): string | null {
   return stringField(obj, "model") ?? stringField(nestedRecord(obj, "payload"), "model");
 }
 
+function tokenUsageTotal(usage: Record<string, unknown>): number | null {
+  const total = usage.total_tokens;
+  return finiteNumber(total) ? total : null;
+}
+
 function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUsage | null {
   let latestTokenInfo: Record<string, unknown> | null = null;
   let latestModel: string | null = null;
@@ -188,24 +197,41 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
     }
   }
 
-  const total = nestedRecord(latestTokenInfo, "total_token_usage");
-  if (!total || !latestModel || !transcriptPath) return null;
+  const last = nestedRecord(latestTokenInfo, "last_token_usage");
+  const fallbackTotal = last ? null : nestedRecord(latestTokenInfo, "total_token_usage");
+  const current = last ?? fallbackTotal;
+  if (!current || !latestModel || !transcriptPath) return null;
 
-  const input = total.input_tokens;
-  const output = total.output_tokens;
-  const cacheRead = total.cached_input_tokens;
+  const input = current.input_tokens;
+  const output = current.output_tokens;
+  const cacheRead = current.cached_input_tokens;
   if (!finiteNumber(input) || !finiteNumber(output) || !finiteNumber(cacheRead)) {
     return null;
   }
   const nonCachedInput = Math.max(0, input - cacheRead);
 
   const modelContextWindow = latestTokenInfo?.model_context_window;
-  const totalTokens = total.total_tokens;
-  const harnessPercentage =
+  const totalTokens = tokenUsageTotal(current);
+  if (
+    fallbackTotal &&
     finiteNumber(modelContextWindow) &&
     modelContextWindow > 0 &&
-    finiteNumber(totalTokens)
-      ? (totalTokens / modelContextWindow) * 100
+    totalTokens !== null &&
+    totalTokens > modelContextWindow * ABSURD_FALLBACK_TOKEN_MULTIPLE
+  ) {
+    return null;
+  }
+  // Capture the harness-reported window whenever Codex advertises one, even if
+  // total_tokens is absent/non-finite (so harnessPercentage cannot be derived).
+  // Forwarding the window lets metering resolve window_source="harness" and
+  // avoids the static-mapping/contradiction path that can clamp to 100%.
+  const harnessContextWindow =
+    finiteNumber(modelContextWindow) && modelContextWindow > 0
+      ? modelContextWindow
+      : null;
+  const harnessPercentage =
+    harnessContextWindow !== null && totalTokens !== null
+      ? (totalTokens / harnessContextWindow) * 100
       : null;
 
   // Always return the lift even when neither a harness percentage nor a static
@@ -224,6 +250,7 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
       cache_read: cacheRead,
     },
     harnessPercentage,
+    harnessContextWindow,
   };
 }
 
@@ -318,11 +345,34 @@ export function runCodexHook(
       const m = marker.readMarker(cwd);
       const kind = classifyOwnerClaim(m, current);
 
+      // SessionStart is turn 0: no fresh usage can be lifted for the in-flight
+      // turn (it has no completed assistant response yet). But if a PRIOR turn
+      // of THIS owner already persisted a metering record that is still fresh,
+      // render its USED utilization / phase on the turn-0 tag instead of the
+      // "unknown" fallback. readMetering enforces the existing
+      // ORCH_DISABLE_TTL_MS freshness horizon and drops stale records, so a
+      // stale/absent record correctly yields null (unknown) — we never lift
+      // stale data forward.
+      const meteringRecord = readMetering(current);
+      const usedPercentage = meteringRecord?.used_percentage ?? null;
+      const phase = phaseFor(usedPercentage);
+
       // Claim/re-claim + emit via the SHARED claim path (one copy of the
       // semantics — FULL + ON reminder, ack-latched CARRYOVER prepend, counter
       // re-baseline). SessionStart claims even on SAME-SESSION (resume) so
       // turn 0 is always covered.
-      return claimAndEmit(cwd, current, turn, m, kind, env, adapter);
+      return claimAndEmit(
+        cwd,
+        current,
+        turn,
+        m,
+        kind,
+        env,
+        adapter,
+        true,
+        phase,
+        usedPercentage
+      );
     }
     // UserPromptSubmit (and any other event) -> normal cadence.
     return runHook(payload, env, adapter);

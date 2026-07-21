@@ -93,8 +93,9 @@ Claude ladder:
 
 Codex ladder:
 1. `token_count.info.model_context_window` plus
-   `total_token_usage.total_tokens` is authoritative and provides a
-   harness-reported percentage for that turn. It has primacy over the mapping.
+   `last_token_usage.total_tokens` is authoritative for current context
+   occupancy when present. `total_token_usage` is cumulative accounting data;
+   use it only as a guarded fallback when no last-turn usage exists.
 2. Static fallback uses exact entries from `context-windows.json`. Values are
    effective usable windows, not raw catalog maxima.
 3. The in-id marker upgrades to `long` only when the mapping entry has a
@@ -156,15 +157,31 @@ prior assistant usage and is not treated as an error.
 ### 7. Codex Usage Lift
 
 The Codex adapter tails the rollout JSONL file for the newest `token_count`
-line with `info.total_token_usage`, and reads the model from the newest
-`turn_context.model`. Codex supplies `input_tokens`, `output_tokens`, and
-`cached_input_tokens`; `input_tokens` includes cached input. The adapter stores
-non-cached input, output, zero cache creation, and cached input separately so
-`used_tokens` matches `total_tokens` instead of double-counting cache.
+line, and reads the model from the newest `turn_context.model`. It prefers
+`info.last_token_usage` (the last completed turn's usage, the correct signal for
+current context occupancy) and falls back to `info.total_token_usage` only when
+no last-turn usage exists. `total_token_usage` is cumulative accounting data; an
+absurd fallback whose `total_tokens` exceeds `model_context_window` by more than
+4x is rejected (returns `null`) so cached billing totals cannot force a false
+100%. Codex supplies `input_tokens`, `output_tokens`, and `cached_input_tokens`;
+`input_tokens` includes cached input. The adapter stores non-cached input,
+output, zero cache creation, and cached input separately so `used_tokens`
+matches `total_tokens` instead of double-counting cache.
 
-When `model_context_window` is present on the token-count line, the adapter
-computes the harness percentage from `total_tokens / model_context_window`.
-That percentage takes precedence over any static mapping window.
+When `model_context_window` is valid (finite and positive) the adapter forwards
+it as `harnessContextWindow`, so shared metering resolves
+`window_source: "harness"` with `context_window_size` equal to that window even
+when no percentage can be derived. When the selected usage also carries a finite
+`total_tokens`, the adapter computes the harness percentage from
+`total_tokens / model_context_window` (USED occupancy), which takes precedence
+over any static mapping window. Percentages are never inverted: e.g. 155000
+used against a 258400 window is ~60% USED / ~40% remaining.
+
+Turn 0 (Codex `SessionStart`) cannot lift the in-flight turn's usage, so the
+dispatcher reads any still-fresh persisted metering record for the current owner
+(`readMetering`, subject to the `ORCH_DISABLE_TTL_MS` freshness horizon) and
+renders its USED utilization and phase on the turn-0 tag; a stale or absent
+record yields `unknown`. Stale data is never lifted forward.
 
 ### 8. State And Latch Migration
 

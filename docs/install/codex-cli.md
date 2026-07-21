@@ -145,21 +145,23 @@ disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "l
    `dist/hooks/orchestration-codex.js` exist (Node >= 20).
 2. **Directive assets resolve:** confirm `directives/orchestration-codex.md`,
    `short-on.md`, `short-off.md`, and `carryover-codex.md` exist at `directives/`.
-3. **Server + tools:** `codex mcp list` (or `/mcp` in a session) shows
+3. **Skills deployed:** confirm `$HOME/.agents/skills/smcp-handoff/SKILL.md`
+   exists, along with `smcp-doctor`, `smcp-help`, and `smcp-status`.
+4. **Server + tools:** `codex mcp list` (or `/mcp` in a session) shows
    `subagent-mcp` and its tools (`orchestration-mode`, `launch_agent`, etc.).
-4. **Trust the hook:** start `codex`, run `/hooks`, and **trust** the new
+5. **Trust the hook:** start `codex`, run `/hooks`, and **trust** the new
    command hook. Untrusted command hooks do not execute (trust is keyed to the
    hook's hash; editing it requires re-trust).
-5. **Hook fires when ON:** toggle `orchestration-mode` ON, start a fresh
+6. **Hook fires when ON:** toggle `orchestration-mode` ON, start a fresh
    session (`SessionStart` fires turn 0), submit a couple of prompts, and
    confirm the orchestrator-only directive injects on cadence. If nothing
    injects, re-check that the path is absolute (not `${PLUGIN_ROOT}`) and that
    `~/.codex/hooks.json` (not an untrusted repo file) is in use.
-6. **Hook downgrades when OFF:** toggle `orchestration-mode` OFF and confirm
+7. **Hook downgrades when OFF:** toggle `orchestration-mode` OFF and confirm
    the FULL directive stops; the OFF reminder cadence remains (LONG
    `reminder-off-codex.md` every 5th prompt, state-aware short pointer
    (`short-off.md` while OFF) between).
-7. **Field-name sanity:** if the hook behaves on a 600s timeout instead of
+8. **Field-name sanity:** if the hook behaves on a 600s timeout instead of
    ~10s, you likely left `timeoutSec` instead of `timeout`.
 8. **Native-agent suppression:** `~/.codex/config.toml` has
    `[features] multi_agent = false`. There is no additional Codex native-agent

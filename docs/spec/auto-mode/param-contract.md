@@ -45,9 +45,9 @@ applied:
 | Supplied overrides | mode (internal) | Candidate rule (see `routing-table-contract.md`) |
 |---|---|---|
 | none | `auto` | every pairing in the selected branch's `<task_category>`, rank ascending |
-| `provider` only | `provider` | pairings whose model maps to that provider, rank ascending; first candidate only, no fallback |
-| `provider` + `model` | `provider_model` | pairings matching that model, rank ascending; first candidate only, no fallback |
-| `provider` + `model` + `effort` | `explicit` | exactly that one pairing; single attempt, no fallback; attempt directly even if absent from table |
+| `provider` only | `provider` | requested provider pairings first, then de-duplicated valid auto candidates |
+| `provider` + `model` | `provider_model` | requested model pairings first, then de-duplicated valid auto candidates |
+| `provider` + `model` + `effort` | `explicit` | the requested triple first, then de-duplicated valid auto candidates if the table is available |
 
 `effort` alone, or `model` without `provider`, are NOT valid modes : they are
 hard errors (`resolution-matrix.md`). Net rule:

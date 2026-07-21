@@ -1,8 +1,9 @@
+import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { atomicWriteJson } from "./atomic-write.js";
-import { cwdHash, stateDir } from "./marker.js";
+import { cwdHash, hashKey, normalizeCwd, stateDir } from "./marker.js";
 
 /**
  * Per-project model-selection mode — the SINGLE source of truth for whether a
@@ -12,7 +13,7 @@ import { cwdHash, stateDir } from "./marker.js";
  * selectors for a bounded window).
  *
  * State is a per-project file in the SAME shared state dir as the marker,
- * keyed by the SAME cwdHash so path-keying style stays uniform. The
+ * keyed by git common-dir when cwd is inside a repo, else by cwdHash. The
  * user-approved-overrides grant is time-boxed: WINDOW_MS after enable, the
  * next resolveMode() lazily reverts the project to smart mode.
  *
@@ -29,7 +30,22 @@ type ModelModeState = {
 };
 
 export function modelModePath(cwd: string): string {
-  return join(stateDir, `model-${cwdHash(cwd)}.json`);
+  return join(stateDir, `model-${modelModeKey(cwd)}.json`);
+}
+
+export function modelModeKey(cwd: string): string {
+  try {
+    const result = spawnSync(
+      "git",
+      ["-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir"],
+      { encoding: "utf8", windowsHide: true },
+    );
+    const commonDir = result.status === 0 ? result.stdout.trim() : "";
+    if (commonDir) return hashKey(`git-common:${normalizeCwd(commonDir)}`);
+  } catch {
+    // Fall back to the historical cwd key outside git or when git is unavailable.
+  }
+  return cwdHash(cwd);
 }
 
 function readModelMode(cwd: string): ModelModeState {

@@ -71,16 +71,24 @@ export function serverPaths(root: string = INSTALL_ROOT) {
 }
 
 const SMCP_AGENT_SKILLS = ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"] as const;
+type SmcpAssetHost = "claude" | "codex";
 
-function smcpAssetPaths(root: string = INSTALL_ROOT, home: string = homedir()) {
+function smcpAssetPaths(
+  root: string = INSTALL_ROOT,
+  home: string = homedir(),
+  host: SmcpAssetHost = "claude"
+) {
+  const skillsDir = host === "codex" ? join(home, ".agents", "skills") : join(home, ".claude", "skills");
+  const skills = SMCP_AGENT_SKILLS.map((name) => ({
+    label: `${host}: ${name} skill`,
+    source: join(root, "skills", name),
+    target: join(skillsDir, name),
+  }));
+  if (host === "codex") return skills;
   return [
+    ...skills,
     ...SMCP_AGENT_SKILLS.map((name) => ({
-      label: `claude: ${name} skill`,
-      source: join(root, "skills", name),
-      target: join(home, ".claude", "skills", name),
-    })),
-    ...SMCP_AGENT_SKILLS.map((name) => ({
-      label: `claude: ${name} command`,
+      label: "claude: " + name + " command",
       source: join(root, "commands", `${name}.toml`),
       target: join(home, ".claude", "commands", `${name}.toml`),
     })),
@@ -672,9 +680,10 @@ function removeLegacyHandoffResumeSkill(home: string): { removed: boolean; warni
 
 export function deploySmcpSkillsAndCommands(
   root: string = INSTALL_ROOT,
-  home: string = homedir()
+  home: string = homedir(),
+  host: SmcpAssetHost = "claude"
 ): SmcpSkillsAndCommandsResult {
-  const missingSources = smcpAssetPaths(root, home)
+  const missingSources = smcpAssetPaths(root, home, host)
     .map((p) => p.source)
     .filter((source) => !existsSync(source));
   if (missingSources.length > 0) {
@@ -686,14 +695,14 @@ export function deploySmcpSkillsAndCommands(
     };
   }
 
-  const paths = smcpAssetPaths(root, home);
+  const paths = smcpAssetPaths(root, home, host);
   const changedPaths = paths.filter((p) => copyPackagePath(p.source, p.target));
   const status: WireStatus =
     changedPaths.length === 0 ? "ok" : changedPaths.some((p) => existsSync(p.target)) ? "repaired" : "added";
   if (!DRY_RUN) {
     for (const p of changedPaths) copyPackagePath(p.source, p.target, true);
   }
-  const legacy = removeLegacyHandoffResumeSkill(home);
+  const legacy = host === "claude" ? removeLegacyHandoffResumeSkill(home) : { removed: false, warning: null };
   return {
     changed: changedPaths.length > 0 || legacy.removed,
     status,
@@ -704,13 +713,15 @@ export function deploySmcpSkillsAndCommands(
 
 export function verifySmcpSkillsAndCommands(
   root: string = INSTALL_ROOT,
-  home: string = homedir()
+  home: string = homedir(),
+  host: SmcpAssetHost = "claude"
 ): CheckResult {
-  const paths = smcpAssetPaths(root, home);
+  const paths = smcpAssetPaths(root, home, host);
+  const label = `${host}: smcp skills${host === "claude" ? " and commands" : ""}`;
   const missingSources = paths.filter((p) => !existsSync(p.source)).map((p) => p.source);
   if (missingSources.length > 0) {
     return {
-      label: "claude: smcp skills and commands",
+      label,
       ok: false,
       detail: "source missing from install - reinstall @heretyc/subagent-mcp",
     };
@@ -718,14 +729,14 @@ export function verifySmcpSkillsAndCommands(
   const missing = paths.filter((p) => !existsSync(p.target)).map((p) => p.label);
   if (missing.length > 0) {
     return {
-      label: "claude: smcp skills and commands",
+      label,
       ok: false,
       detail: `missing ${missing.join(", ")} - run subagent-mcp setup`,
     };
   }
   const stale = paths.filter((p) => copyPackagePath(p.source, p.target));
   return {
-    label: "claude: smcp skills and commands",
+    label,
     ok: stale.length === 0,
     detail: stale.length === 0 ? "deployed" : `stale ${stale.map((p) => p.label).join(", ")} - run subagent-mcp setup`,
   };
@@ -881,8 +892,6 @@ function wireCodex(): void {
   const codexDir = join(homedir(), ".codex");
   const specs = vendorWireSpecs(p);
 
-  // Codex has no Agent Skill mechanism; MCP instructions carry handoff guidance.
-
   // 1) config.toml — MCP server block (created if the file is missing).
   try {
     const existed = existsSync(specs.codex.configFile);
@@ -920,6 +929,20 @@ function wireCodex(): void {
     }
   } catch (e) {
     fail("codex", `could not write hooks.json: ${(e as Error).message}`);
+  }
+
+  try {
+    const r = deploySmcpSkillsAndCommands(INSTALL_ROOT, homedir(), "codex");
+    if (r.status === "missing-source") {
+      fail("codex", r.detail);
+    } else {
+      if (r.status === "ok") console.log("  smcp skills: already correct.");
+      else if (r.status === "added") console.log("  smcp skills: added.");
+      else console.log("  smcp skills: restored from package copy.");
+      if (r.changed && DRY_RUN) console.log("    (dry-run: not written)");
+    }
+  } catch (e) {
+    fail("codex", `could not deploy smcp skills: ${(e as Error).message}`);
   }
 }
 
@@ -1030,10 +1053,13 @@ function checkCliRegistration(
   return { registered, attemptedRepair };
 }
 
-export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = false): CheckResult[] {
+export function verifyWiring(
+  root: string = INSTALL_ROOT,
+  repair: boolean = false,
+  home: string = homedir()
+): CheckResult[] {
   const p = serverPaths(root);
   const results: CheckResult[] = [];
-  const home = homedir();
 
   const missing = verifyInstall(root);
   results.push({
@@ -1146,6 +1172,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
       ok: allOk,
       detail: allOk ? "wired (trust via /hooks in Codex)" : "incomplete - run: subagent-mcp setup",
     });
+    results.push(verifySmcpSkillsAndCommands(root, home, "codex"));
   }
 
   const hasGeminiCli = findOnPath("gemini") !== null;

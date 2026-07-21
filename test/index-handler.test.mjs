@@ -1477,47 +1477,49 @@ await test("explicit launch with api slot configured keeps the requested triple"
   rmSync(tempRoot, { recursive: true, force: true });
 });
 
-await test("api provider slot dispatch retries one transient failure and records status", async () => {
-  const { tempRoot, workDir, env } = makeTempEnv();
-  let calls = 0;
-  await withHttpJson((req, res) => {
-    calls += 1;
-    assert.equal(req.url, "/v1/chat/completions");
-    if (calls === 1) {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "server error" }));
-      return;
-    }
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ choices: [{ message: { content: "api ok" } }] }));
-  }, async (baseUrl) => {
-    writeApiProviders(tempRoot, { base_url: baseUrl });
-    const session = createMcpSession(distIndex, {
-      cwd: workDir,
-      env: { ...env, HOME: tempRoot, USERPROFILE: tempRoot, API_KEY: "test-key" },
-    });
-    try {
-      await session.initialize();
-      await enableManualSelection(session);
-      const { agentId, launchPayload } = await launchAndPoll(session, {
-        task_category: "coding",
-        prompt: "api route",
+await test("api provider slot dispatch retries transient/auth-like HTTP statuses", async () => {
+  for (const statusCode of [429, 500, 403]) {
+    const { tempRoot, workDir, env } = makeTempEnv();
+    let calls = 0;
+    await withHttpJson((req, res) => {
+      calls += 1;
+      assert.equal(req.url, "/v1/chat/completions");
+      if (calls === 1) {
+        res.writeHead(statusCode, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: `status ${statusCode}` }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ message: { content: "api ok" } }] }));
+    }, async (baseUrl) => {
+      writeApiProviders(tempRoot, { base_url: baseUrl });
+      const session = createMcpSession(distIndex, {
+        cwd: workDir,
+        env: { ...env, HOME: tempRoot, USERPROFILE: tempRoot, API_KEY: "test-key" },
       });
-      assertSelection(launchPayload, { provider: "api", model: "api-model", effort: "medium" }, "api slot launch");
-      assert.equal(calls, 2, "transient API failure must retry exactly once");
+      try {
+        await session.initialize();
+        await enableManualSelection(session);
+        const { agentId, launchPayload } = await launchAndPoll(session, {
+          task_category: "coding",
+          prompt: `api route ${statusCode}`,
+        });
+        assertSelection(launchPayload, { provider: "api", model: "api-model", effort: "medium" }, `api slot launch ${statusCode}`);
+        assert.equal(calls, 2, `HTTP ${statusCode} API failure must retry exactly once`);
 
-      const poll = await pollAgent(session, agentId, { verbose: true });
-      assert.equal(poll.status, "finished");
-      assert.equal(poll.final_output.includes("api ok"), true);
+        const poll = await pollAgent(session, agentId, { verbose: true });
+        assert.equal(poll.status, "finished");
+        assert.equal(poll.final_output.includes("api ok"), true);
 
-      const status = await session.request("tools/call", { name: "get_status", arguments: {} });
-      const statusPayload = JSON.parse(status.result.content[0].text);
-      assert.equal(statusPayload.last_routing_decisions.at(-1).provider, "api");
-    } finally {
-      await session.close();
-    }
-  });
-  rmSync(tempRoot, { recursive: true, force: true });
+        const status = await session.request("tools/call", { name: "get_status", arguments: {} });
+        const statusPayload = JSON.parse(status.result.content[0].text);
+        assert.equal(statusPayload.last_routing_decisions.at(-1).provider, "api");
+      } finally {
+        await session.close();
+      }
+    });
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 await test("performance routing never inserts or attempts medium-effort API slots", async () => {

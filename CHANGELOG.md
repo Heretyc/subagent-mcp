@@ -1,5 +1,46 @@
 # Changelog
 
+## 3.1.6
+
+### Fixed
+
+- Codex context-window reporting: the harness-advertised
+  `token_count.info.model_context_window` is now forwarded as the metering
+  window (`window_source: "harness"`), so a 155K-used / 258K-window turn meters
+  ~60% USED (~40% remaining) from `last_token_usage` instead of the cumulative
+  `total_token_usage`, preventing a false 100%/unknown state.
+- Codex `SessionStart` (turn 0) now renders the USED utilization and phase from
+  a still-fresh persisted metering record for the current owner; a stale or
+  absent record stays `unknown` (no stale data is lifted forward).
+
+## 3.1.5
+
+### Fixed
+
+- Codex context metering now uses `last_token_usage` for current context
+  occupancy and ignores absurd cumulative-token fallbacks, preventing cached
+  billing totals from forcing a false 100% orchestration state.
+- Codex `gpt-5.6` routing and generated output now use `gpt-5.6-sol`.
+- Auto-mode failover now treats `401`, `403`, `429`, `5xx`, and auth-like launch
+  errors as transient provider failures across CLI and API providers.
+
+## 3.1.4
+
+### Fixed
+
+- Provider failover no longer stalls terminal sub-agent startup and in-turn
+  turns: a failed primary provider now fails over cleanly at both launch and
+  mid-turn instead of hanging.
+- Context metering no longer reports a false 100% utilization; the meter
+  reflects actual context usage.
+- Fresh parent `GH_TOKEN` is now injected into child sub-agent environments so
+  spawned agents inherit current GitHub credentials.
+
+### Changed
+
+- Codex `gpt-5.6` now maps to the correct wire model identifier.
+- Handoff artifacts are more portable across environments.
+
 ## 3.1.1
 
 ### Changed

@@ -37,9 +37,10 @@ subagent-mcp setup
 ```
 
 `setup` writes the MCP server entry and per-turn hooks for each detected
-vendor. For Claude Code, it also wires `statusLine` and deploys the
-`smcp-handoff` Agent Skill to user scope. Re-run after upgrading. Pass
-`--dry-run` to preview.
+vendor. For Claude Code, it also wires `statusLine` and deploys `/smcp:*`
+commands plus Agent Skills to user scope. For Codex CLI, it deploys the same
+skills to `$HOME/.agents/skills`. Re-run after upgrading. Pass `--dry-run` to
+preview.
 
 Consumer repos can also run `subagent-mcp init --root /path/to/project` to
 upsert managed invariant blocks; use `--dry-run` or `--remove`.
