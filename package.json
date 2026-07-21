@@ -1,6 +1,6 @@
 {
   "name": "@heretyc/subagent-mcp",
-  "version": "3.1.6-beta.1",
+  "version": "3.1.6",
   "description": "MCP server that launches Claude Code/Codex sub-agents and routes tasks to Claude Messages or OpenAI-compatible API providers.",
   "keywords": [
     "mcp",

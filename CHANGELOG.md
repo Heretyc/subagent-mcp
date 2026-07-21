@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.6-beta.1
+## 3.1.6
 
 ### Fixed
 
