@@ -2,22 +2,27 @@
 
 ## section 10 - Persistence, Carryover & Disable
 
-> **Truth source: `src/orchestration/marker.ts`** (module doc comment +
-> `isActive()`). This section MIRRORS the code. The old
-> `docs/spec/orchestration-mode/_INDEX.md` "marker-presence = state" /
-> "default OFF = no marker" model is DELETED; do not reintroduce it.
+> **Truth sources:** `src/orchestration/marker.ts` owns persisted enable/disable
+> records and `isActive()`; `src/orchestration/hook-core.ts` owns same-turn
+> metering evaluation and `computeEffectiveActive()`. This section MIRRORS that
+> composition. The old
+> `docs/spec/orchestration-mode/_INDEX.md` "marker-presence = state" model is
+> DELETED; do not reintroduce it.
 
-- **Default ON; OFF is an explicit session disable-record.** Orchestration is
-  default ON. `isActive(cwd, sessionKey)` returns ON (`true`) UNLESS a
-  session-scoped key names an unexpired `orch-disable-<hash>.json` file holding
-  `{ disabled_at }`. Cwd-keyed disable records are no longer written or read.
-  Anonymous keys and absent keys carry no disable authority and always read ON.
+- **Default OFF for keyed hooks; keyless fails safe ON.**
+  `isActive(cwd, sessionKey)` returns ON only when a session-scoped key names an
+  unexpired `orch-enable-<hash>.json` file holding `{ enabled_at }`; otherwise a
+  keyed session starts OFF. A session-keyed `orch-disable-<hash>.json` holding
+  `{ disabled_at }` wins when both records exist. Anonymous or absent keys always
+  read ON because they cannot safely persist user-authorized state. Cwd-keyed
+  enable/disable records are not written or read.
   The current session is resolved through a server-scoped session pointer
   (`orch-session-<cwdHash>-<serverKey>.json`, keyed by cwd + server `ppid`);
   on pointer miss, readers fall back to the legacy cwd-only pointer
   (`orch-session-<cwdHash>.json`) and still resolve to a real owner key. The
-  legacy pointer is last-writer-wins across concurrent windows and bounded by
-  the disable TTL. **Absence of the legacy marker is NOT OFF.** The
+  legacy pointer is last-writer-wins across concurrent windows. **Absence of
+  the legacy marker is not the OFF signal; absence of an effective keyed enable
+  condition is.** The
   `orch-<cwdHash>.flag` marker is retained only for claim/carryover cadence;
   its presence/absence no longer gates ON/OFF. `src/orchestration/marker.ts` is
   fail-safe (never throws; failed reads -> default ON).
@@ -38,17 +43,22 @@
   re-anchor visibly.
 - **Time-bounded disable.** A disable-record is honored for
   `ORCH_DISABLE_TTL_MS` (~2h) from `disabled_at`; past that, `isDisableActive`
-  lazily GCs the file and state re-arms to ON, even with no new session. So a
-  user-approved disable is per-session and self-expiring, not permanent.
+  lazily GCs the file and reveals the remaining effective state (enable, latch,
+  fail-safe, or default OFF). A user-approved disable is per-session and
+  self-expiring, not permanent. Enable records use the same TTL and lazy GC.
 - **Tool flips, hook reports.** The `orchestration-mode` MCP tool writes state
-  (`enabled:false` -> session-keyed disable-record; `enabled:true` queries but
-  does not mid-session re-enable) and injects nothing. If no session pointer is
-  available, or the pointer resolves to an anonymous key, `enabled:false` is
-  refused with guidance to use a one-time conversational opt-out. The separate
-  per-turn hook reads state via `isActive()` and reports the AUTHORITATIVE ON/OFF
-  `<subagent-mcp state="...">`. Disk state is the only channel.
-- **Carryover (`kind="carryover"`).** A new owner may inherit a marker an
-  earlier owner left ON. The hook classifies FRESH / CARRYOVER / SAME-OWNER from
+  (`enabled:true` removes the disable-record and writes the session-keyed
+  enable-record; `enabled:false` writes the session-keyed disable-record) and
+  injects nothing. If no session pointer is available, or the pointer resolves
+  to an anonymous key, either mutation is refused; disable guidance offers a
+  one-time conversational opt-out. The separate
+  per-turn hook composes marker, latch, and metering state and reports the
+  AUTHORITATIVE ON/OFF `<subagent-mcp state="...">`. Persisted records normally
+  supply the inputs, but a post-grace null usage lift supplies a same-turn,
+  in-memory fail-safe input before tag composition and need not reach disk.
+- **Carryover (`kind="carryover"`).** An effectively active owner may encounter
+  claim/cadence marker state written by an earlier owner. The hook classifies
+  FRESH / CARRYOVER / SAME-OWNER from
   the per-owner claim map (`owners`, cap 8, evict oldest `claimed_at`) plus
   legacy mirror fields (`owner_session`, `baseline_turn`, `claimed_at`). Owner
   cap overflow evicts one oldest entry; it never wipes the whole map. On
@@ -62,8 +72,8 @@
   via the structured-question tool; only explicit user approval may call
   `orchestration-mode enabled:false`, which writes the time-bounded
   session-keyed disable-record above. Keyless hosts get only the one-time,
-  non-persisted conversational opt-out. The carryover directives reference this
-  backstop when explaining when ON resumes.
+  non-persisted conversational opt-out. A new keyed session begins OFF unless
+  independently enabled, latched, or fail-safed ON.
 - **Directive read before claim mutation.** Hook code reads the directive body
   before it mutates marker, owner, or reminder-counter state. Env plugin roots
   (`CLAUDE_PLUGIN_ROOT`, then `PLUGIN_ROOT`) are trusted only after they resolve
@@ -97,7 +107,8 @@
   handoff-read (`read_by_session === current`) re-appends the saved content
   verbatim to its LONG reminders. See `handoff.md`.
 - **Atomic state writes.** Every marker/state file (`orch-<cwdHash>.flag`, the
-  session-keyed disable-record, reminder counters, and both session pointers)
+  session-keyed enable/disable and latch records, reminder counters, and both
+  session pointers)
   is written through
   `atomicWriteFile`/`atomicWriteJson` (`src/orchestration/atomic-write.ts`):
   write to a unique sibling `.<name>.<pid>.<time>.<rand>.tmp`, then `rename`
@@ -108,11 +119,14 @@
   This preserves the module's fail-safe contract (never throws to the hook).
   Reminder-counter updates are also serialized under the process-local cwd lock
   before the atomic temp-file write and rename.
-- **Fail-safe ON is NOT the same as default ON.** Default ON is the normal
-  hook-bearing state (no active disable-record). Fail-safe ON is the separate
-  hookless / no-tag case (Gemini, desktop) where no state channel exists and
-  state is UNKNOWN -> default ON; see section 5 (D18/D6) and the section 9 host matrix. Both
-  land on ON; only a session-keyed disable-record can produce OFF.
+- **Fail-safe ON is NOT the keyed default.** A keyed hook session normally
+  starts OFF until a session enable-record or latch activates it. Fail-safe ON
+  covers keyless/no-tag hosts and, after the turn-1 grace window, keyed turns
+  where the provider adapter returns a null usage lift. A defensive non-null
+  lift with neither a harness percentage nor a resolved context window also
+  fails safe, but an unknown window alone is not the rule. An explicit session
+  disable-record overrides enable, latch, and metering fail-safe. See section 5
+  (D18/D6) and the section 9 host matrix.
 
 ---
 

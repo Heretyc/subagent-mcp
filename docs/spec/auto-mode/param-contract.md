@@ -54,6 +54,9 @@ hard errors (`resolution-matrix.md`). Net rule:
 
 - if `effort` given → require `provider` AND `model`.
 - if `model` given → require `provider`.
+- `provider` overrides are only `claude` or `codex`; stale or enum-bypassed
+  `provider:"api"` is rejected before candidate construction, so it cannot
+  launch or fail over.
 
 `deadlock` does not create a mode: it is valid ONLY in `auto` mode (no overrides)
 and, while a window is armed, selects the `performance` branch for `auto`

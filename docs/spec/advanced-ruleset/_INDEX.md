@@ -15,12 +15,14 @@ over model routing for `launch_agent`. It lives in the same directory as
 `routing-table.json` (`dist/advanced-ruleset.py`; globally
 `$(npm root -g)/@heretyc/subagent-mcp/dist/advanced-ruleset.py` : note the
 SCOPED package name). It is the USER'S EXPLICIT OVERRIDE layer and ALWAYS RUNS
-LAST: after the server builds the complete candidate list, including
-`providers.jsonc` API slot candidates inserted by `slotInsert`, in EVERY
-selection mode, including a fully explicit `provider+model+effort` request.
-The script may reorder, filter, or replace that list, and the returned list is
-consumed verbatim by the attempt loop. The shipped scaffold is a passthrough
-with `LOAD_RULES = False`, so the feature is inert until a user opts in.
+LAST. Before it, `slotInsert` adds `providers.jsonc` API slot candidates only
+to pure-auto `cost_efficiency` routing. Pure-auto `performance` routing and
+all manual/override modes (`provider`, `provider_model`, `explicit`) exclude
+slot candidates. The ruleset receives the actual candidates for that mode,
+retains final authority to reorder, filter, or replace them, and its returned
+list is consumed verbatim by the attempt loop. The shipped scaffold is a
+passthrough with `LOAD_RULES = False`, so the feature is inert until a user
+opts in.
 
 LOUD WARNING : a machine with NO Python interpreter cannot run the mandatory
 environment check, and ANY ruleset failure (missing interpreter included)

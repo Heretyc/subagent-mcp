@@ -9,6 +9,7 @@ import {
   checkEnvKeys,
   checkInstallMode,
   checkMcpRegistration,
+  checkNativeAgentSuppression,
   checkProviderConfig,
   checkReachability,
   checkRoutingCoverage,
@@ -220,6 +221,62 @@ test("smcp-skills-commands: missing warns, present passes", () => withRoot(({ ho
   const present = checkSmcpSkillsAndCommands({ home, env: env(fakeBin) });
   assert.equal(present.status, "PASS");
   assert.equal(present.detail, "deployed");
+}));
+
+test("native-agent-suppression: reports all static and policy layers", () => withRoot(({ home }) => {
+  writeJson(join(home, ".claude", "settings.json"), {
+    permissions: { deny: ["Task", "Agent", "Explore", "Agent(Explore)"] },
+  });
+  mkdirSync(join(home, ".codex"), { recursive: true });
+  writeFileSync(join(home, ".codex", "config.toml"), "[features]\nmulti_agent = false # native agents off\n", "utf8");
+  writeJson(join(home, ".gemini", "settings.json"), { experimental: { enableAgents: false } });
+  mkdirSync(join(home, ".gemini", "policies"), { recursive: true });
+  writeFileSync(join(home, ".gemini", "policies", "subagent-mcp-native-agents.toml"), `
+[[rule]]
+toolName = "generalist"
+decision = "deny"
+
+[[rule]]
+toolName = "codebase_investigator"
+decision = "deny"
+
+[[rule]]
+toolName = "cli_help"
+decision = "deny"
+
+[[rule]]
+toolName = "browser_agent"
+decision = "deny"
+`, "utf8");
+
+  const r = checkNativeAgentSuppression({ home });
+  assert.equal(r.status, "PASS");
+  assert.match(r.detail, /claude static deny ok/);
+  assert.match(r.detail, /codex static disable ok/);
+  assert.match(r.detail, /gemini policy deny ok/);
+}));
+
+test("native-agent-suppression: codex check requires multi_agent=false inside features", () => withRoot(({ home }) => {
+  mkdirSync(join(home, ".codex"), { recursive: true });
+  writeFileSync(join(home, ".codex", "config.toml"), "[other]\nmulti_agent = false\n[features]\nmulti_agent = true\n", "utf8");
+
+  const r = checkNativeAgentSuppression({ home });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /codex missing \[features\] multi_agent=false/);
+}));
+
+test("native-agent-suppression: warns for missing defense-in-depth layers", () => withRoot(({ home }) => {
+  writeJson(join(home, ".claude", "settings.json"), { permissions: { deny: ["Write(secret)"] } });
+  mkdirSync(join(home, ".codex"), { recursive: true });
+  writeFileSync(join(home, ".codex", "config.toml"), "[features]\nhooks = true\n", "utf8");
+  writeJson(join(home, ".gemini", "settings.json"), { experimental: { enableAgents: true } });
+
+  const r = checkNativeAgentSuppression({ home });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /claude missing permissions\.deny/);
+  assert.match(r.detail, /codex missing \[features\] multi_agent=false/);
+  assert.match(r.detail, /gemini missing experimental\.enableAgents=false/);
+  assert.match(r.detail, /gemini missing policy/);
 }));
 
 test("mcp-registration: stale mcp.json warns without failing live registration", async () => withRoot(async ({ home, fakeBin }) => {

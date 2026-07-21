@@ -39,6 +39,9 @@ export const BACKUP_RELATIVE_FILES = [
   ".claude.json",
   ".claude/mcp.json",
   ".codex/hooks.json",
+  ".codex/config.toml",
+  ".gemini/settings.json",
+  ".gemini/policies/subagent-mcp-native-agents.toml",
   ".subagent-mcp/providers.jsonc",
 ] as const;
 

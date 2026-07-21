@@ -32,6 +32,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { INIT_BLOCK, extractManagedBlock } from "../dist/init.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..");
@@ -110,6 +111,34 @@ function extractA3Block(source) {
   return match[1];
 }
 
+// Extract the A1 fenced `text` block (the canonical INIT_BLOCK body) from
+// appendix-a1-a4.md, CRLF-tolerant so a stray line-ending is not read as drift.
+function extractA1Block(source) {
+  const normalized = source.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const start = normalized.indexOf("## A1");
+  assert.notEqual(start, -1, "appendix-a1-a4.md must contain the A1 section");
+  const match = normalized.slice(start).match(/```text\n([\s\S]*?)\n```/);
+  assert.ok(match, "A1 section must open a fenced text block");
+  return match[1];
+}
+
+// Extract the first fenced `text` block that follows a heading (e.g. "## A2",
+// "## A4"), CRLF-tolerant so a stray line-ending is not read as content drift.
+function extractFenceAfter(source, heading) {
+  const normalized = source.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const start = normalized.indexOf(heading);
+  assert.notEqual(start, -1, `appendix-a1-a4.md must contain the ${heading} section`);
+  const match = normalized.slice(start).match(/```text\n([\s\S]*?)\n```/);
+  assert.ok(match, `${heading} section must open a fenced text block`);
+  return match[1];
+}
+
+// Host instruction files carry their own EOL (CRLF here); normalize so the
+// managed-block comparison is about CONTENT, not line-ending, drift.
+function normalizeEol(s) {
+  return s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
 function extractPostWriteResponse(source) {
   const heading = "## Post-write response (exact, byte-for-byte)";
   const start = source.indexOf(heading);
@@ -154,6 +183,39 @@ test("A4 jointly binding clause is present verbatim in INIT_BLOCK (src/init.ts)"
   );
 });
 
+test("A2/A4 standalone fences are the dash-to-colon mirror of their A1/host canonical", () => {
+  // The standalone A2/A4 fences sit OUTSIDE the managed block, so the ASCII
+  // prose gate forbids the em dash and they render it as a colon. That
+  // dash-to-colon substitution (plus EOL) is the ONLY documented transform:
+  // assert exact parity against the canonical A1/host content so the fences
+  // stay semantic mirrors and cannot silently drift on anything else.
+  const dashToColon = (s) => s.replace(/—/g, ":");
+  const sliceCanonical = (block, startMarker, endMarker) => {
+    const start = block.indexOf(startMarker);
+    const end = block.indexOf(endMarker, start);
+    assert.ok(start >= 0 && end > start, `INIT_BLOCK must contain "${startMarker}"`);
+    return block.slice(start, end + endMarker.length);
+  };
+
+  const ladderCanonical = sliceCanonical(
+    INIT_BLOCK, "READ-ESCALATION LADDER", "NEVER reads those files."
+  );
+  const a4Canonical = sliceCanonical(
+    INIT_BLOCK, "HARNESS-HOOK STATE:", "mistaken or out of date."
+  );
+
+  assert.equal(
+    normalizeEol(extractFenceAfter(appendixA1A4, "## A2")),
+    normalizeEol(dashToColon(ladderCanonical)),
+    "A2 fence must equal the A1/index.ts read-ladder after only dash->colon + EOL normalization"
+  );
+  assert.equal(
+    normalizeEol(extractFenceAfter(appendixA1A4, "## A4")),
+    normalizeEol(dashToColon(a4Canonical)),
+    "A4 fence must equal the A1/host HARNESS-HOOK STATE + PRECEDENCE clause after only dash->colon + EOL normalization"
+  );
+});
+
 test("task tracking directive is present in INIT_BLOCK and repo mirrors", () => {
   for (const [name, body] of [
     ["src/init.ts", initSrc],
@@ -191,4 +253,113 @@ test("handoff-write success message is byte-identical in index.ts and handoff.md
   const sourceMessage = extractStringConstant(indexSrc, "HANDOFF_WRITE_SUCCESS_MESSAGE");
   const specMessage = extractPostWriteResponse(handoffSpec);
   assert.equal(sourceMessage, specMessage);
+});
+
+// --- Schema-5 canonical/mirror invariants ----------------------------------
+
+test("A1 canonical INIT_BLOCK is byte-identical in dist/init.js and appendix-a1-a4.md", () => {
+  const mirror = extractA1Block(appendixA1A4);
+  if (INIT_BLOCK !== mirror) {
+    const d = diff(INIT_BLOCK, mirror);
+    assert.fail(
+      "A1 INIT_BLOCK DRIFTED between src/init.ts (INIT_BLOCK) and appendix-a1-a4.md.\n" +
+        `drift detail: ${JSON.stringify(d, null, 2)}\n` +
+        `--- INIT_BLOCK (canonical) ---\n${INIT_BLOCK}\n` +
+        `--- appendix A1 copy ---\n${mirror}`
+    );
+  }
+  assert.equal(mirror, INIT_BLOCK);
+});
+
+test("all three repo managed blocks match the canonical INIT_BLOCK (mod EOL)", () => {
+  for (const [name, body] of [
+    ["AGENTS.md", repoAgents],
+    ["CLAUDE.md", repoClaude],
+    ["GEMINI.md", repoGemini],
+  ]) {
+    const block = extractManagedBlock(body);
+    assert.ok(block, `${name} must contain a subagent-mcp managed block`);
+    assert.equal(
+      normalizeEol(block),
+      normalizeEol(INIT_BLOCK),
+      `${name} managed block must be byte-identical (mod EOL) to the canonical INIT_BLOCK`
+    );
+  }
+});
+
+test("SOLE CHANNEL binds in BOTH orchestration states across canonical + mirrors + MCP instructions", () => {
+  const instructions = extractStringConstant(indexSrc, "ORCHESTRATION_INSTRUCTIONS");
+  assert.ok(INIT_BLOCK.includes("SOLE CHANNEL — BOTH ORCHESTRATION STATES"),
+    "INIT_BLOCK must carry the both-states sole-channel directive");
+  assert.match(INIT_BLOCK, /whether orchestration is ON or OFF/,
+    "INIT_BLOCK sole channel must apply in BOTH the ON and OFF states");
+  assert.ok(instructions.includes("SOLE CHANNEL - BOTH STATES"),
+    "MCP instructions must carry the both-states sole-channel directive");
+  for (const [name, body] of [["AGENTS.md", repoAgents], ["CLAUDE.md", repoClaude], ["GEMINI.md", repoGemini]]) {
+    assert.ok(body.includes("SOLE CHANNEL — BOTH ORCHESTRATION STATES"),
+      `${name} must carry the both-states sole-channel directive`);
+  }
+});
+
+test("MODEL SELECTION smart/automatic default is present in canonical + MCP instructions", () => {
+  const instructions = extractStringConstant(indexSrc, "ORCHESTRATION_INSTRUCTIONS");
+  assert.ok(INIT_BLOCK.includes("MODEL SELECTION: defaults to smart/automatic"),
+    "INIT_BLOCK must state the smart/automatic model-selection default");
+  assert.match(instructions, /MODEL\. Unset = smart auto-selection/,
+    "MCP instructions must state the smart auto-selection default");
+});
+
+test("stale disable polarity wording is absent from canonical + mirrors + MCP instructions", () => {
+  const instructions = extractStringConstant(indexSrc, "ORCHESTRATION_INSTRUCTIONS");
+  const surfaces = [
+    ["INIT_BLOCK", INIT_BLOCK],
+    ["ORCHESTRATION_INSTRUCTIONS", instructions],
+    ["AGENTS.md managed block", extractManagedBlock(repoAgents) ?? ""],
+    ["CLAUDE.md managed block", extractManagedBlock(repoClaude) ?? ""],
+    ["GEMINI.md managed block", extractManagedBlock(repoGemini) ?? ""],
+  ];
+  for (const [name, body] of surfaces) {
+    assert.ok(!/resumes ON/.test(body),
+      `${name} must not keep the stale "resumes ON next new session" polarity`);
+    assert.ok(!/no mid-session re-enable/.test(body),
+      `${name} must not keep the stale "no mid-session re-enable" polarity`);
+  }
+});
+
+// Stale carryover polarity must also be rejected in the SHIPPED/EMITTED carryover
+// directive bodies AND their A5 spec mirror — not only the managed blocks / MCP
+// instructions covered above. The carryover carrier describes a current-session
+// state/latch event; it must not claim cross-session persistence.
+test("stale carryover polarity is absent from carryover directives + A5 mirror", () => {
+  const directivesDir = join(repoRoot, "directives");
+  const carryoverClaude = readFileSync(join(directivesDir, "carryover-claude.md"), "utf8");
+  const carryoverCodex = readFileSync(join(directivesDir, "carryover-codex.md"), "utf8");
+  const appendixA5 = readFileSync(
+    join(repoRoot, "docs", "spec", "dev-loop", "orchestration-directive-architecture", "appendix-a5-directives.md"),
+    "utf8"
+  );
+  const STALE = [
+    [/resumes ON/, "resumes ON next new session"],
+    [/no mid-session re-enable/i, "no mid-session re-enable"],
+    [/carried over from a PRIOR session/i, "carried over from a PRIOR session"],
+  ];
+  const carryoverSurfaces = [
+    ["directives/carryover-claude.md", carryoverClaude],
+    ["directives/carryover-codex.md", carryoverCodex],
+    ["appendix-a5-directives.md", appendixA5],
+  ];
+  for (const [name, body] of carryoverSurfaces) {
+    for (const [re, label] of STALE) {
+      assert.ok(!re.test(body),
+        `${name} must not keep the stale "${label}" carryover polarity`);
+    }
+  }
+  // New schema=5 model must be stated in the carryover bodies (A5 mirrors them):
+  // THIS-session-only disable + user-approved mid-session re-enable.
+  for (const [name, body] of carryoverSurfaces.slice(0, 2)) {
+    assert.match(body, /THIS session only/i,
+      `${name} must scope the disable to THIS session only`);
+    assert.match(body, /re-enable mid-session/i,
+      `${name} must allow user-approved enabled:true mid-session re-enable`);
+  }
 });

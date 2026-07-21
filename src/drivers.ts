@@ -58,7 +58,7 @@ export class ProviderTransientError extends Error {
   }
 }
 
-export const CLAUDE_SESSION_LIMIT = /^\s*you['’]ve hit your session limit\s*·\s*resets\b/i;
+export const CLAUDE_SESSION_LIMIT = /^\s*you['’]ve hit your session limit\s*(?:·|-)\s*resets\b/i;
 
 export function isClaudeSessionLimit(text: string): boolean {
   return CLAUDE_SESSION_LIMIT.test(text);
@@ -578,7 +578,8 @@ export function codexApprovalResult(method: CodexApprovalMethod, decision: Permi
 
 export class MockJsonlDriver implements ProviderDriver {
   static transientPreStartHook: ((provider: Provider) => void) | null = null;
-  static sessionLimitPreStartHook: ((provider: Provider) => void) | null = null;
+  static sessionLimitPreStartHook: ((provider: Provider) => number | void) | null = null;
+  static turnCompletePreStartHook: ((provider: Provider) => void) | null = null;
   static postStartErrorHook: ((provider: Provider) => void) | null = null;
 
   readonly process: DriverProcess;
@@ -621,12 +622,23 @@ export class MockJsonlDriver implements ProviderDriver {
       return Promise.reject(err);
     }
     if (MockJsonlDriver.sessionLimitPreStartHook) {
-      MockJsonlDriver.sessionLimitPreStartHook(this.provider);
+      const delayMs = MockJsonlDriver.sessionLimitPreStartHook(this.provider) ?? 0;
       const err = new ProviderTransientError("You've hit your session limit · resets 7:10pm (America/Los_Angeles)");
       setTimeout(() => {
         this._definitelyStartedReject(err);
         this.process.stderr.write(err.message);
         (this.process as LogicalProcess).close(1);
+      }, delayMs);
+      return Promise.resolve();
+    }
+    if (MockJsonlDriver.turnCompletePreStartHook) {
+      MockJsonlDriver.turnCompletePreStartHook(this.provider);
+      setTimeout(() => {
+        const completion = this.provider === "claude"
+          ? { type: "result", result: "done" }
+          : { type: "turn.completed", turn: 1 };
+        this.process.stdout.write(`${JSON.stringify(completion)}\n`);
+        (this.process as LogicalProcess).close(0);
       }, 0);
       return Promise.resolve();
     }

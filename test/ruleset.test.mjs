@@ -69,6 +69,8 @@ await test("validateRulesetOutput: accepts all legal triples; strips rank/extra 
     { provider: "claude", model: "opus", effort: "ultracode" },
     { provider: "claude", model: "opus-4-8", effort: "max" },
     { provider: "api", model: "api-model", effort: "medium" },
+  ], [
+    { provider: "api", model: "api-model", effort: "medium", rank: 1 },
   ]);
   assert.equal(result.ok, true, "all triples are launchable and must validate");
   assert.deepEqual(result.candidates, [
@@ -80,6 +82,15 @@ await test("validateRulesetOutput: accepts all legal triples; strips rank/extra 
     { provider: "claude", model: "opus-4-8", effort: "max" },
     { provider: "api", model: "api-model", effort: "medium" },
   ], "candidates must carry exactly provider/model/effort — rank and extra keys stripped");
+});
+
+await test("validateRulesetOutput: API candidates must come from ruleset input", () => {
+  const candidate = { provider: "api", model: "api-model", effort: "medium" };
+  assert.equal(validateRulesetOutput([candidate]).ok, false,
+    "rulesets cannot synthesize an API candidate with no provider config");
+  assert.equal(validateRulesetOutput([candidate, candidate], [
+    { ...candidate, rank: 1 },
+  ]).ok, false, "rulesets cannot duplicate API candidates beyond input multiplicity");
 });
 
 await test("validateRulesetOutput: empty array is VALID (veto is index.ts's job, not a validation failure)", () => {

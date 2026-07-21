@@ -123,6 +123,11 @@ From the selected branch's `<task_category>` array (per section Branch selection
   from the user's `{provider, model, effort}` and attempt it directly, even if
   it is absent from the table (explicit user choice). No fallback.
 
+Before the advanced ruleset runs, `slotInsert` augments only pure-auto
+`cost_efficiency` routing with eligible `providers.jsonc` API slots. Pure-auto
+`performance` and all manual/override modes exclude slot candidates. The
+ruleset retains final authority over the actual candidate list.
+
 After filtering, if the list is empty in auto/provider/provider_model mode →
 `ERR_NO_CANDIDATES` with the matching `<scope>` (`resolution-matrix.md`).
 
@@ -148,15 +153,19 @@ For each candidate in order (best→worst):
    - `resolveExe` returns a path that does not exist / driver spawn throws
      (missing exe, ENOENT, EACCES, etc.);
    - provider driver startup rejects before the agent is registered.
-   On ANY of these → classify the failure and record
-   `{model,effort,provider,reason,failure_type}`, SILENTLY advance to the next
-   candidate. Do not surface intermediate failures to the caller.
+   On ANY of these → classify the failure. When an API candidate is
+   `"transient_provider"`, retry that same candidate exactly once before
+   advancing. No permanent API failure, CLI candidate failure, or failed retry
+   gets another same-candidate attempt. If still failed, record
+   `{model,effort,provider,reason,failure_type}` and SILENTLY advance to the
+   next candidate. Do not surface intermediate failures to the caller.
    - `failure_type` is `classifyFailureReason(reason, stderr)` →
      `"transient_provider"` (usage caps, quota 429, HTTP-status 5xx, network
      timeouts, connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"`
      (everything else: ENOENT, EACCES, bad option, missing config, and bare
-     three-digit numbers without HTTP-status context). It is a label only;
-     auto mode advances to the next candidate either way (same-call failover).
+     three-digit numbers without HTTP-status context). Except for the single
+     transient API retry above, it is a label only; auto mode advances to the
+     next candidate either way (same-call failover).
 4. On the FIRST successful driver start: register the agent with `AgentState`,
    stdout/stderr handlers, close handler, and `agents.set`, then return the
    success payload (`param-contract.md`). If any candidate was skipped before

@@ -43,7 +43,7 @@ One JSON object, written to stdin then EOF. Example (valid JSON):
 
 | Field | Contract |
 |---|---|
-| `candidates[]` | The already-filtered LAUNCHABLE list (best-to-worst), after `providers.jsonc` API slot insertion. Short model ids for CLI providers, configured model strings for provider `"api"`; normalized efforts; haiku rows carry effort `"none"`. |
+| `candidates[]` | The already-filtered LAUNCHABLE list (best-to-worst), after applicable cost-efficiency auto `providers.jsonc` API slot insertion. Performance and override modes receive no API slots. Short model ids for CLI providers, configured model strings for provider `"api"`; normalized efforts; haiku rows carry effort `"none"`. |
 | `candidates[].rank` | Dense positional 1..N over THIS list (raw table ranks gap after launchability filtering; explicit mode has no table rank). |
 | `context.task_category` | The validated category string. |
 | `context.cwd` | The launch working directory (`params.cwd \|\| process.cwd()`). |
@@ -54,9 +54,9 @@ The context deliberately EXCLUDES deadlock status, branch, tier, and window
 counters : the script must never learn them. OS environment variables are
 visible natively (`os.environ`); use them for machine-local policy inputs.
 
-The candidate list is complete when the ruleset receives it: `slotInsert` has
-already added any `providers.jsonc` API slot candidates, whose provider value is
-`"api"`.
+The candidate list is complete when the ruleset receives it: applicable API
+slots already have provider value `"api"`, and no candidates are inserted after
+the ruleset.
 
 ## Routing mode stdout (script -> server)
 
@@ -83,9 +83,9 @@ output; use short launch id `fable` for `claude-fable-5`.
 | Top level | Bare JSON array. An object wrapper (e.g. `{"candidates": [...]}`) is INVALID. `[]` is VALID : see Veto below. |
 | Element | Object with string `provider`, `model`, `effort`. All other keys : including `rank` : are IGNORED on output. |
 | `provider` | `claude`, `codex`, or `api`. |
-| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude); `gpt-5.5`, `gpt-5.6` (codex); or the configured provider model string for `api`. CLI provider/model pairs must be legal. |
+| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude); `gpt-5.5`, `gpt-5.6` (codex); or an `api` model present in the input candidates. CLI provider/model pairs must be legal. |
 | `effort` | Per-model table below; the validator does its OWN membership checks. |
-| Duplicates | Allowed : the attempt loop simply tries them in order. |
+| Duplicates | Allowed for CLI candidates. API candidates cannot exceed their input multiplicity because each requires attached dispatch metadata. |
 | Anything else | Ruleset failure -> hard fail. |
 
 Per-model effort legality:

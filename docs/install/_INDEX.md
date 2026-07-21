@@ -1,7 +1,8 @@
 # Install Guide Index
 
 Copy-pasteable install directions for getting the **MCP server** and each
-host's supported orchestration wiring installed together.
+host's supported orchestration wiring and native-agent suppression installed
+together.
 
 > **Automated SOP:** for a permanent, repo-decoupled install (the addon copied to
 > a stable global location, not run out of the checkout), use the
@@ -15,7 +16,9 @@ For MCP-only server registration, see
 belong in this `docs/install/` guide set. For what orchestration mode *is*, see
 [docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md section 10](../spec/dev-loop/orchestration-directive-architecture/sections-10-13.md).
 The `orchestration-mode` MCP tool flips the toggle; each supported host's
-per-turn hook performs the directive injection.
+per-turn hook performs the directive injection. Setup also installs the host's
+documented native-agent suppression layer so sub-agent work stays on the
+subagent-mcp `launch_agent` channel.
 
 ## Build prerequisite (source installs only)
 
@@ -63,10 +66,10 @@ CLI or Codex CLI for the full behavior.
 
 ## Host capability matrix
 
-| Host | Toggle works | Per-turn injection |
-|---|---|---|
-| Claude Code CLI | yes | yes (`UserPromptSubmit` + `PreToolUse`) |
-| Codex CLI | yes | yes (bundled `SessionStart` + `UserPromptSubmit`) |
-| Claude Desktop | yes | **no** : no hook host |
-| Codex Desktop / IDE | yes | **no** : no hook host |
-| Gemini CLI | yes | **no** : no hook injection; UNKNOWN defaults to ON |
+| Host | Toggle works | Per-turn injection | Native-agent suppression |
+|---|---|---|---|
+| Claude Code CLI | yes | yes (`UserPromptSubmit` + `PreToolUse`) | settings deny rules |
+| Codex CLI | yes | yes (bundled `SessionStart` + `UserPromptSubmit`) | `[features] multi_agent=false` |
+| Claude Desktop | yes | **no** : no hook host | none documented |
+| Codex Desktop / IDE | yes | **no** : no hook host | none documented |
+| Gemini CLI | yes | **no** : no hook injection; UNKNOWN defaults to ON | settings disable + policy TOML |

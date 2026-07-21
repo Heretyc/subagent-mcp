@@ -209,6 +209,12 @@ if (mode === "die") {
   process.exit(1);
 }
 
+if (mode === "clean-exit") {
+  await new Promise((resolveInput) => process.stdin.once("data", resolveInput));
+  await sleep(20);
+  process.exit(0);
+}
+
 if (mode === "stall") {
   await sleep(30000);
   process.exit(0);
@@ -248,6 +254,10 @@ if (mode === "transient-once") {
 } else if (mode === "post-start-once") {
   MockJsonlDriver.postStartErrorHook = () => {
     MockJsonlDriver.postStartErrorHook = null;
+  };
+} else if (mode === "turn-complete-once") {
+  MockJsonlDriver.turnCompletePreStartHook = () => {
+    MockJsonlDriver.turnCompletePreStartHook = null;
   };
 }
 `;
@@ -352,6 +362,30 @@ await test("silent advance: candidate 1 dies within the window, candidate 2 surv
     assert.equal(typeof payload.failover_note, "string");
     assert.equal(payload.ruleset_applied, undefined);
     await killAgent(session, payload.agent_id);
+  });
+});
+
+await test("exit code 0 within the armed grace window is a launch failure", async () => {
+  await withEnv("stall", GRACE_MS, { claudeMode: "clean-exit" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "clean early exit" });
+    const payload = JSON.parse(textOf(response));
+    assert.notEqual(response.result.isError, true);
+    assert.equal(payload.provider, CE_RANK2.provider);
+    assert.equal(payload.failover_occurred, true);
+    assertFailoverFrom(payload.failover_from[0], CE_RANK1, "permanent");
+    await killAgent(session, payload.agent_id);
+  });
+});
+
+await test("turn-completed fast exit 0 is a successful launch", async () => {
+  await withEnv("stall", GRACE_MS, { mockHookMode: "turn-complete-once", claudeMode: "stall" }, async ({ session }) => {
+    const response = await launch(session, { task_category: "coding", prompt: "fast completed turn" });
+    const payload = JSON.parse(textOf(response));
+    assert.notEqual(response.result.isError, true);
+    assert.equal(payload.provider, CE_RANK1.provider);
+    assertNoFailoverFields(payload, "fast completion");
+    const pollPayload = JSON.parse(textOf(await callTool(session, "poll_agent", { agent_id: payload.agent_id })));
+    assert.equal(pollPayload.status, "finished");
   });
 });
 

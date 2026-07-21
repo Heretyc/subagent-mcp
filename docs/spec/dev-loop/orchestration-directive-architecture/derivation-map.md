@@ -12,16 +12,18 @@ fragment `.txt` files; convention + the mirror test enforce it).
 |---|---|
 | **R-TAG** | section 1 single tag `<subagent-mcp state kind>` + mandatory-`state` disambiguation; no dead values |
 | **R-SUPREMACY** | section 2 jointly binding hook tag + safety-scope; escalate-to-user; tag > ordinary user request (A4) |
-| **R-SOLE-CHANNEL** | section 3 every launch via `launch_agent`; native/shell spawn FORBIDDEN |
+| **R-SOLE-CHANNEL** | section 3 every launch in ON and OFF via `launch_agent`; native/harness/shell paths fragment permissions, instruction compliance, and context, so are FORBIDDEN |
 | **R-ON-STRICT** | section 3 allowed-tools allowlist; no inline-by-right; one-time exception protocol |
+| **R-SKILL-READ** | section 3 ON-only direct read of applicable `SKILL.md` + explicitly required same-folder files; no task action; approval only for expanded owner scope |
 | **R-READ-LADDER** | section 3.1 poll_agent tail → ≤100-line summarizer → user reads; scratch-file PATH handoff (A2) |
 | **R-NOHOOK** | section 5 UNKNOWN=tag-absence → warn + explain + one-time opt-out → fail-safe ON |
 | **R-EXEMPT** | section 6 first-line `<this is a request from a parent process>` skips the regime; launch_agent upsert |
 | **R-DROPOUT** | section 7 HALT-until-restored; only exit = explicit task abandonment |
-| **R-MARKERS** | section 8 schema=3 markers + union MIGRATE_RE + duplicate collapse |
+| **R-MARKERS** | section 8 schema=5 markers + union MIGRATE_RE + duplicate collapse |
 | **R-NO5CALL** | section 4 5-call rule DELETED everywhere; permanent grep gate |
-| **R-START-OFF** | section 4 default-OFF start per session; provider-metered context tracking; fail-safe ON when context size is undetectable |
-| **R-LATCH-15** | section 4/10 15% utilization latch: persisted force-enable + exactly-4-question planning stop, single call both harnesses; no re-ask once tripped; user-only orchestration-mode enabled:false (2h TTL) still honored |
+| **R-START-OFF** | section 4 keyed sessions default OFF without setup-time state writes; keyless/undetectable metering fails safe ON |
+| **R-LATCH-15** | section 4/10 15% latch + exactly-4-question plan; explicit session-keyed enabled:false (2h TTL) beats latch/fail-safe; explicit enabled:true may re-enable mid-session |
+| **R-MODEL-SMART** | model selection unset defaults smart; server auto-picks and rejects selectors outside an explicitly user-approved override window |
 | **R-HANDOFF-40** | section 10/13 40% utilization: unlock handoff-write/read/clear; write gated >=40% with readable metering; 4000/8000-char limits; 10-question pre-write and 4-question pre-read coaching |
 | **R-HANDOFF-WARN-50** | section 10/13 50% utilization: warn every turn to wind down (no big-work exemption) |
 | **R-TAG-TEMPLATE** | section 1 templated tag `<subagent-mcp state kind phase utilization>` + `Remaining Context=NN%` footer; any template/metering error => inject nothing |
@@ -31,10 +33,10 @@ fragment `.txt` files; convention + the mirror test enforce it).
 
 | Artifact | Renders | Mirrored fragments |
 |---|---|---|
-| MCP `instructions` (A3) | R-TAG, R-SUPREMACY, R-SOLE-CHANNEL, R-ON-STRICT, R-READ-LADDER, R-START-OFF, R-NOHOOK, R-EXEMPT, R-DROPOUT, R-NO5CALL | **A2** (read ladder, D25) |
-| INIT_BLOCK (A1) | R-TAG, R-SUPREMACY, R-SOLE-CHANNEL, R-ON-STRICT, R-READ-LADDER, R-START-OFF, R-HOOK-COACH-DOCTRINE, R-NOHOOK, R-EXEMPT, R-DROPOUT | **A2** (D25) + **A4** (D7) |
+| MCP `instructions` (A3) | R-TAG, R-SUPREMACY, R-SOLE-CHANNEL, R-ON-STRICT, R-SKILL-READ, R-READ-LADDER, R-START-OFF, R-LATCH-15, R-MODEL-SMART, R-NOHOOK, R-EXEMPT, R-DROPOUT, R-NO5CALL | A2 semantics (compressed) |
+| INIT_BLOCK (A1) | R-TAG, R-SUPREMACY, R-SOLE-CHANNEL, R-ON-STRICT, R-SKILL-READ, R-READ-LADDER, R-START-OFF, R-LATCH-15, R-MODEL-SMART, R-HOOK-COACH-DOCTRINE, R-NOHOOK, R-EXEMPT, R-DROPOUT | **A2** (D25) + **A4** (D7) |
 | `orchestration-{claude,codex}.md` | R-EXEMPT, R-ON-STRICT, R-READ-LADDER, R-SUPREMACY, R-SOLE-CHANNEL, R-DROPOUT | : |
-| `carryover-{claude,codex}.md` | R-EXEMPT, R-SUPREMACY (compat carrier for inherited/legacy ON; one-time remain-enabled confirmation) | : |
+| `carryover-{claude,codex}.md` | R-EXEMPT, R-SUPREMACY, R-LATCH-15 (compat carrier for a current-session ON triggered by an inherited enable OR a 15% latch record; one-time remain-enabled confirmation) | : |
 | `reminder-on.md` | R-EXEMPT, R-ON-STRICT, R-READ-LADDER, R-SUPREMACY | : |
 | `reminder-off-{claude,codex}.md` | R-EXEMPT, R-START-OFF | : |
 | `short-on.md` | R-EXEMPT, R-ON-STRICT (one-line) | : |

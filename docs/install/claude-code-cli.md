@@ -93,6 +93,22 @@ projects) or `.claude/settings.json` (this project). Windows user path:
 
 On Windows use a doubled-backslash or forward-slash absolute path in `args`.
 
+**3) Static native-agent deny** in the same settings file. This is defense in
+depth next to the `PreToolUse` hook, so native Task/Agent/Explore paths stay
+blocked even before the heartbeat gate runs.
+
+```json
+{
+  "permissions": {
+    "deny": ["Task", "Agent", "Explore", "Agent(Explore)"]
+  }
+}
+```
+
+Keep any existing `permissions.allow` / `ask` / `deny` entries and append only
+the missing deny rules. `subagent-mcp setup` and `init --global` do this merge
+and back up existing files before editing.
+
 ---
 
 ## Verification
@@ -113,7 +129,17 @@ On Windows use a doubled-backslash or forward-slash absolute path in `args`.
    the FULL directive stops; the OFF reminder cadence remains (LONG
    `reminder-off-claude.md` every 5th prompt, state-aware short pointer
    (`short-off.md` while OFF) between).
-6. **Manual wiring only:** `claude mcp get subagent-mcp` shows the
+6. **Native-agent suppression:** `~/.claude/settings.json` has
+   `permissions.deny` entries for `Task`, `Agent`, `Explore`, and
+   `Agent(Explore)`, in addition to the PreToolUse hook.
+7. **Manual wiring only:** `claude mcp get subagent-mcp` shows the
    `node dist/index.js` command, and the settings.json hooks fire.
+
+## Reversibility
+
+Before changing existing user config, setup writes timestamped sibling backups
+such as `settings.json.bak-setup-*` or `settings.json.bak-native-agent-*`.
+Doctor/upgrade snapshots include this file and can be restored with
+`subagent-mcp rollback`.
 
 Regression gate: `npm test`.

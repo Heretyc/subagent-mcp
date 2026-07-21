@@ -578,7 +578,8 @@ async function launchAndPoll(session, launchArgs) {
     : wireArgs.deadlock
       ? "performance"
       : "cost_efficiency");
-  assertRoutingTier(launchPayload, expectedTier, "launch_agent payload");
+  assert.equal(launchPayload.routing_tier, undefined,
+    "launch_agent must keep routing tier opaque");
   assertRoutingTier(pollPayload, expectedTier, "poll_agent payload");
   return { agentId, launchPayload, pollPayload };
 }
@@ -1112,12 +1113,26 @@ await test("orchestration-mode enabled:false is session-keyed and refuses keyles
 });
 
 // ---------------------------------------------------------------------------
-// 4b. pure-auto launch uses cost_efficiency internally and exposes it.
+// 4b. pure-auto launch uses cost_efficiency internally and exposes it via poll.
 //     WHY: with no deadlock window active, pure-auto must route through
 //     cost_efficiency (the default branch). If "performance" is returned, the
 //     default branch is wrong.
 // ---------------------------------------------------------------------------
-await test("pure-auto launch: cost_efficiency selection, routing_tier present", async () => {
+await test("launch schema keeps API providers internal to auto slot routing", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, { cwd: workDir, env });
+  try {
+    await session.initialize();
+    const listed = await session.request("tools/list", {});
+    const launchTool = listed.result.tools.find((tool) => tool.name === "launch_agent");
+    assert.deepEqual(launchTool.inputSchema.properties.provider.enum, ["claude", "codex"]);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("pure-auto launch: cost_efficiency selection, routing_tier is poll-only", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   const session = createMcpSession(distIndex, { cwd: workDir, env });
   try {
@@ -1404,6 +1419,31 @@ await test("explicit fable launch: zod enum accepts model and selection is honor
   }
 });
 
+await test("explicit fable+xhigh launch succeeds under user-approved override mode", async () => {
+  // Regression guard: the authorized counterpart of the rejected api override.
+  // provider:claude+model:fable+effort:xhigh must launch via the mock Claude
+  // path (fable => Claude), never fail over.
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, { cwd: workDir, env });
+  try {
+    await session.initialize();
+    await enableManualSelection(session);
+    const { agentId, launchPayload } = await launchAndPoll(session, {
+      task_category: "debugging",
+      prompt: "explicit fable xhigh launch",
+      provider: "claude",
+      model: "fable",
+      effort: "xhigh",
+    });
+    assertSelection(launchPayload, { provider: "claude", model: "fable", effort: "xhigh" },
+      "explicit fable+xhigh launch");
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 await test("explicit launch with api slot configured keeps the requested triple", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   let calls = 0;
@@ -1473,6 +1513,36 @@ await test("api provider slot dispatch retries one transient failure and records
       const status = await session.request("tools/call", { name: "get_status", arguments: {} });
       const statusPayload = JSON.parse(status.result.content[0].text);
       assert.equal(statusPayload.last_routing_decisions.at(-1).provider, "api");
+    } finally {
+      await session.close();
+    }
+  });
+  rmSync(tempRoot, { recursive: true, force: true });
+});
+
+await test("performance routing never inserts or attempts medium-effort API slots", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  let calls = 0;
+  await withHttpJson((_req, res) => {
+    calls += 1;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { content: "must not launch" } }] }));
+  }, async (baseUrl) => {
+    writeApiProviders(tempRoot, { base_url: baseUrl });
+    const session = createMcpSession(distIndex, {
+      cwd: workDir,
+      env: { ...env, HOME: tempRoot, USERPROFILE: tempRoot, API_KEY: "test-key" },
+    });
+    try {
+      await session.initialize();
+      const { agentId, launchPayload } = await launchAndPoll(session, {
+        task_category: "coding",
+        prompt: "performance route skips api slot",
+        deadlock: true,
+      });
+      assert.notEqual(launchPayload.provider, "api");
+      assert.equal(calls, 0, "performance routing must not spend the deadlock window on an API slot");
+      await killAgent(session, agentId);
     } finally {
       await session.close();
     }

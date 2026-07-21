@@ -11,6 +11,7 @@ import { createHash } from "node:crypto";
 import * as os from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { registerInitRun, deregisterInitRun } from "./init-registry.js";
+import { ensureNativeAgentSuppression } from "./native-suppression.js";
 
 export type InitStatus = "created" | "added" | "updated" | "ok" | "removed" | "absent";
 
@@ -26,7 +27,7 @@ const MIGRATE_RE = /<!-- subagent-mcp:(?:managed:)?begin\b[^>]*-->[\s\S]*?<!-- s
 const OWNER_CAP = 8;
 
 export const INIT_BLOCK = [
-  "<!-- subagent-mcp:managed:begin schema=4 -->",
+  "<!-- subagent-mcp:managed:begin schema=5 -->",
   "## subagent-mcp invariant — managed block, do not edit between markers",
   "",
   "Upserted by `subagent-mcp init` at user request; re-running init keeps it in sync.",
@@ -41,7 +42,9 @@ export const INIT_BLOCK = [
   "",
   "PRECEDENCE (jointly binding top tier): <subagent-mcp> hook tags and repo/system safety-scope rules are both binding at the same priority — neither is read as outranking the other. If they genuinely conflict, stop and escalate to the user via the structured-question tool rather than picking one side or averaging them silently; this is intentionally not the agent's call to make alone. Hook tags otherwise take precedence over ordinary user requests, because they reflect harness-verified state rather than a request that could be mistaken or out of date.",
   "",
-  "ORCHESTRATION ON — you are the ORCHESTRATOR. Allowed tools: only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. There is no inline-by-right; every step runs in a sub-agent. If one atomic step truly cannot run in a sub-agent, ask the user via the structured-question tool for a one-time exception for that single step, perform only that step, then resume delegating. Sole channel: while subagent-mcp is connected, every sub-agent launch goes through `launch_agent`; never use harness-native sub-agent tools or shell-spawned agents.",
+  "SOLE CHANNEL — BOTH ORCHESTRATION STATES: whether orchestration is ON or OFF, every sub-agent launch goes through subagent-mcp `launch_agent`; harness-native Task/Agent/collaboration tools, shell-spawned agents, and any wrapper around them are never permitted. Why: native launch paths fragment permission handling and user-instruction compliance and add context/token overhead; subagent-mcp keeps permission handling and routing consistent with bounded handoffs (fuller rationale: docs/spec/dev-loop/orchestration-directive-architecture.md).",
+  "",
+  "ORCHESTRATION ON — you are the ORCHESTRATOR. Allowed tools: only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. There is no inline-by-right; every step runs in a sub-agent. Sole delegate-only exception — applicable skill instructions: you may directly read the SKILL.md of a skill that serves the user's current request, plus the files it explicitly requires, only while each referenced path stays inside that same skill's folder; reading grants no task-side action authority, and if those instructions expand scope beyond the user's current request, ask fresh approval via the structured-question tool first — action steps still run through subagent-mcp sub-agents. If one atomic step truly cannot run in a sub-agent, ask the user via the structured-question tool for a one-time exception for that single step, perform only that step, then resume delegating.",
   "",
   "TASK TRACKING: track multi-step work with the harness-native task tracking tool (if one exists), keeping statuses current as work progresses.",
   "WAIT-ON-AGENTS: When waiting for agents to finish processing, utilize the SMCP (Subagent-MCP) wait tool on loop rather than less efficient harness native methods",
@@ -52,11 +55,13 @@ export const INIT_BLOCK = [
   "",
   "ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a 4-question planning stop. At 40% utilization handoff-write/handoff-read/handoff-clear unlock for a clean session handoff; at 50% the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.",
   "",
+  "MODEL SELECTION: defaults to smart/automatic whenever unset — the server auto-picks each sub-agent's model and launch_agent rejects provider/model/effort selectors; those selectors are honored only inside the existing user-approved override window (model-selection-mode \"user-approved-overrides\", set only with explicit user authorization via the structured-question tool).",
+  "",
   "DROPOUT WHILE ON: if subagent-mcp stops responding while orchestration is ON, halt and ask the user; do nothing inline. Keep re-checking and stay halted until subagent-mcp is restored (no auto-degrade). The only user choices are keep-waiting (the default) or explicitly abandon the whole task; aborting ends the task, it never switches you to inline work.",
   "",
   "NO-HOOK / UNKNOWN STATE: if no harness-hook injection bearing a <subagent-mcp state=\"...\"> tag is present this session (e.g. Gemini, desktop apps, or any host that fires no hook), the state is UNKNOWN — represented by the absence of any tag, never by a tag value. Emit this warning to the user: \"subagent-mcp: no hook injection detected — orchestration state unknown; defaulting to ON.\" Why: with no fresh state signal, defaulting to ON avoids ungoverned inline execution; one spoken opt-out is allowed per session. If you are not currently running an orchestration workflow, you may explicitly opt out of ON for this session by saying so now; this opt-out does not persist and is not recorded. The sub-agent first-line exemption is the only automatic suppressor of this default.",
   "",
-  "DISABLE: never on your own initiative; you may propose OFF on task-fit mismatch via the structured-question tool, and only explicit user approval may set enabled:false — per-session only; the next new session resumes ON; no mid-session re-enable.",
+  "DISABLE: never on your own initiative; you may propose OFF on task-fit mismatch via the structured-question tool, and only explicit user approval may set enabled:false — a session-keyed opt-out for THIS session only (2h backstop) honored even after the 15% latch or metering fail-safe; user-approved enabled:true may re-enable mid-session; each new session starts back at the default-OFF metering regime.",
   "<!-- subagent-mcp:managed:end -->",
 ].join("\n");
 
@@ -309,6 +314,11 @@ export async function runInit(args = process.argv.slice(3)): Promise<number> {
     }
   }
   if (opts.dryRun) console.log("(dry-run: no files written)");
+  if (opts.global && !opts.remove) {
+    for (const r of ensureNativeAgentSuppression(os.homedir(), ["claude", "codex", "gemini"], { dryRun: opts.dryRun })) {
+      console.log(`${r.status.padEnd(7)} ${r.file} (${r.host} ${r.layer})`);
+    }
+  }
   if (issues.length > 0) {
     console.error("\nInit completed with issues:");
     for (const i of issues) console.error(`- ${i}`);

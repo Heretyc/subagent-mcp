@@ -30,6 +30,12 @@ import {
 import { probeProviderHead, type HeadProbeResult } from "./providers/provider-client.js";
 import { verifySmcpSkillsAndCommands } from "./setup.js";
 import { inspectInitRegistry } from "./init-registry.js";
+import {
+  CLAUDE_NATIVE_AGENT_DENY,
+  GEMINI_NATIVE_AGENT_POLICY,
+  codexNativeAgentDisableOk,
+  geminiNativeAgentPolicyOk,
+} from "./native-suppression.js";
 
 type Status = "PASS" | "WARN" | "FAIL" | "INFO";
 interface DoctorLine {
@@ -60,6 +66,10 @@ function line(r: DoctorLine): string {
 function readJson(file: string): JsonObj | null {
   if (!existsSync(file)) return null;
   return JSON.parse(readFileSync(file, "utf8")) as JsonObj;
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
 function backupFile(file: string): void {
@@ -543,6 +553,59 @@ export function checkInitRegistry(opts: DoctorOptions = {}): DoctorLine {
   };
 }
 
+export function checkNativeAgentSuppression(opts: DoctorOptions = {}): DoctorLine {
+  const home = opts.home ?? homedir();
+  const parts: string[] = [];
+  let ok = true;
+
+  const claude = readJson(join(home, ".claude", "settings.json"));
+  if (claude) {
+    const deny = stringList((claude.permissions as JsonObj | undefined)?.deny);
+    const missing = CLAUDE_NATIVE_AGENT_DENY.filter((rule) => !deny.includes(rule));
+    if (missing.length) {
+      ok = false;
+      parts.push(`claude missing permissions.deny ${missing.join(", ")}`);
+    } else {
+      parts.push("claude static deny ok");
+    }
+  }
+
+  const codex = join(home, ".codex", "config.toml");
+  if (existsSync(codex)) {
+    if (codexNativeAgentDisableOk(readFileSync(codex, "utf8"))) {
+      parts.push("codex static disable ok; no repo-supported native-agent hook/policy guard");
+    } else {
+      ok = false;
+      parts.push("codex missing [features] multi_agent=false");
+    }
+  }
+
+  const gemini = readJson(join(home, ".gemini", "settings.json"));
+  const geminiPolicy = join(home, ".gemini", "policies", GEMINI_NATIVE_AGENT_POLICY);
+  if (gemini || existsSync(geminiPolicy)) {
+    const enabled = (gemini?.experimental as JsonObj | undefined)?.enableAgents;
+    if (enabled === false) parts.push("gemini static disable ok");
+    else {
+      ok = false;
+      parts.push("gemini missing experimental.enableAgents=false");
+    }
+    if (existsSync(geminiPolicy) && geminiNativeAgentPolicyOk(readFileSync(geminiPolicy, "utf8"))) {
+      parts.push("gemini policy deny ok; no repo-supported per-turn hook");
+    } else {
+      ok = false;
+      parts.push(`gemini missing policy ${GEMINI_NATIVE_AGENT_POLICY}`);
+    }
+  }
+
+  if (parts.length === 0) parts.push("no Claude/Codex/Gemini user configs found to validate");
+  return {
+    status: ok ? "PASS" : "WARN",
+    id: 12,
+    name: "native-agent-suppression",
+    detail: parts.join("; "),
+  };
+}
+
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   const results = [
     checkInstallMode(opts),
@@ -556,6 +619,7 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
     await checkSessionState(opts),
     checkSmcpSkillsAndCommands(opts),
     checkInitRegistry(opts),
+    checkNativeAgentSuppression(opts),
   ];
   for (const r of results) console.log(line(r));
   const counts = { PASS: 0, WARN: 0, FAIL: 0, INFO: 0 };

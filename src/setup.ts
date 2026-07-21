@@ -35,6 +35,14 @@ import { stateDir } from "./orchestration/marker.js";
 import { STATUSLINE_TTL_MS } from "./orchestration/statusline-state.js";
 import { askLine, type PromptOptions } from "./prompt.js";
 import { initRegistryHasAutoUpdate, readInitRegistry, writeInitRegistry } from "./init-registry.js";
+import {
+  reconcileClaudeNativeAgentDeny,
+  reconcileCodexNativeAgentDisable,
+  reconcileGeminiSettings,
+  geminiNativeAgentPolicyOk,
+  geminiNativeAgentPolicyToml,
+  GEMINI_NATIVE_AGENT_POLICY,
+} from "./native-suppression.js";
 export { chooseSetupInitScope, runSetupInitMenu, type SetupInitMenuOptions } from "./setup-init-scope.js";
 import { runSetupInitMenu } from "./setup-init-scope.js";
 
@@ -393,6 +401,12 @@ export function reconcileCodexHooks(
   return { changed, statuses };
 }
 
+function writeJsonWithBackup(file: string, value: JsonObj): void {
+  mkdirSync(dirname(file), { recursive: true });
+  backup(file);
+  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
 // ---------------------------------------------------------------------------
 // IO helpers
 // ---------------------------------------------------------------------------
@@ -573,7 +587,7 @@ interface Issue {
 }
 const issues: Issue[] = [];
 
-function repairPromptFor(vendor: "claude" | "codex", problem: string): string {
+function repairPromptFor(vendor: "claude" | "codex" | "gemini", problem: string): string {
   const p = serverPaths();
   if (vendor === "claude") {
     return (
@@ -588,6 +602,15 @@ function repairPromptFor(vendor: "claude" | "codex", problem: string): string {
       `Back up any file before editing it.`
     );
   }
+  if (vendor === "gemini") {
+    return (
+      `subagent-mcp setup hit a problem on my machine: ${problem}. ` +
+      `Please repair Gemini CLI native-agent suppression: ensure ~/.gemini/settings.json has ` +
+      `{"experimental":{"enableAgents":false}} and ~/.gemini/policies/${GEMINI_NATIVE_AGENT_POLICY} denies ` +
+      `generalist, codebase_investigator, cli_help, and browser_agent. ` +
+      `Back up any file before editing it.`
+    );
+  }
   return (
     `subagent-mcp setup hit a problem on my machine: ${problem}. ` +
     `The install root is "${fwd(INSTALL_ROOT)}". Please repair my Codex CLI wiring: ` +
@@ -599,7 +622,7 @@ function repairPromptFor(vendor: "claude" | "codex", problem: string): string {
   );
 }
 
-function fail(vendor: "claude" | "codex", problem: string): void {
+function fail(vendor: "claude" | "codex" | "gemini", problem: string): void {
   console.log(`  PROBLEM: ${problem}`);
   issues.push({ vendor, problem, repairPrompt: repairPromptFor(vendor, problem) });
 }
@@ -821,17 +844,16 @@ function wireClaude(): void {
     fail("claude", `could not register the MCP server: ${(e as Error).message}`);
   }
 
-  // 2) UserPromptSubmit and PreToolUse hooks in ~/.claude/settings.json.
+  // 2) UserPromptSubmit + PreToolUse hooks and static native-agent deny.
   try {
     const sfile = join(homedir(), ".claude", "settings.json");
     const s = readJson(sfile, {});
-    const { changed, status } = reconcileClaudeSettings(s, p.claudeHook);
-    if (changed && !DRY_RUN) {
-      backup(sfile);
-      writeFileSync(sfile, JSON.stringify(s, null, 2));
-    }
-    describe(status, "UserPromptSubmit + PreToolUse hooks");
-    if (changed && DRY_RUN) console.log("    (dry-run: not written)");
+    const hooks = reconcileClaudeSettings(s, p.claudeHook);
+    const deny = reconcileClaudeNativeAgentDeny(s);
+    if ((hooks.changed || deny.changed) && !DRY_RUN) writeJsonWithBackup(sfile, s);
+    describe(hooks.status, "UserPromptSubmit + PreToolUse hooks");
+    describe(deny.status, "native-agent static deny");
+    if ((hooks.changed || deny.changed) && DRY_RUN) console.log("    (dry-run: not written)");
   } catch (e) {
     fail("claude", `could not write the settings.json hook: ${(e as Error).message}`);
   }
@@ -867,6 +889,15 @@ function wireCodex(): void {
     const r = wireMcpServer(specs.codex);
     if (r.failure) fail("codex", r.failure);
     else describe(r.status, existed ? "config.toml MCP server block" : "config.toml (created) MCP server block");
+    const text = existsSync(specs.codex.configFile) ? readFileSync(specs.codex.configFile, "utf8") : "";
+    const native = reconcileCodexNativeAgentDisable(text);
+    if (native.changed && !DRY_RUN) {
+      mkdirSync(codexDir, { recursive: true });
+      backup(specs.codex.configFile);
+      writeFileSync(specs.codex.configFile, native.toml, "utf8");
+    }
+    describe(native.status, "native-agent static disable");
+    if (native.changed && DRY_RUN) console.log("    (dry-run: not written)");
   } catch (e) {
     fail("codex", `could not write config.toml: ${(e as Error).message}`);
   }
@@ -889,6 +920,36 @@ function wireCodex(): void {
     }
   } catch (e) {
     fail("codex", `could not write hooks.json: ${(e as Error).message}`);
+  }
+}
+
+function wireGemini(): void {
+  console.log("\n--- Gemini CLI ---");
+  const home = homedir();
+  const settings = join(home, ".gemini", "settings.json");
+  const policy = join(home, ".gemini", "policies", GEMINI_NATIVE_AGENT_POLICY);
+  try {
+    const s = readJson(settings, {});
+    const r = reconcileGeminiSettings(s);
+    if (r.changed && !DRY_RUN) writeJsonWithBackup(settings, s);
+    describe(r.status, "native-agent static disable");
+    if (r.changed && DRY_RUN) console.log("    (dry-run: not written)");
+  } catch (e) {
+    fail("gemini", `could not write Gemini settings.json: ${(e as Error).message}`);
+  }
+  try {
+    const current = existsSync(policy) ? readFileSync(policy, "utf8") : "";
+    const ok = geminiNativeAgentPolicyOk(current);
+    if (!ok && !DRY_RUN) {
+      mkdirSync(dirname(policy), { recursive: true });
+      backup(policy);
+      writeFileSync(policy, geminiNativeAgentPolicyToml(), "utf8");
+    }
+    describe(ok ? "ok" : current ? "repaired" : "added", "native-agent policy TOML");
+    if (!ok && DRY_RUN) console.log("    (dry-run: not written)");
+    console.log("  NOTE: Gemini has no repo-supported per-turn hook; suppression is settings + policy only.");
+  } catch (e) {
+    fail("gemini", `could not write Gemini native-agent policy: ${(e as Error).message}`);
   }
 }
 
@@ -987,6 +1048,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
     const sj = readJson(join(home, ".claude", "settings.json"), {});
     const { registered, attemptedRepair } = checkCliRegistration("claude", claudeAddArgs(), repair);
     const hk = reconcileClaudeSettings(sj, p.claudeHook);
+    const deny = reconcileClaudeNativeAgentDeny(sj);
     results.push({
       label: "claude: MCP server (user scope)",
       ok: registered,
@@ -996,6 +1058,11 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
       label: "claude: UserPromptSubmit + PreToolUse hooks",
       ok: hk.status === "ok",
       detail: hk.status === "ok" ? "wired" : `${hk.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
+    });
+    results.push({
+      label: "claude: native-agent static deny",
+      ok: deny.status === "ok",
+      detail: deny.status === "ok" ? "permissions.deny blocks Task/Agent/Explore" : "missing - run: subagent-mcp setup",
     });
     const sl = reconcileClaudeStatusLine(sj, p.claudeStatuslineHook);
     results.push({
@@ -1013,6 +1080,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
     const sj = readJson(join(home, ".claude", "settings.json"), {});
     const srv = reconcileClaudeJson(cj, p.server);
     const hk = reconcileClaudeSettings(sj, p.claudeHook);
+    const deny = reconcileClaudeNativeAgentDeny(sj);
     results.push({
       label: "claude: MCP server (user scope)",
       ok: srv.status === "ok",
@@ -1022,6 +1090,11 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
       label: "claude: UserPromptSubmit + PreToolUse hooks",
       ok: hk.status === "ok",
       detail: hk.status === "ok" ? "wired" : `${hk.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
+    });
+    results.push({
+      label: "claude: native-agent static deny",
+      ok: deny.status === "ok",
+      detail: deny.status === "ok" ? "permissions.deny blocks Task/Agent/Explore" : "missing - run: subagent-mcp setup",
     });
     const sl = reconcileClaudeStatusLine(sj, p.claudeStatuslineHook);
     results.push({
@@ -1042,6 +1115,7 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
     const cfg = join(home, ".codex", "config.toml");
     const toml = existsSync(cfg) ? readFileSync(cfg, "utf8") : "";
     const tomlR = reconcileCodexToml(toml, p.server);
+    const nativeR = reconcileCodexNativeAgentDisable(toml);
     const hj = readJson(join(home, ".codex", "hooks.json"), { hooks: {} });
     const hkR = reconcileCodexHooks(hj, `node "${p.codexHook}"`);
     let registered = false;
@@ -1059,6 +1133,13 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
       ok: registered,
       detail,
     });
+    results.push({
+      label: "codex: native-agent static disable",
+      ok: nativeR.status === "ok",
+      detail: nativeR.status === "ok"
+        ? "features.multi_agent=false; no repo-supported native-agent hook guard exists"
+        : "missing - run: subagent-mcp setup",
+    });
     const allOk = Object.values(hkR.statuses).every((s) => s === "ok");
     results.push({
       label: "codex: SessionStart + UserPromptSubmit hooks",
@@ -1067,11 +1148,33 @@ export function verifyWiring(root: string = INSTALL_ROOT, repair: boolean = fals
     });
   }
 
-  if (!hasClaude && !hasClaudeConfig && !hasCodex) {
+  const hasGeminiCli = findOnPath("gemini") !== null;
+  const hasGemini = hasGeminiCli || existsSync(join(home, ".gemini"));
+  if (hasGemini) {
+    const settings = join(home, ".gemini", "settings.json");
+    const sj = readJson(settings, {});
+    const staticR = reconcileGeminiSettings(sj);
+    const policy = join(home, ".gemini", "policies", GEMINI_NATIVE_AGENT_POLICY);
+    const policyOk = existsSync(policy) && geminiNativeAgentPolicyOk(readFileSync(policy, "utf8"));
+    results.push({
+      label: "gemini: native-agent static disable",
+      ok: staticR.status === "ok",
+      detail: staticR.status === "ok" ? "experimental.enableAgents=false" : "missing - run: subagent-mcp setup",
+    });
+    results.push({
+      label: "gemini: native-agent policy TOML",
+      ok: policyOk,
+      detail: policyOk
+        ? `denies known native agents; no repo-supported per-turn hook exists`
+        : `missing ${GEMINI_NATIVE_AGENT_POLICY} - run: subagent-mcp setup`,
+    });
+  }
+
+  if (!hasClaude && !hasClaudeConfig && !hasCodex && !hasGemini) {
     results.push({
       label: "vendors",
       ok: false,
-      detail: "neither 'claude' nor 'codex' detected on PATH (and no ~/.codex)",
+      detail: "no claude/codex/gemini detected on PATH (and no ~/.codex or ~/.gemini)",
     });
   }
   return results;
@@ -1100,12 +1203,12 @@ export async function runSetup(): Promise<void> {
 
   const hasClaude = findOnPath("claude") !== null;
   const hasCodex = findOnPath("codex") !== null || existsSync(join(homedir(), ".codex"));
+  const hasGemini = findOnPath("gemini") !== null || existsSync(join(homedir(), ".gemini"));
 
-  if (!hasClaude && !hasCodex) {
+  if (!hasClaude && !hasCodex && !hasGemini) {
     console.log(
-      "No supported vendors found (neither 'claude' nor 'codex' on PATH, " +
-      "and ~/.codex does not exist).\n" +
-      "Install Claude Code CLI or Codex CLI first, then re-run: subagent-mcp setup"
+      "No supported vendors found (no claude/codex/gemini on PATH, and no ~/.codex or ~/.gemini).\n" +
+      "Install Claude Code CLI, Codex CLI, or Gemini CLI first, then re-run: subagent-mcp setup"
     );
     process.exit(1);
   }
@@ -1115,6 +1218,9 @@ export async function runSetup(): Promise<void> {
 
   if (hasCodex) wireCodex();
   else console.log("\nSkipping Codex CLI (not detected).");
+
+  if (hasGemini) wireGemini();
+  else console.log("\nSkipping Gemini CLI (not detected).");
 
   console.log("\n--- Init Instructions ---");
   await ensureSetupAutoUpdate({
@@ -1149,6 +1255,9 @@ export async function runSetup(): Promise<void> {
   }
   if (hasCodex) {
     console.log("Codex CLI:   restart your session, then run /hooks and TRUST the subagent-mcp hook.");
+  }
+  if (hasGemini) {
+    console.log("Gemini CLI:  restart your session; native agents are disabled by settings + policy only.");
   }
   console.log("Health check any time:  subagent-mcp doctor");
 

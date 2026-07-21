@@ -351,6 +351,16 @@ export function validatePresence(p: {
     return `Error: fallback_default is a split hint sentinel, not a launchable routing-table category.\n${SPLIT_HINT}\n${AUTO_HINT}`;
   }
 
+  // Override providers are launchable CLI providers only: "claude" or "codex".
+  // "api" is INTERNAL auto-slot routing (slotInsert) — populated with
+  // apiProvider metadata after candidate construction, never selectable as an
+  // explicit/manual override. Reject a stale or enum-bypassed "api" (or any
+  // other value) here, the shared validation boundary that runs before
+  // buildCandidates, so it can never form a candidate, launch, or fail over.
+  if (provider && provider !== "claude" && provider !== "codex") {
+    return `Error: provider override must be claude or codex. Got: ${provider}. The api provider is internal auto-slot routing only and cannot be selected explicitly.\n${AUTO_HINT}`;
+  }
+
   // provider+model must satisfy the existing match rule.
   if (provider && model) {
     if (provider === "claude" && !["haiku", "sonnet", "opus", "opus-4-8", "fable"].includes(model)) {

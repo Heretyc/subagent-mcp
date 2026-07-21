@@ -289,6 +289,51 @@ test("explicit mismatch: codex + sonnet -> Codex constraint message", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Override-provider guard (root-cause of the model-override regression).
+// Only "claude"/"codex" are selectable as explicit/manual overrides. "api" is
+// INTERNAL auto-slot routing (slotInsert), never an override. The public zod
+// enum already omits "api"; this guards the runtime/internal boundary against a
+// stale or enum-bypassed "api" reaching buildCandidates. Bypassing the enum by
+// calling validatePresence directly is exactly the "stale/bypassed" scenario.
+// WHY: before this guard, provider:"api"+model+effort passed validation, built
+// an explicit candidate with NO apiProvider metadata, failed permanent, and
+// silently failed over to a CLI provider (the live regression).
+// ---------------------------------------------------------------------------
+const API_OVERRIDE_ERROR =
+  "Error: provider override must be claude or codex. Got: api. " +
+  "The api provider is internal auto-slot routing only and cannot be selected explicitly.\n" +
+  AUTO_HINT;
+
+test("stale/bypassed provider:api + fable + xhigh is REJECTED before candidate construction", () => {
+  // The exact live-failure triple. Must return the guard error (not null), so
+  // buildCandidates is never reached and no candidate/launch/failover occurs.
+  const msg = validatePresence({
+    task_category: "coding",
+    provider: "api",
+    model: "fable",
+    effort: "xhigh",
+  });
+  assert.equal(
+    msg,
+    API_OVERRIDE_ERROR,
+    "stale api override must be rejected at the validation boundary, before failover");
+  assert.ok(!msg.includes(SPLIT_HINT), "api-override rejection carries AUTO_HINT only");
+});
+
+test("authorized provider:claude + fable + xhigh passes validation -> null", () => {
+  // The authorized override the regression must not disturb: fable => Claude.
+  assert.equal(
+    validatePresence({
+      task_category: "debugging",
+      provider: "claude",
+      model: "fable",
+      effort: "xhigh",
+    }),
+    null,
+    "claude+fable+xhigh is a valid explicit override and must proceed to launch");
+});
+
+// ---------------------------------------------------------------------------
 // Deadlock validation (rule 2: after category, BEFORE effort-needs-both)
 // WHY: deadlock=true triggers the deadlock window; combining it with any
 // override is always wrong. The rule must fire before the effort rule so the

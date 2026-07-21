@@ -9,9 +9,9 @@ exact error text live in `io-contract.md`; file deployment in
 ## Critical rules (repeated where they bind)
 
 1. The script is the USER'S EXPLICIT OVERRIDE layer and has FINAL authority:
-   it ALWAYS RUNS LAST, after `slotInsert` adds `providers.jsonc` API slot
-   candidates, and its validated output is consumed verbatim by the attempt
-   loop in ALL selection modes including `explicit`.
+   it ALWAYS RUNS LAST, after applicable cost-efficiency auto `slotInsert`, and
+   its validated output is consumed verbatim by the attempt loop in ALL
+   selection modes including `explicit`.
 2. ANY failure of the script pipeline hard-fails `launch_agent` with the exact
    message in `io-contract.md`. There is NO fallback to the unmodified list.
 3. Env-check SUCCESS latches for the process lifetime; FAILURE NEVER LATCHES :
@@ -81,15 +81,16 @@ The key is `"load-rules"` (hyphen) : exactly as the goal spells it.
 
 - Position in the handler: AFTER `routing-table.json` is parsed, the candidate
   list is built for the selected branch, the `noCandidates` error check runs
-  (an empty build is an error BEFORE the hook), and `slotInsert` adds any
-  `providers.jsonc` API slot candidates; BEFORE the attempt loop / silent
-  failover. No slot insertion runs after the ruleset.
+  (an empty build is an error BEFORE the hook), and cost-efficiency pure-auto
+  `slotInsert` adds configured API candidates; BEFORE the attempt loop / silent
+  failover. Performance and override modes receive no API slots. No slot
+  insertion runs after the ruleset.
 - Frequency: exactly ONCE per `launch_agent` call. It is NOT re-run per
   failover attempt : the attempt loop consumes the final list verbatim.
 - Scope: ALL selection modes. In `explicit` mode the script receives the
   single user-requested candidate and may override even that.
 - Stdin carries the complete candidates plus `context` (`io-contract.md`),
-  including any provider `"api"` slot candidates. The branch (cost_efficiency
+  including any applicable provider `"api"` slot candidates. The branch (cost_efficiency
   vs performance) was already chosen before the hook; the script never learns
   which, nor anything about the deadlock window.
 - Routing-mode failure: hard fail for THIS call; the gate state is untouched

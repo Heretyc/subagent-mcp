@@ -81,8 +81,10 @@ Contract:
    persistent `error` handler, stdout/stderr/`close` handlers, and initial
    user input submission. Stream output during the window is therefore
    captured, and a healthy provider has accepted its first turn.
-2. THEN it awaits a race between the child `exit` event and a
-   `SPAWN_GRACE_MS` timer, BEFORE registering the agent.
+2. THEN it awaits a race between the child `exit` event, the driver's
+   `definitelyStarted` settlement, and a `SPAWN_GRACE_MS` timer, BEFORE
+   registering the agent. A rejection before the timer is a launch failure; if
+   the timer wins, later rejection or exit is a registered task outcome.
 3. ANY exit within the window : any exit code INCLUDING 0, or any signal : is
    a LAUNCH-TIME failure: the candidate is pushed to `skipped` with a reason
    of the form (illustrative; tests assert it contains the exit code):

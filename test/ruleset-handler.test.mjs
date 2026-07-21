@@ -271,7 +271,8 @@ async function launchAndPoll(session, launchArgs) {
     : wireArgs.deadlock
       ? "performance"
       : "cost_efficiency");
-  assertRoutingTier(launchPayload, expectedTier, "launch_agent payload");
+  assert.equal(launchPayload.routing_tier, undefined,
+    "launch_agent must keep routing tier opaque");
   assertRoutingTier(pollPayload, expectedTier, "poll_agent payload");
   return { agentId, launchPayload, pollPayload };
 }
@@ -556,7 +557,7 @@ await test("pure-auto ruleset stdin includes api slot candidates", async () => {
   try {
     await session.initialize();
     await enableManualSelection(session);
-    const { agentId } = await launchAndPoll(session, {
+    const { agentId, launchPayload } = await launchAndPoll(session, {
       task_category: "coding",
       prompt: "capture api candidate stdin",
     });
@@ -564,6 +565,10 @@ await test("pure-auto ruleset stdin includes api slot candidates", async () => {
     assert.deepEqual(payload.candidates[0],
       { provider: "api", model: "api-model", effort: "medium", rank: 1 });
     assert.equal(payload.context.selection_mode, "auto");
+    assert.notEqual(launchPayload.provider, "api",
+      "ruleset reordering must remain final over the attempted candidates");
+    assert.equal(launchPayload.failover_occurred, undefined,
+      "a ruleset-demoted API candidate must not be reinserted and attempted afterward");
     await killAgent(session, agentId);
   } finally {
     await session.close();

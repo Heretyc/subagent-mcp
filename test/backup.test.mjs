@@ -66,10 +66,10 @@ function backupDirs(home) {
   return readdirSync(join(home, ".subagent-mcp", "backups")).sort();
 }
 
-test("createBackup snapshots five files and prunes to newest five", () => withHome((home) => {
+test("createBackup snapshots configured files and prunes to newest five", () => withHome((home) => {
   for (const rel of BACKUP_RELATIVE_FILES) writeUserFile(home, rel, `${rel}\n`);
   const first = createBackup(new Date(2026, 0, 1, 0, 0, 0));
-  assert.equal(first.files.length, 5);
+  assert.equal(first.files.length, BACKUP_RELATIVE_FILES.length);
   assert.equal(first.files.every((f) => f.status === "present"), true);
   for (let i = 1; i < 7; i++) createBackup(new Date(2026, 0, 1, 0, 0, i));
   assert.deepEqual(backupDirs(home), [
@@ -86,7 +86,7 @@ test("missing sources are recorded as absent", () => withHome((home) => {
   writeUserFile(home, ".claude/settings.json", "{}\n");
   const manifest = createBackup(new Date(2026, 0, 2, 0, 0, 0));
   assert.equal(manifest.files.filter((f) => f.status === "present").length, 1);
-  assert.equal(manifest.files.filter((f) => f.status === "absent").length, 4);
+  assert.equal(manifest.files.filter((f) => f.status === "absent").length, BACKUP_RELATIVE_FILES.length - 1);
 }));
 
 test("restoreLatestBackup round-trips present files and leaves absent files", () => withHome((home) => {
