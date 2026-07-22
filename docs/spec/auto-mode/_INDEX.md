@@ -12,8 +12,19 @@ is design + contract only.
 only `prompt` + `task_category`, the server reads the **cost_efficiency** branch of
 the routing table, builds a best-to-worst candidate list for that category, and
 launches the first candidate that spawns successfully : silently falling back
-down the list on any launch-time failure. `provider`/`model`/`effort` become
-optional overrides that are usually unnecessary.
+down the list on ANY launch-time failure (including provider-side limits: session
+limit, usage cap/limit, spend/spending limit, credits, billing, quota, rate limit,
+429/too-many-requests, overload, HTTP 5xx, or network errors). A successful
+reroute returns non-error `failover_occurred: true`, `failover_from[]`, and a
+human-readable `failover_note` naming the unavailable provider/reason and the
+winner. `ERR_ALL_FAILED` is returned only after every candidate is exhausted.
+There is no cooldown or cross-call persistence: ranking is fresh each launch.
+`provider`/`model`/`effort` become optional overrides that are usually unnecessary.
+
+Provider-only mode tries every requested-provider candidate, then de-duplicated
+auto fallbacks. A provider+model override is pinned to its rank-1 matching
+candidate; adding effort pins that exact triple. Pinned launches fail loudly
+with no substitute.
 
 Branch selection : the `cost_efficiency` default, the `performance` branch armed
 by the optional `deadlock` flag, and the window decrement/re-arm rules : is

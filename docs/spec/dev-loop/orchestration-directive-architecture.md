@@ -27,10 +27,11 @@ mode governs *who* decides to delegate work to sub-agents; `permissionsCeiling`
 (`docs/spec/permissions.md`) governs *what* a launched sub-agent may do without
 escalation. The `permission_requested` status and the `respond_permission` tool
 belong to the permission system, not this regime. (Note: the Claude PreToolUse
-gate `src/orchestration/pretool.ts` denies harness-native `Task`/`Agent`/`Explore`
-calls for orchestrators **and** sub-agents alike : the SOLE-CHANNEL fork-bomb
-guard, see `sections-05-09.md` section 6.3; it does **not** make a launched child's
-permission decisions : those run through the shared engine in `src/drivers.ts`.)
+gate `src/orchestration/pretool.ts` denies the harness-native `Agent` launcher
+for orchestrators **and** sub-agents alike : the SOLE-CHANNEL fork-bomb
+guard, see `sections-05-09.md` section 6.3; Task widget tools and Explore are
+not denied by the hook; it does **not** make a launched child's permission
+decisions : those run through the shared engine in `src/drivers.ts`.)
 
 ## Leaf directory (load when / do not load when)
 

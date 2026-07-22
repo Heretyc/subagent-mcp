@@ -45,10 +45,10 @@ applied:
 
 | Supplied overrides | mode (internal) | Candidate rule (see `routing-table-contract.md`) |
 |---|---|---|
-| none | `auto` | every pairing in the selected branch's `<task_category>`, rank ascending |
-| `provider` only | `provider` | requested provider pairings first, then de-duplicated valid auto candidates |
-| `provider` + `model` | `provider_model` | requested model pairings first, then de-duplicated valid auto candidates |
-| `provider` + `model` + `effort` | `explicit` | the requested triple first, then de-duplicated valid auto candidates if the table is available |
+| none | `auto` | every pairing in the selected branch's `<task_category>`, rank ascending; advances silently through the FULL list on any launch-time failure |
+| `provider` only | `provider` | requested-provider pairings first, then de-duplicated valid auto candidates; advances on any launch-time failure |
+| `provider` + `model` | `provider_model` | single attempt on the rank-1 provider+model-matched pairing; hard-fails with no auto substitute |
+| `provider` + `model` + `effort` | `explicit` | single attempt on the fully-pinned triple; hard-fails loudly with no auto substitute |
 
 `effort` alone, or `model` without `provider`, are NOT valid modes : they are
 hard errors (`resolution-matrix.md`). Net rule:

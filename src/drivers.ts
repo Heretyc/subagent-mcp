@@ -64,8 +64,33 @@ export function isClaudeSessionLimit(text: string): boolean {
   return CLAUDE_SESSION_LIMIT.test(text);
 }
 
-const TRANSIENT_FAILURE_RE =
-  /\b(?:401|403|429)\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*(?:401|403|429|5\d{2})\b|auth(?:entication|orization)?|unauthori[sz]ed|forbidden|quota|rate.?limit|timeout|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
+// Shared by driver startup detection and the server failover loop.
+const USAGE_LIMIT_SRC =
+  "quota|\\bbilling\\b|insufficient\\s+(?:credits?|balance|funds)|out\\s+of\\s+credits?|no\\s+credits?\\s+(?:remaining|left)|(?:usage|session|spend(?:ing)?|credits?)[\\s_-]*(?:limit|cap|balance|exhausted|depleted)|limit\\s+(?:reached|exceeded)";
+const RATE_LIMIT_SRC = "\\b429\\b|rate.?limit|too many requests|overloaded";
+const OTHER_TRANSIENT_SRC =
+  "\\b(?:401|403)\\b|\\b(?:http(?:\\/\\d(?:\\.\\d)?)?|status|statuscode|status_code|code|error)\\b[\\s:=#-]*(?:401|403|5\\d{2})\\b|auth(?:entication|orization)?|unauthori[sz]ed|forbidden|timeout|connection.?reset|ECONNRESET|ETIMEDOUT|ECONNREFUSED|service unavailable|server error";
+
+const USAGE_LIMIT_RE = new RegExp(USAGE_LIMIT_SRC, "i");
+const RATE_LIMIT_RE = new RegExp(RATE_LIMIT_SRC, "i");
+const TRANSIENT_FAILURE_RE = new RegExp(
+  `${USAGE_LIMIT_SRC}|${RATE_LIMIT_SRC}|${OTHER_TRANSIENT_SRC}`,
+  "i"
+);
+
+export function isTransientFailureText(text: string): boolean {
+  return TRANSIENT_FAILURE_RE.test(text);
+}
+
+export function isProviderLimitText(text: string): boolean {
+  return RATE_LIMIT_RE.test(text) || USAGE_LIMIT_RE.test(text);
+}
+
+export function describeFailureCause(text: string): string | null {
+  if (RATE_LIMIT_RE.test(text)) return "rate limit";
+  if (USAGE_LIMIT_RE.test(text)) return "usage limit";
+  return isTransientFailureText(text) ? "provider error" : null;
+}
 
 export function claudeMessageText(message: any): string | null {
   if (message?.type === "assistant") {
@@ -1180,7 +1205,13 @@ export class ClaudeSdkDriver implements ProviderDriver {
         // future bg-task completion can wake it once more.
         this.resumePending = false;
         const text = claudeMessageText(message);
-        if (!started && text && isClaudeSessionLimit(text)) {
+        // Claude can return a limit refusal as a successful pre-start result.
+        if (
+          !started &&
+          text &&
+          (isClaudeSessionLimit(text) ||
+            ((message as { type?: unknown })?.type === "result" && isProviderLimitText(text)))
+        ) {
           // Launch-time failover only applies before startup resolves/spawn grace ends;
           // post-registration session-limit rerouting is intentionally out of scope.
           this._definitelyStartedReject(new ProviderTransientError(text));

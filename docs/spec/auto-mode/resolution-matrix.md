@@ -15,9 +15,9 @@ cannot launch it.
 | C | P | M | E | Outcome |
 |---|---|---|---|---|
 | launchable valid | : | : | : | `auto` mode; build candidate list, attempt loop |
-| launchable valid | yes | : | : | `provider` mode; requested candidates first, then de-duplicated auto fallback candidates |
-| launchable valid | yes | yes | : | `provider_model` mode; requested candidates first, then de-duplicated auto fallback candidates |
-| launchable valid | yes | yes | yes | `explicit` mode; requested triple first, then de-duplicated auto fallback candidates |
+| launchable valid | yes | : | : | `provider` mode; provider-matched candidates first, then de-duplicated auto fallbacks; attempt loop |
+| launchable valid | yes | yes | : | `provider_model` mode; single attempt on rank-1 provider+model-matched candidate; hard-fails on failure with no auto substitute |
+| launchable valid | yes | yes | yes | `explicit` mode; single attempt on the fully-pinned triple; hard-fails loudly with no auto substitute |
 | fallback_default | : | : | : | **ERR_FALLBACK_DEFAULT** |
 | fallback_default | yes | : | : | **ERR_FALLBACK_DEFAULT** |
 | fallback_default | yes | yes | : | **ERR_FALLBACK_DEFAULT** |

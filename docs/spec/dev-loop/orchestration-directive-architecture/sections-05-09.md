@@ -69,9 +69,10 @@ is wired into all launch paths. The D20 unit test is gating.
 
 Two code-enforced guards backstop the prose exemption:
 
-1. Claude PreToolUse denies harness-native `Task`/`Agent`/`Explore` even when
-   the caller is a sub-agent (`SUBAGENT_MCP_SUBAGENT=1`). The sole-channel rule
-   is enforced on sub-agents, not just the root orchestrator.
+1. Claude PreToolUse denies the harness-native `Agent` launcher even when
+   the caller is a sub-agent (`SUBAGENT_MCP_SUBAGENT=1`). Task widget tools
+   and Explore are not denied by the hook. The sole-channel rule is enforced
+   on sub-agents, not just the root orchestrator.
 2. Each launch stamps `SUBAGENT_MCP_DEPTH = parent depth + 1`. Main
    orchestrator depth is 0, sub-orchestrators depth is 1, and workers depth is
    2. `launch_agent` is code-rejected at depth >= 2. A legacy sub-agent with

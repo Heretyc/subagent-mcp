@@ -13,6 +13,19 @@ Historical entries:
 
 ---
 
+## v3.1.10
+
+### Deny and lifecycle behavior
+
+- Claude `permissions.deny` now converges to `["Agent"]` only; Task widget
+  tools and Explore remain usable.
+- Upgrade silently removes legacy `Task`, `Explore`, and `Agent(Explore)` deny
+  entries. `doctor` offers repair, while `uninstall` reverts the smcp-owned
+  Claude and Codex suppression state without touching unrelated settings.
+- Codex native-agent suppression remains `multi_agent = false` only.
+
+---
+
 ## v3.1.7
 
 ### Continuous audit hardening
@@ -25,8 +38,6 @@ Historical entries:
   smart model selection as the default unless the user explicitly approves an
   override window.
 - Unblocked PR-time CI for continuous-audit branches and Node 20 timer behavior.
-
----
 
 ## v3.1.6
 

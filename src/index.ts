@@ -12,7 +12,13 @@ import { tmpdir } from "node:os";
 import { PassThrough } from "node:stream";
 import { pathToFileURL } from "url";
 import { Provider, buildCommand } from "./effort.js";
-import { createProviderDriver, type DriverProcess, type ProviderDriver } from "./drivers.js";
+import {
+  createProviderDriver,
+  describeFailureCause,
+  isTransientFailureText,
+  type DriverProcess,
+  type ProviderDriver,
+} from "./drivers.js";
 import { resolveExeFor } from "./platform.js";
 import {
   formatLocalIso,
@@ -604,22 +610,23 @@ function withMaintenance<P>(
 
 export function classifyFailureReason(reason: string, stderr: string): FailureType {
   const text = `${reason}\n${stderr}`;
-  return TRANSIENT_FAILURE_RE.test(text)
+  return isTransientFailureText(text)
     ? "transient_provider"
     : "permanent";
 }
 
-const TRANSIENT_FAILURE_RE =
-  /\b(?:401|403|429)\b|\b(?:http(?:\/\d(?:\.\d)?)?|status|statuscode|status_code|code|error)\b[\s:=#-]*(?:401|403|429|5\d{2})\b|auth(?:entication|orization)?|unauthori[sz]ed|forbidden|quota|usage.?cap|rate.?limit|timeout|connection.?reset|ECONNRESET|ETIMEDOUT|ECONNREFUSED|too many requests|service unavailable|server error|overloaded/i;
-
 function buildFailoverNote(
-  skipped: { provider: string; model: string; effort: string; failure_type: string }[],
+  skipped: { provider: string; model: string; effort: string; reason: string; failure_type: string }[],
   winner: Candidate
 ): string {
   const top = skipped[0];
   const topLabel = `${top.model}@${top.effort} (${top.provider})`;
   const winnerLabel = `${winner.model}@${winner.effort} (${winner.provider})`;
-  return `Rank-1 candidate ${topLabel} failed with ${top.failure_type === "transient_provider" ? "a transient provider error" : "a permanent error"}; auto-selected ${winnerLabel}.`;
+  const cause =
+    top.failure_type === "transient_provider"
+      ? describeFailureCause(top.reason) ?? "provider error"
+      : "permanent error";
+  return `${topLabel} unavailable (${cause}) — routed to ${winnerLabel}.`;
 }
 
 function candidateKey(candidate: Candidate): string {
@@ -1477,7 +1484,7 @@ function reattachCandidateMetadata(original: Candidate[], returned: Candidate[])
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent session. CONTRACT: every `prompt` states objective + required output format + tools/sources + boundaries; the server auto-upserts the self-identification marker \"<this is a request from a parent process>\" as the true first line (idempotent, never duplicated, body never mutated), so you need not add it. SCALE to complexity: ~1 agent for a simple fact-find, 2-4 for comparisons; never one-shot a multi-phase task — SPLIT into atomic steps that each map to ONE task_category, one agent per step. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category`, NO overrides; the server picks the best provider/model/effort for that category and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are OVERRIDES, licensed on the 1st/2nd attempt ONLY when the task verifiably needs a specific capability — STATE that capability; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8+ only. SOLE CHANNEL: while this server is connected this is the ONLY sanctioned way to spawn sub-agents in BOTH orchestration states; harness-native Task/Agent tools are FORBIDDEN. Children run with env SUBAGENT_MCP_SUBAGENT=1 so orchestration hooks skip them (not orchestrators, no carryover re-trigger). Launch returns `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead — wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST set `deadlock=true` when, and ONLY when, 2 attempts for the SAME atomic task have already failed/been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting does NOT make it a new task), and NEVER otherwise — from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort. SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches the child as a delegate-only orchestrator for ONE disjoint plan section - used by the swarm dispatch stage; the server injects the directive + env marker, and the child's OWN sub-agents run as normal workers (the flag never inherits).",
+  "Spawn a sub-agent session. CONTRACT: `prompt` states objective + output format + tools/sources + boundaries; the server auto-upserts \"<this is a request from a parent process>\" as true first line (idempotent), so you need not add it. SCALE: ~1 agent for a simple fact-find, 2-4 for comparisons; split multi-phase work into atomic steps, one task_category each. AUTO MODE (mandatory first attempt unless override is licensed): pass only `prompt` + `task_category`; server picks provider/model/effort. FAILOVER: launch-time failure (incl. provider usage/rate-limit refusal before output) quietly cascades down ranking and reports `failover_note`; if all fail, one loud error lists every candidate + reason. Provider+model override is PINNED: one attempt, no substitute. `provider`/`model`/`effort` are OVERRIDES, licensed on 1st/2nd attempt only when task verifiably needs a specific capability: STATE it; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8+ only. SOLE CHANNEL: while connected this is the only sanctioned sub-agent launch path in BOTH orchestration states; harness-native Task/Agent tools forbidden. Children get SUBAGENT_MCP_SUBAGENT=1 so hooks skip them. Launch returns `processing` (alive); later `stalled` is alive-but-quiet, NOT dead: wait/re-poll, don't kill. DEADLOCK: set `deadlock=true` only after 2 failed/unsatisfactory attempts for the SAME atomic task; from 3rd attempt deadlock outranks overrides, so drop provider/model/effort. SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches a delegate-only orchestrator for one disjoint plan section, used by swarm dispatch; server injects directive + env marker; the child's own sub-agents run as normal workers (flag never inherits).",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
@@ -1534,6 +1541,7 @@ server.tool(
     // 6. Build the candidate list per mode.
     const overrides = { provider, model, effort };
     const isExplicit = !!(provider && model && effort);
+    const isPinnedModel = !!(provider && model);
 
     if (!isExplicit && task_category === "fallback_default") {
       return errorResult(
@@ -1563,7 +1571,7 @@ server.tool(
 
     const result = buildCandidates(table, task_category, overrides, branch);
     const mode: SelectionMode = result.mode;
-    const autoCandidates = pureAuto || table === null
+    const autoCandidates = pureAuto || isPinnedModel || table === null
       ? []
       : buildCandidates(table, task_category, {}, branch).candidates;
 
@@ -1589,7 +1597,8 @@ server.tool(
       return errorResult(RULESET_HARD_FAIL_MSG);
     }
 
-    let candidates = appendDedupedCandidates(result.candidates, autoCandidates);
+    const requestedCandidates = mode === "provider_model" ? result.candidates.slice(0, 1) : result.candidates;
+    let candidates = appendDedupedCandidates(requestedCandidates, autoCandidates);
     if (
       pureAuto &&
       branch === "cost_efficiency" &&

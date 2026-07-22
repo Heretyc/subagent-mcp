@@ -426,7 +426,8 @@ await test("transient pre-start hook: quota/429 class failure fails over with tr
     assert.notEqual(response.result.isError, true);
     assert.equal(payload.failover_occurred, true);
     assertFailoverFrom(payload.failover_from[0], CE_RANK1, "transient_provider");
-    assert.match(payload.failover_note, /transient provider error/);
+    // Non-limit provider failures keep the generic "provider error" cause.
+    assert.match(payload.failover_note, /sonnet@medium \(claude\) unavailable \(provider error\)/);
     await killAgent(session, payload.agent_id);
   });
 });
@@ -537,7 +538,10 @@ await test("first-candidate success: no failover_occurred, failover_from, or fai
   });
 });
 
-await test("explicit provider/model/effort failure falls back to de-duped auto candidates", async () => {
+// A FULLY pinned triple is honoured literally: exactly one attempt, and a loud
+// failure rather than a silent substitution onto a model the user never
+// authorised. This holds even though the failure is transient/recoverable.
+await test("fully pinned provider+model+effort fails loudly with no substitute", async () => {
   await withEnv("stall", GRACE_MS, { mockHookMode: "transient-once", claudeMode: "stall" }, async ({ session }) => {
     const modeResp = await callTool(session, "model-selection-mode", { mode: "user-approved-overrides" });
     assert.notEqual(modeResp.result.isError, true);
@@ -548,33 +552,30 @@ await test("explicit provider/model/effort failure falls back to de-duped auto c
       model: "sonnet",
       effort: "medium",
     });
-    const payload = JSON.parse(textOf(response));
-    assert.notEqual(response.result.isError, true);
-    assert.equal(payload.provider, CE_RANK2.provider);
-    assert.equal(payload.model, CE_RANK2.model);
-    assert.equal(payload.effort, CE_RANK2.effort);
-    assertFailoverFrom(payload.failover_from[0], CE_RANK1, "transient_provider");
-    await killAgent(session, payload.agent_id);
+    const text = textOf(response);
+    assert.equal(response.result.isError, true, `a pinned triple must not be substituted: ${text}`);
+    assert.ok(text.startsWith("Error: all 1 candidate launches failed for task_category coding:"));
+    assert.match(text, /  1\. sonnet@medium \(claude\) \[transient_provider\]:/);
+    assert.doesNotMatch(text, /gpt-5\.5/, "no auto candidate may be substituted for a pinned triple");
+    assert.doesNotMatch(text, /failover_occurred/);
   });
 });
 
-await test("explicit fallback does not retry the same triple from auto candidates", async () => {
+await test("pinned provider+model gets exactly one attempt and no auto tail", async () => {
   await withEnv("stall", GRACE_MS, { mockHookMode: "transient-always" }, async ({ session }) => {
     const modeResp = await callTool(session, "model-selection-mode", { mode: "user-approved-overrides" });
     assert.notEqual(modeResp.result.isError, true);
     const response = await launch(session, {
       task_category: "coding",
-      prompt: "explicit override transient failure",
+      prompt: "provider-model override transient failure",
       provider: "claude",
       model: "sonnet",
-      effort: "medium",
     });
     const text = textOf(response);
     assert.equal(response.result.isError, true);
-    assert.ok(text.startsWith("Error: all 2 candidate launches failed for task_category coding:"));
+    assert.ok(text.startsWith("Error: all 1 candidate launches failed for task_category coding:"));
     assert.match(text, /  1\. sonnet@medium \(claude\) \[transient_provider\]:/);
-    assert.match(text, /  2\. gpt-5\.5@xhigh \(codex\) \[transient_provider\]:/);
-    assert.doesNotMatch(text, /  3\. sonnet@medium/);
+    assert.doesNotMatch(text, /  2\. /, "the auto tail must not be appended to a pinned model");
   });
 });
 
@@ -629,10 +630,18 @@ await test("all candidates exhausted on transient failures -> ERR_ALL_FAILED lis
     const response = await launch(session, { task_category: "coding", prompt: "all transient failures" });
     const text = textOf(response);
     assert.equal(response.result.isError, true);
+    // Exhaustion is the ONLY loud case: it must report the full ranking in
+    // order, with a non-empty reason for every candidate that was tried.
     assert.ok(text.startsWith("Error: all 2 candidate launches failed for task_category coding:"));
-    assert.match(text, /  1\. sonnet@medium \(claude\) \[transient_provider\]:/);
-    assert.match(text, /  2\. gpt-5\.5@xhigh \(codex\) \[transient_provider\]:/);
+    assert.match(text, /  1\. sonnet@medium \(claude\) \[transient_provider\]: \S+/);
+    assert.match(text, /  2\. gpt-5\.5@xhigh \(codex\) \[transient_provider\]: \S+/);
+    assert.doesNotMatch(text, /  3\. /, "auto candidate list is exactly the two ranked pairings");
+    assert.ok(
+      text.indexOf("1. sonnet@medium") < text.indexOf("2. gpt-5.5@xhigh"),
+      "reasons are listed in rank order"
+    );
     assert.doesNotMatch(text, /failover_occurred/);
+    assert.ok(text.includes(AUTO_HINT));
   });
 });
 
@@ -650,12 +659,13 @@ await test("error after definitelyStarted is not failover and leaves the agent r
   });
 });
 
-await test("failover_note identifies rank-1 failure and selected winner", async () => {
+await test("failover_note names the unavailable provider, the reason, and the winner", async () => {
   await withEnv("stall", GRACE_MS, { mockHookMode: "transient-once" }, async ({ session }) => {
     const response = await launch(session, { task_category: "coding", prompt: "failover note" });
     const payload = JSON.parse(textOf(response));
-    assert.match(payload.failover_note, /sonnet@medium \(claude\)/);
-    assert.match(payload.failover_note, /gpt-5\.5@xhigh \(codex\)/);
+    assert.match(payload.failover_note, /claude/, "names the unavailable provider");
+    assert.match(payload.failover_note, /\(provider error\)/, "names why it was skipped");
+    assert.match(payload.failover_note, /gpt-5\.5@xhigh \(codex\)/, "names the winner");
     await killAgent(session, payload.agent_id);
   });
 });

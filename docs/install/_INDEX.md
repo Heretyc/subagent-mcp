@@ -68,7 +68,7 @@ CLI or Codex CLI for the full behavior.
 
 | Host | Toggle works | Per-turn injection | Native-agent suppression |
 |---|---|---|---|
-| Claude Code CLI | yes | yes (`UserPromptSubmit` + `PreToolUse`) | settings deny rules |
+| Claude Code CLI | yes | yes (`UserPromptSubmit` + `PreToolUse`) | settings deny `Agent` + PreToolUse hook |
 | Codex CLI | yes | yes (bundled `SessionStart` + `UserPromptSubmit`) | `[features] multi_agent=false` |
 | Claude Desktop | yes | **no** : no hook host | none documented |
 | Codex Desktop / IDE | yes | **no** : no hook host | none documented |

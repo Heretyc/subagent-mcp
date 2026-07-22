@@ -17,6 +17,10 @@ import {
   checkSessionState,
   checkUpdate,
 } from "../dist/doctor.js";
+import { ensureNativeAgentSuppression } from "../dist/native-suppression.js";
+
+/** Deny rules earlier versions wrote; doctor must flag them as stale. */
+const LEGACY_CLAUDE_DENY = ["Task", "Explore", "Agent(Explore)"];
 
 let passed = 0;
 let failed = 0;
@@ -223,9 +227,9 @@ test("smcp-skills-commands: missing warns, present passes", () => withRoot(({ ho
   assert.equal(present.detail, "deployed");
 }));
 
-test("native-agent-suppression: reports all static and policy layers", () => withRoot(({ home }) => {
+test("native-agent-suppression: reports all static and policy layers", async () => withRoot(async ({ home }) => {
   writeJson(join(home, ".claude", "settings.json"), {
-    permissions: { deny: ["Task", "Agent", "Explore", "Agent(Explore)"] },
+    permissions: { deny: ["Agent"] },
   });
   mkdirSync(join(home, ".codex"), { recursive: true });
   writeFileSync(join(home, ".codex", "config.toml"), "[features]\nmulti_agent = false # native agents off\n", "utf8");
@@ -249,34 +253,76 @@ toolName = "browser_agent"
 decision = "deny"
 `, "utf8");
 
-  const r = checkNativeAgentSuppression({ home });
+  const r = await checkNativeAgentSuppression({ home, isTTY: false });
   assert.equal(r.status, "PASS");
   assert.match(r.detail, /claude static deny ok/);
   assert.match(r.detail, /codex static disable ok/);
   assert.match(r.detail, /gemini policy deny ok/);
 }));
 
-test("native-agent-suppression: codex check requires multi_agent=false inside features", () => withRoot(({ home }) => {
+test("native-agent-suppression: codex check requires multi_agent=false inside features", async () => withRoot(async ({ home }) => {
   mkdirSync(join(home, ".codex"), { recursive: true });
   writeFileSync(join(home, ".codex", "config.toml"), "[other]\nmulti_agent = false\n[features]\nmulti_agent = true\n", "utf8");
 
-  const r = checkNativeAgentSuppression({ home });
+  const r = await checkNativeAgentSuppression({ home, isTTY: false });
   assert.equal(r.status, "WARN");
   assert.match(r.detail, /codex missing \[features\] multi_agent=false/);
 }));
 
-test("native-agent-suppression: warns for missing defense-in-depth layers", () => withRoot(({ home }) => {
+test("native-agent-suppression: warns for missing defense-in-depth layers", async () => withRoot(async ({ home }) => {
   writeJson(join(home, ".claude", "settings.json"), { permissions: { deny: ["Write(secret)"] } });
   mkdirSync(join(home, ".codex"), { recursive: true });
   writeFileSync(join(home, ".codex", "config.toml"), "[features]\nhooks = true\n", "utf8");
   writeJson(join(home, ".gemini", "settings.json"), { experimental: { enableAgents: true } });
 
-  const r = checkNativeAgentSuppression({ home });
+  const r = await checkNativeAgentSuppression({ home, isTTY: false });
   assert.equal(r.status, "WARN");
   assert.match(r.detail, /claude missing permissions\.deny/);
   assert.match(r.detail, /codex missing \[features\] multi_agent=false/);
   assert.match(r.detail, /gemini missing experimental\.enableAgents=false/);
   assert.match(r.detail, /gemini missing policy/);
+}));
+
+test("native-agent-suppression: stale legacy deny rules warn", async () => withRoot(async ({ home }) => {
+  writeJson(join(home, ".claude", "settings.json"), {
+    permissions: { deny: ["Agent", ...LEGACY_CLAUDE_DENY] },
+  });
+
+  const r = await checkNativeAgentSuppression({ home, isTTY: false });
+  assert.equal(r.status, "WARN", "legacy rules left behind by an older version are stale and must warn");
+  assert.match(r.detail, /claude/);
+}));
+
+test("native-agent-suppression: canonical deny plus user entries passes", async () => withRoot(async ({ home }) => {
+  writeJson(join(home, ".claude", "settings.json"), {
+    permissions: { deny: ["Agent", "Write(secret)", "Bash(rm:*)", "TaskCreate"] },
+  });
+
+  const r = await checkNativeAgentSuppression({ home, isTTY: false });
+  assert.equal(r.status, "PASS", "user-authored deny entries must not be mistaken for stale rules");
+  assert.match(r.detail, /claude static deny ok/);
+}));
+
+test("native-agent-suppression: repair clears the stale warning", async () => withRoot(async ({ home }) => {
+  const settings = join(home, ".claude", "settings.json");
+  writeJson(settings, {
+    permissions: { allow: ["Read(*)"], deny: ["Agent", ...LEGACY_CLAUDE_DENY, "Write(secret)"] },
+  });
+  assert.equal((await checkNativeAgentSuppression({ home, isTTY: false })).status, "WARN");
+
+  ensureNativeAgentSuppression(home, ["claude"]);
+
+  const after = await checkNativeAgentSuppression({ home, isTTY: false });
+  assert.equal(after.status, "PASS");
+  assert.match(after.detail, /claude static deny ok/);
+
+  const repaired = JSON.parse(readFileSync(settings, "utf8"));
+  for (const legacy of LEGACY_CLAUDE_DENY) {
+    assert.equal(repaired.permissions.deny.includes(legacy), false, `${legacy} must be gone after repair`);
+  }
+  assert.equal(repaired.permissions.deny.includes("Agent"), true);
+  assert.equal(repaired.permissions.deny.includes("Write(secret)"), true, "user entry survives repair");
+  assert.deepEqual(repaired.permissions.allow, ["Read(*)"]);
 }));
 
 test("mcp-registration: stale mcp.json warns without failing live registration", async () => withRoot(async ({ home, fakeBin }) => {

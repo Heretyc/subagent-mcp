@@ -157,29 +157,32 @@ candidate; `buildCommand` + `resolveEffort` remain the final authority.
 From the selected branch's `<task_category>` array (per section Branch selection), sorted by `rank` asc:
 
 - `auto`: all pairings.
-- `provider`: pairings whose mapped provider == the supplied provider.
+- `provider`: pairings whose mapped provider == the supplied provider, followed
+  by de-duplicated valid auto candidates for the category.
 - `provider_model`: pairings whose `model` == the supplied model (mapped
   provider must also equal supplied provider; mismatch is impossible if the
-  existing provider↔model check passed, but filter on model).
-- `explicit`: build the user's `{provider, model, effort}` candidate first,
-  even if it is absent from the table. If the table is available, append
-  de-duplicated valid auto candidates for the same task category.
+  existing provider↔model check passed, but filter on model), truncated to the
+  rank-1 match. This one candidate is pinned; no auto candidates are appended.
+- `explicit`: build the user's `{provider, model, effort}` candidate. No
+  de-duplicated auto candidates are appended; the fully-pinned triple is the
+  sole candidate. Failure returns a loud error with no substitute.
 
 Before the advanced ruleset runs, `slotInsert` augments only pure-auto
 `cost_efficiency` routing with eligible `providers.jsonc` API slots. Pure-auto
 `performance` and all manual/override modes exclude slot candidates. The
 ruleset retains final authority over the actual candidate list.
 
-After filtering and appending valid auto candidates, if the list is empty in
-auto/provider/provider_model mode -> `ERR_NO_CANDIDATES` with the matching
-`<scope>` (`resolution-matrix.md`).
+If the list is empty in auto/provider/provider_model mode ->
+`ERR_NO_CANDIDATES` with the matching `<scope>` (`resolution-matrix.md`).
 
 ## Attempt loop with SILENT fallback
 
-This fallback loop applies to auto and override selector modes. Override
-requests try their requested candidates first, then valid de-duplicated auto
-candidates for the same task category. The same `{provider,model,effort}` triple
-is never retried in one `launch_agent` call.
+Pure auto advances silently through the FULL ranked list on any launch-time
+failure. Provider-only mode likewise advances through its requested-provider
+candidates, then de-duplicated auto fallbacks. Provider+model is pinned to one
+rank-1 matching candidate; adding effort pins the exact requested triple.
+Pinned failures return a loud error with no substitute. The same
+`{provider,model,effort}` triple is never retried in one `launch_agent` call.
 
 For each candidate in order (best→worst):
 
@@ -201,15 +204,18 @@ For each candidate in order (best→worst):
    `"transient_provider"`, retry that same candidate exactly once before
    advancing. No permanent API failure, CLI candidate failure, or failed retry
    gets another same-candidate attempt. If still failed, record
-   `{model,effort,provider,reason,failure_type}` and SILENTLY advance to the
-   next candidate. Do not surface intermediate failures to the caller.
+   `{model,effort,provider,reason,failure_type}`. Cascading modes SILENTLY
+   advance; pinned modes exhaust and return `ERR_ALL_FAILED`.
    - `failure_type` is `classifyFailureReason(reason, stderr)` →
-     `"transient_provider"` (usage caps, quota 429, HTTP-status 5xx, network
-     timeouts, connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"`
-     (everything else: ENOENT, EACCES, bad option, missing config, and bare
-     three-digit numbers without HTTP-status context). Except for the single
-     transient API retry above, it is a label only; auto mode advances to the
-     next candidate either way (same-call failover).
+     `"transient_provider"` (provider-side limits and availability errors:
+     session limit, usage cap/limit, spend/spending limit, credits exhausted,
+     billing block, quota, rate limit, 429/too-many-requests, overload,
+     HTTP-status 5xx, network timeouts, connection resets :
+     ETIMEDOUT/ECONNRESET/ECONNREFUSED) or `"permanent"` (everything else:
+     ENOENT, EACCES, bad option, missing config, and bare three-digit numbers
+     without HTTP-status context). Except for the single
+     transient API retry above, it is a label only; cascading modes advance to
+     the next candidate either way (same-call failover).
 4. On the FIRST successful driver start: register the agent with `AgentState`,
    stdout/stderr handlers, close handler, and `agents.set`, then return the
    success payload (`param-contract.md`). If any candidate was skipped before
@@ -231,7 +237,9 @@ via `poll_agent`/`wait` and is NEVER a fallback trigger.
 
 If ALL candidates fail → `ERR_ALL_FAILED` listing each
 `<model>@<effort> (<provider>) [<failure_type>]: <reason>` (`resolution-matrix.md`);
-each numbered line now carries the `[transient_provider]`/`[permanent]` label.
+each numbered line carries the `[transient_provider]`/`[permanent]` label.
+For provider+model modes the list has exactly one pinned entry; provider-only
+may list its requested-provider and de-duplicated auto candidates.
 
 ## Empty / missing table behavior (summary)
 | Condition | auto/provider/provider_model | explicit |

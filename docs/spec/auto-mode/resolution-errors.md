@@ -101,16 +101,17 @@ Error: all <N> candidate launches failed for task_category <task_category>:
 ```
 
 Each numbered line carries the `failure_type` label in brackets :
-`[transient_provider]` (usage caps, quota 429, HTTP-status 5xx, network
-timeouts, ETIMEDOUT/ECONNRESET) or `[permanent]` (everything else, including
-bare three-digit numbers without HTTP-status context) : from
-`classifyFailureReason(reason, stderr)`. Exhaustion is `ERR_ALL_FAILED`
-regardless of classification; it carries no `failover_occurred` field (it is an
-error, not a success).
-
-Override selector modes use `ERR_ALL_FAILED` if every requested and fallback
-candidate fails. The requested route appears first in the numbered list; any
-valid auto candidates are appended after de-duping.
+`[transient_provider]` (provider-side limits and availability errors: session
+limit, usage cap/limit, spend/spending limit, credits exhausted, billing block,
+quota, rate limit, 429/too-many-requests, overload, HTTP-status 5xx, network
+timeouts, ETIMEDOUT/ECONNRESET/ECONNREFUSED) or `[permanent]` (everything
+else: ENOENT, EACCES, bad option, missing config, and bare three-digit numbers
+without HTTP-status context) : from `classifyFailureReason(reason, stderr)`.
+Exhaustion is `ERR_ALL_FAILED` regardless of classification; it carries no
+`failover_occurred` field (it is an error, not a success). Provider-only lists
+its requested-provider candidates followed by de-duplicated auto fallbacks.
+Provider+model, with or without effort, lists exactly one pinned candidate and
+has no substitute.
 
 ## ERR_SUBORCH_DEPTH (`sub-orchestrator: true` at depth >= 1; validation step 6b)
 
