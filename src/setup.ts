@@ -76,7 +76,7 @@ export function serverPaths(root: string = INSTALL_ROOT) {
   };
 }
 
-const SMCP_AGENT_SKILLS = ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"] as const;
+const SMCP_AGENT_SKILLS = ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"] as const;
 type SmcpAssetHost = "claude" | "codex";
 
 function smcpAssetPaths(

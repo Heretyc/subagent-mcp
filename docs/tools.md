@@ -175,3 +175,99 @@ Set or query the per-project MODEL SELECTION MODE, which gates `launch_agent`'s 
 Returns: `{ model_selection_mode, enabled_at, window_remaining_ms, marker_path }`.
 
 `smart` is the DEFAULT (used whenever unset): `launch_agent` REJECTS any call supplying provider/model/effort (`value !== undefined`, including empty strings) and the server auto-picks the best model for the `task_category`. `user-approved-overrides` opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (reverts to smart on the next `launch_agent` call after 30 minutes); re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set `user-approved-overrides` without explicit interactive user authorization via the structured-question tool; never enable it on your own initiative. State (mode + enable-timestamp) persists across MCP server restarts.
+
+---
+
+## `configure`
+
+List, read, or update subagent-mcp configuration by canonical key.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | `"list" \| "get" \| "set"` | Yes | Operation to perform |
+| `key` | string | Required for `get` and `set`; rejected for `list` | Canonical config key (see key table below) |
+| `value` | string | Required for `set` on settable keys; rejected for `get`/`list` | New value as a string; read-only keys return a coaching message instead |
+
+### Actions
+
+**`list`**: Returns all known config keys with their effective values, metadata, and four dynamic key patterns. Results are sorted lexically by key. `value` and `key` must be omitted. Response: `{ ok: true, action: "list", restart_required: false, keys: ConfigRow[], patterns: string[] }`.
+
+**`get`**: Returns the effective value and metadata for exactly one canonical key. `key` is required; `value` must be omitted. Response: `{ ok: true, action: "get", key, value, scope, path, settable, restart_required: false, restart_required_on_set, source? }`.
+
+**`set`**: Writes a new value for a settable key after validation. Read-only keys (all `global.*`, `update.*`, and `mode.*`) never write; they return `{ ok: true, status: "coached", restart_required: false, message }` with an exact coaching message (see below) -- this is not an MCP error. Unchanged writes return `status: "unchanged"` and create no backup. Successful writes return `{ ok: true, action: "set", key, value, status: "updated", path, backup, restart_required }`.
+
+### Canonical key table (static keys)
+
+| Key | Scope | Settable | `restart_required` on set |
+|-----|-------|----------|--------------------------|
+| `global.globalConcurrentSubagents` | machine-global file | no | false |
+| `global.checkForUpdates` | machine-global file + env override | no | true |
+| `global.permissionsCeiling` | machine-global file | no | false |
+| `global.escalation` | machine-global file | no | false |
+| `global.strictReadParity` | machine-global file | no | false |
+| `global.sandboxNetwork` | machine-global file | no | false |
+| `user.contextCoaching` | `~/.subagent-mcp/settings.json` | yes | false |
+| `user.handoffWarnThreshold` | `~/.subagent-mcp/settings.json` | yes | false |
+| `update.autoUpdate` | `~/.subagent-mcp/init-registry.json` | no | true |
+| `mode.orchestration` | orchestration-mode state | no | false |
+| `mode.modelSelection` | model-selection-mode state | no | false |
+
+Dynamic key patterns (resolved at runtime):
+
+- `providers.<provider>` -- whole API-provider object; settable (upsert/create); `<provider>` is URI-encoded
+- `providers.<provider>.api_style`, `.base_url`, `.model`, `.key_env` -- individual provider fields; settable on existing providers
+- `providers.<provider>.routing.<category>` -- routing slot integer for one of the 14 task categories; settable
+- `env.<ENV_NAME>` -- entry in `~/.subagent-mcp/.env`; always settable; `restart_required: true`
+
+### Resolved config file paths
+
+| Scope | Resolved path |
+|-------|--------------|
+| machine-global | installed `dist/global-subagent-mcp-config.jsonc`; falls back to `dist/global-concurrency.jsonc` when the primary is absent |
+| providers | `<configHome>/providers.jsonc`; `configHome` honors `SUBAGENT_CONFIG_HOME`, else `~/.subagent-mcp` |
+| env | `<configHome>/.env` |
+| user settings write target | `<configHome>/settings.json` |
+| user settings local override | `<configHome>/settings.local.json` (list/get return the merged effective value; set still writes `settings.json`) |
+| auto-update registry | `~/.subagent-mcp/init-registry.json` (ignores `SUBAGENT_CONFIG_HOME`) |
+
+`configure` always reports absolute resolved paths. It never calls a loader that scaffolds a missing global config file.
+
+### Redaction
+
+Values are redacted before serialization. Any canonical key or nested object property matching `/token|key|password|secret/i` has its value masked. All `env.*` values are always masked regardless of the variable name. Values shorter than 6 characters become `******`; values 6 characters or longer become the first 4 characters, three dots, and the last 2 characters (for example, `abcdefghxy` becomes `abcd...xy`). Submitted values never appear in errors, logs, or debug output.
+
+### Global-scope read-only rule and coaching messages
+
+All `global.*` keys are read-only through MCP because they affect all users on the machine. A `set` call on any `global.*` key returns success with `status: "coached"` and this message:
+
+```
+configure cannot set "<key>". This machine-global setting affects all users on this machine. A human must edit "<fully-resolved-path>" directly.
+```
+
+For `update.autoUpdate`:
+
+```
+configure cannot set "update.autoUpdate". A human must edit "<fully-resolved-path>" directly; this per-user update policy is intentionally read-only through MCP.
+```
+
+For `mode.orchestration`:
+
+```
+configure cannot set "mode.orchestration". Use the orchestration-mode tool with enabled=true or enabled=false instead; omit enabled there to query.
+```
+
+For `mode.modelSelection`:
+
+```
+configure cannot set "mode.modelSelection". Use the model-selection-mode tool with mode="smart" or mode="user-approved-overrides" instead; omit mode there to query.
+```
+
+### `restart_required` semantics
+
+`restart_required: true` in a set response means the changed value is in process environment state (`.env` entries, `key_env` field changes) and will not take effect until the MCP server process is restarted. `restart_required: false` means the value is re-read per-launch or per-evaluation with no restart needed. `list` and `get` always return `restart_required: false` because they make no change; each list row carries `restart_required_on_set` for reference.
+
+### Provider writes
+
+Provider and `.env` writes are validated before touching the real config. A candidate file is written atomically to a sibling path, validated, then removed; the real config is written only on success. Every changed file receives an atomic sibling backup (`<file>.bak-<epoch-ms>`) before replacement. An unchanged write creates neither backup nor real-file change and returns `status: "unchanged"`.
+
+Error response (any action): `{ ok: false, action, key?, restart_required: false, error }` with `isError: true` set in the MCP envelope.

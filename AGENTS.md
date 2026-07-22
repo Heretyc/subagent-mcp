@@ -77,6 +77,8 @@ fallback use in Gemini CLI, Cursor, Windsurf, Kiro, Copilot, and similar agents.
 - `/smcp:status`: load `skills/smcp-status/SKILL.md` and call `get_status`.
 - `/smcp:doctor`: load `skills/smcp-doctor/SKILL.md`; run `subagent-mcp doctor`
   read-only first and ask before any repair.
+- `/smcp:config`: load `skills/smcp-config/SKILL.md` and call `configure` to
+  list, read, or update configuration by canonical key.
 - Config commands: `subagent-mcp config init`, `subagent-mcp config validate`,
   `subagent-mcp doctor`, `subagent-mcp upgrade`, `subagent-mcp rollback`.
 

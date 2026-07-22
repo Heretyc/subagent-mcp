@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased] 3.1.9-beta.1
+
+### Added
+
+- `configure` MCP tool: list, read, or update subagent-mcp configuration by
+  canonical key (`action=list`, `action=get`, `action=set`). Covers all static
+  keys (`global.*`, `user.*`, `update.*`, `mode.*`) and dynamic provider/env
+  keys. Secret-matching values and all `env.*` values are always redacted in
+  responses. Machine-global and mode-owned keys are read-only through MCP; set
+  attempts return a coaching message and the resolved file path instead of
+  writing. Provider and `.env` writes are validated atomically before the real
+  file is touched; every changed file receives a sibling backup. `.env` and
+  `key_env` changes report `restart_required: true`; all other settable keys
+  report `restart_required: false`.
+- `smcp-config` Agent Skill and `/smcp:config` slash command: interactive
+  wrapper around the `configure` tool, deployed by `setup` for Claude Code and
+  Codex alongside the existing `smcp-*` skills.
+
 ## 3.1.9
 
 ### Fixed

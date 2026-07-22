@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, copyFileSync, realpathSync, unlinkSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, copyFileSync, realpathSync, unlinkSync, mkdirSync, readdirSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve, dirname, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -23,6 +23,13 @@ const WIRE_CLAUDE = flag("--wire-claude");
 const WIRE_CODEX = flag("--wire-codex");
 const CONFIG_FILE = "global-subagent-mcp-config.jsonc";
 const LEGACY_CONFIG_FILE = "global-concurrency.jsonc";
+// Shipped Agent Skills. Keep in sync with SMCP_AGENT_SKILLS in src/setup.ts and
+// the "files" array in package.json; verify() and wireClaude() both derive from
+// this list so a new skill only has to be named once here.
+// ponytail: three sources of truth (this list, src/setup.ts, package.json) still
+// have to be edited together; collapse them into one shared manifest if a fourth
+// consumer appears.
+export const SMCP_SKILLS = ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"];
 const PACKAGE_NAME_RE = /^@?[a-z0-9-~][a-z0-9-._~/]*$/;
 const PACKAGE_VERSION_RE = /^[0-9]+[0-9A-Za-z.+~-]*(?:-[0-9A-Za-z.+~-]+)?$/;
 
@@ -217,7 +224,7 @@ function verify(install) {
     "directives/reminder-on.md",
     "directives/reminder-off-claude.md",
     "directives/reminder-off-codex.md",
-    "skills/smcp-handoff/SKILL.md",
+    ...SMCP_SKILLS.map((name) => `skills/${name}/SKILL.md`),
     "node_modules/@modelcontextprotocol/sdk/package.json",
     "node_modules/zod/package.json",
   ];
@@ -352,20 +359,38 @@ function wireClaude(install) {
     console.error(`  added/updated Claude hooks -> ${sfile}`);
   }
 
-  const source = join(install, "skills", "smcp-handoff", "SKILL.md");
-  const target = join(homedir(), ".claude", "skills", "smcp-handoff", "SKILL.md");
-  if (!existsSync(source)) {
-    console.error(`  smcp-handoff skill source missing -> ${source}`);
-  } else {
-    const body = readFileSync(source, "utf8");
-    if (existsSync(target) && readFileSync(target, "utf8") === body) {
-      console.error("  smcp-handoff skill already present - left as-is");
-    } else {
-      mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, body);
-      console.error(`  deployed smcp-handoff skill -> ${target}`);
+  for (const name of SMCP_SKILLS) deploySkill(install, name);
+}
+
+// Copy one skill's SKILL.md plus any references/*.md into ~/.claude/skills/<name>.
+// ponytail: deploy.mjs still does not deploy commands/*.toml (src/setup.ts does);
+// add that here if the standalone deployer is ever expected to wire slash commands.
+function deploySkill(install, name) {
+  const sourceDir = join(install, "skills", name);
+  const targetDir = join(homedir(), ".claude", "skills", name);
+  const files = ["SKILL.md"];
+  const refDir = join(sourceDir, "references");
+  if (existsSync(refDir)) {
+    for (const entry of readdirSync(refDir, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith(".md")) files.push(`references/${entry.name}`);
     }
   }
+  let wrote = 0;
+  for (const rel of files) {
+    const source = join(sourceDir, ...rel.split("/"));
+    const target = join(targetDir, ...rel.split("/"));
+    if (!existsSync(source)) {
+      console.error(`  ${name} skill source missing -> ${source}`);
+      continue;
+    }
+    const body = readFileSync(source, "utf8");
+    if (existsSync(target) && readFileSync(target, "utf8") === body) continue;
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, body);
+    wrote++;
+  }
+  if (wrote === 0) console.error(`  ${name} skill already present - left as-is`);
+  else console.error(`  deployed ${name} skill (${wrote} file(s)) -> ${targetDir}`);
 }
 
 function wireCodex(install) {

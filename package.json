@@ -26,6 +26,7 @@
     "dist",
     "directives",
     "templates",
+    "skills/smcp-config",
     "skills/smcp-handoff",
     "skills/smcp-help",
     "skills/smcp-status",

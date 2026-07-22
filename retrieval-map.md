@@ -20,6 +20,7 @@ everything else.
 | Tool reference (params/returns) | `docs/tools.md` |
 | Usage, model/effort matrix, ultracode | `docs/usage.md` |
 | Configuration keys and precedence | `README/configuration.md`, `docs/spec/permissions.md`, `docs/spec/global-concurrency/cap-contract/config-and-build.md` |
+| Config tool / read-update config via MCP | `docs/tools.md` (`configure` section), `skills/smcp-config/SKILL.md` |
 | Install / registration (all platforms) | `docs/registration.md`, `docs/install/_INDEX.md` |
 | Claude Code / Codex / Gemini / Desktop install | `docs/install/claude-code-cli.md`, `docs/install/codex-cli.md`, `docs/install/gemini-cli.md`, `docs/install/claude-desktop.md`, `docs/install/codex-desktop.md` |
 | Agent status lifecycle | `docs/reference/status-lifecycle.md` |
@@ -49,6 +50,7 @@ everything else.
 | MCP builder skill | `skills/mcp-builder/SKILL.md` (+ `references/`) |
 | Model profiler skill | `skills/model-profiler/SKILL.md` (+ `references/`) |
 | Installer skill | `skills/subagent-mcp-installer/SKILL.md` (+ `references/`) |
+| Config skill (`/smcp:config`) | `skills/smcp-config/SKILL.md` |
 | Nested RAG map (skill) | `skills/mcp-builder/references/retrieval-map.md`, `.spec/references/retrieval-map.md` |
 
 ## 2. Alias / synonym index
@@ -181,6 +183,7 @@ everything else.
 - `skills/mcp-builder/SKILL.md` : building an MCP server.
 - `skills/model-profiler/SKILL.md` : re-profiling the fleet / routing-table regen.
 - `skills/subagent-mcp-installer/SKILL.md` : installing the addon globally.
+- `skills/smcp-config/SKILL.md` : listing, reading, or updating config via the `configure` tool.
 
 ## 11. When to stop and ask for more context
 

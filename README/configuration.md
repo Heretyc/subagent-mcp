@@ -37,6 +37,19 @@ unioned, so they only tighten. Full precedence:
 | `contextCoaching` | `true` or `false`; `false` mutes only the wind-down warning/steer | `true` |
 | `handoffWarnThreshold` | integer `40`-`90`; anything malformed or out of range resolves to `60` | `60` |
 
+## Updating Settings Via MCP
+
+The `configure` MCP tool lets you list, read, or update most settings without
+leaving the assistant. Use `action=list` to see all keys and their current
+values, `action=get` with a canonical key (for example `user.contextCoaching`)
+to read one setting, and `action=set` to update a settable key. Secret-matching
+values and all `env.*` values are always redacted in responses.
+
+Machine-global keys (`global.*`) are read-only through MCP. A set attempt
+returns a coaching message identifying the resolved config file path; a human
+must edit that file directly. Use `/smcp:config` to invoke the tool
+interactively.
+
 ## Permission And Selection Modes
 
 - **Permission ceiling** (`permissionsCeiling`, global config): `auto`,
