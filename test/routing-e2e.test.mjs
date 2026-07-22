@@ -137,10 +137,10 @@ await test("API timeout covers fetch headers and response body", async () => {
   const apiProvider = provider("openai", "http://provider.invalid");
 
   const realSetTimeout = globalThis.setTimeout;
-  let scheduledMs;
+  const scheduledMs = [];
   try {
     globalThis.setTimeout = (fn, ms, ...args) => {
-      scheduledMs = ms;
+      scheduledMs.push(ms);
       return realSetTimeout(fn, 0, ...args);
     };
     await assert.rejects(
@@ -149,7 +149,7 @@ await test("API timeout covers fetch headers and response body", async () => {
       }),
       /timeout after 120000ms/
     );
-    assert.equal(scheduledMs, 120_000);
+    assert.ok(scheduledMs.includes(120_000), `scheduled timers: ${scheduledMs.join(", ")}`);
   } finally {
     globalThis.setTimeout = realSetTimeout;
   }
