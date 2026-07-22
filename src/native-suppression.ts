@@ -5,7 +5,16 @@ import { atomicWriteFile } from "./orchestration/atomic-write.js";
 export type NativeSuppressionStatus = "ok" | "added" | "repaired";
 export type JsonObj = Record<string, unknown>;
 
-export const CLAUDE_NATIVE_AGENT_DENY = ["Task", "Agent", "Explore", "Agent(Explore)"] as const;
+/**
+ * Canonical Claude `permissions.deny` entries for native-agent suppression.
+ * Exactly `Agent` — the single harness-native sub-agent launcher. `Task` is the
+ * prefix of Claude's task/widget tools (TaskCreate, TaskUpdate, ...) and must
+ * not be denied; `Explore` is not a tool name; `Agent(Explore)` is a
+ * subagent-type specifier that `Agent` already covers.
+ */
+export const CLAUDE_NATIVE_AGENT_DENY = ["Agent"] as const;
+/** Over-broad entries written by earlier versions; removed on reconcile. */
+export const CLAUDE_NATIVE_AGENT_DENY_LEGACY = ["Task", "Explore", "Agent(Explore)"] as const;
 export const GEMINI_NATIVE_AGENT_TOOLS = ["generalist", "codebase_investigator", "cli_help", "browser_agent"] as const;
 export const GEMINI_NATIVE_AGENT_POLICY = "subagent-mcp-native-agents.toml";
 
@@ -26,12 +35,19 @@ export function reconcileClaudeNativeAgentDeny(
       : {};
   const hadPermissions = s.permissions === permissions;
   s.permissions = permissions;
-  const hadDenyArray = Array.isArray(permissions.deny);
+  const rawDeny = Array.isArray(permissions.deny) ? (permissions.deny as unknown[]) : null;
   const before = uniqueStrings(permissions.deny);
-  const deny = [...before];
+  // Surgical: drop only the legacy over-broad entries, keep every other rule in
+  // place and in order, then append the canonical entry if it is not present.
+  const legacy = new Set<string>(CLAUDE_NATIVE_AGENT_DENY_LEGACY);
+  const deny = before.filter((rule) => !legacy.has(rule));
   for (const rule of CLAUDE_NATIVE_AGENT_DENY) if (!deny.includes(rule)) deny.push(rule);
   permissions.deny = deny;
-  const changed = !hadPermissions || !hadDenyArray || deny.length !== before.length;
+  const changed =
+    !hadPermissions ||
+    rawDeny === null ||
+    rawDeny.length !== deny.length ||
+    deny.some((rule, i) => rule !== rawDeny[i]);
   return { changed, status: changed ? (before.length ? "repaired" : "added") : "ok" };
 }
 

@@ -1118,7 +1118,7 @@ export function verifyWiring(
     results.push({
       label: "claude: native-agent static deny",
       ok: deny.status === "ok",
-      detail: deny.status === "ok" ? "permissions.deny blocks Task/Agent/Explore" : "missing - run: subagent-mcp setup",
+      detail: deny.status === "ok" ? "permissions.deny blocks Agent" : "stale or missing - run: subagent-mcp setup",
     });
     const sl = reconcileClaudeStatusLine(sj, p.claudeStatuslineHook);
     results.push({
@@ -1150,7 +1150,7 @@ export function verifyWiring(
     results.push({
       label: "claude: native-agent static deny",
       ok: deny.status === "ok",
-      detail: deny.status === "ok" ? "permissions.deny blocks Task/Agent/Explore" : "missing - run: subagent-mcp setup",
+      detail: deny.status === "ok" ? "permissions.deny blocks Agent" : "stale or missing - run: subagent-mcp setup",
     });
     const sl = reconcileClaudeStatusLine(sj, p.claudeStatuslineHook);
     results.push({

@@ -32,8 +32,10 @@ import { verifySmcpSkillsAndCommands } from "./setup.js";
 import { inspectInitRegistry } from "./init-registry.js";
 import {
   CLAUDE_NATIVE_AGENT_DENY,
+  CLAUDE_NATIVE_AGENT_DENY_LEGACY,
   GEMINI_NATIVE_AGENT_POLICY,
   codexNativeAgentDisableOk,
+  ensureNativeAgentSuppression,
   geminiNativeAgentPolicyOk,
 } from "./native-suppression.js";
 
@@ -553,7 +555,7 @@ export function checkInitRegistry(opts: DoctorOptions = {}): DoctorLine {
   };
 }
 
-export function checkNativeAgentSuppression(opts: DoctorOptions = {}): DoctorLine {
+export async function checkNativeAgentSuppression(opts: DoctorOptions = {}): Promise<DoctorLine> {
   const home = opts.home ?? homedir();
   const parts: string[] = [];
   let ok = true;
@@ -562,9 +564,22 @@ export function checkNativeAgentSuppression(opts: DoctorOptions = {}): DoctorLin
   if (claude) {
     const deny = stringList((claude.permissions as JsonObj | undefined)?.deny);
     const missing = CLAUDE_NATIVE_AGENT_DENY.filter((rule) => !deny.includes(rule));
-    if (missing.length) {
+    // Only the known legacy names are stale; every other rule is user-authored.
+    const stale = CLAUDE_NATIVE_AGENT_DENY_LEGACY.filter((rule) => deny.includes(rule));
+    if (missing.length || stale.length) {
       ok = false;
-      parts.push(`claude missing permissions.deny ${missing.join(", ")}`);
+      const detail = [
+        missing.length ? `missing permissions.deny ${missing.join(", ")}` : null,
+        stale.length ? `stale permissions.deny ${stale.join(", ")}` : null,
+      ].filter((p): p is string => p !== null).join("; ");
+      if (!(opts.isTTY ?? process.stdin.isTTY)) {
+        parts.push(`claude ${detail}; non-TTY: no changes made`);
+      } else if (await askYesNo(opts, "Fix Claude native-agent deny list? [Y/n] ")) {
+        ensureNativeAgentSuppression(home, ["claude"]);
+        parts.push(`claude ${detail}; repaired after backup`);
+      } else {
+        parts.push(`claude ${detail}; repair skipped`);
+      }
     } else {
       parts.push("claude static deny ok");
     }
@@ -619,7 +634,7 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
     await checkSessionState(opts),
     checkSmcpSkillsAndCommands(opts),
     checkInitRegistry(opts),
-    checkNativeAgentSuppression(opts),
+    await checkNativeAgentSuppression(opts),
   ];
   for (const r of results) console.log(line(r));
   const counts = { PASS: 0, WARN: 0, FAIL: 0, INFO: 0 };

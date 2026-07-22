@@ -1,3 +1,13 @@
+/**
+ * native-suppression.test.mjs - native sub-agent suppression reconcilers.
+ *
+ * WHY: the Claude deny list is a *managed* set. It must converge on the single
+ * canonical rule ("Agent"), actively remove the legacy rules we used to write
+ * ("Task", "Explore", "Agent(Explore)"), never disturb user-authored deny
+ * entries, and be idempotent so repeated setup/init/upgrade runs are no-ops.
+ * Denying bare "Task" is what regressed the harness TaskCreate/TaskUpdate
+ * tools, so the canonical list is pinned literally here.
+ */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -12,6 +22,12 @@ import {
   reconcileCodexNativeAgentDisable,
   reconcileGeminiSettings,
 } from "../dist/native-suppression.js";
+
+/** Rules earlier versions wrote that must now be actively removed. */
+const LEGACY_CLAUDE_DENY = ["Task", "Explore", "Agent(Explore)"];
+
+/** Harness tools that must never be gated by the native-agent deny list. */
+const MUST_STAY_ALLOWED = ["TaskCreate", "TaskUpdate"];
 
 let passed = 0;
 let failed = 0;
@@ -42,17 +58,111 @@ function writeJson(file, value) {
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-test("claude: preserves settings and adds native-agent deny once", () => {
-  const s = { theme: "dark", permissions: { allow: ["Read(*)"], deny: ["Write(secret)"] } };
-  const first = reconcileClaudeNativeAgentDeny(s);
-  assert.equal(first.status, "repaired");
+function readJson(file) {
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
+/** Relative order of `subset` inside `list`, ignoring anything else. */
+function orderOf(list, subset) {
+  return list.filter((v) => subset.includes(v));
+}
+
+test("claude: canonical deny list is exactly [\"Agent\"]", () => {
+  assert.deepEqual([...CLAUDE_NATIVE_AGENT_DENY], ["Agent"]);
+  for (const legacy of LEGACY_CLAUDE_DENY) {
+    assert.equal(
+      CLAUDE_NATIVE_AGENT_DENY.includes(legacy),
+      false,
+      `legacy rule ${legacy} must not be part of the canonical list`
+    );
+  }
+});
+
+test("claude: canonical deny list cannot gate TaskCreate/TaskUpdate", () => {
+  for (const tool of MUST_STAY_ALLOWED) {
+    for (const rule of CLAUDE_NATIVE_AGENT_DENY) {
+      assert.notEqual(rule, tool, `${tool} must not be denied outright`);
+      assert.equal(
+        tool.startsWith(rule),
+        false,
+        `deny rule ${rule} prefix-matches ${tool}; that is the regression this list reverts`
+      );
+    }
+  }
+});
+
+test("claude: adds canonical deny to settings that have no permissions block", () => {
+  const s = { theme: "dark" };
+  const r = reconcileClaudeNativeAgentDeny(s);
+  assert.equal(r.changed, true);
+  assert.equal(r.status, "added");
+  assert.equal(s.theme, "dark");
+  assert.deepEqual(s.permissions.deny, ["Agent"]);
+});
+
+test("claude: removes legacy deny rules and keeps user entries", () => {
+  const s = {
+    theme: "dark",
+    permissions: {
+      allow: ["Read(*)"],
+      deny: ["Task", "Write(secret)", "Explore", "Agent(Explore)", "Bash(rm:*)"],
+    },
+  };
+  const r = reconcileClaudeNativeAgentDeny(s);
+  assert.equal(r.changed, true);
+  assert.equal(r.status, "repaired");
+
+  const deny = s.permissions.deny;
+  for (const legacy of LEGACY_CLAUDE_DENY) {
+    assert.equal(deny.includes(legacy), false, `legacy rule ${legacy} must be removed`);
+  }
+  assert.equal(deny.includes("Agent"), true, "canonical rule must be present");
+
+  // User-authored entries survive, in their original relative order.
+  assert.deepEqual(orderOf(deny, ["Write(secret)", "Bash(rm:*)"]), ["Write(secret)", "Bash(rm:*)"]);
+
+  // Nothing else in the settings tree is disturbed.
   assert.equal(s.theme, "dark");
   assert.deepEqual(s.permissions.allow, ["Read(*)"]);
-  for (const rule of CLAUDE_NATIVE_AGENT_DENY) assert.ok(s.permissions.deny.includes(rule));
+});
+
+test("claude: legacy-only deny list collapses to the canonical rule", () => {
+  const s = { permissions: { deny: [...LEGACY_CLAUDE_DENY] } };
+  const r = reconcileClaudeNativeAgentDeny(s);
+  assert.equal(r.changed, true);
+  assert.deepEqual(s.permissions.deny, ["Agent"]);
+});
+
+test("claude: user entries that merely look like agent rules are preserved", () => {
+  const s = { permissions: { deny: ["TaskCreate", "TaskUpdate", "AgentSomething"] } };
+  reconcileClaudeNativeAgentDeny(s);
+  for (const kept of ["TaskCreate", "TaskUpdate", "AgentSomething"]) {
+    assert.equal(s.permissions.deny.includes(kept), true, `${kept} is user-authored and must survive`);
+  }
+});
+
+test("claude: reconcile is idempotent once migrated", () => {
+  const s = { permissions: { allow: ["Read(*)"], deny: ["Task", "Write(secret)", "Agent(Explore)"] } };
+  const first = reconcileClaudeNativeAgentDeny(s);
+  assert.equal(first.changed, true);
   const afterFirst = JSON.stringify(s);
+
   const second = reconcileClaudeNativeAgentDeny(s);
+  assert.equal(second.changed, false);
   assert.equal(second.status, "ok");
   assert.equal(JSON.stringify(s), afterFirst);
+
+  const third = reconcileClaudeNativeAgentDeny(s);
+  assert.equal(third.changed, false);
+  assert.equal(JSON.stringify(s), afterFirst);
+});
+
+test("claude: already-canonical settings report ok without rewriting", () => {
+  const s = { permissions: { deny: ["Agent", "Write(secret)"] } };
+  const r = reconcileClaudeNativeAgentDeny(s);
+  assert.equal(r.changed, false);
+  assert.equal(r.status, "ok");
+  assert.deepEqual(s.permissions.deny, ["Agent", "Write(secret)"]);
 });
 
 test("codex: preserves toml and forces [features] multi_agent=false", () => {
@@ -124,6 +234,41 @@ test("ensureNativeAgentSuppression: writes only fake home, backs up existing fil
 
   const second = ensureNativeAgentSuppression(home, ["claude", "codex", "gemini"]);
   assert.equal(second.every((r) => !r.changed), true);
+}));
+
+test("ensureNativeAgentSuppression: migrates a legacy deny list on disk, then no-ops", () => withHome((home) => {
+  const settings = join(home, ".claude", "settings.json");
+  writeJson(settings, {
+    theme: "dark",
+    permissions: { allow: ["Read(*)"], deny: ["Task", "Agent", "Explore", "Agent(Explore)", "Write(secret)"] },
+  });
+
+  const first = ensureNativeAgentSuppression(home, ["claude"]);
+  assert.equal(first.length, 1);
+  assert.equal(first[0].changed, true);
+
+  const migrated = readJson(settings);
+  assert.deepEqual(orderOf(migrated.permissions.deny, [...LEGACY_CLAUDE_DENY]), []);
+  assert.equal(migrated.permissions.deny.includes("Agent"), true);
+  assert.equal(migrated.permissions.deny.includes("Write(secret)"), true);
+  assert.equal(migrated.theme, "dark");
+  assert.deepEqual(migrated.permissions.allow, ["Read(*)"]);
+
+  const body = readFileSync(settings, "utf8");
+  const second = ensureNativeAgentSuppression(home, ["claude"]);
+  assert.equal(second[0].changed, false);
+  assert.equal(second[0].status, "ok");
+  assert.equal(readFileSync(settings, "utf8"), body, "idempotent run must not rewrite the file");
+}));
+
+test("ensureNativeAgentSuppression: dry run reports the migration without touching disk", () => withHome((home) => {
+  const settings = join(home, ".claude", "settings.json");
+  writeJson(settings, { permissions: { deny: ["Task", "Explore"] } });
+  const before = readFileSync(settings, "utf8");
+
+  const r = ensureNativeAgentSuppression(home, ["claude"], { dryRun: true });
+  assert.equal(r[0].changed, true);
+  assert.equal(readFileSync(settings, "utf8"), before);
 }));
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

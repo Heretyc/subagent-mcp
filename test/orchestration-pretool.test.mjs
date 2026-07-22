@@ -6,6 +6,12 @@
  * the subagent-env skip. The old 5-call inline counter is GONE (D11/D24):
  * long-horizon upgrades are agent-self-driven, so the hook never counts tool
  * calls or asks on a sixth call.
+ *
+ * The denial gate is keyed on the harness sub-agent tool ("Agent"). Task-list
+ * tools (TaskCreate/TaskUpdate) are ordinary tools and must never be caught by
+ * it -- gating those was the regression this branch reverts. Liveness
+ * fail-open cases below deliberately use a denied tool so they prove fail-open
+ * outranks the deny gate rather than passing vacuously.
  */
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -75,7 +81,7 @@ function withSlotDir(fn) {
 }
 
 test("liveness missing/stale -> fail open", () => {
-  const p = payload("Task");
+  const p = payload("Agent");
   try {
     const result = runClaudePreTool(p, {}, Date.now() + LIVENESS_TTL_MS + 1);
     assert.equal(result, null, "stale or absent heartbeat must not block tools");
@@ -85,7 +91,7 @@ test("liveness missing/stale -> fail open", () => {
 });
 
 test("fresh liveness with no live pid -> fail open", () => {
-  const p = payload("Task");
+  const p = payload("Agent");
   try {
     mkdirSync(join(alivePath(), ".."), { recursive: true });
     writeFileSync(alivePath(), `${Date.now()}\npid=99999999\n`, { mode: 0o600 });
@@ -103,14 +109,48 @@ test("fresh liveness with no live pid -> fail open", () => {
   }
 });
 
-test("native Task/Agent/Explore tools are denied while server is alive", () => {
+test("native Agent tool is denied while server is alive", () => {
   touchAlive();
-  for (const tool of ["Task", "Agent", "Explore"]) {
+  const p = payload("Agent");
+  try {
+    const result = runClaudePreTool(p, {});
+    assert.equal(result?.hookSpecificOutput.permissionDecision, "deny");
+    assert.match(result?.hookSpecificOutput.permissionDecisionReason ?? "", /launch_agent/);
+  } finally {
+    cleanup(p);
+  }
+});
+
+test("task-list tools stay allowed while the Agent tool is denied", () => {
+  touchAlive();
+  const denied = payload("Agent");
+  try {
+    assert.equal(runClaudePreTool(denied, {})?.hookSpecificOutput.permissionDecision, "deny");
+  } finally {
+    cleanup(denied);
+  }
+  for (const tool of ["TaskCreate", "TaskUpdate"]) {
     const p = payload(tool);
     try {
-      const result = runClaudePreTool(p, {});
-      assert.equal(result?.hookSpecificOutput.permissionDecision, "deny");
-      assert.match(result?.hookSpecificOutput.permissionDecisionReason ?? "", /launch_agent/);
+      for (let i = 0; i < 4; i++) {
+        assert.equal(
+          runClaudePreTool(p, {}),
+          null,
+          `${tool} is an ordinary task-list tool and must never be gated by the sub-agent deny`
+        );
+      }
+    } finally {
+      cleanup(p);
+    }
+  }
+});
+
+test("task-list tools stay allowed inside a subagent env too", () => {
+  touchAlive();
+  for (const tool of ["TaskCreate", "TaskUpdate"]) {
+    const p = payload(tool);
+    try {
+      assert.equal(runClaudePreTool(p, { SUBAGENT_MCP_SUBAGENT: "1" }), null, `${tool} must stay allowed`);
     } finally {
       cleanup(p);
     }
@@ -119,7 +159,7 @@ test("native Task/Agent/Explore tools are denied while server is alive", () => {
 
 test("native denial remains valid JSON and omits zombie context when culled", () => {
   touchAlive();
-  const p = payload("Task");
+  const p = payload("Agent");
   try {
     withSlotDir((slotDir) => {
       writeSlotMetadata(slotPathForAgent(slotDir, "agent-pretool"), {
@@ -178,7 +218,7 @@ test("ordinary allowed tools return neutral output when culled", () => {
 });
 
 test("fail-open liveness path returns neutral output when culled", () => {
-  const p = payload("Task");
+  const p = payload("Agent");
   try {
     withSlotDir((slotDir) => {
       writeSlotMetadata(slotPathForAgent(slotDir, "agent-pretool-liveness"), {
@@ -226,17 +266,15 @@ test("subagent-mcp and question tools stay allowed", () => {
   }
 });
 
-test("subagent env still denies native Task/Agent/Explore tools", () => {
+test("subagent env still denies the native Agent tool", () => {
   touchAlive();
-  for (const tool of ["Task", "Agent", "Explore"]) {
-    const p = payload(tool);
-    try {
-      const result = runClaudePreTool(p, { SUBAGENT_MCP_SUBAGENT: "1" });
-      assert.equal(result?.hookSpecificOutput.permissionDecision, "deny");
-      assert.match(result?.hookSpecificOutput.permissionDecisionReason ?? "", /launch_agent/);
-    } finally {
-      cleanup(p);
-    }
+  const p = payload("Agent");
+  try {
+    const result = runClaudePreTool(p, { SUBAGENT_MCP_SUBAGENT: "1" });
+    assert.equal(result?.hookSpecificOutput.permissionDecision, "deny");
+    assert.match(result?.hookSpecificOutput.permissionDecisionReason ?? "", /launch_agent/);
+  } finally {
+    cleanup(p);
   }
 });
 
