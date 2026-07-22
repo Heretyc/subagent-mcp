@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.1.7
+
+### Fixed
+
+- Continuous-audit PR branches now satisfy the worktree branch guard.
+- Node 20 CI no longer fails the API-provider timeout regression test because
+  of internal timers scheduled after abort.
+
+### Changed
+
+- Release notes now catalog the continuous-audit hardening batch covering
+  sole-channel/native-agent enforcement, smart-default model selection, and
+  host-defense init checks.
+
 ## 3.1.6
 
 ### Fixed
