@@ -23,6 +23,10 @@ function json(result) {
   return JSON.parse(result.content[0].text);
 }
 
+function text(result) {
+  return JSON.stringify(result);
+}
+
 function backups(dir, name) {
   return readdirSync(dir).filter((f) => f.startsWith(`${name}.bak-`));
 }
@@ -118,6 +122,91 @@ test("configure rejects invalid provider updates without changing the file", () 
     assert.equal(readFileSync(file, "utf8"), before);
   }
   assert.equal(backups(root, "providers.jsonc").length, 0);
+}));
+
+test("configure rejects prototype-polluting provider names and nested payload keys", () => withConfigHome((root) => {
+  mkdirSync(root, { recursive: true });
+  const file = join(root, "providers.jsonc");
+  writeFileSync(join(root, ".env"), "API_KEY=secret\n", "utf8");
+
+  const polluted = configure({ action: "set", key: "providers.__proto__.model", value: "pwn" });
+  assert.equal(polluted.isError, true);
+  assert.equal(Object.prototype.model, undefined);
+
+  const missingModel = configure({
+    action: "set",
+    key: "providers.api",
+    value: JSON.stringify(provider({ model: undefined })),
+  });
+  assert.equal(missingModel.isError, true);
+  assert.equal(existsSync(file), false);
+
+  const nested = configure({
+    action: "set",
+    key: "providers.api",
+    value: '{"api_style":"openai","base_url":"https://api.example.test/v1","model":"example-model","key_env":"API_KEY","routing":{},"note":{"__proto__":{"model":"pwn"}}}',
+  });
+  assert.equal(nested.isError, true);
+  assert.equal(existsSync(file), false);
+}));
+
+test("configure masks whole-provider extra fields from set, get, and list", () => withConfigHome((root) => {
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, ".env"), "API_KEY=secret\n", "utf8");
+  const raw = "sk-live-AAAABBBBCCCCDDDD";
+  const value = provider({ credential: raw, note: { deep: raw } });
+
+  const set = configure({ action: "set", key: "providers.api", value: JSON.stringify(value) });
+  const get = configure({ action: "get", key: "providers.api" });
+  const list = configure({ action: "list" });
+
+  for (const r of [set, get, list]) assert.doesNotMatch(text(r), new RegExp(raw));
+  for (const body of [json(set), json(get), json(list).keys.find((k) => k.key === "providers.api")]) {
+    assert.equal(body.value.model, "example-model");
+    assert.equal(body.value.base_url, "https://api.example.test/v1");
+    assert.equal(body.value.routing.coding, 1);
+    assert.notEqual(body.value.credential, raw);
+    assert.notEqual(body.value.note.deep, raw);
+  }
+}));
+
+test("configure JSON parse errors do not echo submitted content", () => withConfigHome(() => {
+  const raw = "TOPSECRET123";
+  const r = configure({ action: "set", key: "providers.newp", value: raw });
+  assert.equal(r.isError, true);
+  assert.match(json(r).error, /invalid JSON/);
+  assert.doesNotMatch(text(r), new RegExp(raw));
+}));
+
+test("configure masks unknown keys in the envelope and error", () => withConfigHome(() => {
+  const raw = "abcdSECRETxy";
+  const r = configure({ action: "get", key: `unknown.${raw}` });
+  const body = json(r);
+  assert.equal(r.isError, true);
+  assert.doesNotMatch(body.key, new RegExp(raw));
+  assert.doesNotMatch(body.error, new RegExp(raw));
+  assert.doesNotMatch(text(r), new RegExp(raw));
+}));
+
+test("configure rejects unsafe routing integers without writing", () => withConfigHome((root) => {
+  mkdirSync(root, { recursive: true });
+  const file = join(root, "providers.jsonc");
+  writeJson(file, { providers: { api: provider() } });
+  writeFileSync(join(root, ".env"), "API_KEY=secret\n", "utf8");
+  const before = readFileSync(file, "utf8");
+
+  const r = configure({ action: "set", key: "providers.api.routing.coding", value: "9007199254740992" });
+  assert.equal(r.isError, true);
+  assert.equal(readFileSync(file, "utf8"), before);
+  assert.equal(backups(root, "providers.jsonc").length, 0);
+}));
+
+test("configure catch-all errors are sanitized", () => withConfigHome(() => {
+  const raw = "TOPSECRET123";
+  const r = configure({ action: "set", key: { toString: () => raw }, value: "safe" });
+  assert.equal(r.isError, true);
+  assert.match(json(r).error, /withheld/);
+  assert.doesNotMatch(text(r), new RegExp(raw));
 }));
 
 test("configure reports restart only for env and key_env changes", () => withConfigHome((root) => {

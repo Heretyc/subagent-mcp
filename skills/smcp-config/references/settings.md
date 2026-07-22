@@ -1,10 +1,27 @@
-# subagent-mcp configure: full settings catalog
+# subagent-mcp configure: settings reference
 
 Canonical keys for the `configure` MCP tool. `<provider>` is one URI-encoded
 provider-name segment (dots encoded as `%2E`). `<ENV_NAME>` must match
-`[A-Za-z_][A-Za-z0-9_]*`. "Default" is the runtime fallback, not necessarily
-the value in a scaffolded file. Every response reports `restart_required`;
+`[A-Za-z_][A-Za-z0-9_]*`. Every response reports `restart_required`;
 `list`/`get` never write a file.
+
+## The catalog is discoverable at runtime
+
+Do not rely on a hand-written key table: `{"action":"list"}` returns every row
+with `key`, `value`, `type`, `default`, `valid_values`, `scope`, `path`,
+`settable`, `restart_required_on_set`, and `redacted` (plus optional
+`source`), and the four dynamic patterns `providers.<provider>`,
+`providers.<provider>.{api_style|base_url|model|key_env}`,
+`providers.<provider>.routing.<category>`, and `env.<ENV_NAME>`. Always read
+key names, defaults, and valid values from `list`/`get` output; never guess.
+A row's `default` is the runtime fallback, not necessarily the value in a
+scaffolded file.
+
+Representative call:
+
+```json
+{ "action": "set", "key": "user.handoffWarnThreshold", "value": "75" }
+```
 
 ## Resolved files by scope
 
@@ -23,122 +40,45 @@ Report absolute paths, never `~`.
 
 `<config-home>` is `SUBAGENT_CONFIG_HOME` when set, otherwise `~/.subagent-mcp`.
 
-## Machine-global keys (tool-read-only)
+## Read-only keys and coached sets
 
-All six live in the installed machine-global file and affect every user on the
-machine. `configure` never writes them: `set` is a successful no-op with
-`status: "coached"` naming the fully resolved path a human must edit.
+All `global.*` keys, `update.autoUpdate`, and the `mode.*` keys are read-only
+through this tool. `set` on any of them is a successful no-op with
+`status: "coached"` and a message naming the fully resolved file a human must
+edit, or (for `mode.*`) the `orchestration-mode` / `model-selection-mode` tool
+to use instead. The coached response is returned even when `value` is omitted,
+and any supplied `value` is ignored.
 
-| key | type | default | valid values | restart |
-|---|---|---|---|---|
-| `global.globalConcurrentSubagents` | integer | `20` | integer `>=10` used as-is; `1..9` clamps to `10`; non-integer or `<=0` falls back to `20`; re-read per `launch_agent` | false |
-| `global.checkForUpdates` | boolean | `true` | `true`/`false`; forced false by `NO_UPDATE_NOTIFIER`, `CI`, `NODE_ENV=test`, or `SUBAGENT_UPDATE_CHECK=0|false` (case-insensitive), reported via `source` | true for an already-started update cycle |
-| `global.permissionsCeiling` | enum | `auto` when missing; malformed file fails closed to `manual` | `auto`, `manual`, `yolo` | false |
-| `global.escalation` | enum | `irreversible-only` | `irreversible-only`, `off` | false |
-| `global.strictReadParity` | enum | `warn` | `warn`, `off` | false |
-| `global.sandboxNetwork` | boolean | parser fallback `true` when missing/invalid; the shipped scaffold explicitly writes `false` | `true`, `false` | false |
+## Behavior a list row does not spell out
 
-None are redacted.
-
-```json
-{ "action": "get", "key": "global.globalConcurrentSubagents" }
-```
-
-## User settings keys (settable)
-
-Written to `settings.json` with comments and unrelated keys preserved,
-atomically backed up first. If `settings.local.json` overrides the key, the
-response reports the effective value and its `source` instead of claiming the
-requested value took effect. Neither is redacted; neither requires a restart.
-
-| key | type | default | valid values |
-|---|---|---|---|
-| `user.contextCoaching` | boolean | `true` | exactly `true` or `false` |
-| `user.handoffWarnThreshold` | integer | `60` | whole integer `40..90`; out-of-range or malformed input is rejected, not normalized |
-
-```json
-{ "action": "set", "key": "user.handoffWarnThreshold", "value": "75" }
-```
-
-## Update key (tool-read-only)
-
-| key | scope | type | default | valid values | restart |
-|---|---|---|---|---|---|
-| `update.autoUpdate` | per-user init registry | boolean | runtime fallback `false`; first-run setup normally records `true` | `true`, `false` | true for an already-started update cycle |
-
-Per-user, not machine-global. `set` coaches the user to edit
-`~/.subagent-mcp/init-registry.json` by hand. Not redacted.
-
-```json
-{ "action": "get", "key": "update.autoUpdate" }
-```
-
-## Mode keys (tool-read-only, delegated)
-
-| key | type | default | valid values |
-|---|---|---|---|
-| `mode.orchestration` | state | effective session state computed by the mode code | `ON`, `disabled-this-session`, plus `session_scope` metadata |
-| `mode.modelSelection` | state | `smart` | `smart`, `user-approved-overrides`, plus timestamp/window metadata |
-
-`set` never mutates mode state; it directs the caller to the `orchestration-mode`
-tool (`enabled=true|false`) or the `model-selection-mode` tool
-(`mode="smart"|"user-approved-overrides"`). Not redacted, no restart.
-
-```json
-{ "action": "get", "key": "mode.orchestration" }
-```
-
-## Provider keys (settable)
-
-All live in `<config-home>/providers.jsonc`. Every write validates the full
-candidate config in a scratch sibling file before the real file is touched,
-then atomically backs up and rewrites the target with mode `0600`. Only API
-providers (entries with `api_style`) appear in this namespace.
-
-| key | type | valid values | restart | redacted |
-|---|---|---|---|---|
-| `providers.<provider>` | JSON object | complete API-provider object with usable `api_style`, `base_url`, `model`, `key_env`, and all 14 routing keys; unknown extra fields may be preserved. This is the only way to create a provider, because partial field writes cannot validate | true only if `key_env` changes | nested `key_env` value is deep-redacted |
-| `providers.<provider>.api_style` | enum | `claude`, `openai` | false | no |
-| `providers.<provider>.base_url` | string | non-empty string | false | no |
-| `providers.<provider>.model` | string | non-empty string | false | no |
-| `providers.<provider>.key_env` | string | env var name matching `[A-Za-z_][A-Za-z0-9_]*`; a matching non-placeholder `.env` entry must already exist | true | yes (key matches `/key/i`) |
-
-Scalar fields are settable on an existing provider only, unless the whole
-candidate validates. Providers are re-read on every launch, which is why scalar
-edits need no restart.
-
-### Routing slots (settable)
-
-All 14 keys take the form `providers.<provider>.routing.<category>`, type
-integer slot, no restart, not redacted. Value rules: any safe integer; `>=1`
-inserts the provider at that one-based priority slot for the category; `<1`
-(for example `-1`) disables it there. Categories:
-
-`math_proof`, `security_review`, `debugging`, `quality_review`, `architecture`,
-`agentic_execution`, `data_analysis`, `coding`, `knowledge_synthesis`,
-`mechanical`, `prompt_engineering`, `vulnerability_research`,
-`molecular_biology`, `ml_accelerator_design`.
-
-`fallback_default` is intentionally not a routing key.
-
-```json
-{ "action": "set", "key": "providers.acme.routing.coding", "value": "1" }
-```
-
-## Env keys (settable)
-
-| key | scope | type | valid values | restart | redacted |
-|---|---|---|---|---|---|
-| `env.<ENV_NAME>` | `<config-home>/.env` | secret string | non-empty single-line value (no `\r`, `\n`, or NUL); name must match `[A-Za-z_][A-Za-z0-9_]*` | true | always, even when the name lacks a secret-ish word |
-
-Writes preserve comments, blank lines, and unrelated assignments, replace the
-first matching assignment, drop later duplicates of the same name, back up
-atomically, and write mode `0600`. `process.env` is never mutated: the contract
-is that environment changes need a host restart.
-
-```json
-{ "action": "set", "key": "env.ACME_API_KEY", "value": "sk-real-key" }
-```
+- `get`/`list` rows may carry `source`. Besides env-override and
+  `settings.local.json` labels, it can be the literal strings
+  `"fallback (global file absent)"` (global keys read while the machine-global
+  file is absent) or `"fallback (registry absent)"` (`update.autoUpdate` when
+  the init registry is absent).
+- `restart_required_on_set` is a boolean except on whole-provider
+  `providers.<provider>` rows, where it is the literal string
+  `"if key_env changes"`.
+- Setting the whole `providers.<provider>` object is the only way to create a
+  provider, because partial field writes cannot validate; the scalar fields
+  (`api_style`, `base_url`, `model`, `key_env`) are settable on existing
+  providers only. Provider writes validate the full candidate config in a
+  scratch sibling file before the real file is touched, then atomically back
+  up and rewrite the target with mode `0600`. Providers are re-read on every
+  launch, which is why scalar edits need no restart.
+- `providers.<provider>.key_env`: non-empty string; a matching non-placeholder
+  `.env` entry must already exist (the variable-name regex is not enforced for
+  this field).
+- Routing slots: any safe integer; `>=1` inserts the provider at that
+  one-based priority slot for the category, `<1` disables it there. The
+  categories mirror `launch_agent` `task_category` values; `fallback_default`
+  is intentionally not a routing key.
+- `env.<ENV_NAME>` writes are shape-checked only (non-empty, single line: no
+  CR, LF, or NUL). They preserve comments, blank lines, and unrelated
+  assignments, replace the first matching assignment, drop later duplicates of
+  the same name, back up atomically, and write mode `0600`. `process.env` is
+  never mutated: environment changes need a host restart, so `env.*` and
+  `key_env` changes report `restart_required: true`.
 
 ## Redaction
 
@@ -147,21 +87,9 @@ Applied once, to the whole response, before serialization.
 - Any canonical key or nested property matching `/token|key|password|secret/i`
   is masked, as is every `env.*` value.
 - Values shorter than six characters become the fixed mask `******`.
-- Longer values become the first four characters, a one-character ellipsis, and
-  the last two characters, for example `abcdefghxy` renders as `abcd`+ellipsis+`xy`.
+- Longer values become the first four characters, a one-character ellipsis
+  (the single U+2026 character), and the last two characters; for example
+  `abcdefghxy` renders as `abcd` + ellipsis + `xy`.
 - Errors carry canonical keys and sanitized validator reasons only. A submitted
   value never appears in a response, error, or log. Paths and backup names may
   be reported; file contents may not.
-
-## Listing
-
-```json
-{ "action": "list" }
-```
-
-Returns one row per concrete key, sorted by key, each with `key`, `value`,
-`scope`, `type`, `default`, `valid_values`, `settable`,
-`restart_required_on_set`, `redacted`, `path`, and optional `source`, plus the
-four dynamic patterns: `providers.<provider>`,
-`providers.<provider>.{api_style|base_url|model|key_env}`,
-`providers.<provider>.routing.<category>`, and `env.<ENV_NAME>`.

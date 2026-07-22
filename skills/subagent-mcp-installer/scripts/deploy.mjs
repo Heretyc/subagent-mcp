@@ -29,7 +29,7 @@ const LEGACY_CONFIG_FILE = "global-concurrency.jsonc";
 // ponytail: three sources of truth (this list, src/setup.ts, package.json) still
 // have to be edited together; collapse them into one shared manifest if a fourth
 // consumer appears.
-export const SMCP_SKILLS = ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"];
+const SMCP_SKILLS = ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"];
 const PACKAGE_NAME_RE = /^@?[a-z0-9-~][a-z0-9-._~/]*$/;
 const PACKAGE_VERSION_RE = /^[0-9]+[0-9A-Za-z.+~-]*(?:-[0-9A-Za-z.+~-]+)?$/;
 

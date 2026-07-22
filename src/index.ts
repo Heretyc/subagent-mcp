@@ -2462,6 +2462,8 @@ server.tool(
 );
 
 // Tool 13: configure -- one literal key table + one dispatch, in ./configure.ts.
+// The description below stays an inline literal: scripts/check_mcp_compliance.mjs
+// statically parses this argument to byte-size every tool description.
 server.tool(
   "configure",
   "List, read, or update subagent-mcp configuration by canonical key. `action=list` enumerates settings; `action=get` requires `key`; `action=set` requires `key` and, for settable keys, string `value`. Secrets are always redacted. Machine-global and mode-owned settings are read-only here: edit the reported global file as a human or use `orchestration-mode`/`model-selection-mode`. Provider and .env writes are validated, backed up, and atomic; responses report `restart_required`.",

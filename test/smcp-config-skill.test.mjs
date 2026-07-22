@@ -13,7 +13,7 @@ test("smcp-config skill exists with valid frontmatter and budget", () => {
   const frontmatter = body.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   assert.ok(frontmatter, "frontmatter exists");
   assert.match(frontmatter[1], /^name:\s*smcp-config$/m);
-  assert.ok(body.split(/\s+/).filter(Boolean).length <= 300, "SKILL.md stays under 300 tokens");
+  assert.ok(Math.ceil(body.length / 4) <= 300, "SKILL.md stays under 300 tokens");
 });
 
 test("smcp-config ships settings reference and command", () => {
