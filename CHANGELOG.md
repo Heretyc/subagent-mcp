@@ -36,6 +36,11 @@
 - Release notes now catalog the continuous-audit hardening batch covering
   sole-channel/native-agent enforcement, smart-default model selection, and
   host-defense init checks.
+- Claude `permissions.deny` canonical entry is `["Agent"]` only. Task widget
+  tools and Explore are not statically denied. Upgrade silently removes legacy
+  `Task`, `Explore`, and `Agent(Explore)` entries; `doctor` detects stale
+  entries and offers repair; `uninstall` reverts the smcp-owned `Agent` entry.
+- Codex setup writes only `multi_agent = false`; no `disabled_tools` entries.
 
 ## 3.1.6
 

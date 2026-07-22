@@ -63,6 +63,9 @@ After install succeeds:
 - If `globalInit` is true, global target files are re-initialized.
 - `--force` re-initializes global target files and every existing registered
   project entry.
+- Successful update silently removes legacy Claude `permissions.deny` entries
+  (`Task`, `Explore`, `Agent(Explore)`) from smcp-managed settings files,
+  leaving only the canonical `"Agent"` deny entry.
 - Successful update prunes `~/.subagent-mcp/backups` timestamp snapshots to the
   most recent directory only.
 - Successful update prunes temp update backups matching `*.bak-update-*` to the
@@ -130,6 +133,11 @@ spawns `node dist/index.js update --quiet` detached with
 build.`
 
 ## Doctor Check
+
+`doctor` includes a deny-entry check: it reads smcp-managed Claude settings
+files and reports stale `Task`, `Explore`, or `Agent(Explore)` deny entries
+left by a prior install. The check is `WARN` when stale entries are found and
+offers repair (removes them), leaving only the canonical `"Agent"` entry.
 
 `doctor` includes check `11 init-registry`. It reports:
 

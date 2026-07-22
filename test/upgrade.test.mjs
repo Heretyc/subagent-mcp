@@ -172,6 +172,53 @@ test("init block absent non-TTY reports only", () => withRoot(async (r) => {
   for (const target of globalTargetFiles(r.home)) assert.equal(existsSync(target), false);
 }));
 
+test("upgrade migrates a legacy deny list silently", () => withRoot(async (r) => {
+  const settingsFile = join(r.home, ".claude", "settings.json");
+  writeJson(settingsFile, {
+    theme: "dark",
+    permissions: { allow: ["Read(*)"], deny: ["Task", "Agent", "Explore", "Agent(Explore)", "Write(secret)"] },
+  });
+  const lines = [];
+  const o = opts(r, "npm-global", { log: (line) => lines.push(line) });
+  assert.equal(await runUpgrade(o.options), 0);
+
+  const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+  for (const legacy of ["Task", "Explore", "Agent(Explore)"]) {
+    assert.equal(settings.permissions.deny.includes(legacy), false, `${legacy} must be migrated away`);
+  }
+  assert.equal(settings.permissions.deny.includes("Agent"), true);
+  assert.equal(settings.permissions.deny.includes("Write(secret)"), true, "user entry preserved");
+  assert.equal(settings.theme, "dark");
+  assert.deepEqual(settings.permissions.allow, ["Read(*)"]);
+  // Silent: non-TTY upgrade never prompts about the deny list.
+  assert.doesNotMatch(lines.join("\n"), /deny[\s\S]{0,40}\[Y\/n\]/i);
+}));
+
+test("upgrade deny migration is not gated on a prompt answer", () => withRoot(async (r) => {
+  const settingsFile = join(r.home, ".claude", "settings.json");
+  writeJson(settingsFile, { permissions: { deny: ["Task", "Explore", "Agent(Explore)"] } });
+  const o = opts(r, "npm-global", {
+    isTTY: true,
+    input: Readable.from(["n\n"]),
+    output: new Writable({ write(_chunk, _enc, cb) { cb(); } }),
+  });
+  assert.equal(await runUpgrade(o.options), 0);
+
+  const deny = JSON.parse(readFileSync(settingsFile, "utf8")).permissions.deny;
+  assert.deepEqual(deny, ["Agent"], "declining the init-block prompt must not skip the deny migration");
+}));
+
+test("upgrade deny migration is idempotent", () => withRoot(async (r) => {
+  const settingsFile = join(r.home, ".claude", "settings.json");
+  writeJson(settingsFile, { permissions: { deny: ["Task", "Agent", "Explore", "Write(secret)"] } });
+
+  assert.equal(await runUpgrade(opts(r, "npm-global").options), 0);
+  const first = readFileSync(settingsFile, "utf8");
+
+  assert.equal(await runUpgrade(opts(r, "npm-global").options), 0);
+  assert.equal(readFileSync(settingsFile, "utf8"), first, "second upgrade must not rewrite the deny list");
+}));
+
 test("update deploys smcp skills and slash commands", () => withRoot(async (r) => {
   const o = opts(r, "npm-global");
   assert.equal(await runUpgrade(o.options), 0);

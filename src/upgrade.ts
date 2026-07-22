@@ -9,6 +9,7 @@ import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { runDoctor } from "./doctor.js";
 import { deploySmcpSkillsAndCommands, serverPaths } from "./setup.js";
 import { referencedHookPath } from "./hook-match.js";
+import { ensureNativeAgentSuppression } from "./native-suppression.js";
 import { askYesNo } from "./prompt.js";
 
 type JsonObj = Record<string, any>;
@@ -130,6 +131,19 @@ async function manageGlobalInitBlocks(opts: UpgradeOptions): Promise<{ updated: 
   return { updated, skipped: 0 };
 }
 
+/**
+ * Converge ~/.claude/settings.json permissions.deny onto the canonical
+ * native-agent entry via the shared reconciler (which backs the file up first).
+ * Log-only: a failure lands in the upgrade summary and never fails upgrade.
+ */
+function migrateClaudeNativeDeny(home: string): string {
+  try {
+    return ensureNativeAgentSuppression(home, ["claude"])[0]?.status ?? "skipped";
+  } catch (e) {
+    return `error(${e instanceof Error ? e.message : String(e)})`;
+  }
+}
+
 function updateCommands(mode: InstallModeInfo["mode"]): Array<[string, string[]]> {
   const npm: [string, string[]] = ["npm", ["install", "-g", "@heretyc/subagent-mcp@latest"]];
   const marketplace: [string, string[]] = ["claude", ["plugin", "update", "subagent-mcp@subagent-mcp"]];
@@ -166,6 +180,7 @@ export async function runUpgrade(opts: UpgradeOptions = {}): Promise<number> {
   const repairRoot = root ?? dirname(dirname(mode.npmGlobalDist ?? mode.marketplaceDists[0]));
   const repaired = repairStaleHooks(home, repairRoot);
   actions.push(`repaired-hooks=${repaired}`);
+  actions.push(`native-deny=${migrateClaudeNativeDeny(home)}`);
   const smcp = deploySmcpSkillsAndCommands(repairRoot, home);
   const codexSmcp = deploySmcpSkillsAndCommands(repairRoot, home, "codex");
   actions.push(`smcp-assets=${smcp.status}`, `codex-smcp-skills=${codexSmcp.status}`);

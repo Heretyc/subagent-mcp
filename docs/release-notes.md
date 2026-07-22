@@ -26,6 +26,16 @@ Historical entries:
   override window.
 - Unblocked PR-time CI for continuous-audit branches and Node 20 timer behavior.
 
+### Deny and lifecycle behavior
+
+- Claude `permissions.deny` canonical entry is `["Agent"]` only; Task widget
+  tools and Explore are not statically denied and remain usable.
+- Upgrade silently removes legacy `Task`, `Explore`, and `Agent(Explore)` deny
+  entries from smcp-managed settings. `doctor` detects stale entries and offers
+  repair. `uninstall` reverts the `Agent` deny entry smcp owns.
+- Codex native-agent suppression is `multi_agent = false` only; setup does not
+  write `disabled_tools` entries.
+
 ---
 
 ## v3.1.6
