@@ -1,4 +1,4 @@
-15% LATCH COACHING. Stop before continuing and ask up to 4 open planning questions in a SINGLE structured-question call (AskUserQuestion / request-user-input; one call holds at most 4). Do NOT split the questions.
+15% LATCH COACHING. Stop before continuing and ask AT LEAST 4 open planning questions using the structured question tool, or natural prose if not available.
 
 Turn the answers into a GOAL CONTEXT for this session before any further work: a concrete goal, a measurable done-condition, and the next concrete action; never a vague "continue working". Keep that goal written down - it is the context a later handoff hands to the next session, and `handoff-write` unlocks from 20% context utilization.
 
