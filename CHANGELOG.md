@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.11-beta.0
+## 3.1.11
 
 ### Fixed
 
