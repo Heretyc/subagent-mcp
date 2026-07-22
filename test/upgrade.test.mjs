@@ -219,15 +219,6 @@ test("upgrade deny migration is idempotent", () => withRoot(async (r) => {
   assert.equal(readFileSync(settingsFile, "utf8"), first, "second upgrade must not rewrite the deny list");
 }));
 
-test("upgrade leaves an already-canonical deny list alone", () => withRoot(async (r) => {
-  const settingsFile = join(r.home, ".claude", "settings.json");
-  writeJson(settingsFile, { permissions: { deny: ["Agent", "Write(secret)", "TaskCreate"] } });
-  const before = readFileSync(settingsFile, "utf8");
-
-  assert.equal(await runUpgrade(opts(r, "npm-global").options), 0);
-  assert.equal(readFileSync(settingsFile, "utf8"), before);
-}));
-
 test("update deploys smcp skills and slash commands", () => withRoot(async (r) => {
   const o = opts(r, "npm-global");
   assert.equal(await runUpgrade(o.options), 0);

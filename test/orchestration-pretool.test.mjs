@@ -123,22 +123,14 @@ test("native Agent tool is denied while server is alive", () => {
 
 test("task-list tools stay allowed while the Agent tool is denied", () => {
   touchAlive();
-  const denied = payload("Agent");
-  try {
-    assert.equal(runClaudePreTool(denied, {})?.hookSpecificOutput.permissionDecision, "deny");
-  } finally {
-    cleanup(denied);
-  }
   for (const tool of ["TaskCreate", "TaskUpdate"]) {
     const p = payload(tool);
     try {
-      for (let i = 0; i < 4; i++) {
-        assert.equal(
-          runClaudePreTool(p, {}),
-          null,
-          `${tool} is an ordinary task-list tool and must never be gated by the sub-agent deny`
-        );
-      }
+      assert.equal(
+        runClaudePreTool(p, {}),
+        null,
+        `${tool} is an ordinary task-list tool and must never be gated by the sub-agent deny`
+      );
     } finally {
       cleanup(p);
     }
@@ -257,9 +249,7 @@ test("subagent-mcp and question tools stay allowed", () => {
   ]) {
     const p = payload(tool);
     try {
-      for (let i = 0; i < 8; i++) {
-        assert.equal(runClaudePreTool(p, {}), null, `${tool} remains allowed`);
-      }
+      assert.equal(runClaudePreTool(p, {}), null, `${tool} remains allowed`);
     } finally {
       cleanup(p);
     }

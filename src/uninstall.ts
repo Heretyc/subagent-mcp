@@ -9,7 +9,6 @@ import { clearInitRegistry } from "./init-registry.js";
 import {
   CLAUDE_NATIVE_AGENT_DENY,
   CLAUDE_NATIVE_AGENT_DENY_LEGACY,
-  reconcileClaudeNativeAgentDeny,
   reconcileCodexNativeAgentDisable,
 } from "./native-suppression.js";
 
@@ -87,18 +86,12 @@ export function removeCodexMcpBlock(toml: string): { toml: string; removed: numb
  *
  * `subagent-mcp init --global` / `setup` suppress the host's own sub-agent
  * launchers so every launch is funnelled through this MCP server. Uninstall
- * must hand those hosts back in a fresh-install state.
+ * hands those hosts back by surgically removing only the keys smcp writes,
+ * leaving every unrelated or user-authored setting in place and in order.
  *
- * Two strategies, in order of preference:
- *   1. Restore a sidecar backup, but ONLY one that is demonstrably pre-smcp.
- *      Equivalence alone is NOT sufficient: a sidecar taken while migrating an
- *      older install (or on a second run over an already-suppressed file) can
- *      itself contain managed state, and reconciling it still reproduces the
- *      current file -- so restoring it would reintroduce exactly what uninstall
- *      must remove, or silently no-op and skip removal altogether. See
- *      findSafeSidecarBackup for the two conditions that must both hold.
- *   2. Otherwise, surgically remove only the keys smcp writes, leaving every
- *      unrelated or user-authored setting in place and in order.
+ * Codex additionally prefers a sidecar backup when one is demonstrably
+ * pre-smcp, because smcp overwrites any user-set `multi_agent` value and
+ * surgical removal alone cannot recover it. See findFreshCodexSidecar.
  * ------------------------------------------------------------------ */
 
 /** Sidecar backups written by native-suppression.ts and setup.ts. */
@@ -108,60 +101,44 @@ function stripBom(s: string): string {
   return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
 }
 
-function serializeJson(value: JsonObj): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
-}
-
-/** Sidecar backups of `file` written by smcp, newest stamp first. */
-export function smcpSidecarBackups(file: string): string[] {
+/**
+ * Newest Codex sidecar backup safe to restore over `current`, or null.
+ *
+ * Both conditions must hold:
+ *   1. FRESH -- the backup carries no `multi_agent = false` of its own. Sidecars
+ *      are taken on every suppression write, so one from a repeat run already
+ *      holds managed state; restoring it would no-op past removal entirely.
+ *   2. UNCHANGED SINCE -- re-applying smcp's own reconcile to the backup
+ *      reproduces `current` byte-for-byte, proving the sole delta is smcp's
+ *      write, so no user edit made since is lost.
+ */
+function findFreshCodexSidecar(file: string, current: string): string | null {
   const dir = dirname(file);
-  if (!existsSync(dir)) return [];
+  if (!existsSync(dir)) return null;
   const base = basename(file);
-  return readdirSync(dir, { withFileTypes: true })
+  const candidates = readdirSync(dir, { withFileTypes: true })
     .filter((d) => d.isFile() && d.name.startsWith(`${base}.`))
     .map((d) => ({ name: d.name, stamp: d.name.slice(base.length).match(SMCP_SIDECAR_RE)?.[1] ?? null }))
     .filter((c): c is { name: string; stamp: string } => c.stamp !== null)
     // Stamps are `toISOString()` with `:`/`.` swapped for `-`, so they sort
     // lexicographically. Tie-break on name so the order is deterministic.
-    .sort((a, b) => (a.stamp === b.stamp ? b.name.localeCompare(a.name) : b.stamp.localeCompare(a.stamp)))
-    .map((c) => join(dir, c.name));
-}
-
-/**
- * Newest sidecar backup that is safe to restore, or null when none is.
- *
- * TWO independent conditions must both hold:
- *   1. FRESH -- the backup must itself carry no smcp-managed state. Sidecars
- *      are taken on every suppression write, including migrations of an older
- *      install and repeat runs, so a backup can already contain the legacy
- *      deny trio or `multi_agent = false`. Restoring such a backup reintroduces
- *      managed state (Claude) or no-ops while skipping removal (Codex).
- *      Freshness is defined as "surgical removal is a no-op on the backup",
- *      deliberately reusing the fallback path's ownership rules so the two can
- *      never disagree about what smcp owns.
- *   2. UNCHANGED SINCE -- re-applying smcp's own reconcile to the backup must
- *      reproduce the current file byte-for-byte, proving the sole delta between
- *      backup and disk is smcp's write, so no user edit is lost.
- */
-export function findSafeSidecarBackup(
-  file: string,
-  current: string,
-  isFresh: (backup: string) => boolean,
-  reapply: (backup: string) => string
-): string | null {
-  for (const candidate of smcpSidecarBackups(file)) {
+    .sort((a, b) => (a.stamp === b.stamp ? b.name.localeCompare(a.name) : b.stamp.localeCompare(a.stamp)));
+  for (const { name } of candidates) {
+    const candidate = join(dir, name);
     try {
       const text = readFileSync(candidate, "utf8");
-      if (isFresh(text) && reapply(text) === current) return candidate;
+      if (removeCodexNativeAgentDisable(text).removed === 0 && reconcileCodexNativeAgentDisable(text).toml === current) {
+        return candidate;
+      }
     } catch {
-      // Unreadable or unparsable candidate: not safely identifiable, keep looking.
+      // Unreadable candidate: not safely identifiable, keep looking.
     }
   }
   return null;
 }
 
 /** Drop the Claude `permissions.deny` rules smcp writes; keep every other rule. */
-export function removeClaudeNativeAgentDeny(json: JsonObj | null): number {
+function removeClaudeNativeAgentDeny(json: JsonObj | null): number {
   const permissions = json?.permissions;
   if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) return 0;
   const perms = permissions as JsonObj;
@@ -184,7 +161,7 @@ export function removeClaudeNativeAgentDeny(json: JsonObj | null): number {
  * user-authored and left untouched; the table header goes only when removing
  * the line leaves it completely empty.
  */
-export function removeCodexNativeAgentDisable(toml: string): { toml: string; removed: number } {
+function removeCodexNativeAgentDisable(toml: string): { toml: string; removed: number } {
   const block = toml.match(/^(\s*\[features\]\s*(?:#.*)?\r?\n?)([\s\S]*?)(?=^\s*\[|(?![\s\S]))/m);
   if (!block || block.index === undefined) return { toml, removed: 0 };
   const lineRe = /^[ \t]*multi_agent[ \t]*=[ \t]*false[ \t]*(?:#[^\r\n]*)?(?:\r?\n|$)/m;
@@ -196,38 +173,18 @@ export function removeCodexNativeAgentDisable(toml: string): { toml: string; rem
   return { toml: out.replace(/\n{3,}/g, "\n\n"), removed: 1 };
 }
 
-export interface NativeRevertResult {
+interface NativeRevertResult {
   file: string;
   action: "restored" | "removed" | "none" | "failed";
   detail: string;
 }
 
-function parseJson(text: string): JsonObj {
-  return JSON.parse(stripBom(text)) as JsonObj;
-}
-
-/** Pre-smcp when the backup carries no managed deny rule of its own. */
-function claudeBackupIsFresh(text: string): boolean {
-  return removeClaudeNativeAgentDeny(parseJson(text)) === 0;
-}
-
-/** Pre-smcp when the backup carries no `multi_agent = false` of its own. */
-function codexBackupIsFresh(text: string): boolean {
-  return removeCodexNativeAgentDisable(text).removed === 0;
-}
-
+/**
+ * Claude needs no sidecar restore: smcp only ever appends its own deny rules,
+ * so dropping them restores the pre-smcp list exactly.
+ */
 function revertClaudeSettings(file: string): NativeRevertResult {
-  const current = readFileSync(file, "utf8");
-  const backup = findSafeSidecarBackup(file, current, claudeBackupIsFresh, (text) => {
-    const json = parseJson(text);
-    reconcileClaudeNativeAgentDeny(json);
-    return serializeJson(json);
-  });
-  if (backup) {
-    atomicWriteFile(file, readFileSync(backup, "utf8"), { encoding: "utf8" });
-    return { file, action: "restored", detail: `pre-smcp backup ${basename(backup)}` };
-  }
-  const json = parseJson(current);
+  const json = JSON.parse(stripBom(readFileSync(file, "utf8"))) as JsonObj;
   const n = removeClaudeNativeAgentDeny(json);
   if (n > 0) writeJson(file, json);
   return n > 0
@@ -237,7 +194,7 @@ function revertClaudeSettings(file: string): NativeRevertResult {
 
 function revertCodexConfig(file: string): NativeRevertResult {
   const current = readFileSync(file, "utf8");
-  const backup = findSafeSidecarBackup(file, current, codexBackupIsFresh, (t) => reconcileCodexNativeAgentDisable(t).toml);
+  const backup = findFreshCodexSidecar(file, current);
   if (backup) {
     atomicWriteFile(file, readFileSync(backup, "utf8"), { encoding: "utf8" });
     return { file, action: "restored", detail: `pre-smcp backup ${basename(backup)}` };
@@ -249,14 +206,8 @@ function revertCodexConfig(file: string): NativeRevertResult {
     : { file, action: "none", detail: "no managed features.multi_agent state found" };
 }
 
-/**
- * Hand the native sub-agent launchers back to Claude and Codex.
- *
- * MUST run before the hook/MCP-registration pass: a restored sidecar backup
- * predates uninstall and can still carry smcp hooks, which that later pass
- * then strips.
- */
-export function revertNativeAgentSuppression(home = homedir()): NativeRevertResult[] {
+/** Hand the native sub-agent launchers back to Claude and Codex. */
+function revertNativeAgentSuppression(home: string): NativeRevertResult[] {
   const hosts: Array<[string, (file: string) => NativeRevertResult]> = [
     [join(home, ".claude", "settings.json"), revertClaudeSettings],
     [join(home, ".codex", "config.toml"), revertCodexConfig],
@@ -344,7 +295,6 @@ export async function runUninstall(opts: UninstallOptions = {}): Promise<number>
   for (const [file, count] of Object.entries(removed)) log(`removed ${count}: ${file}`);
   clearInitRegistry(home);
   const failures = reverted.filter((r) => r.action === "failed");
-  for (const f of failures) log(`warning: could not revert ${f.file}: ${f.detail}`);
   const remaining = verifyNoSubagentMcp(home);
   log(remaining.length === 0 ? "verification: PASS, zero subagent-mcp hooks/registrations remain" : `verification: FAIL, remaining in ${remaining.join(", ")}`);
   log("Package not removed. To remove it: npm uninstall -g @heretyc/subagent-mcp");

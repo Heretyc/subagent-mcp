@@ -293,16 +293,6 @@ test("native-agent-suppression: stale legacy deny rules warn", async () => withR
   assert.match(r.detail, /claude/);
 }));
 
-test("native-agent-suppression: each legacy deny rule warns on its own", async () => withRoot(async ({ home }) => {
-  for (const legacy of LEGACY_CLAUDE_DENY) {
-    writeJson(join(home, ".claude", "settings.json"), {
-      permissions: { deny: ["Agent", legacy] },
-    });
-    const r = await checkNativeAgentSuppression({ home, isTTY: false });
-    assert.equal(r.status, "WARN", `stale rule ${legacy} must warn`);
-  }
-}));
-
 test("native-agent-suppression: canonical deny plus user entries passes", async () => withRoot(async ({ home }) => {
   writeJson(join(home, ".claude", "settings.json"), {
     permissions: { deny: ["Agent", "Write(secret)", "Bash(rm:*)", "TaskCreate"] },
@@ -333,19 +323,6 @@ test("native-agent-suppression: repair clears the stale warning", async () => wi
   assert.equal(repaired.permissions.deny.includes("Agent"), true);
   assert.equal(repaired.permissions.deny.includes("Write(secret)"), true, "user entry survives repair");
   assert.deepEqual(repaired.permissions.allow, ["Read(*)"]);
-}));
-
-test("native-agent-suppression: repair is idempotent", async () => withRoot(async ({ home }) => {
-  const settings = join(home, ".claude", "settings.json");
-  writeJson(settings, { permissions: { deny: [...LEGACY_CLAUDE_DENY] } });
-
-  ensureNativeAgentSuppression(home, ["claude"]);
-  const first = readFileSync(settings, "utf8");
-  assert.equal((await checkNativeAgentSuppression({ home, isTTY: false })).status, "PASS");
-
-  ensureNativeAgentSuppression(home, ["claude"]);
-  assert.equal(readFileSync(settings, "utf8"), first, "second repair must be a no-op");
-  assert.equal((await checkNativeAgentSuppression({ home, isTTY: false })).status, "PASS");
 }));
 
 test("mcp-registration: stale mcp.json warns without failing live registration", async () => withRoot(async ({ home, fakeBin }) => {

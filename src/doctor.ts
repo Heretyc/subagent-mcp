@@ -93,9 +93,9 @@ function providerEntries(config: JsonObj | null): Array<[string, JsonObj]> {
 export function checkInstallMode(opts: DoctorOptions = {}): DoctorLine {
   const mode = detectInstallMode({ home: opts.home ?? homedir(), env: opts.env ?? process.env });
   const parts = [
-    mode.npmGlobalDist ? `npm-global=${mode.npmGlobalDist}` : null,
+    ...(mode.npmGlobalDist ? [`npm-global=${mode.npmGlobalDist}`] : []),
     ...mode.marketplaceDists.map((p) => `marketplace=${p}`),
-  ].filter((p): p is string => p !== null);
+  ];
   return {
     status: parts.length ? "PASS" : "FAIL",
     id: 1,
@@ -134,37 +134,24 @@ export async function checkMcpRegistration(opts: DoctorOptions = {}): Promise<Do
   const staleTarget = resolveEntry(staleEntry, env);
   const liveOk = existingDist(liveTarget) !== null;
   const staleDangling = staleEntry !== undefined && existingDist(staleTarget) === null;
+  const result = (status: Status, detail: string): DoctorLine => ({ status, id: 2, name: "mcp-registration", detail });
 
   if (staleDangling) {
+    const status: Status = liveOk ? "WARN" : "FAIL";
     const staleDetail = `${staleFile} points at ${staleTarget ?? "unresolved command"} (missing); live ${liveFile} points at ${liveTarget ?? "unresolved command"}`;
-    if (opts.isTTY ?? process.stdin.isTTY) {
-      if (await askFix(opts)) {
-        createBackup();
-        mkdirSync(dirname(staleFile), { recursive: true });
-        staleJson!.mcpServers = staleJson!.mcpServers ?? {};
-        staleJson!.mcpServers["subagent-mcp"] = canonicalEntry();
-        writeFileSync(staleFile, `${JSON.stringify(staleJson, null, 2)}\n`, "utf8");
-        return {
-          status: liveOk ? "WARN" : "FAIL",
-          id: 2,
-          name: "mcp-registration",
-          detail: `${staleDetail}; repaired stale file after backup`,
-        };
-      }
-      return { status: liveOk ? "WARN" : "FAIL", id: 2, name: "mcp-registration", detail: `${staleDetail}; repair skipped` };
-    }
-    return { status: liveOk ? "WARN" : "FAIL", id: 2, name: "mcp-registration", detail: `${staleDetail}; non-TTY: no changes made` };
+    if (!(opts.isTTY ?? process.stdin.isTTY)) return result(status, `${staleDetail}; non-TTY: no changes made`);
+    if (!(await askFix(opts))) return result(status, `${staleDetail}; repair skipped`);
+    createBackup();
+    mkdirSync(dirname(staleFile), { recursive: true });
+    staleJson!.mcpServers = staleJson!.mcpServers ?? {};
+    staleJson!.mcpServers["subagent-mcp"] = canonicalEntry();
+    writeFileSync(staleFile, `${JSON.stringify(staleJson, null, 2)}\n`, "utf8");
+    return result(status, `${staleDetail}; repaired stale file after backup`);
   }
 
-  if (liveOk) {
-    return { status: "PASS", id: 2, name: "mcp-registration", detail: `${liveFile} resolves to ${existingDist(liveTarget)}` };
-  }
-  return {
-    status: "FAIL",
-    id: 2,
-    name: "mcp-registration",
-    detail: `${liveFile} does not resolve to an existing dist/index.js (${liveTarget ?? "missing entry"})`,
-  };
+  return liveOk
+    ? result("PASS", `${liveFile} resolves to ${existingDist(liveTarget)}`)
+    : result("FAIL", `${liveFile} does not resolve to an existing dist/index.js (${liveTarget ?? "missing entry"})`);
 }
 
 interface HookEntry {
@@ -292,9 +279,9 @@ function pluginHooksPresent(home: string, env: NodeJS.ProcessEnv): Set<string> {
 function installedHookManifests(home: string, env: NodeJS.ProcessEnv): string[] {
   const mode = detectInstallMode({ home, env });
   const roots = [
-    mode.npmGlobalDist ? dirname(dirname(mode.npmGlobalDist)) : null,
+    ...(mode.npmGlobalDist ? [dirname(dirname(mode.npmGlobalDist))] : []),
     ...mode.marketplaceDists.map((dist) => dirname(dirname(dist))),
-  ].filter((p): p is string => p !== null);
+  ];
   return [...new Set(roots.map((root) => join(root, "hooks", "hooks.json")))];
 }
 
@@ -500,25 +487,19 @@ export async function checkSessionState(opts: DoctorOptions = {}): Promise<Docto
     : source.session_start_time
       ? "get_status session_start_time is populated"
       : "get_status session_start_time would be null";
+  const result = (status: Status, detail: string): DoctorLine => ({ status, id: 9, name: "session-state", detail });
 
   if (missing.length > 0 || manifests.length === 0) {
     const detail = manifests.length === 0
       ? "no installed hooks/hooks.json manifest found"
       : `missing ${SESSION_START_ID} in ${missing.join(", ")}`;
-    if (!(opts.isTTY ?? process.stdin.isTTY)) {
-      return { status: "WARN", id: 9, name: "session-state", detail: `${detail}; ${sourceDetail}; non-TTY: no changes made` };
-    }
-    if (await askYesNo(opts, "Restore SessionStart hook? [Y/n] ")) {
-      for (const file of missing) restoreSessionStartEntry(file);
-      return { status: "WARN", id: 9, name: "session-state", detail: `${detail}; repaired after backup; ${sourceDetail}` };
-    }
-    return { status: "WARN", id: 9, name: "session-state", detail: `${detail}; repair skipped; ${sourceDetail}` };
+    if (!(opts.isTTY ?? process.stdin.isTTY)) return result("WARN", `${detail}; ${sourceDetail}; non-TTY: no changes made`);
+    if (!(await askYesNo(opts, "Restore SessionStart hook? [Y/n] "))) return result("WARN", `${detail}; repair skipped; ${sourceDetail}`);
+    for (const file of missing) restoreSessionStartEntry(file);
+    return result("WARN", `${detail}; repaired after backup; ${sourceDetail}`);
   }
 
-  if (source?.session_start_time === null) {
-    return { status: "WARN", id: 9, name: "session-state", detail: `SessionStart hook present; ${sourceDetail}` };
-  }
-  return { status: "INFO", id: 9, name: "session-state", detail: `SessionStart hook present; ${sourceDetail}` };
+  return result(source?.session_start_time === null ? "WARN" : "INFO", `SessionStart hook present; ${sourceDetail}`);
 }
 
 export function checkSmcpSkillsAndCommands(opts: DoctorOptions = {}): DoctorLine {
@@ -569,9 +550,9 @@ export async function checkNativeAgentSuppression(opts: DoctorOptions = {}): Pro
     if (missing.length || stale.length) {
       ok = false;
       const detail = [
-        missing.length ? `missing permissions.deny ${missing.join(", ")}` : null,
-        stale.length ? `stale permissions.deny ${stale.join(", ")}` : null,
-      ].filter((p): p is string => p !== null).join("; ");
+        ...(missing.length ? [`missing permissions.deny ${missing.join(", ")}`] : []),
+        ...(stale.length ? [`stale permissions.deny ${stale.join(", ")}`] : []),
+      ].join("; ");
       if (!(opts.isTTY ?? process.stdin.isTTY)) {
         parts.push(`claude ${detail}; non-TTY: no changes made`);
       } else if (await askYesNo(opts, "Fix Claude native-agent deny list? [Y/n] ")) {

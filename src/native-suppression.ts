@@ -44,10 +44,7 @@ export function reconcileClaudeNativeAgentDeny(
   for (const rule of CLAUDE_NATIVE_AGENT_DENY) if (!deny.includes(rule)) deny.push(rule);
   permissions.deny = deny;
   const changed =
-    !hadPermissions ||
-    rawDeny === null ||
-    rawDeny.length !== deny.length ||
-    deny.some((rule, i) => rule !== rawDeny[i]);
+    !hadPermissions || rawDeny === null || rawDeny.length !== deny.length || deny.some((r, i) => r !== rawDeny[i]);
   return { changed, status: changed ? (before.length ? "repaired" : "added") : "ok" };
 }
 

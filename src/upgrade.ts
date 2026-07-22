@@ -133,16 +133,12 @@ async function manageGlobalInitBlocks(opts: UpgradeOptions): Promise<{ updated: 
 
 /**
  * Converge ~/.claude/settings.json permissions.deny onto the canonical
- * native-agent entry, dropping the legacy over-broad rules older versions
- * wrote. Reuses the same reconciler setup and init call, so every path
- * converges on one definition. Backup-first (the helper backs the file up
- * before writing, after runUpgrade's whole-config backup), log-only, and
- * quiet-safe: a failure is reported in the summary and never fails upgrade.
+ * native-agent entry via the shared reconciler (which backs the file up first).
+ * Log-only: a failure lands in the upgrade summary and never fails upgrade.
  */
 function migrateClaudeNativeDeny(home: string): string {
   try {
-    const [claude] = ensureNativeAgentSuppression(home, ["claude"]);
-    return claude?.status ?? "skipped";
+    return ensureNativeAgentSuppression(home, ["claude"])[0]?.status ?? "skipped";
   } catch (e) {
     return `error(${e instanceof Error ? e.message : String(e)})`;
   }

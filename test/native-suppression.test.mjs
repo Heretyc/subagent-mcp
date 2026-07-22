@@ -67,7 +67,7 @@ function orderOf(list, subset) {
   return list.filter((v) => subset.includes(v));
 }
 
-test("claude: canonical deny list is exactly [\"Agent\"]", () => {
+test("claude: canonical deny is exactly [\"Agent\"] and cannot gate TaskCreate/TaskUpdate", () => {
   assert.deepEqual([...CLAUDE_NATIVE_AGENT_DENY], ["Agent"]);
   for (const legacy of LEGACY_CLAUDE_DENY) {
     assert.equal(
@@ -76,16 +76,12 @@ test("claude: canonical deny list is exactly [\"Agent\"]", () => {
       `legacy rule ${legacy} must not be part of the canonical list`
     );
   }
-});
-
-test("claude: canonical deny list cannot gate TaskCreate/TaskUpdate", () => {
   for (const tool of MUST_STAY_ALLOWED) {
     for (const rule of CLAUDE_NATIVE_AGENT_DENY) {
-      assert.notEqual(rule, tool, `${tool} must not be denied outright`);
       assert.equal(
-        tool.startsWith(rule),
+        tool === rule || tool.startsWith(rule),
         false,
-        `deny rule ${rule} prefix-matches ${tool}; that is the regression this list reverts`
+        `deny rule ${rule} matches ${tool}; that is the regression this list reverts`
       );
     }
   }

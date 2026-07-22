@@ -122,7 +122,7 @@ test("legacy id-less hook removal only drops dist hook commands", () => withHome
       ] }],
     },
   });
-  assert.equal(await runUninstall({ home, isTTY: true, input: Readable.from(["y\n"]), output: new Writable({ write(_c, _e, cb) { cb(); } }), backup: () => {}, log: () => {} }), 0);
+  assert.equal(await run(home), 0);
   const hooks = readJson(join(home, ".codex", "hooks.json")).hooks.UserPromptSubmit[0].hooks;
   assert.equal(hooks.length, 1);
   assert.match(hooks[0].command, /not-hooks/);
@@ -139,14 +139,7 @@ test("Y path reverts the managed native-agent deny to fresh state", () => withHo
   };
   writeJson(settingsFile, settings);
 
-  assert.equal(await runUninstall({
-    home,
-    isTTY: true,
-    input: Readable.from(["y\n"]),
-    output: new Writable({ write(_c, _e, cb) { cb(); } }),
-    backup: () => {},
-    log: () => {},
-  }), 0);
+  assert.equal(await run(home), 0);
 
   const after = readJson(settingsFile);
   const deny = after.permissions?.deny ?? [];
@@ -165,25 +158,18 @@ test("uninstall leaves a settings file with no managed deny untouched", () => wi
   settings.permissions = { deny: ["Write(secret)", "TaskCreate"] };
   writeJson(settingsFile, settings);
 
-  assert.equal(await runUninstall({
-    home,
-    isTTY: true,
-    input: Readable.from(["y\n"]),
-    output: new Writable({ write(_c, _e, cb) { cb(); } }),
-    backup: () => {},
-    log: () => {},
-  }), 0);
+  assert.equal(await run(home), 0);
 
   assert.deepEqual(readJson(settingsFile).permissions.deny, ["Write(secret)", "TaskCreate"]);
 }));
 
-test("claude: migration sidecar carrying the legacy trio is rejected, not restored", () => withHome(async (home) => {
+test("claude: sidecar is never restored; managed deny is removed surgically", () => withHome(async (home) => {
   seed(home);
   const file = join(home, ".claude", "settings.json");
   const base = readJson(file);
-  // The sidecar smcp took while migrating an older install still carries the
-  // legacy trio, yet reconciling it reproduces the current file byte-for-byte.
-  // An equivalence-only check would restore it and reintroduce managed state.
+  // A migration sidecar still carrying the legacy trio, which reconciles to the
+  // current file byte-for-byte -- exactly what an equivalence-based restore path
+  // would reinstate, reintroducing the managed state uninstall must remove.
   const backup = { ...base, permissions: { deny: ["Task", "Explore", "Agent(Explore)"] } };
   const current = { ...base, permissions: { deny: ["Agent"] } };
   const reconciled = JSON.parse(JSON.stringify(backup));
@@ -310,7 +296,7 @@ test("non-TTY dry output changes nothing", () => withHome(async (home) => {
 
 test("missing provider files stay missing", () => withHome(async (home) => {
   writeJson(join(home, ".claude.json"), { mcpServers: { "subagent-mcp": {} } });
-  assert.equal(await runUninstall({ home, isTTY: true, input: Readable.from(["y\n"]), output: new Writable({ write(_c, _e, cb) { cb(); } }), backup: () => {}, log: () => {} }), 0);
+  assert.equal(await run(home), 0);
   assert.equal(existsSync(join(home, ".subagent-mcp", "providers.jsonc")), false);
   assert.equal(existsSync(join(home, ".subagent-mcp", ".env")), false);
 }));
