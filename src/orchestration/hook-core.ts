@@ -122,6 +122,23 @@ interface Emission {
   isLong: boolean;
 }
 
+export function emitSubOrchestratorInjection(env: NodeJS.ProcessEnv): string {
+  return (
+    composeInjection(
+      {
+        body: bodyFromDirective(
+          readDirective(env, SUB_ORCHESTRATOR_DIRECTIVE_FILE)
+        ),
+        kind: "sub-orchestrator",
+        isLong: true,
+      },
+      true,
+      "normal",
+      null
+    ) ?? ""
+  );
+}
+
 /**
  * Resolve the repo-root `directives/` dir at runtime. Honors an explicit plugin
  * root (Claude sets CLAUDE_PLUGIN_ROOT; a generic PLUGIN_ROOT is also accepted)
@@ -779,20 +796,7 @@ export function runHook(
     // orchestration-mode and the handoff tools key on. Nothing is read either,
     // so the emission is identical on every turn.
     if (isSubOrchestratorEnv(env)) {
-      return (
-        composeInjection(
-          {
-            body: bodyFromDirective(
-              readDirective(env, SUB_ORCHESTRATOR_DIRECTIVE_FILE)
-            ),
-            kind: "sub-orchestrator",
-            isLong: true,
-          },
-          true,
-          "normal",
-          null
-        ) ?? ""
-      );
+      return emitSubOrchestratorInjection(env);
     }
 
     if (adapter.isSubagent(payload, env)) {

@@ -6,8 +6,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const distIndex = join(repoRoot, "dist", "index.js");
 
-const { STAGE_COACHING, outOfOrderText } = await import("../dist/swarm.js");
-const { pickInstructions } = await import("../dist/index.js");
+const { STAGE_COACHING, invalidStageText, outOfOrderText } = await import("../dist/swarm.js");
 const { SUB_ORCHESTRATOR_ENV, SUB_ORCH_DEPTH_ERROR } = await import("../dist/sub-orchestrator.js");
 
 let passed = 0;
@@ -196,6 +195,22 @@ await test("swarm tool advances, corrects out-of-order calls, and updates get_st
   }
 });
 
+await test("swarm tool accepts string stage at schema layer and returns coaching text", async () => {
+  const session = createMcpSession();
+  try {
+    await session.initialize();
+    await callTool(session, "swarm", {});
+    const stringStage = await callTool(session, "swarm", { stage: "3" });
+    assert.equal(stringStage.isError, undefined);
+    assert.equal(stringStage.content[0].text, invalidStageText("3", 1));
+    const integerStage = await callTool(session, "swarm", { stage: 1 });
+    assert.equal(integerStage.isError, undefined);
+    assert.equal(integerStage.content[0].text, STAGE_COACHING[2]);
+  } finally {
+    await session.close();
+  }
+});
+
 await test("sub-orchestrator depth gate rejects depth 1 callers", async () => {
   const session = createMcpSession({
     env: mainEnv({ SUBAGENT_MCP_SUBAGENT: "1", SUBAGENT_MCP_DEPTH: "1" }),
@@ -219,7 +234,10 @@ await test("sub-orchestrator server gets its instructions variant and respond_pe
   const session = createMcpSession({ env });
   try {
     const init = await session.initialize();
-    assert.equal(init.result.instructions, pickInstructions(env));
+    assert.ok(
+      init.result.instructions.startsWith("SUB-ORCHESTRATOR SESSION:"),
+      "sub-orchestrator server must get the concrete instructions variant"
+    );
     const tools = await listTools(session);
     assert.ok(
       tools.some((tool) => tool.name === "respond_permission"),

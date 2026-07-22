@@ -10,7 +10,7 @@
  */
 
 import assert from "node:assert/strict";
-import { buildChildEnv, pickInstructions } from "../dist/index.js";
+import { buildChildEnv, buildLaunchAgentChildInputs, pickInstructions } from "../dist/index.js";
 import {
   SUB_ORCHESTRATOR_ENV,
   SUB_ORCHESTRATOR_DIRECTIVE,
@@ -155,6 +155,29 @@ test("pickInstructions serves the sub-orchestrator variant only when both marker
   assert.ok(
     pickInstructions({ [SUB_ORCHESTRATOR_ENV]: "1" }).startsWith("subagent-mcp - CANONICAL OPERATING MODEL"),
     "a stray marker without the child marker must not downgrade a main orchestrator's instructions"
+  );
+});
+
+test("buildLaunchAgentChildInputs wires sub-orchestrator prompt, env, and slot exclusion", () => {
+  const built = buildLaunchAgentChildInputs({}, "Run section A.", 0, true);
+  const lines = built.prompt.split("\n");
+  assert.equal(lines[0], MARKER, "line 1 must stay the parent marker");
+  assert.equal(
+    lines[1],
+    SUB_ORCHESTRATOR_DIRECTIVE.split("\n")[0],
+    "line 2 must be the sub-orchestrator directive"
+  );
+  assert.equal(
+    built.env[SUB_ORCHESTRATOR_ENV],
+    "1",
+    "a sub-orchestrator launch must set the child env marker"
+  );
+  assert.equal(built.env.SUBAGENT_MCP_SUBAGENT, "1", "child env must still mark a subagent");
+  assert.equal(built.env.SUBAGENT_MCP_DEPTH, "1", "depth must advance from the caller depth");
+  assert.equal(
+    built.allowApiSlotInsert,
+    false,
+    "sub-orchestrator auto-launches must skip api slotInsert"
   );
 });
 

@@ -44,6 +44,7 @@ import {
   writeStatuslineRecord,
 } from "../dist/orchestration/statusline-state.js";
 import { readReminder, reminderPath } from "../dist/orchestration/reminder.js";
+import { SUB_ORCHESTRATOR_DIRECTIVE_FILE } from "../dist/orchestration/hook-core.js";
 
 let passed = 0;
 let failed = 0;
@@ -834,6 +835,36 @@ test("codex SessionStart: no persisted metering -> utilization unknown (no lifte
   } finally {
     rmSync(markerPath(cwd), { force: true });
     rmSync(reminderPath(cwd), { force: true });
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("codex SessionStart: sub-orchestrator emits shared stateless ON directive", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "orch-cx-cwd-"));
+  const root = mkdtempSync(join(tmpdir(), "orch-cx-root-"));
+  const ddir = join(root, "directives");
+  mkdirSync(ddir, { recursive: true });
+  writeFileSync(join(ddir, SUB_ORCHESTRATOR_DIRECTIVE_FILE), "CODEX-SUB-ORCH", "utf8");
+  const env = {
+    PLUGIN_ROOT: root,
+    npm_config_prefix: root,
+    SUBAGENT_MCP_SUBAGENT: "1",
+    SUBAGENT_MCP_SUB_ORCHESTRATOR: "1",
+  };
+  try {
+    const out = runCodexHook(
+      { hook_event_name: "SessionStart", cwd, source: { subagent: "spawn" } },
+      env
+    );
+    assert.match(
+      out,
+      /^<subagent-mcp state="on" kind="sub-orchestrator" phase="normal" utilization="unknown">\n/,
+      "SessionStart must emit the shared sub-orchestrator tag before subagent suppression"
+    );
+    assert.ok(out.includes("\nCODEX-SUB-ORCH\n</subagent-mcp>"), "SessionStart must use the shared directive asset");
+    assert.equal(readCurrentSession(cwd), undefined, "sub-orchestrator SessionStart must not write cwd session state");
+  } finally {
     rmSync(cwd, { recursive: true, force: true });
     rmSync(root, { recursive: true, force: true });
   }

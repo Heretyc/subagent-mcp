@@ -124,7 +124,7 @@ deadlock window - bounded to 3 launches and gated on 2 real failures - and (b) t
 to 1 hour, armed only by a genuine swarm start, RESTARTED ONLY BY AN ACCEPTED FORWARD ADVANCE into a
 pre-handoff stage, and force-cleared the moment handoff becomes the next stage. A REPEATED call to an
 already-reported stage does NOT restart the window, so spamming stage reports cannot hold the pin open:
-the sequential 1..4 walk allows at most 4 restarts per workflow and the pin dies at handoff regardless.
+the sequential 1..4 walk allows at most 4 restarts per active phase and the pin dies at handoff regardless. One residual lever is not closed: swarm(0) (reset) followed by swarm(null) (start) re-arms a fresh 1-hour pin window even when no stage work was completed between the two calls, and the sequence may be repeated. This is accepted, not prevented. The lever carries limited practical force: the pin is reachable ONLY from inside a live swarm, each exercise costs a full discard of all accumulated stage progress, and a session willing to pay that cost could equally advance through real pre-handoff stages to hold the same pin duration - the shortcut buys nothing an honest workflow does not already receive.
 There is NO standalone lever, flag, or parameter that selects the performance band, and no swarm
 response or tool description ever names it; an orchestrator therefore cannot game routing into
 always-high-performance during normal operation - pinning exists only inside swarm's pre-handoff

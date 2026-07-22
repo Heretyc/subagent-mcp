@@ -915,6 +915,26 @@ export function buildChildEnv(
   return env;
 }
 
+export function buildLaunchAgentChildInputs(
+  parentEnv: NodeJS.ProcessEnv,
+  rawPrompt: string,
+  launchDepth: number,
+  subOrchestrator: boolean,
+  freshGhToken?: string
+): { prompt: string; env: NodeJS.ProcessEnv; allowApiSlotInsert: boolean } {
+  return {
+    prompt: subOrchestrator
+      ? applySubOrchestratorDirective(ensureParentMarker(rawPrompt))
+      : ensureParentMarker(rawPrompt),
+    env: buildChildEnv(parentEnv, {
+      SUBAGENT_MCP_SUBAGENT: "1",
+      SUBAGENT_MCP_DEPTH: String(launchDepth + 1),
+      ...(subOrchestrator ? { [SUB_ORCHESTRATOR_ENV]: "1" } : {}),
+    }, freshGhToken),
+    allowApiSlotInsert: !subOrchestrator,
+  };
+}
+
 // Result of invoking `gh auth token` (a spawnSync-shaped subset). Injectable so
 // tests can exercise the resolver without spawning a real `gh`.
 export type GhTokenRunResult = {
@@ -1064,6 +1084,13 @@ async function tryLaunchCandidate(
   // strips token vars before invoking gh and falls back to strip-only on any
   // failure/timeout/empty output. No-op in pass-through mode.
   const freshGhToken = resolveFreshGhToken(process.env);
+  const childInputs = buildLaunchAgentChildInputs(
+    process.env,
+    prompt,
+    currentLaunchDepth(),
+    subOrchestrator === true,
+    freshGhToken
+  );
 
   let driver: ProviderDriver;
   try {
@@ -1072,11 +1099,7 @@ async function tryLaunchCandidate(
       command: cmd,
       args: buildResult.args,
       cwd: agentCwd,
-      env: buildChildEnv(process.env, {
-        SUBAGENT_MCP_SUBAGENT: "1",
-        SUBAGENT_MCP_DEPTH: String(currentLaunchDepth() + 1),
-        ...(subOrchestrator ? { [SUB_ORCHESTRATOR_ENV]: "1" } : {}),
-      }, freshGhToken),
+      env: childInputs.env,
       model: candidate.model,
       effort: candidate.effort,
       ucSettingsPath: buildResult.ucSettingsPath,
@@ -1482,9 +1505,8 @@ server.tool(
     // A sub-orchestrator launch keeps that marker as line 1 and carries the
     // delegate-only directive on lines 2..n, so the child is bound both by
     // prompt and by env (SUB_ORCHESTRATOR_ENV, set at spawn).
-    const prompt = subOrchestrator
-      ? applySubOrchestratorDirective(ensureParentMarker(params.prompt))
-      : ensureParentMarker(params.prompt);
+    const launchInputs = buildLaunchAgentChildInputs(process.env, params.prompt, launchDepth, subOrchestrator);
+    const prompt = launchInputs.prompt;
     const agentCwd = params.cwd || process.cwd();
     const permissionSnapshot = buildPermissionSnapshot(agentCwd);
 
@@ -1571,7 +1593,7 @@ server.tool(
     if (
       pureAuto &&
       branch === "cost_efficiency" &&
-      !subOrchestrator &&
+      launchInputs.allowApiSlotInsert &&
       process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1"
     ) {
       candidates = slotInsert(candidates, loadApiProviders(), task_category);
@@ -2531,7 +2553,7 @@ if (process.env.SUBAGENT_MCP_SUBAGENT !== "1") {
     "swarm",
     SWARM_TOOL_DESCRIPTION,
     {
-      stage: z.number().nullable().optional().describe(SWARM_STAGE_PARAM_GLOSS),
+      stage: z.union([z.number(), z.string()]).nullable().optional().describe(SWARM_STAGE_PARAM_GLOSS),
     },
     withMaintenance(async (params: any) => {
       return textResult(swarmSession.handleCall(params.stage ?? null, Date.now()).text);
