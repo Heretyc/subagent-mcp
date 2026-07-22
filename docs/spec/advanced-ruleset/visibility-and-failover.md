@@ -47,16 +47,14 @@ pre-feature payload shape (existing absent-field test assertions stay valid).
 add `...(agent.rulesetApplied ? { ruleset_applied: true,
 ruleset_original_selection: agent.rulesetOriginalSelection } : {})`.
 
-No tool-description text changes : no mcp-compliance byte-cap risk.
+The tool description names quiet failover, loud exhaustion, and pinned
+provider+model behavior.
 
 ### Override-mode failure shape
 
-Override selector modes (`provider`, `provider_model`, `explicit`) make one
-launch attempt even when the ruleset can see or alter the candidate list. A
-failed override attempt returns the single-attempt hard-fail shape with the
-auto-mode hint (`explicit launch ... failed` for fully explicit selectors,
-`override launch ... failed` for partial selectors); pure `auto` mode is the
-only mode that silently advances to a later candidate.
+Provider-only mode tries its requested-provider candidates, then de-duplicated
+auto fallbacks. Provider+model is pinned to one rank-1 match; adding effort
+pins the exact triple. Pinned failures are loud and have no substitute.
 
 ### Amendments (visibility)
 
@@ -89,8 +87,9 @@ Contract:
    a LAUNCH-TIME failure: the candidate is pushed to `skipped` with a reason
    of the form (illustrative; tests assert it contains the exit code):
    `process exited (code <code-or-signal>) within <SPAWN_GRACE_MS>ms of
-   spawn: <last stderr line>` : and the loop SILENTLY advances. The agent is
-   never registered; the existing `close` handler cleans up. Rationale: a CLI
+   spawn: <last stderr line>`. Cascading modes SILENTLY advance; pinned modes
+   exhaust and fail loudly. The agent is never registered; the existing
+   `close` handler cleans up. Rationale: a CLI
    that exits in under the window without consuming the task did not launch;
    auth failures are non-zero anyway, and code-0 instant exits are equally
    useless to the orchestrator.
@@ -107,28 +106,27 @@ Contract:
    launch-time failure.
 3a. The failure `reason` and last stderr line are passed to
    `classifyFailureReason(reason, stderr)` to produce a `failure_type` label:
-   `"transient_provider"` (usage caps, quota 429, HTTP-status 5xx, network
-   timeouts, connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"`
-   (everything else: ENOENT, EACCES, bad option, missing config, and bare
-   three-digit numbers without HTTP-status context). This label travels with the
-   skipped-candidate entry (`{model,effort,provider,reason,failure_type}`) and
-   surfaces in the success payload's `failover_from[]` array, in `poll_agent`'s
-   `failover_from[]`, and in `ERR_ALL_FAILED`'s numbered list
-   (`[<failure_type>]`). The label does NOT change failover behavior : in auto
-   mode the loop advances to the next ruleset-selected candidate either way
-   (same-call failover on any launch-time failure). It only changes how the
-   failure is reported, and drives the transient `Note:` line on
-   the override-mode hard-fail note (`../auto-mode/resolution-matrix.md`).
+   `"transient_provider"` (provider-side limits and availability errors: session
+   limit, usage cap/limit, spend/spending limit, credits exhausted, billing
+   block, quota, rate limit, 429/too-many-requests, overload, HTTP-status 5xx,
+   network timeouts, connection resets : ETIMEDOUT/ECONNRESET/ECONNREFUSED) or
+   `"permanent"` (everything else: ENOENT, EACCES, bad option, missing config,
+   and bare three-digit numbers without HTTP-status context). This label travels
+   with the skipped-candidate entry (`{model,effort,provider,reason,failure_type}`)
+   and surfaces in the success payload's `failover_from[]` array, in
+   `poll_agent`'s `failover_from[]`, and in `ERR_ALL_FAILED`'s numbered list
+   (`[<failure_type>]`). The label does NOT change failover behavior: auto and
+   provider-only modes advance on any launch-time failure; pinned modes do not.
 4. `SPAWN_GRACE_MS` defaults to **1500**. `SUBAGENT_SPAWN_GRACE_MS` overrides
    it (non-negative integer; `0` disables post-start early-exit detection). The
    override is a TEST-ONLY seam: legacy fixtures can exit instantly by design
    and would otherwise all fail. Production deployments
    never set it. (The goal's "hardcoded" constraint applies only to the
    2-minute ruleset timeout.)
-5. Exhaustion rule: `ERR_ALL_FAILED` is emitted ONLY after EVERY candidate in
-   the (possibly ruleset-modified) list has been tried. Not-installed
-   (ENOENT), not-logged-in (early exit), and any other launch-time error all
-   advance silently; NOTHING aborts the cycle early.
+5. Exhaustion rule: `ERR_ALL_FAILED` is emitted after every candidate in the
+   selected list has failed. Not-installed (ENOENT), not-logged-in (early
+   exit), and any other launch-time error advance cascading modes; pinned
+   provider+model modes contain one candidate.
 6. Cost: every successful launch gains up to +1.5 s latency inside
    `launch_agent`. Accepted : launches are infrequent, and first-output gating
    would misclassify slow-thinking claude starts.
