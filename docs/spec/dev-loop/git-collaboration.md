@@ -29,7 +29,7 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
 7. Collaborative branches use `<type>/<short-topic>` or
    `<type>/<actor>/<short-topic>`. Allowed types: `feature`, `fix`, `hotfix`,
    `release`, `docs`, `test`, `refactor`, `chore`, `agent`, `user`,
-   `integration`, and `audit`. Claude implementation routines may use Claude's default
+   `integration`, `audit`, and `continuous-audit`. Claude implementation routines may use Claude's default
    `claude/` prefix only when `claude-routines-cicd.md` allows it.
 8. Create one branch per cohesive change set. Split unrelated behavior,
    formatting, dependency, generated-output, and documentation-only changes.

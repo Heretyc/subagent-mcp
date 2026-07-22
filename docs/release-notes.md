@@ -13,6 +13,21 @@ Historical entries:
 
 ---
 
+## v3.1.7
+
+### Continuous audit hardening
+
+- **ISS-080:** Hardened host/plugin-root validation so invalid plugin roots are
+  rejected instead of trusted.
+- Added static native-agent suppression checks for Claude, Codex, and Gemini
+  setup paths, with doctor coverage for missing layers.
+- Preserved the sole-channel rule across both orchestration states and kept
+  smart model selection as the default unless the user explicitly approves an
+  override window.
+- Unblocked PR-time CI for continuous-audit branches and Node 20 timer behavior.
+
+---
+
 ## v3.1.6
 
 ### Codex context-window metering

@@ -24,7 +24,7 @@ bump.
 
 `validate-branch` fails because the worktree branch formula only allows branch
 types `feature fix hotfix release docs test refactor chore agent user
-integration audit`. Dependabot branches use
+integration audit continuous-audit`. Dependabot branches use
 `dependabot/<ecosystem>/<dep>-<ver>`, which is not an allowed type, so the guard
 exits with `head branch '...' violates the worktree branch formula`.
 
