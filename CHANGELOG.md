@@ -34,7 +34,7 @@
 - Full spec and user documentation for the swarm workflow and sub-orchestrator
   contract.
 
-## 3.1.11-beta.0
+## 3.1.11
 
 ### Fixed
 
