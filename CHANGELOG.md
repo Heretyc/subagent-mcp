@@ -19,6 +19,20 @@
   wrapper around the `configure` tool, deployed by `setup` for Claude Code and
   Codex alongside the existing `smcp-*` skills.
 
+## 3.1.11-beta.0
+
+### Fixed
+
+- Pure auto now quietly traverses the full, fresh per-call ranking on any
+  launch-time failure; reroutes expose `failover_note`, while exhaustion loudly
+  lists every attempted candidate and reason.
+
+### Changed
+
+- `provider+model` overrides are pinned to one attempt with no substitute;
+  provider-only overrides still try matching routes before de-duplicated auto
+  fallbacks.
+
 ## 3.1.10
 
 ### Fixed
