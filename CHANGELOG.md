@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.11
+## 3.1.12
 
 ### Added
 
@@ -19,7 +19,7 @@
   wrapper around the `configure` tool, deployed by `setup` for Claude Code and
   Codex alongside the existing `smcp-*` skills.
 
-## 3.1.11-beta.0
+## 3.1.11
 
 ### Fixed
 
