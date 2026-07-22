@@ -81,6 +81,7 @@ import {
   writeSlotMetadata,
   type ZombieRecord,
 } from "./concurrency.js";
+import { configure } from "./configure.js";
 import { shouldReapTerminalButAlive } from "./zombie.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
@@ -2458,6 +2459,18 @@ server.tool(
     handoff.clearHandoff(process.cwd());
     return textResult("handoff cleared for this directory.");
   })
+);
+
+// Tool 13: configure -- one literal key table + one dispatch, in ./configure.ts.
+server.tool(
+  "configure",
+  "List, read, or update subagent-mcp configuration by canonical key. `action=list` enumerates settings; `action=get` requires `key`; `action=set` requires `key` and, for settable keys, string `value`. Secrets are always redacted. Machine-global and mode-owned settings are read-only here: edit the reported global file as a human or use `orchestration-mode`/`model-selection-mode`. Provider and .env writes are validated, backed up, and atomic; responses report `restart_required`.",
+  {
+    action: z.enum(["list", "get", "set"]),
+    key: z.string().min(1).optional(),
+    value: z.string().optional(),
+  },
+  withMaintenance(async (params: any) => configure(params))
 );
 
 // Connect the stdio transport only when run as the entry point (the bin), NOT
