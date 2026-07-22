@@ -40,6 +40,12 @@ function prependPath(env, dir) {
   return next;
 }
 
+function rmTempRoot(path) {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  } catch {}
+}
+
 function createMcpSession(entrypoint, options = {}) {
   const child = spawn(process.execPath, [entrypoint], {
     cwd: options.cwd || repoRoot,
@@ -191,9 +197,12 @@ function makeTempEnv() {
   const mockDriverScript = writeMockDriverScript(tempRoot);
   const modeFile = join(tempRoot, "ruleset-mode.txt");
   writeFileSync(modeFile, "ok-disabled");
+  const baseEnv = { ...process.env };
+  delete baseEnv.SUBAGENT_MCP_SUBAGENT;
+  delete baseEnv.SUBAGENT_MCP_DEPTH;
   const env = prependPath(
     {
-      ...process.env,
+      ...baseEnv,
       FAKE_NPM_PREFIX: fakePrefix,
       SUBAGENT_SPAWN_GRACE_MS: "0",
       SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
@@ -288,7 +297,7 @@ async function runBehavioralPollPayloadGuard() {
     );
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 }
 
@@ -331,7 +340,7 @@ async function runBehavioralStdoutRingGuard() {
     assert.match(retained, /"type":"turn\.completed"/);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 }
 
@@ -361,6 +370,7 @@ try {
   await runBehavioralStdoutRingGuard();
   assertPrivateTextualContracts();
   console.log("PASS index guard checks");
+  process.exit(0);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
