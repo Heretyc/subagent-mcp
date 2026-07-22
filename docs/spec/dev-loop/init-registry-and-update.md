@@ -85,6 +85,36 @@ The registry check itself is throttled to once per 24 hours.
 enable it without prompting. The choice is persisted in the registry
 `autoUpdate` flag.
 
+## Context-Coaching Setup Prompts
+
+Context coaching has exactly two user-level settings, persisted in
+`~/.subagent-mcp/settings.json` or `settings.local.json` (never per-repo, never
+per-project):
+
+| Key | Values | Default |
+|---|---|---|
+| `contextCoaching` | `true` or `false` | `true` |
+| `handoffWarnThreshold` | integer percent, valid `40`-`90` | `60` |
+
+Prompt behavior, mirroring the auto-update pattern:
+
+- When `~/.subagent-mcp/settings.json` is missing or blank, `setup` asks BOTH
+  prompts, in order:
+  1. context coaching on/off (default yes),
+  2. wind-down warning threshold, accepted only as a whole number `40`-`90`
+     (default `60`).
+- An unrecognized answer RE-PROMPTS rather than being coerced: a typo can never
+  silently flip coaching off or move the threshold (`askYesNoStrict` /
+  `askIntegerInRange` in `src/prompt.ts`). Empty input takes the stated default.
+- When an existing settings file has content, even without these keys, `setup`
+  asks neither prompt.
+- At runtime a missing key is never an error: reads silently resolve to
+  `contextCoaching: true` and `handoffWarnThreshold: 60`. Any out-of-range or
+  malformed threshold resolves to `60`.
+- `contextCoaching: false` mutes ONLY the at-or-above-threshold wind-down
+  warning and its handoff steer. The 15% orchestration latch and the fixed 20%
+  `handoff-write` unlock are unaffected.
+
 When `autoUpdate=true`, a newer npm `latest` can trigger self-update only when:
 
 - the package version has been published for at least 48 hours;
@@ -120,6 +150,8 @@ missing or out-of-date managed blocks; otherwise it is `PASS`.
 |---|---|
 | `setup` init scope | Defaults to `global`. |
 | `setup` auto-update | Defaults to enabled. |
+| `setup` context coaching | Defaults to enabled (`contextCoaching: true`), no prompt. |
+| `setup` wind-down warning threshold | Defaults to `60`, no prompt. |
 | update missing or empty registry | Runs global init without prompting. |
 | update stale roots | Keeps entries and logs a warning. |
 

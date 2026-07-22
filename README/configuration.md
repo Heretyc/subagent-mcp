@@ -11,11 +11,12 @@ the sole source of truth for machine-wide defaults and is re-read on every
 `launch_agent`, so edits take effect with no restart. The legacy filename
 `dist/global-concurrency.jsonc` is still read when the new file is absent.
 
-Per-user permission rules layer on top of the global ceiling from
-`~/.subagent-mcp/settings.json` then `~/.subagent-mcp/settings.local.json`, then
-per-repo `<cwd>/.claude/settings.json` and `.claude/settings.local.json`. Only
-`permissions.{allow, deny, ask, additionalDirectories}` are read from those
-files. Deny and ask rules are unioned, so they only tighten. Full precedence:
+Per-user settings are read from `~/.subagent-mcp/settings.json` then
+`~/.subagent-mcp/settings.local.json`. Those files hold user permission rules
+and the context-coaching knobs. Per-repo `<cwd>/.claude/settings.json` and
+`.claude/settings.local.json` contribute only
+`permissions.{allow, deny, ask, additionalDirectories}`. Deny and ask rules are
+unioned, so they only tighten. Full precedence:
 [docs/spec/permissions.md](../docs/spec/permissions.md).
 
 ## Global Config Keys
@@ -28,6 +29,13 @@ files. Deny and ask rules are unioned, so they only tighten. Full precedence:
 | `escalation` | `irreversible-only` or `off`; applies in `auto` mode only | `irreversible-only` |
 | `strictReadParity` | `warn` or `off`; logging only | `warn` |
 | `sandboxNetwork` | `true` or `false`; Codex workspace-write network | `false` |
+
+## User Settings Keys
+
+| Key | Values | Default |
+|---|---|---|
+| `contextCoaching` | `true` or `false`; `false` mutes only the wind-down warning/steer | `true` |
+| `handoffWarnThreshold` | integer `40`-`90`; anything malformed or out of range resolves to `60` | `60` |
 
 ## Permission And Selection Modes
 

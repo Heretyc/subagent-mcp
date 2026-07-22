@@ -34,6 +34,12 @@ import { execFileSync, execSync } from "node:child_process";
 import { stateDir } from "./orchestration/marker.js";
 import { STATUSLINE_TTL_MS } from "./orchestration/statusline-state.js";
 import { askLine, type PromptOptions } from "./prompt.js";
+import {
+  ensureFirstRunPermissionCeiling,
+  ensureFirstRunUserSettings,
+  userConfigMissingOrBlank,
+  type ContextCoachingSettings,
+} from "./concurrency.js";
 import { initRegistryHasAutoUpdate, readInitRegistry, writeInitRegistry } from "./init-registry.js";
 import {
   reconcileClaudeNativeAgentDeny,
@@ -1012,6 +1018,30 @@ export async function ensureSetupAutoUpdate(
   return enabled;
 }
 
+/**
+ * Setup-side wrapper for the user-level coaching settings. Mirrors
+ * ensureSetupAutoUpdate: unattended and non-TTY runs record the defaults with a
+ * log line instead of asking, and --dry-run answers without writing.
+ *
+ * The missing/blank test is sampled here, before anything in this run can
+ * scaffold the config, so a fresh machine still gets the questions.
+ */
+export async function ensureSetupContextCoaching(
+  opts: PromptOptions & {
+    path?: string;
+    isTTY?: boolean;
+    unattended?: boolean;
+    dryRun?: boolean;
+    firstRun?: boolean;
+    log?: (line: string) => void;
+  } = {}
+): Promise<ContextCoachingSettings> {
+  return ensureFirstRunUserSettings({
+    ...opts,
+    firstRun: opts.firstRun ?? userConfigMissingOrBlank(opts),
+  });
+}
+
 /** Detail string for a CLI registration check; "CLI repair failed" only when a
  *  repair was actually attempted. */
 export function registrationDetail(registered: boolean, attemptedRepair: boolean): string {
@@ -1249,10 +1279,25 @@ export async function runSetup(): Promise<void> {
   if (hasGemini) wireGemini();
   else console.log("\nSkipping Gemini CLI (not detected).");
 
+  const firstRunUserSettings = userConfigMissingOrBlank();
+  if (!DRY_RUN) {
+    await ensureFirstRunPermissionCeiling({
+      isTTY: UNATTENDED ? false : undefined,
+      log: console.log,
+    });
+  }
+
   console.log("\n--- Init Instructions ---");
   await ensureSetupAutoUpdate({
     unattended: UNATTENDED,
     dryRun: DRY_RUN,
+    log: console.log,
+  });
+  console.log("\n--- Context Coaching ---");
+  await ensureSetupContextCoaching({
+    unattended: UNATTENDED,
+    dryRun: DRY_RUN,
+    firstRun: firstRunUserSettings,
     log: console.log,
   });
   const initCode = await runSetupInitMenu({

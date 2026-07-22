@@ -8,10 +8,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as meteringModule from "../dist/orchestration/metering.js";
 import {
   DEFAULT_CONTEXT_WINDOW,
   HANDOFF_UNLOCK_THRESHOLD_PCT,
-  HANDOFF_WARNING_THRESHOLD_PCT,
+  PLAN_LATCH_THRESHOLD_PCT,
   LONG_CONTEXT_WINDOW,
   buildMeteringRecord,
   computeUsedPercentage,
@@ -128,14 +129,23 @@ test("harnessContextWindow prevents false 100% clamp when usage exceeds static m
   assert.ok(harnessRecord.used_percentage < 100);
 });
 
-test("phaseFor thresholds are inclusive at 15 and 40", () => {
+// LOCKED (context-coaching): the plan latch stays at 15; the handoff unlock drops
+// 40 -> 20 and stays hard-coded (never configurable). The old
+// HANDOFF_WARNING_THRESHOLD_PCT=50 constant is replaced by a resolved user
+// setting (default 60, valid 40-90) and so is asserted via the config surface in
+// test/context-coaching-config.test.mjs, not as a frozen constant here.
+test("phaseFor thresholds are inclusive at 15 and 20", () => {
   assert.equal(phaseFor(null), "normal");
   assert.equal(phaseFor(14.99), "normal");
   assert.equal(phaseFor(15), "plan");
-  assert.equal(phaseFor(39.99), "plan");
+  assert.equal(phaseFor(19), "plan");
+  assert.equal(phaseFor(19.99), "plan");
+  assert.equal(phaseFor(20), "handoff");
+  assert.equal(phaseFor(21), "handoff");
   assert.equal(phaseFor(40), "handoff");
-  assert.equal(HANDOFF_UNLOCK_THRESHOLD_PCT, 40);
-  assert.equal(HANDOFF_WARNING_THRESHOLD_PCT, 50);
+  assert.equal(phaseFor(100), "handoff");
+  assert.equal(PLAN_LATCH_THRESHOLD_PCT, 15);
+  assert.equal(HANDOFF_UNLOCK_THRESHOLD_PCT, 20);
 });
 
 test("buildMeteringRecord assembles shape and near_limit", () => {
@@ -171,42 +181,77 @@ test("buildMeteringRecord assembles shape and near_limit", () => {
   assert.ok(record.updated_at >= before);
 });
 
-test("handoff band unlocks at 40 but near_limit waits until warning threshold", () => {
-  const below = buildMeteringRecord({
-    session_id: "s-band-below",
+// The wind-down warn threshold is a resolved USER SETTING now (default 60, valid
+// 40-90), so this test derives it from the production surface rather than
+// hardcoding 50. That keeps the boundary assertions meaningful whether the
+// machine running the suite has a settings file or not.
+function effectiveWarnThresholdPct() {
+  const resolver =
+    meteringModule.resolveWarnThresholdPct ??
+    meteringModule.warnThresholdPct ??
+    meteringModule.resolveHandoffWarnThreshold;
+  if (typeof resolver === "function") return resolver();
+  const constant =
+    meteringModule.HANDOFF_WARNING_THRESHOLD_PCT ??
+    meteringModule.DEFAULT_HANDOFF_WARN_THRESHOLD_PCT;
+  if (typeof constant === "number") return constant;
+  return 60;
+}
+
+// claude-sonnet-4-5 resolves to the 200000-token default window, so
+// used_percentage === input / 2000.
+function recordAtPct(label, pct) {
+  return buildMeteringRecord({
+    session_id: `s-band-${label}`,
     harness: "claude",
     model: "claude-sonnet-4-5",
     source_ref: "transcript.jsonl",
-    usage: { input: 78000, output: 0, cache_creation: 0, cache_read: 0 },
+    usage: { input: pct * 2000, output: 0, cache_creation: 0, cache_read: 0 },
     event: "UserPromptSubmit",
   });
-  assert.equal(below.used_percentage, 39);
+}
+
+test("handoff band unlocks at 20 but near_limit waits until the warn threshold", () => {
+  const below = recordAtPct("below", 19);
+  assert.equal(below.used_percentage, 19);
   assert.equal(phaseFor(below.used_percentage), "plan");
   assert.equal(below.near_limit, false);
 
-  const unlocked = buildMeteringRecord({
-    session_id: "s-band-unlocked",
-    harness: "claude",
-    model: "claude-sonnet-4-5",
-    source_ref: "transcript.jsonl",
-    usage: { input: 80000, output: 0, cache_creation: 0, cache_read: 0 },
-    event: "UserPromptSubmit",
-  });
-  assert.equal(unlocked.used_percentage, 40);
+  const unlocked = recordAtPct("unlocked", 20);
+  assert.equal(unlocked.used_percentage, 20);
   assert.equal(phaseFor(unlocked.used_percentage), "handoff");
-  assert.equal(unlocked.near_limit, false);
+  assert.equal(unlocked.near_limit, false, "20% unlocks handoff but must NOT warn");
 
-  const warning = buildMeteringRecord({
-    session_id: "s-band-warning",
-    harness: "claude",
-    model: "claude-sonnet-4-5",
-    source_ref: "transcript.jsonl",
-    usage: { input: 100000, output: 0, cache_creation: 0, cache_read: 0 },
-    event: "UserPromptSubmit",
-  });
-  assert.equal(warning.used_percentage, 50);
-  assert.equal(phaseFor(warning.used_percentage), "handoff");
-  assert.equal(warning.near_limit, true);
+  const above = recordAtPct("above", 21);
+  assert.equal(above.used_percentage, 21);
+  assert.equal(phaseFor(above.used_percentage), "handoff");
+  assert.equal(above.near_limit, false);
+
+  // The retired 40%/50% points are now ordinary in-band values: 40 must not warn
+  // under the default-60 threshold, and nothing special happens at 50.
+  const warn = effectiveWarnThresholdPct();
+  if (warn > 40) {
+    assert.equal(recordAtPct("legacy-unlock", 40).near_limit, false,
+      "40% must no longer trip near_limit under the default warn threshold");
+  }
+});
+
+test("near_limit flips exactly at the resolved warn threshold boundary", () => {
+  const warn = effectiveWarnThresholdPct();
+  assert.ok(warn >= 40 && warn <= 90,
+    `resolved warn threshold ${warn} must sit inside the locked 40-90 band`);
+
+  assert.equal(recordAtPct("warn-minus-1", warn - 1).near_limit, false,
+    `threshold-1 (${warn - 1}%) must not trip near_limit`);
+  assert.equal(recordAtPct("warn-exact", warn).near_limit, true,
+    `threshold (${warn}%) must trip near_limit inclusively`);
+  assert.equal(recordAtPct("warn-plus-1", warn + 1).near_limit, true,
+    `threshold+1 (${warn + 1}%) must stay tripped`);
+
+  // Phase is independent of the warn threshold: everything at/above 20 is handoff.
+  for (const pct of [warn - 1, warn, warn + 1]) {
+    assert.equal(phaseFor(pct), "handoff");
+  }
 });
 
 test("resolveContextWindowDetailed applies hint, ratchet, prior floor, and contradiction rules", () => {
@@ -306,7 +351,7 @@ test("field cases with 1M hint meter at real 1M percentages", () => {
   });
   assert.equal(caseA.context_window_size, LONG_CONTEXT_WINDOW);
   assert.equal(Math.round(caseA.used_percentage), 22);
-  assert.equal(phaseFor(caseA.used_percentage), "plan");
+  assert.equal(phaseFor(caseA.used_percentage), "handoff");
   assert.equal(caseA.near_limit, false);
 
   const caseB = buildMeteringRecord({

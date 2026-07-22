@@ -60,6 +60,7 @@ import {
   reminderPath,
 } from "../dist/orchestration/reminder.js";
 import { clearLatch } from "../dist/orchestration/latch.js";
+import * as meteringModule from "../dist/orchestration/metering.js";
 import { readMetering } from "../dist/orchestration/metering.js";
 import {
   clearHandoff,
@@ -133,6 +134,48 @@ function makeDirectivesEnv({
   // (npm_config_prefix) at it; the resolver's trust gate then accepts it.
   return { root, env: { PLUGIN_ROOT: root, npm_config_prefix: root } };
 }
+
+// ---------------------------------------------------------------------------
+// Coaching-setting seam.
+//
+// The locked design stores contextCoaching / handoffWarnThreshold in the USER
+// settings file under the config home (~/.subagent-mcp/settings.json). To keep
+// these tests hermetic they redirect the config home at a temp dir via
+// SUBAGENT_CONFIG_HOME, which the production resolver MUST honour (see
+// src/config-home.ts getConfigHome(), which today reads homedir() with no
+// override). Both process.env and the env object handed to runHook are set so
+// the seam works whichever channel the resolver reads.
+// ---------------------------------------------------------------------------
+const coachingHomes = [];
+let savedConfigHome;
+let savedConfigHomeSet = false;
+
+function withCoachingSettings(env, settings) {
+  const home = mkdtempSync(join(tmpdir(), "orch-coach-home-"));
+  coachingHomes.push(home);
+  writeFileSync(join(home, "settings.json"), JSON.stringify(settings), "utf8");
+  if (!savedConfigHomeSet) {
+    savedConfigHome = process.env.SUBAGENT_CONFIG_HOME;
+    savedConfigHomeSet = true;
+  }
+  process.env.SUBAGENT_CONFIG_HOME = home;
+  return { ...env, SUBAGENT_CONFIG_HOME: home };
+}
+
+function withCoachingOff(env) {
+  return withCoachingSettings(env, { contextCoaching: false });
+}
+
+function restoreCoaching() {
+  if (!savedConfigHomeSet) return;
+  if (savedConfigHome === undefined) delete process.env.SUBAGENT_CONFIG_HOME;
+  else process.env.SUBAGENT_CONFIG_HOME = savedConfigHome;
+  savedConfigHomeSet = false;
+}
+
+process.on("exit", () => {
+  for (const home of coachingHomes) rmSync(home, { recursive: true, force: true });
+});
 
 // Synthetic adapter with injectable subagent/turn behavior.
 function makeAdapter({ subagent = false, turn = 0, liftUsage = () => null } = {}) {
@@ -843,61 +886,102 @@ test("plan latch persists but the one-time latch coaching body does not re-fire"
   }
 });
 
-test("40-49% handoff phase unlocks without wind-down warning body", () => {
+// ---------------------------------------------------------------------------
+// LOCKED (context-coaching) threshold semantics exercised below:
+//   - handoff phase / handoff-tool unlock at a hard-coded 20% (was 40%);
+//   - the wind-down warning fires at a USER-CONFIGURABLE threshold
+//     (default 60, valid 40-90) instead of the retired hard-coded 50%;
+//   - contextCoaching=false mutes ONLY the wind-down warn body — the 15% latch
+//     coaching and the 20% unlock are unaffected.
+// The warn threshold is read from the production surface so these tests stay
+// correct whichever in-band default the settings resolve to.
+// ---------------------------------------------------------------------------
+function warnThresholdPct() {
+  const resolver =
+    meteringModule.resolveWarnThresholdPct ??
+    meteringModule.warnThresholdPct ??
+    meteringModule.resolveHandoffWarnThreshold;
+  if (typeof resolver === "function") return resolver();
+  const constant =
+    meteringModule.HANDOFF_WARNING_THRESHOLD_PCT ??
+    meteringModule.DEFAULT_HANDOFF_WARN_THRESHOLD_PCT;
+  return typeof constant === "number" ? constant : 60;
+}
+
+// claude-sonnet-4-5 -> 200000-token window, so used_percentage === input / 2000.
+function usageAtPct(pct) {
+  return () => ({
+    harness: "claude",
+    model: "claude-sonnet-4-5",
+    source_ref: "synthetic-transcript",
+    usage: { input: pct * 2000, output: 0, cache_creation: 0, cache_read: 0 },
+    harnessPercentage: null,
+  });
+}
+
+test("20% up to threshold-1 unlocks the handoff phase without a wind-down warning", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   const session = `s-meter-handoff-unlocked:${cwd}`;
-  const adapter = makeAdapter({
-    turn: 2,
-    liftUsage: () => ({
-      harness: "claude",
-      model: "claude-sonnet-4-5",
-      source_ref: "synthetic-transcript",
-      usage: { input: 80000, output: 0, cache_creation: 0, cache_read: 0 },
-      harnessPercentage: null,
-    }),
-  });
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(20) });
   try {
     const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
     assertTagged(claim, {
       state: "on",
       kind: "directive",
       phase: "handoff",
-      utilization: "40%",
+      utilization: "20%",
       body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
-      remaining: 60,
+      remaining: 80,
     });
-    assert.ok(!claim.includes(HANDOFF_TEXT), "40% claim turn must not include wind-down body");
+    assert.ok(!claim.includes(HANDOFF_TEXT), "20% claim turn must not include wind-down body");
     const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
     assertTagged(short, {
       state: "on",
       kind: "carrier",
       phase: "handoff",
-      utilization: "40%",
+      utilization: "20%",
       body: SHORT_ON_TEXT,
-      remaining: 60,
+      remaining: 80,
     });
-    assert.ok(!short.includes(HANDOFF_TEXT), "40-49% carrier turns must not include wind-down body");
+    assert.ok(!short.includes(HANDOFF_TEXT), "sub-threshold carrier turns must not include wind-down body");
   } finally {
     clearLatch(session);
     cleanup(cwd, root);
   }
 });
 
-test("50% warning threshold appends handoff body on both short and long cadence turns", () => {
+test("threshold-1 is still quiet: the retired 50% point no longer warns by default", () => {
+  const warn = warnThresholdPct();
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-handoff-below-warn:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn - 1) });
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assert.ok(!claim.includes(HANDOFF_TEXT),
+      `threshold-1 (${warn - 1}%) must not include the wind-down body`);
+    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(short, {
+      state: "on",
+      kind: "carrier",
+      phase: "handoff",
+      utilization: `${warn - 1}%`,
+      body: SHORT_ON_TEXT,
+      remaining: 100 - (warn - 1),
+    });
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("warn threshold appends handoff body on both short and long cadence turns", () => {
+  const warn = warnThresholdPct();
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   const session = `s-meter-handoff:${cwd}`;
-  const adapter = makeAdapter({
-    turn: 2,
-    liftUsage: () => ({
-      harness: "claude",
-      model: "claude-sonnet-4-5",
-      source_ref: "synthetic-transcript",
-      usage: { input: 100000, output: 0, cache_creation: 0, cache_read: 0 },
-      harnessPercentage: null,
-    }),
-  });
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn) });
   try {
     const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
     assert.ok(claim.includes(HANDOFF_TEXT), "handoff claim turn includes wind-down body");
@@ -906,9 +990,9 @@ test("50% warning threshold appends handoff body on both short and long cadence 
       state: "on",
       kind: "carrier",
       phase: "handoff",
-      utilization: "50%",
+      utilization: `${warn}%`,
       body: `${SHORT_ON_TEXT}\n${HANDOFF_TEXT}`,
-      remaining: 50,
+      remaining: 100 - warn,
     });
     for (let i = 0; i < 3; i++) {
       runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
@@ -918,13 +1002,114 @@ test("50% warning threshold appends handoff body on both short and long cadence 
       state: "on",
       kind: "reminder",
       phase: "handoff",
-      utilization: "50%",
+      utilization: `${warn}%`,
       body: `${REM_ON_TEXT}\n${HANDOFF_TEXT}`,
-      remaining: 50,
+      remaining: 100 - warn,
     });
   } finally {
     clearLatch(session);
     cleanup(cwd, root);
+  }
+});
+
+test("threshold+1 keeps warning", () => {
+  const warn = warnThresholdPct();
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-handoff-above-warn:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn + 1) });
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assert.ok(claim.includes(HANDOFF_TEXT),
+      `threshold+1 (${warn + 1}%) must include the wind-down body`);
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// contextCoaching = false: mutes ONLY the wind-down warn/steering path.
+// It must NOT gate the 15% latch coaching body (hook-core.ts:806-813) and must
+// NOT gate the 20% handoff unlock / handoff phase.
+// ---------------------------------------------------------------------------
+test("coaching OFF suppresses the wind-down warn body at and above the threshold", () => {
+  const warn = warnThresholdPct();
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-coach-off-warn:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn) });
+  const offEnv = withCoachingOff(env);
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
+    assert.ok(!claim.includes(HANDOFF_TEXT),
+      "coaching OFF must suppress the wind-down body on the claim turn");
+    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
+    assert.ok(!short.includes(HANDOFF_TEXT),
+      "coaching OFF must suppress the wind-down body on carrier turns");
+    // The phase itself is NOT muted - only the warning prose is.
+    assertTagged(short, {
+      state: "on",
+      kind: "carrier",
+      phase: "handoff",
+      utilization: `${warn}%`,
+      body: SHORT_ON_TEXT,
+      remaining: 100 - warn,
+    });
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+    restoreCoaching();
+  }
+});
+
+test("coaching OFF still fires the 15% latch coaching and still force-enables orchestration", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-coach-off-latch:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(15) });
+  const offEnv = withCoachingOff(env);
+  try {
+    const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
+    assertTagged(out, {
+      state: "on",
+      kind: "directive",
+      phase: "plan",
+      utilization: "15%",
+      body: LATCH_TEXT,
+      remaining: 85,
+    });
+    assert.ok(isActive(cwd), "the 15% latch must force-enable orchestration even with coaching OFF");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+    restoreCoaching();
+  }
+});
+
+test("coaching OFF still reports the handoff phase at the 20% unlock", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-coach-off-unlock:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(20) });
+  const offEnv = withCoachingOff(env);
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
+    assertTagged(claim, {
+      state: "on",
+      kind: "directive",
+      phase: "handoff",
+      utilization: "20%",
+      body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
+      remaining: 80,
+    });
+    const record = readMetering(session);
+    assert.equal(record.used_percentage, 20,
+      "metering still records utilization with coaching OFF");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+    restoreCoaching();
   }
 });
 

@@ -154,6 +154,11 @@ beside the compiled server and re-read on every `launch_agent`. It controls the
 global concurrency cap, update checks, permission ceiling, escalation behavior,
 strict read-parity logging, and Codex sandbox networking.
 
+Context-coaching preferences live only in `~/.subagent-mcp/settings.json` (or
+`settings.local.json`): `contextCoaching` defaults to `true`, and
+`handoffWarnThreshold` defaults to `60` with valid values `40`-`90`. Invalid,
+blank, or out-of-range thresholds resolve to `60`.
+
 User and repo permission files can only tighten or add scoped permissions on top
 of the global ceiling. See [README/configuration.md](README/configuration.md)
 for the full key table, precedence rules, and mode summary.
