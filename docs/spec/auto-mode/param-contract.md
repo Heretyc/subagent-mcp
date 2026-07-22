@@ -13,6 +13,7 @@ Error message text and the full presence matrix live in `resolution-matrix.md`.
 | `model` | enum `["haiku","sonnet","opus","opus-4-8","fable","gpt-5.5","gpt-5.6"]` | optional | Override. Omit to auto-select. |
 | `effort` | enum `["medium","high","xhigh","max","ultracode"]` | optional | Override. **Remove the current `.default("high")`.** Omit to auto-select. |
 | `deadlock` | boolean | optional | Auto-mode-only escalation flag; omit normally. Agent-visible gloss is the verbatim MANDATE in `tool-description.md`: set `true` only on the 3rd+ launch attempt for the SAME atomic task. CANNOT be combined with `provider`/`model`/`effort` (→ `ERR_DEADLOCK_WITH_OVERRIDES`, `resolution-matrix.md`). `false` == omitting. Window mechanics: `routing-table-contract.md section Branch selection`. |
+| `sub-orchestrator` | boolean | optional | Main orchestrator only (depth 0). Launches the child as a delegate-only sub-orchestrator: the server injects the `SUB_ORCHESTRATOR_DIRECTIVE` below the parent-process marker and sets env `SUBAGENT_MCP_SUB_ORCHESTRATOR=1`. Deeper launches (depth >= 1) are rejected with `ERR_SUBORCH_DEPTH`. The flag is orthogonal to `provider`/`model`/`effort` and `deadlock`; `validatePresence` is NOT touched. `false` is identical to omitting it. Intended use: swarm dispatch stage only. See `docs/spec/swarm/_INDEX.md`. |
 | `cwd` | string | optional (unchanged) | Working directory for the spawned CLI. |
 
 The 15 `task_category` enum values (14 taxonomy categories + fallback):

@@ -45,6 +45,10 @@ Validation order in the handler:
    codex<->{gpt-5.5,gpt-5.6}); reuse that existing check and its message verbatim.
 6. If `task_category` is `fallback_default` and mode is not `explicit` ->
    `ERR_FALLBACK_DEFAULT`.
+6b. (Presence/mode validation complete.) If `sub-orchestrator: true`, check
+   `currentLaunchDepth() >= 1` -> `ERR_SUBORCH_DEPTH`. This depth gate runs AFTER
+   presence validation (so a bad presence combo gets the presence error, not the
+   depth error) and BEFORE the model-mode gate.
 7. All validation passed. If `deadlock === true`, ARM the deadlock window now
    (counter = 3; `routing-table-contract.md section Branch selection`) : never before
    this point, so a rejected call never arms. Then build the candidate list for

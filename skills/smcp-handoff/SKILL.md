@@ -4,7 +4,7 @@ version: 1.0.0
 description: Resume prior work from a saved subagent-mcp handoff when the user says "handoff-resume", "resume handoff", or "resume work"; call handoff-read, then confirm intent with exactly 4 structured questions before acting, and know the handoff-write/read/clear lifecycle.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: 2026-07-11
-updated: 2026-07-11
+updated: 2026-07-22
 ---
 
 # Handoff Resume
@@ -18,3 +18,19 @@ A handoff record MUST carry a DEFINABLE AND ACHIEVABLE goal. When shaping the `/
 ## Coach the successor (handoff-read)
 
 After the 4-question confirm, RUN UNTIL the handoff's stated goals are achieved (its done-condition is met) OR the subagent-mcp hook wind-down alert (fired at or above the user's `handoffWarnThreshold`, default 60% context utilization) says a new handoff is needed. This is a run-until-achieved loop: do not stop early for review pauses unless the handoff explicitly asks for them. If context exhausts before the goal is met, write a fresh handoff and hand off again.
+
+## Swarm master goal prompt (re-entry after a swarm stage-5 handoff)
+
+A swarm master goal prompt is a printed block embedded in the user's opening
+message after a stage-5 swarm handoff. It contains the overall objective, a
+list of absolute plan file paths (one per sub-orchestrator), and the explicit
+instruction to call `swarm(5)`. When the opening goal contains this pattern:
+
+1. Call `handoff-read` and run the 4-question confirm as normal.
+2. After confirm, call `swarm(5)` -- this is the designated post-handoff
+   re-entry; the server registers stage 5 as done and returns stage-6 coaching.
+3. Follow the server's stage-6 coaching exactly. It will instruct you to launch
+   one sub-orchestrator per plan file path using `launch_agent` with
+   `sub-orchestrator: true`.
+4. Do NOT read the plan files yourself. Each sub-orchestrator reads its own
+   plan file; you handle the paths only.

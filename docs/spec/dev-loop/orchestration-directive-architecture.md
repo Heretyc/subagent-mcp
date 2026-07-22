@@ -45,6 +45,17 @@ permission decisions : those run through the shared engine in `src/drivers.ts`.)
 | `.../appendix-a6-a7.md` | A6 marker spec/MIGRATE_RE/collapse algorithm, A7 `ensureParentMarker` + 7 test cases | implementing init migration or the parent-marker upsert | you need the ON/OFF prose model |
 | `.../statusline-signal.md` | Claude statusLine shim, `sl-*` records, harness percentage/window lift, setup wrapping, sweep | documenting or debugging Claude statusline context metering | you need ON/OFF prose semantics |
 
+## Swarm and sub-orchestrator retrieval
+
+| Topic | Leaf |
+|-------|------|
+| Agentic swarm workflow (7-stage machine, pin design, anti-gaming rationale) | `docs/spec/swarm/_INDEX.md` |
+| Performance pin / swarm routing (arm/restart/auto-off, call-site, branch selection) | `docs/spec/swarm/_INDEX.md`, `docs/spec/auto-mode/routing-table-contract.md` |
+| Sub-orchestrators (directive, env marker, depth gate, anti-inheritance, hook emission) | `docs/spec/swarm/_INDEX.md`, `orchestration-directive-architecture/appendix-a5-directives.md` |
+
+These entries are MAP ONLY. All normative content for swarm and sub-orchestrator lives in
+`docs/spec/swarm/_INDEX.md` and `docs/spec/auto-mode/` leaves, NOT in this retrieval map.
+
 ## Topic → leaf index
 
 - single tag `<subagent-mcp state kind>`, no dead values → `sections-00-04.md` (section 1)
@@ -68,7 +79,9 @@ permission decisions : those run through the shared engine in `src/drivers.ts`.)
 "orchestration ON/OFF", "delegate-only", "launch_agent", "read-escalation
 ladder", "jointly binding / supremacy clause", "fail-safe ON", "no-hook / UNKNOWN
 state", "first-line exemption / fork-bomb", "INIT_BLOCK", "MIGRATE_RE / schema=3
-markers", "ensureParentMarker", "R-ID derivation", "5-call rule".
+markers", "ensureParentMarker", "R-ID derivation", "5-call rule",
+"swarm", "agentic swarm", "sub-orchestrator", "performance pin", "swarm dispatch",
+"multi-session workflow".
 
 > **CRITICAL : do NOT answer orchestration questions from this map.** It is an
 > index. Open the named leaf and read the normative text before acting or

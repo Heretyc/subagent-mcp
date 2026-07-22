@@ -2,8 +2,12 @@
 
 subagent-mcp turns a host CLI into an orchestrator for local sub-agent
 sessions. It exposes MCP tools such as `launch_agent`, `poll_agent`, `wait`,
-`get_status`, `orchestration-mode`, and handoff tools. Provider credentials and
-user config live outside the repo.
+`get_status`, `orchestration-mode`, `swarm`, and handoff tools. Provider
+credentials and user config live outside the repo.
+
+The `sub-orchestrator: true` flag on `launch_agent` is for the swarm dispatch
+stage only (main orchestrator, depth 0); it launches a delegate-only child
+orchestrator for one disjoint plan section and is never set elsewhere.
 
 ## Fallback Rule
 

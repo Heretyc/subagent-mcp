@@ -112,6 +112,18 @@ Override selector modes use `ERR_ALL_FAILED` if every requested and fallback
 candidate fails. The requested route appears first in the numbered list; any
 valid auto candidates are appended after de-duping.
 
+## ERR_SUBORCH_DEPTH (`sub-orchestrator: true` at depth >= 1; validation step 6b)
+
+This error sets `isError: true`. Verbatim text from `SUB_ORCH_DEPTH_ERROR(depth)` in
+`src/sub-orchestrator.ts`:
+
+```
+Error: sub-orchestrator: true is only available to the main orchestrator (depth 0). Current SUBAGENT_MCP_DEPTH=<depth>: a sub-orchestrator launched from this depth could not delegate, because the 2-level spawn cap leaves its workers unable to run. Relaunch this agent as a normal sub-agent (omit sub-orchestrator).
+```
+
+Interpolate the actual `currentLaunchDepth()` value for `<depth>`. This error carries no
+`AUTO_HINT` (it is a structural depth violation, not a mode/category error).
+
 ## Anti-examples (what must NOT happen)
 
 - Do NOT silently substitute `effort:"high"` when `effort` is omitted : that is

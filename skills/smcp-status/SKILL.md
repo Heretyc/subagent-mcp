@@ -4,7 +4,7 @@ version: 1.0.0
 description: Report live subagent-mcp session state by calling the get_status MCP tool and rendering it in a uniform plain-ASCII layout. Use when the user says "smcp status", "/smcp:status", "routing status", "which providers active", or "agent count". Live data only; reads no state files.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: 2026-07-15
-updated: 2026-07-15
+updated: 2026-07-22
 ---
 
 # subagent-mcp Status
@@ -27,6 +27,9 @@ and point the user at the `/smcp:doctor` skill.
   null), used to compute uptime.
 - `last_routing_decisions` - array of `{ category, provider, timestamp,
   elapsed_ms }`, most recent last, capped at the last 10.
+- `swarm` - agentic-swarm session snapshot: `{ active, current_stage,
+  stage_name, pin_active, pin_expires_at }`. When `active` is false all other
+  swarm fields are null or false.
 
 ## Presentation (E1-standardized)
 
@@ -58,6 +61,15 @@ Rules for filling it in:
   `last_routing_decisions` (the 3 most recent). Number them 1-3 with the oldest
   of the three first and the newest last. If fewer than 3 exist, show what is
   there. If the array is empty, print `last routing decisions: none yet`.
+
+Add a `swarm` line after the routing decisions block:
+
+- When `swarm.active` is true: `swarm: stage <current_stage> of 7 (<stage_name>), pin <active|off>`
+- When `swarm.active` is false: `swarm: idle`
+
+`pin` reflects `swarm.pin_active`: print `active` when true, `off` when false.
+Do not print `pin_expires_at` unless it adds useful context (for example, if
+the user asks how long the pin remains active).
 
 Keep every line plain and aligned by field name so successive status reports
 read the same way.

@@ -105,6 +105,51 @@ Boundary). These are the canonical per-key strings:
 
 Keep the param description string in sync with this table if either is edited.
 
+## Sub-orchestrator launch_agent sentence (appended to the existing description)
+
+Verbatim sentence appended to the existing `launch_agent` description (321 B; 1844 -> 2165 B,
+measured; <= 2200 B hard cap; re-verify with `node scripts/check_mcp_compliance.mjs`):
+
+```
+ SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches the child as a delegate-only orchestrator for ONE disjoint plan section - used by the swarm dispatch stage; the server injects the directive + env marker, and the child's OWN sub-agents run as normal workers (the flag never inherits).
+```
+
+## `sub-orchestrator` param metadata gloss (verbatim)
+
+The `sub-orchestrator` param `.describe(...)` string. From `SUB_ORCH_PARAM_GLOSS` in
+`src/sub-orchestrator.ts`:
+
+```
+Launch this child as a SUB-ORCHESTRATOR: the server injects a delegate-only orchestration directive into the prompt and sets env SUBAGENT_MCP_SUB_ORCHESTRATOR=1, forcing orchestration-mode behavior ON for that agent. The child's OWN sub-agents are NOT bound by the flag - it never inherits (the server strips the marker from grandchildren). Available to the MAIN orchestrator only (depth 0); deeper launches are rejected because a sub-orchestrator's workers cannot spawn further under the 2-level depth cap. Intended use: the swarm workflow's dispatch stage, exactly one sub-orchestrator per plan file path, each on a disjoint section. Omitting or false = normal sub-agent.
+```
+
+## `swarm` tool description (verbatim)
+
+From `SWARM_TOOL_DESCRIPTION` in `src/swarm.ts`. Size: ~1230 B <= 2200 B cap.
+
+```
+Agentic-swarm staged workflow coach for work objectives projected to span MULTIPLE sessions - OFFER it to the user whenever you project that. Fixed 7-stage sequence: (1) planning team of 3 architects + 1 critic builds one plan per sub-orchestrator -> (2) critic judges every plan BEFORE it is written to disk, max 3 revision rounds then escalate to the user -> (3) approved plans written to temp files; the orchestrator handles PATHS only and never reads them -> (4) master goal prompt embedding those paths is PRINTED in chat for copy/paste (never via handoff-write) -> (5) handoff to a new session and resume -> (6) parallel sub-orchestrator dispatch, one per plan path -> (7) test all work, re-dispatch until sufficient, complete. CALLING: swarm() or swarm(null) starts and returns stage-1 coaching; swarm(N) means "stage N is done" and returns the NEXT stage's coaching plus the exact next call; swarm(0) abandons. Out-of-order or unknown stages return corrective coaching stating the expected current stage and never advance state. State is IN-MEMORY for THIS session only (never on disk); after the stage-5 handoff the resumed session calls swarm(5) as the designated re-entry. Follow each stage's returned coaching exactly and keep the harness task tracker updated.
+```
+
+## `stage` param metadata gloss (swarm tool; verbatim)
+
+From `SWARM_STAGE_PARAM_GLOSS` in `src/swarm.ts`:
+
+```
+Omit or pass null to START the swarm (returns stage-1 coaching). Pass N (1-7) to report "stage N is done" and receive the next stage's coaching. Pass 0 to abandon the active swarm. Out-of-order values return corrective coaching and change nothing.
+```
+
+## Byte accounting (post-3.2.0)
+
+| String | Bytes | Cap |
+|--------|-------|-----|
+| `launch_agent` description (after sub-orch sentence append) | 2165 B | 2200 B |
+| `ORCHESTRATION_INSTRUCTIONS` (MCP `instructions`) | 2045 B | 2048 B |
+| `swarm` tool description | ~1230 B | 2200 B |
+
+Verify after any edit with `node scripts/check_mcp_compliance.mjs`. The C1 gate hard-fails at
+2048 B for `ORCHESTRATION_INSTRUCTIONS` and the C2 gate hard-fails at 2200 B per description.
+
 ## Model-selection gating
 
 The override license above ("`provider`/`model`/`effort` licensed on 1st/2nd attempts") is

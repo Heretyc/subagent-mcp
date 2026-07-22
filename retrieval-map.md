@@ -46,6 +46,9 @@ everything else.
 | Contributing / dev env | `CONTRIBUTING.md`, `docs/CONTRIBUTING.md` (redirect stub) |
 | Release notes | `docs/release-notes.md` |
 | Directive source assets | `directives/{orchestration-claude,orchestration-codex,carryover-claude,carryover-codex,reminder-on,reminder-off-claude,reminder-off-codex,short-on,short-off}.md` |
+| Agentic swarm workflow | `docs/spec/swarm/_INDEX.md`, `docs/tools.md` |
+| Performance pin / swarm routing | `docs/spec/swarm/_INDEX.md`, `docs/spec/auto-mode/routing-table-contract.md` |
+| Sub-orchestrators | `docs/spec/swarm/_INDEX.md`, `docs/tools.md` |
 | MCP builder skill | `skills/mcp-builder/SKILL.md` (+ `references/`) |
 | Model profiler skill | `skills/model-profiler/SKILL.md` (+ `references/`) |
 | Installer skill | `skills/subagent-mcp-installer/SKILL.md` (+ `references/`) |
@@ -63,6 +66,9 @@ everything else.
 | "category", "task type", "work category", "taxonomy" | task taxonomy | `docs/spec/task-taxonomy/_INDEX.md`, `.spec/references/work-categories.md` |
 | "stuck", "quiet", "not responding", "hung" | stalled lifecycle | `docs/reference/status-lifecycle.md` |
 | "hook", "injection", "reminder", "directive", "managed block" | orchestration directives | `docs/spec/dev-loop/orchestration-directive-architecture.md`, `directives/` |
+| "swarm", "agentic swarm", "staged workflow", "multi-session workflow" | swarm workflow | `docs/spec/swarm/_INDEX.md`, `docs/tools.md` |
+| "hive", "multi-session", "cross-session" | swarm workflow | `docs/spec/swarm/_INDEX.md` |
+| "sub-orchestrator", "delegate orchestrator", "dispatch flag", "sub-orchestrator: true" | sub-orchestrator | `docs/spec/swarm/_INDEX.md`, `docs/tools.md` |
 | "install", "setup", "register", "wire" | registration | `docs/registration.md`, `docs/install/_INDEX.md` |
 | "publish", "release", "npm", "ship" | release | `docs/spec/dev-loop/release-publishing.md` |
 | "worktree", "branch-per-task", "isolation" | worktree enforcement | `docs/spec/dev-loop/worktree-enforcement/_INDEX.md` |

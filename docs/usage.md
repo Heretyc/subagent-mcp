@@ -99,3 +99,52 @@ Pass `verbose: true` to also get `final_output`, the agent's final assistant tur
   }
 }
 ```
+
+---
+
+## Agentic Swarm
+
+For objectives projected to span multiple sessions, use the `swarm` tool to
+start a staged 7-step coaching workflow.
+
+**Start a swarm (returns stage-1 planning coaching):**
+
+```json
+{ "tool": "swarm", "arguments": {} }
+```
+
+The server returns stage-1 coaching with the exact instruction to call
+`swarm(1)` when that stage is done. Each `swarm(N)` call registers stage N as
+complete and returns the next stage's coaching plus the exact next call.
+
+**Report a stage complete and receive the next coaching:**
+
+```json
+{ "tool": "swarm", "arguments": { "stage": 1 } }
+```
+
+**Abandon an active swarm:**
+
+```json
+{ "tool": "swarm", "arguments": { "stage": 0 } }
+```
+
+**Stage-6 sub-orchestrator dispatch (one launch per plan file path):**
+
+```json
+{
+  "tool": "launch_agent",
+  "arguments": {
+    "task_category": "agentic_execution",
+    "sub-orchestrator": true,
+    "prompt": "You are a sub-orchestrator. Read the plan at /tmp/swarm-plan-1-backend.md and implement its disjoint section. Serialize any agents that write overlapping paths. Return JSON: {status, summary, source_locators, risks, writes_requested}.",
+    "cwd": "C:\\Users\\YourName\\project"
+  }
+}
+```
+
+The child receives the server's delegate-only orchestration directive in its
+prompt. Its own sub-agents are normal workers; `sub-orchestrator: true` never
+inherits to grandchildren. Available to the main orchestrator only (depth 0);
+the server rejects the flag at greater depth. Auto mode only -- omit
+provider/model/effort.
