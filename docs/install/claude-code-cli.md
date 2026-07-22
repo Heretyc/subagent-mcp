@@ -94,20 +94,25 @@ projects) or `.claude/settings.json` (this project). Windows user path:
 On Windows use a doubled-backslash or forward-slash absolute path in `args`.
 
 **3) Static native-agent deny** in the same settings file. This is defense in
-depth next to the `PreToolUse` hook, so native Task/Agent/Explore paths stay
-blocked even before the heartbeat gate runs.
+depth next to the `PreToolUse` hook, blocking the native `Agent` launcher before
+the heartbeat gate runs. Task widget tools and Explore are not in the static
+deny list and remain usable.
 
 ```json
 {
   "permissions": {
-    "deny": ["Task", "Agent", "Explore", "Agent(Explore)"]
+    "deny": ["Agent"]
   }
 }
 ```
 
 Keep any existing `permissions.allow` / `ask` / `deny` entries and append only
-the missing deny rules. `subagent-mcp setup` and `init --global` do this merge
+the missing deny rule. `subagent-mcp setup` and `init --global` do this merge
 and back up existing files before editing.
+
+Upgrade silently removes any legacy `Task`, `Explore`, and `Agent(Explore)`
+deny entries that a prior install wrote. `doctor` detects stale deny entries
+and offers repair. `uninstall` reverts the `Agent` deny entry that smcp owns.
 
 ---
 
@@ -129,9 +134,9 @@ and back up existing files before editing.
    the FULL directive stops; the OFF reminder cadence remains (LONG
    `reminder-off-claude.md` every 5th prompt, state-aware short pointer
    (`short-off.md` while OFF) between).
-6. **Native-agent suppression:** `~/.claude/settings.json` has
-   `permissions.deny` entries for `Task`, `Agent`, `Explore`, and
-   `Agent(Explore)`, in addition to the PreToolUse hook.
+6. **Native-agent suppression:** `~/.claude/settings.json` has a
+   `permissions.deny` entry for `"Agent"`, in addition to the PreToolUse hook.
+   Task widget tools and Explore are not in the static deny list.
 7. **Manual wiring only:** `claude mcp get subagent-mcp` shows the
    `node dist/index.js` command, and the settings.json hooks fire.
 
