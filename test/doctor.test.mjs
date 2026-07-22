@@ -116,7 +116,7 @@ function writeInstalledManifest(pkgRoot, hooks) {
 }
 
 function writeSmcpSources(pkgRoot) {
-  for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
+  for (const name of ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     mkdirSync(join(pkgRoot, "skills", name), { recursive: true });
     writeFileSync(join(pkgRoot, "skills", name, "SKILL.md"), `${name} skill\n`);
     mkdirSync(join(pkgRoot, "commands"), { recursive: true });
@@ -212,7 +212,7 @@ test("smcp-skills-commands: missing warns, present passes", () => withRoot(({ ho
   assert.equal(missing.status, "WARN");
   assert.match(missing.detail, /run subagent-mcp setup/);
 
-  for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
+  for (const name of ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     mkdirSync(join(home, ".claude", "skills", name), { recursive: true });
     writeFileSync(join(home, ".claude", "skills", name, "SKILL.md"), `${name} skill\n`);
     mkdirSync(join(home, ".claude", "commands"), { recursive: true });

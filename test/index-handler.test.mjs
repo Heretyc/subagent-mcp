@@ -161,6 +161,7 @@ function createMcpSession(entrypoint, options = {}) {
       "server close",
       () => `stderr=${stderr}`
     ).catch(() => {});
+    if (process.platform === "win32") await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
   }
 
   return { request, initialize, close };
@@ -271,7 +272,7 @@ await test("symlinked dist/index.js connects as the main entrypoint", async () =
     assert.equal(response.result.serverInfo.name, "subagent-mcp");
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -368,7 +369,7 @@ await test("launch_agent from depth 0 sets child SUBAGENT_MCP_DEPTH=1", async ()
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -396,7 +397,7 @@ await test("launch_agent from depth 1 is allowed and sets child SUBAGENT_MCP_DEP
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -423,7 +424,7 @@ await test("launch_agent treats invalid subagent depth as legacy depth 1", async
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -453,7 +454,7 @@ await test("launch_agent rejects callers at depth 2", async () => {
     assert.equal(JSON.parse(status.result.content[0].text).agent_count, 0);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -495,7 +496,7 @@ await test("bare PATH executable is not rejected before spawn", async () => {
     );
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -651,9 +652,12 @@ function makeTempEnv() {
   // backslash as an escape inside double quotes.
   const modeFile = join(tempRoot, "ruleset-mode.txt");
   writeFileSync(modeFile, "ok-disabled");
+  const baseEnv = { ...process.env };
+  delete baseEnv.SUBAGENT_MCP_SUBAGENT;
+  delete baseEnv.SUBAGENT_MCP_DEPTH;
   const env = prependPath(
     {
-      ...process.env,
+      ...baseEnv,
       FAKE_NPM_PREFIX: fakePrefix,
       SUBAGENT_SPAWN_GRACE_MS: "0",
       SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
@@ -708,6 +712,12 @@ async function withHttpJson(handler, fn) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function rmTempRoot(path) {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  } catch {}
 }
 
 function findSlotForAgent(slotDir, agentId) {
@@ -806,7 +816,7 @@ await test("zombie maintenance: live owned stale slot is refreshed, not killed",
     assert.ok(metadata.last_activity_ms > staleActivity);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -844,7 +854,7 @@ await test("wait loop refreshes live stale slot metadata while blocked", async (
     assert.ok(metadata.last_activity_ms > staleActivity);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -873,7 +883,7 @@ await test("zombie culling: terminal-but-alive driver becomes zombie_killed and 
     assert.ok(waitPayload.finished.some((a) => a.id === agentId && a.status === "zombie_killed"));
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -902,7 +912,7 @@ await test("zombie culling: wait reaps without surfacing zombie_report", async (
     assert.ok(waitPayload.finished.some((a) => a.id === agentId && a.status === "zombie_killed"));
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -933,7 +943,7 @@ await test("zombie culling: hook intent marks agent zombie_killed with tail rete
     assert.ok(pollPayload.stdout_tail.includes("hook intent cull"));
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -975,7 +985,7 @@ await test("zombie culling: launch_agent reaps without surfacing zombie_report",
     assert.equal(culled.zombie_report, undefined);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1021,7 +1031,7 @@ await test("zombie culling: kill_agent and send_message reap without surfacing z
     assert.doesNotMatch(sendText, /zombies:/);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1068,7 +1078,7 @@ await test("zombie culling: mode tools reap without surfacing zombie_report", as
     assert.doesNotMatch(modeText, /zombies:/);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1108,7 +1118,7 @@ await test("orchestration-mode enabled:false is session-keyed and refuses keyles
   } finally {
     removeDisable(sessionKey);
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1128,7 +1138,7 @@ await test("launch schema keeps API providers internal to auto slot routing", as
     assert.deepEqual(launchTool.inputSchema.properties.provider.enum, ["claude", "codex"]);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1144,7 +1154,7 @@ await test("pure-auto launch: cost_efficiency selection, routing_tier is poll-on
     assert.ok(launchPayload.agent_id, "pure-auto launch should still succeed");
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1173,7 +1183,7 @@ await test("completed interactive turn that later exits is finished but not aliv
     assert.equal(pollPayload.alive, false, "closed driver must not report alive=true");
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1245,7 +1255,7 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
     await killAgent(session, r5.agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1314,7 +1324,7 @@ await test("re-arm: second deadlock=true resets window for 3 more performance la
     await killAgent(session, r6.agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1393,7 +1403,7 @@ await test("explicit launch: selection honored; deadlock:false identical to omit
     await killAgent(session, r2.agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1415,7 +1425,7 @@ await test("explicit fable launch: zod enum accepts model and selection is honor
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1440,7 +1450,7 @@ await test("explicit fable+xhigh launch succeeds under user-approved override mo
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1474,7 +1484,7 @@ await test("explicit launch with api slot configured keeps the requested triple"
       await session.close();
     }
   });
-  rmSync(tempRoot, { recursive: true, force: true });
+  rmTempRoot(tempRoot);
 });
 
 await test("api provider slot dispatch retries transient/auth-like HTTP statuses", async () => {
@@ -1518,7 +1528,7 @@ await test("api provider slot dispatch retries transient/auth-like HTTP statuses
         await session.close();
       }
     });
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -1549,7 +1559,7 @@ await test("performance routing never inserts or attempts medium-effort API slot
       await session.close();
     }
   });
-  rmSync(tempRoot, { recursive: true, force: true });
+  rmTempRoot(tempRoot);
 });
 
 await test("api provider disable env keeps pre-api CLI routing", async () => {
@@ -1584,10 +1594,11 @@ await test("api provider disable env keeps pre-api CLI routing", async () => {
       await session.close();
     }
   });
-  rmSync(tempRoot, { recursive: true, force: true });
+  rmTempRoot(tempRoot);
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);
 }
+process.exit(0);

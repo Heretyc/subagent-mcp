@@ -71,6 +71,12 @@ function runBin(args, env = {}) {
   return r;
 }
 
+function rmTempRoot(path) {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  } catch {}
+}
+
 // ---------------------------------------------------------------------------
 // version / --version / -v
 // ---------------------------------------------------------------------------
@@ -181,6 +187,9 @@ test("update: preserves user-edited advanced-ruleset.py", () => {
 
     const r = runBin(["update"], {
       FAKE_NPM_ROOT: globalRoot,
+      HOME: root,
+      USERPROFILE: root,
+      SUBAGENT_CONFIG_HOME: join(root, ".subagent-mcp"),
       PATH: fakeBin,
       Path: fakeBin,
     });
@@ -189,7 +198,7 @@ test("update: preserves user-edited advanced-ruleset.py", () => {
     assert.match(r.stdout, /backed up user advanced-ruleset\.py/);
     assert.match(r.stdout, /restored user advanced-ruleset\.py/);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmTempRoot(root);
   }
 });
 
@@ -204,7 +213,7 @@ test("init: dry-run exits 0 and writes nothing", () => {
     assert.match(r.stdout, /\(dry-run: no files written\)/);
     assert.equal(existsSync(join(root, "AGENTS.md")), false);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmTempRoot(root);
   }
 });
 
@@ -216,7 +225,7 @@ test("--init: dry-run exits 0 and writes nothing", () => {
     assert.match(r.stdout, /\(dry-run: no files written\)/);
     assert.equal(existsSync(join(root, "AGENTS.md")), false);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmTempRoot(root);
   }
 });
 
@@ -236,3 +245,4 @@ console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);
 }
+process.exit(0);
