@@ -30,5 +30,5 @@ Forward or double-backslash paths both work in TOML. Verify with `/mcp` inside a
 
 ## Project-local Codex config
 
-Repo-level `.codex/config.toml` (trust requirement, `enabled` toggle,
-`disabled_tools` deny-list): see [docs/install/codex-cli.md](../install/codex-cli.md).
+Repo-level `.codex/config.toml` (trust requirement and `enabled` toggle): see
+[docs/install/codex-cli.md](../install/codex-cli.md).

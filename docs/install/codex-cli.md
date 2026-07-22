@@ -130,13 +130,6 @@ server defined in the user config, project config can toggle it:
 enabled = true  # or false
 ```
 
-Granular alternative : keep the server enabled but hide specific tools:
-
-```toml
-[mcp_servers.subagent-mcp]
-disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "list_agents", "wait"]
-```
-
 ---
 
 ## Verification

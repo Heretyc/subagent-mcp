@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.1.9
+## 3.1.11
 
 ### Added
 
@@ -18,6 +18,44 @@
 - `smcp-config` Agent Skill and `/smcp:config` slash command: interactive
   wrapper around the `configure` tool, deployed by `setup` for Claude Code and
   Codex alongside the existing `smcp-*` skills.
+
+## 3.1.10
+
+### Fixed
+
+- Claude `permissions.deny` now converges to `["Agent"]` only. Upgrade silently
+  removes legacy `Task`, `Explore`, and `Agent(Explore)` entries; `doctor`
+  detects stale entries and offers repair; `uninstall` reverts the smcp-owned
+  `Agent` entry.
+
+### Changed
+
+- Task widget tools and Explore are no longer statically denied or matched by
+  the runtime native-agent gate.
+- Codex setup writes only `multi_agent = false`; no `disabled_tools` entries.
+
+## 3.1.9
+
+### Fixed
+
+- The shipped 15% latch directives no longer contradict the released spec.
+  `directives/latch-claude.md` and `directives/latch-codex.md` carried a
+  superseded "ask up to 4 open planning questions in a SINGLE
+  structured-question call" line, while the authoritative A5.5/A5.6 spec fences
+  already specified the harness-neutral floor. Both files now carry the canonical
+  line verbatim and are byte-identical: "ask AT LEAST 4 open planning questions
+  using the structured question tool, or natural prose if not available." The
+  question count is a FLOOR, not a cap, and prose is an allowed fallback where no
+  structured-question tool exists. The separate `handoff-read` confirmation is a
+  different policy and remains at EXACTLY 4.
+
+### Added
+
+- Regression guards that pin the latch coaching line to its exact bytes, assert
+  full-body byte-identity between the two latch directives, and compare the
+  shipped directives against their A5.5/A5.6 spec fences. The previous
+  intent-level assertions passed against the drifted text, which is how the
+  mismatch reached a release.
 
 ## 3.1.7
 
