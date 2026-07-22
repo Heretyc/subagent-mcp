@@ -185,7 +185,7 @@ List, read, or update subagent-mcp configuration by canonical key.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `action` | `"list" \| "get" \| "set"` | Yes | Operation to perform |
-| `key` | string | Required for `get` and `set`; rejected for `list` | Canonical config key (see key table below) |
+| `key` | string | Required for `get` and `set`; rejected for `list` | Canonical config key (discover with `action=list`) |
 | `value` | string | Required for `set` on settable keys; rejected for `get`/`list` | New value as a string; read-only keys return a coaching message instead |
 
 ### Actions
@@ -194,30 +194,30 @@ List, read, or update subagent-mcp configuration by canonical key.
 
 **`get`**: Returns the effective value and metadata for exactly one canonical key. `key` is required; `value` must be omitted. Response: `{ ok: true, action: "get", key, value, scope, path, settable, restart_required: false, restart_required_on_set, source? }`.
 
-**`set`**: Writes a new value for a settable key after validation. Read-only keys (all `global.*`, `update.*`, and `mode.*`) never write; they return `{ ok: true, status: "coached", restart_required: false, message }` with an exact coaching message (see below) -- this is not an MCP error. Unchanged writes return `status: "unchanged"` and create no backup. Successful writes return `{ ok: true, action: "set", key, value, status: "updated", path, backup, restart_required }`.
+**`set`**: Writes a new value for a settable key after validation. Read-only keys (all `global.*`, `update.*`, and `mode.*`) never write; they return `{ ok: true, action: "set", key, status: "coached", path, backup: null, restart_required: false, message }` -- this is not an MCP error, it is returned even when `value` is omitted, and any supplied `value` is ignored. Unchanged writes return `status: "unchanged"` and create no backup. Successful writes return `{ ok: true, action: "set", key, value, status: "updated", path, backup, restart_required }`.
 
-### Canonical key table (static keys)
+### Key catalog
 
-| Key | Scope | Settable | `restart_required` on set |
-|-----|-------|----------|--------------------------|
-| `global.globalConcurrentSubagents` | machine-global file | no | false |
-| `global.checkForUpdates` | machine-global file + env override | no | true |
-| `global.permissionsCeiling` | machine-global file | no | false |
-| `global.escalation` | machine-global file | no | false |
-| `global.strictReadParity` | machine-global file | no | false |
-| `global.sandboxNetwork` | machine-global file | no | false |
-| `user.contextCoaching` | `~/.subagent-mcp/settings.json` | yes | false |
-| `user.handoffWarnThreshold` | `~/.subagent-mcp/settings.json` | yes | false |
-| `update.autoUpdate` | `~/.subagent-mcp/init-registry.json` | no | true |
-| `mode.orchestration` | orchestration-mode state | no | false |
-| `mode.modelSelection` | model-selection-mode state | no | false |
+The key catalog is discoverable at runtime and is not restated here:
+`{"action": "list"}` returns one row per key with `key`, `value`, `type`,
+`default`, `valid_values`, `scope`, `path`, `settable`,
+`restart_required_on_set`, and `redacted`, plus the four dynamic key patterns
+(`providers.<provider>`,
+`providers.<provider>.{api_style|base_url|model|key_env}`,
+`providers.<provider>.routing.<category>`, and `env.<ENV_NAME>`). See
+[skills/smcp-config/references/settings.md](../skills/smcp-config/references/settings.md)
+for behavior a list row does not spell out.
 
-Dynamic key patterns (resolved at runtime):
+Two row fields take non-obvious values:
 
-- `providers.<provider>` -- whole API-provider object; settable (upsert/create); `<provider>` is URI-encoded
-- `providers.<provider>.api_style`, `.base_url`, `.model`, `.key_env` -- individual provider fields; settable on existing providers
-- `providers.<provider>.routing.<category>` -- routing slot integer for one of the 14 task categories; settable
-- `env.<ENV_NAME>` -- entry in `~/.subagent-mcp/.env`; always settable; `restart_required: true`
+- `restart_required_on_set` is a boolean except on whole-provider
+  `providers.<provider>` rows, where it is the literal string
+  `"if key_env changes"`.
+- `get`/`list` rows may carry `source`. Besides env-override and
+  `settings.local.json` labels, it can be the literal strings
+  `"fallback (global file absent)"` (global keys read while the machine-global
+  file is absent) or `"fallback (registry absent)"` (`update.autoUpdate` when
+  the init registry is absent).
 
 ### Resolved config file paths
 
@@ -234,40 +234,24 @@ Dynamic key patterns (resolved at runtime):
 
 ### Redaction
 
-Values are redacted before serialization. Any canonical key or nested object property matching `/token|key|password|secret/i` has its value masked. All `env.*` values are always masked regardless of the variable name. Values shorter than 6 characters become `******`; values 6 characters or longer become the first 4 characters, three dots, and the last 2 characters (for example, `abcdefghxy` becomes `abcd...xy`). Submitted values never appear in errors, logs, or debug output.
+Values are redacted before serialization. Any canonical key or nested object property matching `/token|key|password|secret/i` has its value masked. All `env.*` values are always masked regardless of the variable name. Values shorter than 6 characters become `******`; values 6 characters or longer become the first 4 characters, a one-character ellipsis (the single U+2026 character, not three dots), and the last 2 characters (for example, `abcdefghxy` becomes `abcd` + ellipsis + `xy`). Submitted values never appear in errors, logs, or debug output.
 
-### Global-scope read-only rule and coaching messages
+### Global-scope read-only rule
 
-All `global.*` keys are read-only through MCP because they affect all users on the machine. A `set` call on any `global.*` key returns success with `status: "coached"` and this message:
-
-```
-configure cannot set "<key>". This machine-global setting affects all users on this machine. A human must edit "<fully-resolved-path>" directly.
-```
-
-For `update.autoUpdate`:
-
-```
-configure cannot set "update.autoUpdate". A human must edit "<fully-resolved-path>" directly; this per-user update policy is intentionally read-only through MCP.
-```
-
-For `mode.orchestration`:
-
-```
-configure cannot set "mode.orchestration". Use the orchestration-mode tool with enabled=true or enabled=false instead; omit enabled there to query.
-```
-
-For `mode.modelSelection`:
-
-```
-configure cannot set "mode.modelSelection". Use the model-selection-mode tool with mode="smart" or mode="user-approved-overrides" instead; omit mode there to query.
-```
+All `global.*` keys are read-only through MCP because they affect all users on
+the machine; `update.autoUpdate` and the `mode.*` keys are read-only as well. A
+`set` on any of them succeeds with `status: "coached"` and a message naming the
+fully resolved file a human must edit (`global.*`, `update.autoUpdate`) or the
+tool to use instead (`orchestration-mode` for `mode.orchestration`,
+`model-selection-mode` for `mode.modelSelection`). The exact message strings
+live in `src/configure.ts` and are intentionally not copied here.
 
 ### `restart_required` semantics
 
 `restart_required: true` in a set response means the changed value is in process environment state (`.env` entries, `key_env` field changes) and will not take effect until the MCP server process is restarted. `restart_required: false` means the value is re-read per-launch or per-evaluation with no restart needed. `list` and `get` always return `restart_required: false` because they make no change; each list row carries `restart_required_on_set` for reference.
 
-### Provider writes
+### Provider and `.env` writes
 
-Provider and `.env` writes are validated before touching the real config. A candidate file is written atomically to a sibling path, validated, then removed; the real config is written only on success. Every changed file receives an atomic sibling backup (`<file>.bak-<epoch-ms>`) before replacement. An unchanged write creates neither backup nor real-file change and returns `status: "unchanged"`.
+Provider writes are validated before touching the real config: a candidate file is written atomically to a sibling path, validated, then removed; the real config is written only on success. `.env` writes are not schema-validated -- the submitted value is only checked for being non-empty and single-line (no CR, LF, or NUL). Every changed pre-existing file receives an atomic sibling backup (`<file>.bak-<epoch-ms>`) before replacement; a newly created file reports `backup: null`. An unchanged write creates neither backup nor real-file change and returns `status: "unchanged"`.
 
 Error response (any action): `{ ok: false, action, key?, restart_required: false, error }` with `isError: true` set in the MCP envelope.

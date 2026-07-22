@@ -39,7 +39,7 @@ import {
   stripJsoncComments,
 } from "./concurrency.js";
 import { getConfigHome } from "./config-home.js";
-import { ROUTING_CATEGORIES, validateConfigFile } from "./config-validate.js";
+import { ROUTING_CATEGORIES, readDotEnv, validateConfigFile } from "./config-validate.js";
 import { readInitRegistry, registryPath } from "./init-registry.js";
 import { parseJsoncFile, type JsonObj } from "./jsonc.js";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
@@ -50,9 +50,6 @@ import * as modelMode from "./orchestration/model-mode.js";
 import { updateCheckEnvDisabled } from "./orchestration/update-check.js";
 import { apiProviderEntries } from "./providers/schema.js";
 
-export const CONFIGURE_TOOL_DESCRIPTION =
-  "List, read, or update subagent-mcp configuration by canonical key. `action=list` enumerates settings; `action=get` requires `key`; `action=set` requires `key` and, for settable keys, string `value`. Secrets are always redacted. Machine-global and mode-owned settings are read-only here: edit the reported global file as a human or use `orchestration-mode`/`model-selection-mode`. Provider and .env writes are validated, backed up, and atomic; responses report `restart_required`.";
-
 // ---------------------------------------------------------------------------
 // Redaction (hard requirement: no raw secret in ANY returned string)
 // ---------------------------------------------------------------------------
@@ -60,7 +57,7 @@ export const CONFIGURE_TOOL_DESCRIPTION =
 const SECRET_RE = /token|key|password|secret/i;
 
 /** first-4 + ellipsis + last-2; anything shorter than 6 chars is fully masked. */
-export function maskSecret(value: unknown): string {
+function maskSecret(value: unknown): string {
   const s = String(value ?? "");
   return s.length < 6 ? "******" : `${s.slice(0, 4)}…${s.slice(-2)}`;
 }
@@ -73,6 +70,42 @@ function isSecretCanonicalKey(key: string): boolean {
 // Envelope fields that carry canonical key NAMES / patterns, never secret values.
 const NAME_FIELDS = new Set(["key", "keys", "patterns"]);
 
+// A whole-provider payload: `providers.<name>` with no field/category tail. Its
+// value is a caller-supplied object that may carry ARBITRARY extra fields, so a
+// denylist on the field name cannot bound what comes back out.
+const WHOLE_PROVIDER_KEY_RE = /^providers\.[^.]+$/;
+const PROVIDER_RAW_FIELDS = new Set(["api_style", "base_url", "model"]);
+
+/** ALLOWLIST render of a provider object: only known-safe fields survive raw. */
+function maskProviderValue(node: unknown): unknown {
+  if (!node || typeof node !== "object" || Array.isArray(node)) return sanitizeNode(node, true);
+  const src = node as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const name of Object.keys(src)) {
+    const value = src[name];
+    if (PROVIDER_RAW_FIELDS.has(name) && typeof value === "string" && !SECRET_RE.test(name)) {
+      out[name] = value;
+    } else if (name === "routing" && !!value && typeof value === "object" && !Array.isArray(value)) {
+      out[name] = maskRouting(value as Record<string, unknown>);
+    } else {
+      // key_env, unknown fields, nested objects: masked whatever they are called.
+      out[name] = sanitizeNode(value, true);
+    }
+  }
+  return out;
+}
+
+/** Known routing categories holding a safe integer slot render raw; nothing else does. */
+function maskRouting(routing: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const category of Object.keys(routing)) {
+    const slot = routing[category];
+    const safe = (ROUTING_CATEGORIES as readonly string[]).includes(category) && typeof slot === "number" && Number.isSafeInteger(slot);
+    out[category] = safe ? slot : sanitizeNode(slot, true);
+  }
+  return out;
+}
+
 function sanitizeNode(node: unknown, secret: boolean): unknown {
   if (node === null || node === undefined) return node;
   if (Array.isArray(node)) return node.map((v) => sanitizeNode(v, secret));
@@ -80,10 +113,15 @@ function sanitizeNode(node: unknown, secret: boolean): unknown {
     const src = node as Record<string, unknown>;
     const canonical = typeof src.key === "string" ? src.key : null;
     const valueIsSecret = secret || (canonical !== null && isSecretCanonicalKey(canonical));
+    const providerPayload = !secret && canonical !== null && WHOLE_PROVIDER_KEY_RE.test(canonical);
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(src)) {
       if (!secret && NAME_FIELDS.has(k)) {
         out[k] = sanitizeNode(v, false);
+        continue;
+      }
+      if (providerPayload && k === "value") {
+        out[k] = maskProviderValue(v);
         continue;
       }
       out[k] = sanitizeNode(v, secret || SECRET_RE.test(k) || (k === "value" && valueIsSecret));
@@ -94,7 +132,7 @@ function sanitizeNode(node: unknown, secret: boolean): unknown {
 }
 
 /** THE single sanitizer. Every response goes through it before JSON.stringify. */
-export function redactPayload(payload: unknown): unknown {
+function redactPayload(payload: unknown): unknown {
   return sanitizeNode(payload, false);
 }
 
@@ -138,7 +176,7 @@ interface KeyMeta {
   scope: Scope;
   type: string;
   settable: boolean;
-  restart: boolean | "if key_env changes";
+  restart: boolean;
   def: unknown;
   valid: string;
 }
@@ -168,34 +206,47 @@ const PATTERNS = [
 ];
 
 const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const BOM_RE = new RegExp("^\\uFEFF");
+
+// Segments that would reach Object.prototype through ordinary property access.
+// Rejected as provider names outright; never used for lookup or assignment.
+const UNSAFE_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
 
 const encodeSegment = (s: string) => encodeURIComponent(s).replace(/\./g, "%2E");
 const decodeSegment = (s: string) => decodeURIComponent(s);
+
+/** Own-property read. An INHERITED value must never be observable as config. */
+function own(obj: unknown, name: string): unknown {
+  return !!obj && typeof obj === "object" && Object.prototype.hasOwnProperty.call(obj, name)
+    ? (obj as Record<string, unknown>)[name]
+    : undefined;
+}
+
+/** Own-property write. defineProperty never invokes an inherited setter. */
+function defineOwn(obj: object, name: string, value: unknown): void {
+  Object.defineProperty(obj, name, { value, writable: true, enumerable: true, configurable: true });
+}
+
+/** True if a submitted payload carries a prototype-poisoning name at any depth. */
+function hasUnsafeKey(node: unknown): boolean {
+  if (!node || typeof node !== "object") return false;
+  if (Array.isArray(node)) return node.some(hasUnsafeKey);
+  for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+    if (UNSAFE_SEGMENTS.has(k) || hasUnsafeKey(v)) return true;
+  }
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Reads (never scaffold; readGlobalConfig() would write a missing global file)
 // ---------------------------------------------------------------------------
 
-function globalText(): string | null {
-  const file = globalConfigFile();
+/** The one read helper: absent OR unreadable both report null, never contents. */
+function readIfExists(file: string): string | null {
   try {
     return existsSync(file) ? readFileSync(file, "utf8") : null;
   } catch {
     return null;
   }
-}
-
-function updateDisableSource(env: NodeJS.ProcessEnv = process.env): string | null {
-  // ponytail: mirrors updateCheckEnvDisabled's predicate purely to LABEL which
-  // variable won. The boolean itself still comes from that exported helper.
-  if (env.NO_UPDATE_NOTIFIER !== undefined) return "env:NO_UPDATE_NOTIFIER";
-  if (env.CI !== undefined) return "env:CI";
-  if (env.NODE_ENV === "test") return "env:NODE_ENV=test";
-  if (typeof env.SUBAGENT_UPDATE_CHECK === "string" && /^(?:0|false)$/i.test(env.SUBAGENT_UPDATE_CHECK.trim())) {
-    return "env:SUBAGENT_UPDATE_CHECK";
-  }
-  return null;
 }
 
 function settingsLocalHas(prop: string): boolean {
@@ -207,22 +258,6 @@ function settingsLocalHas(prop: string): boolean {
   } catch {
     return false;
   }
-}
-
-/** `KEY=value` grammar shared with config-validate's .env reader; last wins. */
-function readEnvEntries(): Map<string, string> {
-  const out = new Map<string, string>();
-  const file = envFile();
-  if (!existsSync(file)) return out;
-  try {
-    for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
-      const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
-      if (m) out.set(m[1], m[2].replace(/^["']|["']$/g, ""));
-    }
-  } catch {
-    // Unreadable .env behaves as absent; never surface file contents.
-  }
-  return out;
 }
 
 function readProvidersDoc(): JsonObj | null {
@@ -237,8 +272,8 @@ interface Resolved {
 }
 
 function readStatic(key: string): Resolved {
-  const text = globalText();
   const gPath = globalConfigFile();
+  const text = readIfExists(gPath);
   const gSource = text === null ? "fallback (global file absent)" : undefined;
   switch (key) {
     case "global.globalConcurrentSubagents":
@@ -246,11 +281,7 @@ function readStatic(key: string): Resolved {
     case "global.checkForUpdates": {
       const configured = text === null ? DEFAULT_CHECK_FOR_UPDATES : parseCheckForUpdatesConfig(text);
       const disabled = updateCheckEnvDisabled();
-      return {
-        value: disabled ? false : configured,
-        path: gPath,
-        source: disabled ? (updateDisableSource() ?? "env") : gSource,
-      };
+      return { value: disabled ? false : configured, path: gPath, source: disabled ? "env" : gSource };
     }
     case "global.permissionsCeiling":
       return { value: text === null ? DEFAULT_PERMISSIONS_CEILING : parsePermissionsCeilingConfig(text), path: gPath, source: gSource };
@@ -315,39 +346,46 @@ type Dynamic =
   | { kind: "provider"; name: string; field: ProviderField | null; category: string | null }
   | { kind: "error"; error: string };
 
+// Malformed / unknown key text is caller-supplied and may itself be a secret, so
+// every echo of it below goes through maskSecret. Recognised key names are not
+// secrets and stay readable; only the rejected text is masked.
 function parseDynamicKey(key: string): Dynamic | null {
+  const shown = maskSecret(key);
   if (key.startsWith("env.")) {
     const name = key.slice(4);
-    if (!ENV_NAME_RE.test(name)) return { kind: "error", error: `invalid environment variable name in key "${key}"; expected env.<NAME> matching [A-Za-z_][A-Za-z0-9_]*` };
+    if (!ENV_NAME_RE.test(name)) return { kind: "error", error: `invalid environment variable name in key "${shown}"; expected env.<NAME> matching [A-Za-z_][A-Za-z0-9_]*` };
     return { kind: "env", name };
   }
   if (!key.startsWith("providers.")) return null;
   const parts = key.slice("providers.".length).split(".");
-  if (parts.length === 0 || parts[0] === "") return { kind: "error", error: `missing provider segment in key "${key}"` };
+  if (parts.length === 0 || parts[0] === "") return { kind: "error", error: `missing provider segment in key "${shown}"` };
   let name: string;
   try {
     name = decodeSegment(parts[0]);
   } catch {
-    return { kind: "error", error: `malformed percent-escape in provider segment of key "${key}"` };
+    return { kind: "error", error: `malformed percent-escape in provider segment of key "${shown}"` };
   }
-  if (name === "") return { kind: "error", error: `empty provider name in key "${key}"` };
+  if (name === "") return { kind: "error", error: `empty provider name in key "${shown}"` };
+  if (UNSAFE_SEGMENTS.has(name)) {
+    return { kind: "error", error: `reserved provider name "${name}"; __proto__, constructor and prototype are rejected because they would resolve through the object prototype` };
+  }
   if (parts.length === 1) return { kind: "provider", name, field: null, category: null };
   if (parts.length === 2) {
     const field = parts[1] as ProviderField;
-    if (!PROVIDER_FIELDS.includes(field)) return { kind: "error", error: `unknown provider field "${parts[1]}" in key "${key}"; expected one of ${PROVIDER_FIELDS.join(", ")} or routing.<category>` };
+    if (!PROVIDER_FIELDS.includes(field)) return { kind: "error", error: `unknown provider field "${maskSecret(parts[1])}" in key "${shown}"; expected one of ${PROVIDER_FIELDS.join(", ")} or routing.<category>` };
     return { kind: "provider", name, field, category: null };
   }
   if (parts.length === 3 && parts[1] === "routing") {
     if (!(ROUTING_CATEGORIES as readonly string[]).includes(parts[2])) {
-      return { kind: "error", error: `unknown routing category "${parts[2]}" in key "${key}"; expected one of ${ROUTING_CATEGORIES.join(", ")}` };
+      return { kind: "error", error: `unknown routing category "${maskSecret(parts[2])}" in key "${shown}"; expected one of ${ROUTING_CATEGORIES.join(", ")}` };
     }
     return { kind: "provider", name, field: null, category: parts[2] };
   }
-  return { kind: "error", error: `unrecognized provider key "${key}"; expected ${PATTERNS.slice(0, 3).join(", ")}` };
+  return { kind: "error", error: `unrecognized provider key "${shown}"; expected ${PATTERNS.slice(0, 3).join(", ")}` };
 }
 
 function unknownKeyError(key: string): string {
-  return `unknown configuration key "${key}". Supported static keys: ${Object.keys(CONFIG_KEYS).join(", ")}. Supported patterns: ${PATTERNS.join(", ")}.`;
+  return `unknown configuration key "${maskSecret(key)}". Supported static keys: ${Object.keys(CONFIG_KEYS).join(", ")}. Supported patterns: ${PATTERNS.join(", ")}.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -362,13 +400,29 @@ function backupAndWrite(file: string, next: string): string | null {
   return backup;
 }
 
-function currentText(file: string): string | null {
-  return existsSync(file) ? readFileSync(file, "utf8") : null;
+function sanitizeMessage(e: unknown): string {
+  // I/O failures only (errno + path). Parser messages go through jsonError.
+  return e instanceof Error ? e.message : String(e);
 }
 
-function sanitizeMessage(e: unknown): string {
-  // Never echo a submitted value; error text carries only the failure reason.
-  return e instanceof Error ? e.message : String(e);
+/**
+ * V8 embeds the offending TEXT in every JSON parse message, so the raw message
+ * is a verbatim echo of whatever was submitted. Report the failure kind and, if
+ * V8 offered one, the numeric position -- and nothing else.
+ */
+function jsonError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  const kind = /Unexpected end of JSON input|Unterminated/i.test(raw)
+    ? "unexpected end of input"
+    : /Unexpected non-whitespace/i.test(raw)
+      ? "trailing content after the JSON value"
+      : /Expected/i.test(raw)
+        ? "expected a property name, a value, or a closing delimiter"
+        : "unexpected token";
+  const lineCol = /line (\d+) column (\d+)/.exec(raw);
+  const position = /position (\d+)/.exec(raw);
+  const where = lineCol ? ` at line ${lineCol[1]} column ${lineCol[2]}` : position ? ` at position ${position[1]}` : "";
+  return `invalid JSON (${kind}${where})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +488,7 @@ function providerRows(): Row[] {
 
 function envRows(): Row[] {
   const file = envFile();
-  return [...readEnvEntries()].map(([name, value]) => ({
+  return [...readDotEnv(file)].map(([name, value]) => ({
     key: `env.${name}`,
     value,
     scope: "env" as Scope,
@@ -490,8 +544,8 @@ function setUserSetting(key: string, raw: string) {
   }
 
   const target = settingsFile();
-  const existing = currentText(target);
-  const blank = existing === null || existing.replace(BOM_RE, "").trim() === "";
+  const existing = readIfExists(target);
+  const blank = existing === null || existing.trim() === ""; // trim() already drops a U+FEFF BOM
   const base = blank ? "{}\n" : (existing as string);
   let text: string;
   try {
@@ -525,7 +579,7 @@ function setEnv(key: string, name: string, raw: string) {
     return fail("set", key, `invalid value for ${key}; expected a non-empty single-line string without CR, LF, or NUL`);
   }
   const target = envFile();
-  const existing = currentText(target);
+  const existing = readIfExists(target);
   const assign = new RegExp(`^\\s*${name}\\s*=`);
   const lines = existing === null ? [] : existing.split(/\r?\n/);
   const out: string[] = [];
@@ -574,44 +628,51 @@ function setProvider(key: string, name: string, field: ProviderField | null, cat
   } else if (!existsSync(target)) {
     return fail("set", key, `providers file ${target} does not exist; only a whole-provider set (providers.<provider>) can create it`);
   } else {
-    return fail("set", key, `could not parse ${target}: ${parsed.error}`);
+    return fail("set", key, `could not parse ${target}: ${jsonError(parsed.error)}`);
   }
-  if (!doc.providers || typeof doc.providers !== "object" || Array.isArray(doc.providers)) {
+  const providersNode = own(doc, "providers");
+  if (!providersNode || typeof providersNode !== "object" || Array.isArray(providersNode)) {
     if (!whole) return fail("set", key, `${target} has no providers object; create the provider first with a whole-provider set`);
-    doc.providers = {};
+    defineOwn(doc, "providers", {});
   }
-  const providers = doc.providers as JsonObj;
-  const before = providers[name];
+  // Every read and write below is own-property only: `name` reached here past the
+  // UNSAFE_SEGMENTS gate, and defineOwn cannot trip an inherited setter either way.
+  const providers = own(doc, "providers") as JsonObj;
+  const before = own(providers, name);
   const isObj = !!before && typeof before === "object" && !Array.isArray(before);
   if (!whole && !isObj) {
     return fail("set", key, `unknown provider "${name}" in ${target}; create it first with a whole-provider set (providers.<provider>)`);
   }
-  const oldKeyEnv = isObj ? (before as JsonObj).key_env : undefined;
+  const oldKeyEnv = isObj ? own(before, "key_env") : undefined;
 
   if (whole) {
     let candidate: unknown;
     try {
       candidate = JSON.parse(raw);
     } catch (e) {
-      return fail("set", key, `value for ${key} must be a JSON object: ${sanitizeMessage(e)}`);
+      return fail("set", key, `value for ${key} must be a JSON object: ${jsonError(e)}`);
     }
     if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
       return fail("set", key, `value for ${key} must be a non-array JSON object`);
     }
-    providers[name] = candidate;
+    if (hasUnsafeKey(candidate)) {
+      return fail("set", key, `value for ${key} contains a reserved property name; __proto__, constructor and prototype are rejected at any depth`);
+    }
+    defineOwn(providers, name, candidate);
   } else if (field) {
     if (raw === "") return fail("set", key, `invalid value for ${key}; expected a non-empty string`);
-    (providers[name] as JsonObj)[field] = raw;
+    defineOwn(before as JsonObj, field, raw);
   } else if (category) {
     if (!/^-?\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) {
       return fail("set", key, `invalid value for ${key}; expected a safe integer slot (<1 disables, >=1 is the one-based slot)`);
     }
-    const entry = providers[name] as JsonObj;
-    if (!entry.routing || typeof entry.routing !== "object" || Array.isArray(entry.routing)) entry.routing = {};
-    (entry.routing as JsonObj)[category] = Number(raw);
+    const entry = before as JsonObj;
+    const routing = own(entry, "routing");
+    if (!routing || typeof routing !== "object" || Array.isArray(routing)) defineOwn(entry, "routing", {});
+    defineOwn(own(entry, "routing") as JsonObj, category, Number(raw));
   }
 
-  const newKeyEnv = (providers[name] as JsonObj)?.key_env;
+  const newKeyEnv = own(own(providers, name), "key_env");
   // ponytail: JSON.stringify drops JSONC comments on a successful provider edit;
   // add a JSONC edit library only if preserving comments becomes a demonstrated need.
   const text = `${JSON.stringify(doc, null, 2)}\n`;
@@ -635,9 +696,9 @@ function setProvider(key: string, name: string, field: ProviderField | null, cat
   }
 
   const restart = String(oldKeyEnv ?? "") !== String(newKeyEnv ?? "");
-  const entry = providers[name] as JsonObj;
-  const reported = whole ? entry : category ? (entry.routing as JsonObj)[category] : entry[field as ProviderField];
-  const existing = currentText(target);
+  const entry = own(providers, name) as JsonObj;
+  const reported = whole ? entry : category ? own(own(entry, "routing"), category) : own(entry, field as ProviderField);
+  const existing = readIfExists(target);
   if (existing !== null && text === existing) {
     return ok({ ok: true, action: "set", key, value: reported, status: "unchanged", path: target, backup: null, restart_required: false });
   }
@@ -660,7 +721,26 @@ export interface ConfigureParams {
   value?: string;
 }
 
+/**
+ * THE catch-all. Every return below is already sanitized, but an UNCAUGHT throw
+ * would reach the caller as a raw message that never passed through
+ * redactPayload -- so the whole dispatch runs inside one guard.
+ */
 export function configure(params: ConfigureParams) {
+  try {
+    return dispatch(params);
+  } catch (e) {
+    const name = e instanceof Error && /^[A-Za-z]+$/.test(e.name) ? e.name : "Error";
+    const key = params?.key;
+    return fail(
+      String(params?.action ?? "unknown"),
+      key === undefined ? undefined : maskSecret(key),
+      `configure failed unexpectedly (${name}); the failure detail is withheld because it may embed the submitted value`
+    );
+  }
+}
+
+function dispatch(params: ConfigureParams) {
   const action = params?.action;
   const key = params?.key;
   const value = params?.value;
@@ -674,7 +754,7 @@ export function configure(params: ConfigureParams) {
   if (action === "get") {
     if (!key) return fail("get", undefined, "action=get requires key");
     if (value !== undefined) return fail("get", key, "action=get accepts no value");
-    const meta = CONFIG_KEYS[key];
+    const meta = own(CONFIG_KEYS, key) as KeyMeta | undefined;
     if (meta) {
       const r = readStatic(key);
       return ok({
@@ -683,10 +763,12 @@ export function configure(params: ConfigureParams) {
       });
     }
     const dyn = parseDynamicKey(key);
-    if (!dyn) return fail("get", key, unknownKeyError(key));
-    if (dyn.kind === "error") return fail("get", key, dyn.error);
+    // An unknown or malformed key is caller text, not a canonical name: mask it
+    // in the envelope too, or the echo re-leaks what the message just masked.
+    if (!dyn) return fail("get", maskSecret(key), unknownKeyError(key));
+    if (dyn.kind === "error") return fail("get", maskSecret(key), dyn.error);
     if (dyn.kind === "env") {
-      const entries = readEnvEntries();
+      const entries = readDotEnv(envFile());
       if (!entries.has(dyn.name)) return fail("get", key, `no entry for ${key} in ${envFile()}`);
       return ok({ ok: true, action: "get", key, value: entries.get(dyn.name), scope: "env", path: envFile(), settable: true, restart_required: false, restart_required_on_set: true });
     }
@@ -700,7 +782,7 @@ export function configure(params: ConfigureParams) {
 
   if (action === "set") {
     if (!key) return fail("set", undefined, "action=set requires key");
-    const meta = CONFIG_KEYS[key];
+    const meta = own(CONFIG_KEYS, key) as KeyMeta | undefined;
     if (meta && !meta.settable) {
       if (meta.scope === "global") return coached(key, globalCoaching(key), globalConfigFile());
       if (key === "update.autoUpdate") return coached(key, autoUpdateCoaching(), updateRegistryFile());
@@ -709,8 +791,8 @@ export function configure(params: ConfigureParams) {
     if (value === undefined) return fail("set", key, `action=set requires value for ${key}`);
     if (meta) return setUserSetting(key, value);
     const dyn = parseDynamicKey(key);
-    if (!dyn) return fail("set", key, unknownKeyError(key));
-    if (dyn.kind === "error") return fail("set", key, dyn.error);
+    if (!dyn) return fail("set", maskSecret(key), unknownKeyError(key));
+    if (dyn.kind === "error") return fail("set", maskSecret(key), dyn.error);
     if (dyn.kind === "env") return setEnv(key, dyn.name, value);
     return setProvider(key, dyn.name, dyn.field, dyn.category, value);
   }

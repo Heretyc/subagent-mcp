@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] 3.1.9
+## 3.1.9
 
 ### Added
 
@@ -10,10 +10,11 @@
   keys. Secret-matching values and all `env.*` values are always redacted in
   responses. Machine-global and mode-owned keys are read-only through MCP; set
   attempts return a coaching message and the resolved file path instead of
-  writing. Provider and `.env` writes are validated atomically before the real
-  file is touched; every changed file receives a sibling backup. `.env` and
-  `key_env` changes report `restart_required: true`; all other settable keys
-  report `restart_required: false`.
+  writing. Provider writes are validated in a scratch candidate file before
+  the real file is touched; `.env` writes are shape-checked (non-empty,
+  single-line) only. Every changed pre-existing file receives a sibling
+  backup. `.env` and `key_env` changes report `restart_required: true`; all
+  other settable keys report `restart_required: false`.
 - `smcp-config` Agent Skill and `/smcp:config` slash command: interactive
   wrapper around the `configure` tool, deployed by `setup` for Claude Code and
   Codex alongside the existing `smcp-*` skills.
