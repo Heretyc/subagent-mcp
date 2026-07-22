@@ -7,7 +7,7 @@
  * an isMain gate), so a test can import the exported adapters without the shim
  * firing. Covers:
  *   - claude currentTurn counts 'user' JSONL lines from a synthetic transcript.
- *   - codex currentTurn counts 'turn_context' JSONL lines.
+ *   - codex currentTurn counts Codex turn signals.
  *   - each provider's isSubagent signals.
  *   - codex SessionStart dispatch emits FULL when active (turn-0 coverage).
  */
@@ -445,7 +445,7 @@ test("shared parent marker predicate is exact, anchored, and BOM/CRLF tolerant",
 });
 
 // ---------------------------------------------------------------------------
-// Codex adapter: currentTurn counts 'turn_context' lines
+// Codex adapter: currentTurn counts live Codex turn signals
 // ---------------------------------------------------------------------------
 test("codex currentTurn: counts JSONL lines with type==='turn_context'", () => {
   const { dir, file } = writeJsonl([
@@ -453,6 +453,20 @@ test("codex currentTurn: counts JSONL lines with type==='turn_context'", () => {
     { type: "message" },
     { type: "turn_context" },
     { type: "turn_context" },
+  ]);
+  try {
+    assert.equal(codexAdapter.currentTurn(file), 3);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex currentTurn: token_count events keep metering alive when turn_context is frozen", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context" },
+    { type: "event_msg", payload: { type: "token_count" } },
+    { type: "event_msg", payload: { type: "token_count" } },
+    { type: "event_msg", payload: { type: "token_count" } },
   ]);
   try {
     assert.equal(codexAdapter.currentTurn(file), 3);
