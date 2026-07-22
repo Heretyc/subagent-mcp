@@ -12,7 +12,6 @@ import {
   claimAndEmit,
   classifyOwnerClaim,
   computeEffectiveActive,
-  countJsonlType,
   cullHookZombies,
   ownerKey,
   runHook,
@@ -170,6 +169,29 @@ function modelFromTurnContext(obj: Record<string, unknown>): string | null {
   return stringField(obj, "model") ?? stringField(nestedRecord(obj, "payload"), "model");
 }
 
+function countCodexTurnSignals(transcriptPath: string | undefined): number {
+  let turnContexts = 0;
+  let tokenCounts = 0;
+
+  for (const line of tailJsonlLines(transcriptPath)) {
+    try {
+      const obj = JSON.parse(line) as unknown;
+      if (!obj || typeof obj !== "object") continue;
+      const record = obj as Record<string, unknown>;
+      if (record.type === "turn_context") {
+        turnContexts++;
+      }
+      if (isTokenCountLine(record)) {
+        tokenCounts++;
+      }
+    } catch {
+      // Skip unparseable lines; never throw.
+    }
+  }
+
+  return Math.max(turnContexts, tokenCounts);
+}
+
 function tokenUsageTotal(usage: Record<string, unknown>): number | null {
   const total = usage.total_tokens;
   return finiteNumber(total) ? total : null;
@@ -275,13 +297,11 @@ export const codexAdapter: CodexAdapter = {
     return isParentProcessMarkerFirstLine(payload.prompt);
   },
 
-  // Count JSONL lines whose parsed object.type === 'turn_context'. Delegates to
-  // the bounded counter (reads at most the trailing window so a huge/
-  // attacker-supplied transcript can't stall the inline host turn). Unreadable
-  // -> 0 (fail-safe: the claim baseline stamps at 0; cadence is counter-driven
-  // and unaffected). Read on claim turns only.
+  // Codex legacy rollouts may write one turn_context for the whole session, but
+  // still append token_count events after model calls. Count both signals so
+  // metering starts after the turn-1 grace window instead of staying disabled.
   currentTurn(transcriptPath: string | undefined): number {
-    return countJsonlType(transcriptPath, "turn_context");
+    return countCodexTurnSignals(transcriptPath);
   },
 
   liftUsage(
