@@ -12,10 +12,11 @@ import { dirname, join } from "node:path";
 import {
   globalTargetFiles,
   parseArgs,
+  runInit,
   upsertInitBlock,
 } from "../dist/init.js";
 
-const BEGIN_MARKER = "<!-- subagent-mcp:managed:begin schema=4 -->";
+const BEGIN_MARKER = "<!-- subagent-mcp:managed:begin schema=5 -->";
 
 let passed = 0;
 let failed = 0;
@@ -92,6 +93,28 @@ await test("global targets: create, idempotent upsert, remove, and dry-run stay 
     assert.equal(dryRun.changed, true);
     assert.equal(existsSync(dryRunTarget), false);
   } finally {
+    rmSync(fakeHome, { recursive: true, force: true });
+  }
+});
+
+await test("runInit --global writes native-agent guards only in fake home", async () => {
+  const fakeHome = mkdtempSync(join(tmpdir(), "sm-init-global-run-"));
+  const oldHome = process.env.HOME;
+  const oldUserProfile = process.env.USERPROFILE;
+  process.env.HOME = fakeHome;
+  process.env.USERPROFILE = fakeHome;
+  try {
+    const code = await runInit(["--global"]);
+    assert.equal(code, 0);
+    assert.match(readFileSync(join(fakeHome, ".codex", "config.toml"), "utf8"), /multi_agent = false/);
+    assert.match(readFileSync(join(fakeHome, ".claude", "settings.json"), "utf8"), /"Agent\(Explore\)"/);
+    assert.match(readFileSync(join(fakeHome, ".gemini", "settings.json"), "utf8"), /"enableAgents": false/);
+    assert.equal(existsSync(join(fakeHome, ".gemini", "policies", "subagent-mcp-native-agents.toml")), true);
+  } finally {
+    if (oldHome === undefined) delete process.env.HOME;
+    else process.env.HOME = oldHome;
+    if (oldUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = oldUserProfile;
     rmSync(fakeHome, { recursive: true, force: true });
   }
 });

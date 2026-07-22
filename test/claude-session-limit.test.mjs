@@ -241,7 +241,7 @@ function makeFixtureDist(tempRoot) {
   return join(distCopy, "index.js");
 }
 
-function writeSessionLimitHookImport(tempRoot) {
+function writeSessionLimitHookImport(tempRoot, delayMs) {
   const hookPath = join(tempRoot, "mock-driver-session-limit-hook.mjs");
   const driversUrl = pathToFileURL(join(tempRoot, "dist", "drivers.js")).href;
   const script = `
@@ -249,13 +249,14 @@ const { MockJsonlDriver } = await import(${JSON.stringify(driversUrl)});
 MockJsonlDriver.sessionLimitPreStartHook = (provider) => {
   if (provider !== "claude") return;
   MockJsonlDriver.sessionLimitPreStartHook = null;
+  return ${delayMs};
 };
 `;
   writeFileSync(hookPath, script, "utf8");
   return hookPath;
 }
 
-function makeFailoverEnv() {
+function makeFailoverEnv(sessionLimitDelayMs = 0) {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-session-limit-"));
   const fakeBin = join(tempRoot, "bin");
   const workDir = join(tempRoot, "work");
@@ -268,7 +269,7 @@ function makeFailoverEnv() {
   const entrypoint = makeFixtureDist(tempRoot);
   const modeFile = join(tempRoot, "ruleset-mode.txt");
   writeFileSync(modeFile, "ok-disabled");
-  const hookImport = writeSessionLimitHookImport(tempRoot);
+  const hookImport = writeSessionLimitHookImport(tempRoot, sessionLimitDelayMs);
   const nodeOptions = [
     process.env.NODE_OPTIONS,
     `--require "${preloadPath.replace(/\\/g, "/")}"`,
@@ -300,8 +301,8 @@ async function callTool(session, name, args) {
   return session.request("tools/call", { name, arguments: args });
 }
 
-async function withFailoverSession(fn) {
-  const { tempRoot, workDir, env, entrypoint } = makeFailoverEnv();
+async function withFailoverSession(fn, sessionLimitDelayMs = 0) {
+  const { tempRoot, workDir, env, entrypoint } = makeFailoverEnv(sessionLimitDelayMs);
   const session = createMcpSession(entrypoint, { cwd: workDir, env });
   try {
     await session.initialize();
@@ -321,6 +322,7 @@ function assertFailoverFrom(entry, expected, failureType) {
 
 await test("detector accepts Claude session-limit reset messages", () => {
   assert.equal(isClaudeSessionLimit("You've hit your session limit · resets 7:10pm (America/Los_Angeles)"), true);
+  assert.equal(isClaudeSessionLimit("You've hit your session limit - resets 7:10pm (America/Los_Angeles)"), true);
   assert.equal(isClaudeSessionLimit("You’ve hit your session limit · resets 7:10pm (America/Los_Angeles)"), true);
   assert.equal(isClaudeSessionLimit("\n  You've hit your session limit · resets 7:10pm (America/Los_Angeles)"), true);
   assert.equal(isClaudeSessionLimit("You've hit your session limit · resets 04:32 UTC"), true);
@@ -403,7 +405,7 @@ await test("Claude SDK driver resolves startup on first non-system assistant mes
   driver.kill();
 });
 
-await test("session-limit pre-start hook fails over with transient_provider metadata", async () => {
+await test("session-limit before the grace deadline fails over with transient_provider metadata", async () => {
   await withFailoverSession(async (session) => {
     const response = await callTool(session, "launch_agent", {
       task_category: "coding",
@@ -427,7 +429,27 @@ await test("session-limit pre-start hook fails over with transient_provider meta
 
     const killResp = await callTool(session, "kill_agent", { agent_id: payload.agent_id });
     assert.notEqual(killResp.result?.isError, true, "cleanup kill must succeed");
-  });
+  }, Math.floor(GRACE_MS / 2));
+});
+
+await test("session-limit after the grace deadline remains a registered task outcome", async () => {
+  await withFailoverSession(async (session) => {
+    const response = await callTool(session, "launch_agent", {
+      task_category: "coding",
+      prompt: "late session limit",
+    });
+    const payload = JSON.parse(textOf(response));
+    assert.notEqual(response.result.isError, true);
+    assert.equal(payload.provider, CE_RANK1.provider);
+    assert.equal(payload.failover_occurred, undefined);
+
+    await delay(350);
+    const pollResp = await callTool(session, "poll_agent", { agent_id: payload.agent_id });
+    const pollPayload = JSON.parse(textOf(pollResp));
+    assert.equal(pollPayload.provider, CE_RANK1.provider);
+    assert.equal(pollPayload.status, "errored");
+    assert.equal(pollPayload.failover_occurred, undefined);
+  }, GRACE_MS + 250);
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

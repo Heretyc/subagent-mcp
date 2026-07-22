@@ -57,7 +57,7 @@ async function readJson(req) {
   return JSON.parse(body);
 }
 
-async function callCandidate(apiProvider, prompt = "mock route") {
+async function callCandidate(apiProvider, prompt = "mock route", deps = {}) {
   const old = process.env[apiProvider.key_env];
   process.env[apiProvider.key_env] = "test-key";
   try {
@@ -72,7 +72,7 @@ async function callCandidate(apiProvider, prompt = "mock route") {
       messages: [{ role: "user", content: prompt }],
       temperature: 0.5,
       max_tokens: 64,
-    });
+    }, deps);
   } finally {
     if (old === undefined) delete process.env[apiProvider.key_env];
     else process.env[apiProvider.key_env] = old;
@@ -128,6 +128,62 @@ await test("base_url with trailing /v1 does not double-append the version path",
     await callCandidate(provider("openai", `${baseUrl}/v1`));
     assert.equal(seenUrl, "/v1/chat/completions");
   });
+});
+
+await test("API timeout covers fetch headers and response body", async () => {
+  const waitForAbort = (signal) => new Promise((_, reject) => {
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
+  const apiProvider = provider("openai", "http://provider.invalid");
+
+  const realSetTimeout = globalThis.setTimeout;
+  const scheduledMs = [];
+  try {
+    globalThis.setTimeout = (fn, ms, ...args) => {
+      scheduledMs.push(ms);
+      return realSetTimeout(fn, 0, ...args);
+    };
+    await assert.rejects(
+      callCandidate(apiProvider, "default timeout", {
+        fetch: (_url, init) => waitForAbort(init.signal),
+      }),
+      /timeout after 120000ms/
+    );
+    assert.ok(scheduledMs.includes(120_000), `scheduled timers: ${scheduledMs.join(", ")}`);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+  }
+
+  await assert.rejects(
+    callCandidate(apiProvider, "headers timeout", {
+      timeoutMs: 5,
+      fetch: (_url, init) => waitForAbort(init.signal),
+    }),
+    /timeout after 5ms/
+  );
+  await assert.rejects(
+    callCandidate(apiProvider, "body timeout", {
+      timeoutMs: 5,
+      fetch: async (_url, init) => ({
+        ok: true,
+        status: 200,
+        text: () => waitForAbort(init.signal),
+      }),
+    }),
+    /timeout after 5ms/
+  );
+});
+
+await test("Undici network cause codes survive provider error wrapping", async () => {
+  const apiProvider = provider("openai", "http://provider.invalid");
+  for (const code of ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND"]) {
+    const cause = Object.assign(new Error("connect failed"), { code });
+    const error = Object.assign(new TypeError("fetch failed"), { cause });
+    await assert.rejects(
+      callCandidate(apiProvider, code, { fetch: async () => { throw error; } }),
+      new RegExp(code)
+    );
+  }
 });
 
 await test("live GMI route runs only when GMI_API_KEY is present", async () => {

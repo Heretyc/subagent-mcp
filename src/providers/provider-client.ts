@@ -24,7 +24,10 @@ export interface ApiProviderResponse {
 
 interface ProviderClientDeps {
   fetch?: typeof fetch;
+  timeoutMs?: number;
 }
+
+const API_PROVIDER_TIMEOUT_MS = 120_000;
 
 function endpoint(baseUrl: string, path: string): string {
   // The client appends the versioned path (/v1/...) itself, so tolerate a
@@ -101,6 +104,14 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+function errorDetail(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const cause = (error as Error & { cause?: unknown }).cause;
+  if (!(cause instanceof Error)) return error.message;
+  const code = (cause as Error & { code?: unknown }).code;
+  return [error.message, typeof code === "string" ? code : "", cause.message].filter(Boolean).join(": ");
+}
+
 export async function callApiProvider(
   provider: ApiProvider,
   request: ApiProviderRequest,
@@ -117,18 +128,25 @@ export async function callApiProvider(
     messages: request.messages,
   };
 
+  const controller = new AbortController();
+  const timeoutMs = deps.timeoutMs ?? API_PROVIDER_TIMEOUT_MS;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
+  let raw: unknown;
   try {
     response = await (deps.fetch ?? fetch)(url, {
       method: "POST",
       headers: authHeaders(provider),
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+    raw = await readJson(response);
   } catch (e) {
-    throw badUrl(provider, e instanceof Error ? e.message : String(e));
+    throw badUrl(provider, controller.signal.aborted ? `timeout after ${timeoutMs}ms` : errorDetail(e));
+  } finally {
+    clearTimeout(timeout);
   }
 
-  const raw = await readJson(response);
   if (response.status === 404) throw notFound404(provider, url, raw);
   if (!response.ok) throw badUrl(provider, `status ${response.status}`);
   return provider.api_style === "openai" ? normalizeOpenAi(provider, raw) : normalizeClaude(provider, raw);

@@ -299,10 +299,38 @@ test("carryover-codex names request-user-input and NOT AskUserQuestion", () => {
 // ---------------------------------------------------------------------------
 test("both carryover notices carry the notify/ask/advise intent", () => {
   for (const [name, body] of [["claude", carryoverClaude], ["codex", carryoverCodex]]) {
-    assert.match(body, /carried over/i,
-      `${name} carryover must state the mode carried over from a prior session`);
+    assert.match(body, /REMAIN enabled/i,
+      `${name} carryover must retain the one-time remain-enabled confirmation`);
     assert.match(body, /enabled:false/,
       `${name} carryover must point at the enabled:false disable path`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Carryover notice: schema=5 CURRENT-session semantics, NOT cross-session
+// persistence.
+//
+// WHY (Rule 9): keyed sessions START OFF. The carryover carrier fires only on
+// the turn that inherits an already-active enable/latch record; its disable
+// path is THIS-session-only (2h backstop, honored even after the 15% latch) and
+// user-approved enabled:true may re-enable mid-session. The stale
+// "resumes ON / no mid-session re-enable / carried over from a PRIOR session"
+// polarity contradicts source/spec and must stay gone.
+// ---------------------------------------------------------------------------
+test("carryover notices state current-session semantics, not cross-session persistence", () => {
+  for (const [name, body] of [["claude", carryoverClaude], ["codex", carryoverCodex]]) {
+    assert.match(body, /THIS session only/i,
+      `${name} carryover must scope the disable to THIS session only`);
+    assert.match(body, /re-enable mid-session/i,
+      `${name} carryover must allow user-approved enabled:true mid-session re-enable`);
+    assert.match(body, /starts OFF/i,
+      `${name} carryover must state each new session starts OFF`);
+    assert.ok(!/resumes ON/.test(body),
+      `${name} carryover must not keep the stale "resumes ON" polarity`);
+    assert.ok(!/no mid-session re-enable/i.test(body),
+      `${name} carryover must not keep the stale "no mid-session re-enable" polarity`);
+    assert.ok(!/carried over from a PRIOR session/i.test(body),
+      `${name} carryover must not frame ON as cross-session carryover`);
   }
 });
 

@@ -140,10 +140,10 @@ test("stale hook repair rewrites by canonical id", () => withRoot(async (r) => {
 test("init block present updates in place", () => withRoot(async (r) => {
   const target = globalTargetFiles(r.home)[0];
   upsertInitBlock(target);
-  writeFileSync(target, readFileSync(target, "utf8").replace("schema=4", "schema=3"), "utf8");
+  writeFileSync(target, readFileSync(target, "utf8").replace("schema=5", "schema=4"), "utf8");
   const o = opts(r, "npm-global");
   assert.equal(await runUpgrade(o.options), 0);
-  assert.match(readFileSync(target, "utf8"), /schema=4/);
+  assert.match(readFileSync(target, "utf8"), /schema=5/);
 }));
 
 test("init block absent accepts Y", () => withRoot(async (r) => {

@@ -259,7 +259,8 @@ async function runBehavioralPollPayloadGuard() {
       prompt: "index guard payload",
     });
     assert.equal(launch.response.result.isError, undefined, launch.text);
-    assert.equal(launch.payload.routing_tier, "cost_efficiency");
+    assert.equal(launch.payload.routing_tier, undefined,
+      "routing_tier is disclosed by poll_agent only");
 
     const compact = await waitForPoll(
       session,

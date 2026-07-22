@@ -27,6 +27,8 @@ of raw file context. The main invariants are:
 - one machine-global, provider-agnostic concurrency cap (default 20, minimum 10)
 - fail-safe orchestration ON on hookless hosts
 - state authority only from harness-verified `<subagent-mcp state="...">` tags
+- `launch_agent` as the only supported sub-agent launch channel in both states
+- setup/init defense-in-depth suppression for known native host agent launchers
 - sub-agents gated by default with permission ceiling `auto`
 - automatic model, provider, and effort routing per task category
 
@@ -37,7 +39,7 @@ of raw file context. The main invariants are:
 - Node.js 20 or newer (`node --version`)
 - `claude` CLI, installed and signed in (`claude --version`)
 - `codex` CLI, installed and signed in (`codex --version`; optional if you only
-  use Claude)
+  use Claude or Gemini as the host)
 
 Building from source needs extra developer tools. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -80,11 +82,12 @@ subagent-mcp setup
 ```
 
 Installing the package only ships the program. It does not connect anything on
-its own. `subagent-mcp setup` finds your Claude Code or Codex install and
-registers both the server and the per-turn orchestration hooks. For Claude Code
-it also registers or wraps `statusLine` so the hook can read Claude's
-authoritative context percentage without replacing your custom statusline, and
-deploys the `smcp-handoff` Agent Skill to your Claude user scope.
+its own. `subagent-mcp setup` finds your Claude Code, Codex, or Gemini install
+and registers the supported server, hook, and native-agent suppression config
+for that host. For Claude Code it also registers or wraps `statusLine` so the
+hook can read Claude's authoritative context percentage without replacing your
+custom statusline, and deploys the `smcp-handoff` Agent Skill to your Claude
+user scope.
 Preview first with `subagent-mcp setup --dry-run`.
 
 For provider config, run `subagent-mcp config init`, edit the generated `.env`
@@ -186,9 +189,9 @@ Unanswered requests auto-deny after 5 minutes. Full spec:
   work you no longer need. Raising `globalConcurrentSubagents` also works.
 - **Logs.** Agent output is available through `poll_agent`. Server diagnostics
   go to the host MCP server log on stderr.
-- **Install or config looks wrong.** Run `subagent-mcp doctor` for the 9-check
-  diagnostic; it prompts before any fix. `subagent-mcp rollback` restores the
-  most recent config backup. See [skills/smcp-doctor/SKILL.md](skills/smcp-doctor/SKILL.md).
+- **Install or config looks wrong.** Run `subagent-mcp doctor` for the
+  diagnostic suite; it prompts before any fix. `subagent-mcp rollback` restores
+  the most recent config backup. See [skills/smcp-doctor/SKILL.md](skills/smcp-doctor/SKILL.md).
 
 ## Documentation
 

@@ -20,12 +20,13 @@ const ALLOWED_TYPES = [
   "user",
   "integration",
   "audit",
+  "continuous-audit",
 ];
 
 // The branch-name formula regex (literal). `git check-ref-format --branch` is still
 // required for the deeper ref rules (.lock, .., @{, trailing dot/slash, 40-hex topics).
 const BRANCH_FORMULA =
-  /^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration|audit)\/[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$/;
+  /^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration|audit|continuous-audit)\/[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$/;
 
 // Literal fallback set of branches that may never be a worktree mutation target.
 // The real protected set is this UNION the repo's resolved default branch (see
@@ -160,7 +161,7 @@ function remediation(branch) {
     "Remediation — create/enter a compliant linked worktree (run from the primary checkout):",
     `  git worktree add -b <type>/<subject> ../<repo>.worktrees/<type>-<subject> ${base}`,
     "  # then do ALL mutating work from inside that sibling path.",
-    "  # <type> in: feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration|audit",
+    "  # <type> in: feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration|audit|continuous-audit",
     "  # <subject>: lowercase kebab, [a-z0-9] start, then [a-z0-9._-]; folder uses '-' for '/'.",
   ].join("\n");
 }

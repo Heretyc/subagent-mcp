@@ -70,7 +70,7 @@ test("runInit registers root, files, scope, timestamp, and blockHash", async () 
 
 test("blockHash ignores managed delimiters and hashes content only", () => {
   const changedMarkers = INIT_BLOCK
-    .replace(/^<!-- subagent-mcp:managed:begin schema=4 -->/, "<!-- changed begin -->")
+    .replace(/^<!-- subagent-mcp:managed:begin schema=5 -->/, "<!-- changed begin -->")
     .replace(/<!-- subagent-mcp:managed:end -->$/, "<!-- changed end -->");
   assert.equal(managedBlockHash(changedMarkers), managedBlockHash());
 });

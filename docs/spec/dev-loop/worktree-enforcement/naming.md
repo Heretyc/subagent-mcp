@@ -32,7 +32,7 @@ No `feat`, no `wip`, no other ad-hoc types. (Claude implementation routines may 
 ## The validation regex (literal)
 
 ```
-^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration|audit)\/[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$
+^(feature|fix|hotfix|release|docs|test|refactor|chore|agent|user|integration|audit|continuous-audit)\/[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$
 ```
 
 The regex is necessary but NOT sufficient: `git check-ref-format --branch` MUST also

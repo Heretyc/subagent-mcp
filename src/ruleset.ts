@@ -256,6 +256,8 @@ function effortAllowed(model: string, effort: string): boolean {
  * Per element: string provider/model/effort; provider ∈ {claude, codex};
  * model ∈ launch enum; provider↔model legality (claude↔{haiku,sonnet,opus,
  * opus-4-8,fable}, codex↔{gpt-5.5,gpt-5.6}); per-model effort legality incl. haiku→"none".
+ * API candidates must match the input list (including multiplicity), because
+ * only input API candidates have attached providers.jsonc dispatch metadata.
  * Extra keys (incl. rank) are ignored on output; duplicates are allowed (the
  * attempt loop just tries them in order). An EMPTY array is VALID — it is the
  * limit case of the allowed filter operation and means "veto the launch"
@@ -263,13 +265,20 @@ function effortAllowed(model: string, effort: string): boolean {
  * stderr logging only.
  */
 export function validateRulesetOutput(
-  raw: unknown
+  raw: unknown,
+  inputCandidates: readonly RulesetCandidate[] = []
 ): { ok: true; candidates: Candidate[] } | { ok: false; error: string } {
   if (!Array.isArray(raw)) {
     return { ok: false, error: "output must be a bare JSON array of candidate objects" };
   }
 
   const candidates: Candidate[] = [];
+  const apiCandidates = new Map<string, number>();
+  for (const candidate of inputCandidates) {
+    if (candidate.provider !== "api") continue;
+    const key = `${candidate.model}\0${candidate.effort}`;
+    apiCandidates.set(key, (apiCandidates.get(key) ?? 0) + 1);
+  }
   for (let i = 0; i < raw.length; i++) {
     const el = raw[i];
     if (!el || typeof el !== "object" || Array.isArray(el)) {
@@ -292,6 +301,12 @@ export function validateRulesetOutput(
       if (effort !== "medium") {
         return { ok: false, error: `candidate ${i}: api effort must be medium` };
       }
+      const key = `${model}\0${effort}`;
+      const remaining = apiCandidates.get(key) ?? 0;
+      if (remaining === 0) {
+        return { ok: false, error: `candidate ${i}: api candidate was not present in ruleset input` };
+      }
+      apiCandidates.set(key, remaining - 1);
       candidates.push({ provider: "api", model, effort });
       continue;
     }
@@ -430,7 +445,7 @@ export function createRulesetGate(
       return { ok: false };
     }
 
-    const validated = validateRulesetOutput(parsed);
+    const validated = validateRulesetOutput(parsed, payload.candidates);
     if (!validated.ok) {
       console.error(`[ruleset] invalid routing output: ${validated.error}`);
       return { ok: false };

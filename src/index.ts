@@ -822,7 +822,7 @@ reconcileInterval.unref();
 // compressed under MCP metadata limits:
 // READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-architecture.md).\n\nPRECEDENCE. The latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules are jointly binding; genuine conflict => STOP and ask. Only the hook flips ON/OFF; absence of any tag = UNKNOWN => fail-safe ON.\n\nSOLE CHANNEL. Every launch uses launch_agent; never harness Task/Agent or shell-spawned agents.\n\nORCHESTRATION ON. You are a delegate-ONLY orchestrator: use only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and /workflows. No direct reads/writes; inline-by-right does not exist. Non-delegable step: ask a one-time exception, do only that step, resume delegating.\n\nSUB-AGENT CONTRACT. Prompt carries objective + output format + tools/sources + boundaries. SCALE: ~1 fact-find agent, 2-4 for comparisons; split multi-phase work into atomic steps. FAN-OUT independents, sequence dependents, SERIALIZE writers over shared paths (no cwd lock). VERIFY code and non-trivial steps with a separate sub-agent first.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> else the USER reads it. Large handoffs use scratch-file paths; producer writes, consumer reads, orchestrator never reads them. Empty/stalled tail means ALIVE; learn finish via wait, do not poll-loop.\n\nORCHESTRATION starts OFF each session. Hook meters provider-reported context (never tokenized); at 15% it latches ON and coaches a 4-question plan; at 40% it unlocks handoff-write/handoff-read/handoff-clear; at 50% it warns. Undetectable context size = fail-safe ON.\n\nDROPOUT WHILE ON: HALT and ask until restored. SUB-AGENT EXEMPTION: a prompt whose literal FIRST LINE begins \"<this is a request from a parent process>\" skips this regime. DISABLE: user-only, never on your own initiative.\n\nMODEL SELECTION. Default smart auto-picks, rejects provider/model/effort selectors. user-approved-overrides honors them 30 min, expires lazily on launch_agent, needs user authorization.";
+  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-architecture.md).\n\nPRECEDENCE. Latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules jointly bind; conflict => STOP and ask. The hook alone authoritatively reports ON/OFF; users may request changes, not assert state. No tag = UNKNOWN => warn and fail-safe ON.\n\nSOLE CHANNEL - BOTH STATES. Every sub-agent launch uses launch_agent; never harness Task/Agent/collaboration tools, shell agents, or wrappers. Native paths fragment permissions/instruction compliance and waste context/tokens.\n\nON. delegate-ONLY orchestrator. Use only structured-question (AskUserQuestion/request-user-input), subagent-mcp, and /workflows. No inline task reads/writes. Applicable-skill exception: directly read its SKILL.md and explicitly required files only inside that skill folder; reads grant no task action. Ask only if skill instructions expand owner-authorized scope. All action stays delegated. A truly non-delegable atomic step needs one-time user exception.\n\nWORK. Use a compliant linked worktree; serialize overlapping writers. Track multi-step work. Finish via wait, never poll-loop.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer, trusted as-is -> USER reads. Large handoffs use scratch paths producer-to-consumer; orchestrator never reads them. Empty/stalled tail = alive.\n\nSTATE. Keyed sessions start OFF; setup writes no state. At 15% provider-metered use latch ON + 4-question plan; 40% unlocks handoff tools; 50% warns. Keyless or undetectable metering => fail-safe ON.\n\nCHILD. A literal first-line parent marker skips this regime except it uses the provided cwd and never creates/switches worktrees.\n\nDROPOUT ON: halt and ask until restored. DISABLE: explicit user only; keyed to this session with 2h backstop; beats latch/fail-safe. User may explicitly re-enable mid-session. Next session returns to default OFF.\n\nMODEL. Unset = smart auto-selection; provider/model/effort selectors rejected except in an explicit user-approved override window.";
 
 const SUBAGENT_INSTRUCTIONS =
   "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that. launch_agent is code-capped at 2 spawn levels below the main orchestrator: depth 1 may launch depth 2 workers; depth 2 workers cannot spawn further.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
@@ -1296,24 +1296,34 @@ async function tryLaunchCandidate(
   // failure. The close handler above cleans up a condemned driver (uc settings,
   // stream flush); the agent is simply never registered.
   if (SPAWN_GRACE_MS > 0) {
-    const earlyExit =
-      earlyExitInfo ??
-      (await new Promise<{ code: number | null; signal: NodeJS.Signals | null } | null>((resolve) => {
-        if (earlyExitInfo) {
-          resolve(earlyExitInfo);
-          return;
-        }
-        const timer = setTimeout(() => {
-          childProcess.removeListener("exit", onExit);
-          resolve(null);
-        }, SPAWN_GRACE_MS);
-        const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+    type GraceOutcome =
+      | { kind: "exit"; code: number | null; signal: NodeJS.Signals | null }
+      | { kind: "started" | "rejected" | "timeout" };
+    const exitBeforeGrace = earlyExitInfo as {
+      code: number | null;
+      signal: NodeJS.Signals | null;
+    } | null;
+    const graceOutcome: GraceOutcome = exitBeforeGrace
+      ? { kind: "exit", ...exitBeforeGrace }
+      : await new Promise<GraceOutcome>((resolve) => {
+        let settled = false;
+        const finish = (outcome: GraceOutcome) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
-          resolve({ code, signal });
+          childProcess.removeListener("exit", onExit);
+          resolve(outcome);
         };
+        const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+          finish({ kind: "exit", code, signal });
+        };
+        const timer = setTimeout(() => finish({ kind: "timeout" }), SPAWN_GRACE_MS);
         childProcess.once("exit", onExit);
-      }));
-    if (earlyExit) {
+        void definitelyStartedProbe.then((started) => {
+          finish({ kind: started ? "started" : "rejected" });
+        });
+      });
+    if (graceOutcome.kind === "exit") {
       // 'exit' can be delivered before the final stdout chunk, so wait for
       // 'close' (streams drained, flush scanned) before deciding — a
       // turn.completed fast completion must never be misread as a launch
@@ -1322,7 +1332,7 @@ async function tryLaunchCandidate(
       const startedBeforeExit = await readStartedBoundary();
       if (!agentState.turnCompleted && !startedBeforeExit) {
         const tail = escapeUntrustedTags(agentState.stderr.trim().split("\n").slice(-1)[0] ?? "");
-        const reason = `process exited (code ${earlyExit.code ?? earlyExit.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`;
+        const reason = `process exited (code ${graceOutcome.code ?? graceOutcome.signal}) within ${SPAWN_GRACE_MS}ms of spawn${tail ? `: ${tail}` : ""}`;
         return {
           reason,
           failure_type: startupRejection
@@ -1330,7 +1340,14 @@ async function tryLaunchCandidate(
             : classifyFailureReason(reason, agentState.stderr),
         };
       }
-    } else if (startError && !agentState.turnCompleted) {
+    } else if (graceOutcome.kind === "rejected") {
+      const rejection = startupRejection ?? new Error("provider rejected startup");
+      cleanupUcSettings(agentState);
+      return {
+        reason: rejection.message,
+        failure_type: failureTypeForError(rejection, agentState.stderr),
+      };
+    } else if (graceOutcome.kind === "timeout" && startError && !agentState.turnCompleted) {
       const startedBeforeStartError = await readStartedBoundary();
       if (startedBeforeStartError) {
         agents.set(agentId, agentState);
@@ -1405,7 +1422,7 @@ server.tool(
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
-    provider: z.enum(["claude", "codex", "api"]).optional(),
+    provider: z.enum(["claude", "codex"]).optional(),
     model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5", "gpt-5.6"]).optional(),
     effort: z.enum(["medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
@@ -1497,7 +1514,11 @@ server.tool(
     }
 
     let candidates = appendDedupedCandidates(result.candidates, autoCandidates);
-    if (pureAuto && process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1") {
+    if (
+      pureAuto &&
+      branch === "cost_efficiency" &&
+      process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1"
+    ) {
       candidates = slotInsert(candidates, loadApiProviders(), task_category);
     }
     let rulesetApplied = false;
@@ -1644,7 +1665,6 @@ server.tool(
                   model: candidate.model,
                   effort: candidate.effort,
                   task_category,
-                  ...(routingTier ? { routing_tier: routingTier } : {}),
                   permissions_applied: {
                     ceiling: permissionSnapshot.ceiling,
                     escalation: permissionSnapshot.escalation,
@@ -2265,7 +2285,7 @@ server.tool(
 // Tool 8: orchestration-mode
 server.tool(
   "orchestration-mode",
-  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF for THIS session only, omit = query. SOLE CHANNEL holds in BOTH states: subagent-mcp is the only sanctioned way to launch sub-agents; toggling OFF does not lift that. WHAT: when ON act as a delegate-ONLY orchestrator; delegate every step, inline-by-right does not exist, a non-delegable atomic step needs a one-time user-approved exception via the structured-question tool. Default is now OFF each session (metering-driven latch/handoff supersede the old manual-upgrade-ask model); enabled:true explicitly turns ON early (before any latch); enabled:false remains a session-scoped 2h-TTL opt-out, HONORED even after the 15% latch or metering fail-safe forces ON. PERSISTENCE: a permitted disable is session-keyed only, applies to THIS session only, resumes ON next new session or after the 2h backstop; keyless hosts get only the one-time non-persisted conversational opt-out. DISABLE: never on your own initiative; you may PROPOSE OFF on task-fit mismatch, but only EXPLICIT user permission may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing.",
+  "Toggle or query per-project ORCHESTRATION MODE. `enabled`: true = ON, false = OFF for THIS session only, omit = query. SOLE CHANNEL holds in BOTH states: subagent-mcp is the only sanctioned way to launch sub-agents; toggling OFF does not lift that. WHAT: when ON act as a delegate-ONLY orchestrator; delegate every step, inline-by-right does not exist, a non-delegable atomic step needs a one-time user-approved exception via the structured-question tool. Default is OFF each session; setup writes no orchestration state. enabled:true explicitly turns ON or re-enables mid-session; enabled:false is a session-keyed 2h-TTL opt-out, HONORED even after the 15% latch or metering fail-safe forces ON. PERSISTENCE: a permitted disable applies only to THIS keyed session; after the 2h backstop the current session may latch/fail-safe ON, while each new keyed session returns to default OFF. Keyless or undetectable metering remains fail-safe ON; a hookless host may use only the one-time non-persisted conversational opt-out. DISABLE: never on your own initiative; you may PROPOSE OFF on task-fit mismatch, but only EXPLICIT user permission may set enabled:false. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle the marker but inject nothing.",
   {
     enabled: z.boolean().optional(),
   },

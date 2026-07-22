@@ -44,7 +44,14 @@ if a profile/admin disabled them:
 ```toml
 [features]
 hooks = true
+multi_agent = false
 ```
+
+`multi_agent = false` is required: `launch_agent` is the only supported
+sub-agent launch channel in both orchestration states. Codex has no
+repo-supported native-agent PreToolUse/policy guard here, so this static
+disable is the honest defense-in-depth layer; the per-turn hook still handles
+subagent-mcp directive injection.
 
 ---
 
@@ -156,5 +163,14 @@ disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "l
    (`short-off.md` while OFF) between).
 8. **Field-name sanity:** if the hook behaves on a 600s timeout instead of
    ~10s, you likely left `timeoutSec` instead of `timeout`.
+8. **Native-agent suppression:** `~/.codex/config.toml` has
+   `[features] multi_agent = false`. There is no additional Codex native-agent
+   hook/policy guard documented by this repo.
+
+## Reversibility
+
+Setup/init create timestamped sibling backups before changing existing
+`~/.codex/config.toml` or `~/.codex/hooks.json`. Doctor/upgrade snapshots also
+cover Codex config and can be restored with `subagent-mcp rollback`.
 
 Regression gate: `npm test`.
