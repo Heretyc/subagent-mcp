@@ -38,7 +38,7 @@ ORCHESTRATOR WORKTREE SETUP: for mutating work, first place sub-agents in a comp
 
 READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 
-ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a 4-question planning stop. At 40% utilization handoff-write/handoff-read/handoff-clear unlock for a clean session handoff; at 50% the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.
+ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a planning stop of at least 4 open questions, whose answers become this session's goal context. At 20% utilization handoff-write/handoff-read/handoff-clear unlock so that goal context can be recorded for a clean session handoff; at the wind-down warning threshold (user setting, default 60%) the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.
 
 MODEL SELECTION: defaults to smart/automatic whenever unset — the server auto-picks each sub-agent's model and launch_agent rejects provider/model/effort selectors; those selectors are honored only inside the existing user-approved override window (model-selection-mode "user-approved-overrides", set only with explicit user authorization via the structured-question tool).
 
@@ -78,13 +78,13 @@ WORK. Use a compliant linked worktree; serialize overlapping writers. Track mult
 
 READ LADDER. poll_agent tail -> one <=100-line summarizer, trusted as-is -> USER reads. Large handoffs use scratch paths producer-to-consumer; orchestrator never reads them. Empty/stalled tail = alive.
 
-STATE. Keyed sessions start OFF; setup writes no state. At 15% provider-metered use latch ON + 4-question plan; 40% unlocks handoff tools; 50% warns. Keyless or undetectable metering => fail-safe ON.
+STATE. Keyed sessions start OFF; setup writes no state. At 15% metered use latch ON + >=4 planning Qs as goal context; 20% unlocks handoff tools; user warn point (default 60%) warns. Keyless/undetectable => fail-safe ON.
 
-CHILD. A literal first-line parent marker skips this regime except it uses the provided cwd and never creates/switches worktrees.
+CHILD. Literal first-line parent marker skips this regime except it uses the provided cwd and never creates/switches worktrees.
 
-DROPOUT ON: halt and ask until restored. DISABLE: explicit user only; keyed to this session with 2h backstop; beats latch/fail-safe. User may explicitly re-enable mid-session. Next session returns to default OFF.
+DROPOUT ON: halt and ask until restored. DISABLE: explicit user only; keyed to this session with 2h backstop; beats latch/fail-safe. User may explicitly re-enable mid-session. Next session defaults OFF.
 
-MODEL. Unset = smart auto-selection; provider/model/effort selectors rejected except in an explicit user-approved override window.
+MODEL. Unset = smart auto-selection; provider/model/effort rejected except in explicit user-approved override window.
 ```
 
 ## A4 ? HOOK-STATE / JOINTLY BINDING CLAUSE (identical across CLAUDE.md / AGENTS.md / GEMINI.md ? D7)

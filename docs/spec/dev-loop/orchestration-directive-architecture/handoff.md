@@ -10,10 +10,18 @@ legacy exact-cwd hash path so existing handoffs are not silently stranded.
 ## Gating rules
 
 - `handoff-write` is unlocked ONLY when the calling session is at or above
-  40% context utilization (`used_percentage >= HANDOFF_THRESHOLD_PCT`, i.e.
-  phase = "handoff") AND metering is readable for that session. Below 40%,
+  20% context utilization (`used_percentage >= HANDOFF_UNLOCK_THRESHOLD_PCT`,
+  i.e. phase = "handoff") AND metering is readable for that session. Below 20%,
   or when metering is unreadable, the tool refuses with an affirmative error
   (never silent) -- see exact strings below.
+- The 20% unlock is a FIXED constant. It is not user-configurable, not
+  env-overridable, and is unaffected by the `contextCoaching` setting. It is a
+  GOAL-CONTEXT unlock: the session captures the DEFINABLE AND ACHIEVABLE goal
+  it shaped at the 15% latch while it still has enough context to describe one,
+  rather than at the old wind-down-adjacent point.
+- The wind-down warning is a SEPARATE, later, user-configurable threshold
+  (default 60%; see the wind-down warning section below). Unlocking the handoff
+  tools at 20% does not warn, and muting the warning does not lock the tools.
 - `handoff-read` and `handoff-clear` are ALWAYS available regardless of
   phase or utilization. They are gated only by whether a handoff record
   exists for the cwd or not.
@@ -33,8 +41,8 @@ The following error/coaching strings are exact and must not be altered:
 UNAVAILABLE_NO_METERING =
 "handoff-write is not available due to missing context size data. It will become available once context usage can be measured for this session."
 
-UNAVAILABLE_BELOW_40 =
-"handoff-write is not available until this session reaches 40% context utilization (currently below threshold)."
+UNAVAILABLE_BELOW_UNLOCK =
+"handoff-write is not available until this session reaches 20% context utilization (currently below threshold)."
 
 OVERSIZE_CONTENT =
 "handoff content exceeds the 4000-character limit; shorten it, or move the excess (up to 8000 additional characters) into a separate file and reference its full path inside the 4000-character content."
@@ -48,12 +56,41 @@ NO_HANDOFF_FOUND =
 "No handoff found for this directory. Resume the previous session and ask it to write one via handoff-write."
 ```
 
+`UNAVAILABLE_BELOW_UNLOCK` is pinned to `HANDOFF_UNLOCK_THRESHOLD_PCT` by a
+template-literal type in `src/orchestration/handoff.ts`, so the constant and the
+user-visible sentence cannot drift apart. The old threshold-bearing export name
+`UNAVAILABLE_BELOW_40` remains only as a deprecated alias for import
+compatibility; it carries the 20% wording.
+
+## Wind-down warning (separate from the unlock)
+
+At or above the wind-down warning threshold the hook warns EVERY turn to wind
+down and appends the handoff steer (`directives/handoff-{claude,codex}.md`).
+That threshold is user-configurable:
+
+| Setting | Values | Default |
+|---|---|---|
+| `contextCoaching` | `true` or `false` | `true` |
+| `handoffWarnThreshold` | integer percent, valid `40`-`90` | `60` |
+
+- Configuration is USER-LEVEL ONLY: the machine-local
+  `~/.subagent-mcp/settings.json` / `settings.local.json`. There is no per-repo
+  or per-project override, and the repo-scoped `.claude/settings*.json` files
+  contribute `permissions.*` only.
+- Missing keys default silently to `contextCoaching: true` and
+  `handoffWarnThreshold: 60`; any out-of-range or malformed number resolves to
+  `60`.
+- `contextCoaching: false` mutes ONLY the at-or-above-threshold wind-down
+  warning and its handoff steer (and the `near_limit` flag that backs them). It
+  does NOT affect the 15% latch, the latch coaching, or the 20% handoff-write
+  unlock, and `handoff-write` / `handoff-read` / `handoff-clear` stay callable.
+
 ## Pre-write coaching (handoff-write)
 
 Before writing, the hook and tool description coach the session to ask the
 user 10 clarifying questions via the structured-question tool. The intent of
 these 10 questions is to build a `/goal` prompt for the next session to
-resume from.
+resume from, carrying forward the goal context set at the 15% latch.
 
 ## Post-read coaching (handoff-read)
 
@@ -95,6 +132,6 @@ reads the same handoff record later (last-read-wins rebinds
 
 `handoff-clear` deletes the saved handoff record (and its overflow file, if
 any) for the cwd. The handoff lifecycle is not a one-time event: each
-successor session that works in the same cwd and later crosses the 40%
+successor session that works in the same cwd and later crosses the 20%
 unlock threshold again unlocks `handoff-write` again, and the same write -> coach
 -> read -> re-append cycle repeats for that successor session.

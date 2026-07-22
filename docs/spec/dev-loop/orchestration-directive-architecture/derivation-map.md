@@ -22,10 +22,10 @@ fragment `.txt` files; convention + the mirror test enforce it).
 | **R-MARKERS** | section 8 schema=5 markers + union MIGRATE_RE + duplicate collapse |
 | **R-NO5CALL** | section 4 5-call rule DELETED everywhere; permanent grep gate |
 | **R-START-OFF** | section 4 keyed sessions default OFF without setup-time state writes; keyless/undetectable metering fails safe ON |
-| **R-LATCH-15** | section 4/10 15% latch + exactly-4-question plan; explicit session-keyed enabled:false (2h TTL) beats latch/fail-safe; explicit enabled:true may re-enable mid-session |
+| **R-LATCH-15** | section 4/10 15% latch + a planning stop of AT LEAST 4 open questions asked with the structured question tool (or natural prose where none exists), turned into the session's goal context; explicit session-keyed enabled:false (2h TTL) beats latch/fail-safe; explicit enabled:true may re-enable mid-session; unaffected by `contextCoaching` |
 | **R-MODEL-SMART** | model selection unset defaults smart; server auto-picks and rejects selectors outside an explicitly user-approved override window |
-| **R-HANDOFF-40** | section 10/13 40% utilization: unlock handoff-write/read/clear; write gated >=40% with readable metering; 4000/8000-char limits; 10-question pre-write and 4-question pre-read coaching |
-| **R-HANDOFF-WARN-50** | section 10/13 50% utilization: warn every turn to wind down (no big-work exemption) |
+| **R-HANDOFF-40** | section 10/13 goal-context unlock at **20%** utilization (ID retained for traceability; the number moved 40 -> 20): unlock handoff-write/read/clear; write gated >=20% with readable metering; the 20% constant is FIXED and never configurable; 4000/8000-char limits; 10-question pre-write and EXACTLY-4-question pre-read coaching |
+| **R-HANDOFF-WARN-50** | section 10/13 wind-down warning (ID retained; the threshold is no longer the literal 50): at or above `handoffWarnThreshold` (user-level setting, default **60**, valid 40-90) warn every turn to wind down and append the handoff steer (no big-work exemption); `contextCoaching: false` (default `true`) mutes ONLY this warn/steer and `near_limit`, never the latch or the unlock; missing keys silently default to `true` / `60` |
 | **R-TAG-TEMPLATE** | section 1 templated tag `<subagent-mcp state kind phase utilization>` + `Remaining Context=NN%` footer; any template/metering error => inject nothing |
 | **R-HOOK-COACH-DOCTRINE** | contextual hook coaching preferred over frontmatter/system-prompt bulk; frontmatter only states that hook injections coach correct subagent-mcp use (prevents data corruption, hallucination, resource contention) |
 
@@ -41,8 +41,10 @@ fragment `.txt` files; convention + the mirror test enforce it).
 | `reminder-off-{claude,codex}.md` | R-EXEMPT, R-START-OFF | : |
 | `short-on.md` | R-EXEMPT, R-ON-STRICT (one-line) | : |
 | `short-off.md` | R-EXEMPT, R-START-OFF (one-line) | : |
-| `latch-{claude,codex}.md` | R-LATCH-15 | : |
+| `latch-{claude,codex}.md` | R-LATCH-15 | the latch coaching line is ONE verbatim harness-neutral string, byte-identical in both files |
 | `handoff-{claude,codex}.md` | R-HANDOFF-40 / R-HANDOFF-WARN-50 | : |
+| `~/.subagent-mcp/settings*.json` + `src/concurrency.ts` (`contextCoaching`, `handoffWarnThreshold`) | R-HANDOFF-WARN-50 (config surface; user level only) | : |
+| `setup` context-coaching prompts (`src/setup.ts`) | R-HANDOFF-WARN-50 (first-run capture of both keys) | : |
 | `tag-template.md` | R-TAG-TEMPLATE | : |
 | `hook-core.ts` (tag/footer + phase/latch) | R-START-OFF, R-TAG-TEMPLATE | : |
 | three handoff tool descriptions (`src/index.ts`) | R-HANDOFF-40 / R-HANDOFF-WARN-50 | : |

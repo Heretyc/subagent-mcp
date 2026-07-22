@@ -6,6 +6,10 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  DEFAULT_HANDOFF_WARN_THRESHOLD,
+  readContextCoachingSettings,
+} from "../concurrency.js";
 import { atomicWriteJson } from "./atomic-write.js";
 import {
   hashKey,
@@ -14,8 +18,16 @@ import {
 } from "./marker.js";
 
 export const PLAN_LATCH_THRESHOLD_PCT = 15;
-export const HANDOFF_UNLOCK_THRESHOLD_PCT = 40;
-export const HANDOFF_WARNING_THRESHOLD_PCT = 50;
+/**
+ * Goal-context unlock. `handoff-write` unlocks at 20% so the session captures a
+ * DEFINABLE AND ACHIEVABLE goal while it still has the context to describe one,
+ * rather than at the old 40% wind-down-adjacent point. The literal `20` is the
+ * single source of truth for the unlock WORDING too: handoff.ts pins its
+ * unavailable string to this constant with a template-literal type, so the
+ * number and the user-visible sentence cannot drift apart.
+ */
+export const HANDOFF_UNLOCK_THRESHOLD_PCT = 20;
+const FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT = DEFAULT_HANDOFF_WARN_THRESHOLD;
 export const DEFAULT_CONTEXT_WINDOW = 200000;
 export const LONG_CONTEXT_WINDOW = 1000000;
 
@@ -69,6 +81,12 @@ export interface BuildMeteringRecordInput {
   priorWindow?: number | null;
   priorWindowSource?: WindowSource;
   priorWindowFloor?: number | null;
+  /**
+   * Shared context-coaching settings backing `near_limit`. Injected by the
+   * caller (the hook resolves them once per turn) so this module stays a pure,
+   * IO-free leaf. Omitted/null falls back to the default warn threshold.
+   */
+  warningSettings?: HandoffWarningSettings | null;
 }
 
 export interface UsedPercentageInput {
@@ -382,6 +400,75 @@ export function computeUsedPercentage(record: UsedPercentageInput): number | nul
   return Math.min(100, (record.used_tokens / record.context_window_size) * 100);
 }
 
+/**
+ * Structural view of the shared context-coaching settings
+ * (`ContextCoachingSettings` in src/concurrency.ts, read via
+ * `readContextCoachingSettings()`). Declared structurally rather than imported
+ * so this module stays an IO-free leaf: concurrency.ts performs file reads at
+ * import time, and metering.ts is loaded by both the MCP server and every
+ * per-turn hook process. hook-core.ts owns the actual config read and injects
+ * the result here.
+ */
+export interface HandoffWarningSettings {
+  contextCoaching: boolean;
+  handoffWarnThreshold: number;
+}
+
+/**
+ * Resolve the effective wind-down warning threshold, or `null` when warning is
+ * switched off.
+ *
+ * Configurability is bounded to exactly what the shared settings surface
+ * supports today: `contextCoaching` (off => no warning at all) and
+ * `handoffWarnThreshold` (the percentage). Range sanitation is NOT repeated
+ * here — `clampHandoffWarnThreshold()` in concurrency.ts already defaults
+ * malformed user values at read time, so this stays the single consumer of
+ * an already-valid number and cannot disagree with it.
+ */
+export function resolveHandoffWarningPct(
+  settings?: HandoffWarningSettings | null,
+): number | null {
+  if (settings === undefined || settings === null) {
+    return FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT;
+  }
+  if (settings.contextCoaching === false) return null;
+  return finiteNumber(settings.handoffWarnThreshold)
+    ? settings.handoffWarnThreshold
+    : FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT;
+}
+
+/**
+ * Read the shared context-coaching settings, fail-safe.
+ *
+ * Any read/parse failure yields null so resolveHandoffWarningPct falls back to
+ * the conservative built-in threshold rather than silencing the warning.
+ */
+export function readSharedCoachingSettings(): HandoffWarningSettings | null {
+  try {
+    return readContextCoachingSettings();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The effective wind-down warning percentage for this machine's configuration.
+ *
+ * Zero-argument convenience over resolveHandoffWarningPct(): it always returns
+ * a NUMBER, because callers that merely need to know "where is the warn line"
+ * (status surfaces, docs, tests) still need a percentage even when
+ * `contextCoaching` is false and no warning will actually be emitted. Whether
+ * the warning FIRES is a separate question, answered by
+ * resolveHandoffWarningPct() returning null.
+ */
+export function resolveWarnThresholdPct(): number {
+  const settings = readSharedCoachingSettings();
+  if (settings === null) return FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT;
+  return finiteNumber(settings.handoffWarnThreshold)
+    ? settings.handoffWarnThreshold
+    : FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT;
+}
+
 export function phaseFor(usedPercentage: number | null): MeteringPhase {
   return usedPercentage === null
     ? "normal"
@@ -409,6 +496,16 @@ export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRe
     used_tokens: normalized.used_tokens,
     harnessPercentage: input.harnessPercentage,
   });
+  // Explicit injection wins (the hook resolves settings ONCE per turn and passes
+  // them here, so the tag and near_limit agree). An absent field means "resolve
+  // for me" — callers outside the hook still get configuration-correct
+  // near_limit rather than the bare fallback. An explicit null means "no
+  // settings available", which is what the fail-safe fallback is for.
+  const warningPct = resolveHandoffWarningPct(
+    input.warningSettings === undefined
+      ? readSharedCoachingSettings()
+      : input.warningSettings,
+  );
   return {
     session_id: input.session_id,
     harness: input.harness,
@@ -422,7 +519,8 @@ export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRe
     used_percentage,
     near_limit:
       used_percentage !== null &&
-      used_percentage >= HANDOFF_WARNING_THRESHOLD_PCT,
+      warningPct !== null &&
+      used_percentage >= warningPct,
     event: input.event,
     updated_at: Date.now(),
   };

@@ -175,17 +175,28 @@ an explicit user enable, an active 15% latch, or the metering-undetectable fail-
 - **Phase definitions (Section 0 constants):** given `used_percentage` (0-100,
   or `null` when undetectable):
   - `null` -> **normal**
-  - `used_percentage >= 40` (HANDOFF_UNLOCK_THRESHOLD_PCT) -> **handoff**
+  - `used_percentage >= 20` (HANDOFF_UNLOCK_THRESHOLD_PCT) -> **handoff**
   - `used_percentage >= 15` (PLAN_LATCH_THRESHOLD_PCT) -> **plan**
   - otherwise -> **normal**
 
-  `near_limit` is true only when `used_percentage` is known and `>= 50`.
+  Both phase constants are FIXED and never user-configurable.
+
+  `near_limit` is true only when `used_percentage` is known, `contextCoaching`
+  is enabled, and `used_percentage >= handoffWarnThreshold` (default 60, valid
+  40-90; see context-metering.md section 3.1).
 - **plan phase (15%):** a persisted latch force-enables orchestration and
-  coaches a one-time 4-question planning stop (see sections-10-13, R-LATCH-15).
-- **handoff phase (40%):** the handoff-write/read/clear tools unlock with no
-  wind-down warning before 50% (see handoff.md, R-HANDOFF-40).
-- **handoff warning (50%):** the hook warns every turn to wind down (see
-  R-HANDOFF-WARN-50).
+  coaches a one-time planning stop of AT LEAST 4 open planning questions (see
+  sections-10-13, R-LATCH-15).
+- **handoff phase (20%):** the handoff-write/read/clear tools unlock, with no
+  wind-down warning at that point : the unlock is a GOAL-CONTEXT unlock that
+  lets the session record the goal it shaped at the 15% latch while it still has
+  the context to describe one (see handoff.md, R-HANDOFF-40).
+- **wind-down warning (default 60%, user-configurable 40-90):** at or above
+  `handoffWarnThreshold` the hook warns every turn to wind down and appends the
+  handoff steer (see R-HANDOFF-WARN-50). `contextCoaching: false` mutes this
+  warning and steer ONLY; the 15% latch and the 20% unlock are unaffected. Both
+  keys are user-level only (`global-subagent-mcp-config.jsonc`); missing keys
+  silently default to `true` / `60`.
 - **You never assert ON yourself in OFF mode** : you only work solo or ask;
   state is authoritative from the hook.
 

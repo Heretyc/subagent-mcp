@@ -14,8 +14,11 @@
 three surfaces (MCP `instructions`, upserted `INIT_BLOCK`, per-turn hook
 directives). ON = delegate-only orchestrator (launch_agent sole channel, no
 inline reads/writes). OFF = solo + provider-metered context tracking
-(context-metering.md); ENFORCED-ON at the 15%/40%/50% thresholds (see
-R-LATCH-15/R-HANDOFF-40/R-HANDOFF-WARN-50). State is
+(context-metering.md); ENFORCED-ON at the 15% latch, with the handoff tools
+unlocking at 20% and the wind-down warning firing at the user-configured
+threshold (default 60%, valid 40-90) unless `contextCoaching` is off (see
+R-LATCH-15/R-HANDOFF-40/R-HANDOFF-WARN-50; the two R-IDs keep their historical
+numbers). State is
 reported SOLELY by the hook `<subagent-mcp state="...">` tag; hookless hosts →
 UNKNOWN → fail-safe ON. Sub-agent first-line marker skips the whole regime.
 
@@ -48,6 +51,7 @@ permission decisions : those run through the shared engine in `src/drivers.ts`.)
 - joint binding, escalate-to-user, tag > user request → `sections-00-04.md` (section 2); verbatim clause → `appendix-a1-a4.md` (A4)
 - ON allowed-tools, sole channel, read-ladder → `sections-00-04.md` (section 3); ladder verbatim → `appendix-a1-a4.md` (A2)
 - OFF metering fail-safe + phase thresholds → `sections-00-04.md` (section 4), `context-metering.md`, `statusline-signal.md`, `handoff.md`
+- `contextCoaching` / `handoffWarnThreshold` user settings (what they mute, what they never mute) → `context-metering.md` (section 3.1), `handoff.md`; install-time prompts → `docs/spec/dev-loop/init-registry-and-update.md`
 - fail-safe ON / UNKNOWN / one-time opt-out → `sections-05-09.md` (section 5)
 - first-line `<this is a request from a parent process>` skip + upsert → `sections-05-09.md` (section 6), `appendix-a6-a7.md` (A7)
 - schema=3 markers, MIGRATE_RE, duplicate collapse → `sections-05-09.md` (section 8), `appendix-a6-a7.md` (A6)

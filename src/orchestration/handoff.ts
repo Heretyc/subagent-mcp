@@ -16,8 +16,23 @@ export const HANDOFF_OVERFLOW_LIMIT = 8000;
 
 export const UNAVAILABLE_NO_METERING =
   "handoff-write is not available due to missing context size data. It will become available once context usage can be measured for this session.";
-export const UNAVAILABLE_BELOW_40 =
-  "handoff-write is not available until this session reaches 40% context utilization (currently below threshold).";
+/**
+ * Compile-time lock between the unlock CONSTANT and the unlock WORDING. The
+ * literal below must spell the same number as HANDOFF_UNLOCK_THRESHOLD_PCT or
+ * this file fails to typecheck, so the 20% goal-context unlock can never be
+ * changed in one place and left stale in the other.
+ */
+type UnlockUnavailableWording =
+  `handoff-write is not available until this session reaches ${typeof HANDOFF_UNLOCK_THRESHOLD_PCT}% context utilization (currently below threshold).`;
+
+export const UNAVAILABLE_BELOW_UNLOCK: UnlockUnavailableWording =
+  "handoff-write is not available until this session reaches 20% context utilization (currently below threshold).";
+
+/**
+ * @deprecated Threshold-bearing name kept only for import compatibility with
+ * existing consumers; the unlock is now 20% (see UNAVAILABLE_BELOW_UNLOCK).
+ */
+export const UNAVAILABLE_BELOW_40 = UNAVAILABLE_BELOW_UNLOCK;
 export const OVERSIZE_CONTENT =
   "handoff content exceeds the 4000-character limit; shorten it, or move the excess (up to 8000 additional characters) into a separate file and reference its full path inside the 4000-character content.";
 export const OVERSIZE_OVERFLOW =
@@ -75,7 +90,7 @@ export function checkHandoffWriteAvailable(metering: HandoffMetering | null | un
     return { ok: false, error: UNAVAILABLE_NO_METERING };
   }
   if (used < HANDOFF_THRESHOLD_PCT) {
-    return { ok: false, error: UNAVAILABLE_BELOW_40 };
+    return { ok: false, error: UNAVAILABLE_BELOW_UNLOCK };
   }
   return { ok: true };
 }
