@@ -38,11 +38,11 @@ front of that path.
 
 | File | Contains | Read when |
 |---|---|---|
-| `param-contract.md` | New `launch_agent` param schema; required/optional rules; selection modes. | Changing the tool's input schema or param semantics. |
-| `resolution-matrix.md` | Full presence-to-behavior matrix. | Implementing/validating param validation and candidate-list construction. |
-| `resolution-errors.md` | Exact auto-mode error text, shared hint blocks, and anti-examples. | Implementing/validating hard-error response text. |
-| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window), pairing schema ref, model->provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior. | Implementing the loader/resolver against the table. |
-| `tool-description.md` | Verbatim rewritten tool description + the 15 caveman `task_category` metadata glosses. | Rewriting the MCP tool metadata strings. |
+| `param-contract.md` | New `launch_agent` param schema; required/optional rules; selection modes; `sub-orchestrator?` row. | Changing the tool's input schema or param semantics. |
+| `resolution-matrix.md` | Full presence-to-behavior matrix; validation-order note including `ERR_SUBORCH_DEPTH` at step 6b. | Implementing/validating param validation and candidate-list construction. |
+| `resolution-errors.md` | Exact auto-mode error text, shared hint blocks, anti-examples, and `ERR_SUBORCH_DEPTH` verbatim text. | Implementing/validating hard-error response text. |
+| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window + swarm pin subsection), pairing schema ref, model->provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior; amended sanctioned-exposures list. | Implementing the loader/resolver against the table. |
+| `tool-description.md` | Verbatim rewritten tool description + 15 caveman `task_category` glosses; sub-orchestrator sentence + param gloss; swarm tool description + stage param gloss; byte accounting. | Rewriting the MCP tool metadata strings. |
 | `build-and-test.md` | B2 file partition (non-overlapping ownership) + the fixture-based test plan. | Splitting build work or writing tests. |
 
 Related leaf set: `../advanced-ruleset/` specifies the user-editable

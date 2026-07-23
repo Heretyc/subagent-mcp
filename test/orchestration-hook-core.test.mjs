@@ -14,6 +14,8 @@
  *     SAME-SESSION (owner === current) -> reminder cadence; notice fires once.
  *   - session change resets the reminder counter (per-session cadence).
  *   - subagent adapter -> '' AND the counter does not advance.
+ *   - sub-orchestrator (BOTH env markers) -> stateless ON emission decided
+ *     before the subagent bail, writing no state at all.
  *   - missing directive file -> '' for that asset (fail-safe read).
  *
  * Directive contents are controlled via PLUGIN_ROOT pointing at a temp
@@ -24,6 +26,7 @@
  */
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdtempSync,
   mkdirSync,
   writeFileSync,
@@ -41,13 +44,16 @@ import {
   runHook,
   REMINDER_PERIOD,
   sessionKey,
+  SUB_ORCHESTRATOR_DIRECTIVE_FILE,
 } from "../dist/orchestration/hook-core.js";
 import {
   markerPath,
   isActive,
+  readCurrentSession,
   readMarker,
   removeEnable,
   removeDisable,
+  writeCurrentSession,
   writeEnable,
   writeDisable,
   writeMarker,
@@ -107,6 +113,7 @@ const REM_ON_TEXT = "REMINDER-ON-BLOCK";
 const REM_OFF_TEXT = "REMINDER-OFF-BLOCK";
 const LATCH_TEXT = "LATCH-COACH-BODY";
 const HANDOFF_TEXT = "HANDOFF-WINDDOWN-BODY";
+const SUB_ORCH_TEXT = "SUB-ORCHESTRATOR-ON-BODY";
 
 // Build a temp directives dir and an env that points the resolver at it.
 function makeDirectivesEnv({
@@ -118,6 +125,7 @@ function makeDirectivesEnv({
   withReminderOff = true,
   withLatch = true,
   withHandoff = true,
+  withSubOrch = true,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "orch-root-"));
   const dir = join(root, "directives");
@@ -130,6 +138,11 @@ function makeDirectivesEnv({
   if (withReminderOff) writeFileSync(join(dir, "rem-off.md"), REM_OFF_TEXT, "utf8");
   if (withLatch) writeFileSync(join(dir, "latch-test.md"), LATCH_TEXT, "utf8");
   if (withHandoff) writeFileSync(join(dir, "handoff-test.md"), HANDOFF_TEXT, "utf8");
+  // The sub-orchestrator asset name is fixed in production (provider-neutral),
+  // so the fixture writes it under the real name rather than an adapter field.
+  if (withSubOrch) {
+    writeFileSync(join(dir, SUB_ORCHESTRATOR_DIRECTIVE_FILE), SUB_ORCH_TEXT, "utf8");
+  }
   // Mark the temp plugin root trusted by pointing the install-prefix allowlist
   // (npm_config_prefix) at it; the resolver's trust gate then accepts it.
   return { root, env: { PLUGIN_ROOT: root, npm_config_prefix: root } };
@@ -656,6 +669,121 @@ test("subagent adapter -> '' AND the reminder counter does not advance", () => {
   } finally {
     cleanup(cwd, root);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Sub-orchestrator (BOTH env markers) -> stateless per-turn ON emission.
+//
+// WHY (Rule 9): a child launched with `sub-orchestrator: true` is a subagent by
+// env, so without this branch the isSubagent bail would silently un-govern it.
+// It runs in the PARENT orchestrator's cwd, so the branch must decide before the
+// bail AND write nothing: one writeCurrentSession here would hand the cwd
+// session pointer (orchestration-mode / handoff-*) to the child.
+// ---------------------------------------------------------------------------
+const SUB_ORCH_ENV = {
+  SUBAGENT_MCP_SUBAGENT: "1",
+  SUBAGENT_MCP_SUB_ORCHESTRATOR: "1",
+};
+
+test("sub-orchestrator env pair -> ON emission tagged kind=sub-orchestrator", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  try {
+    const out = runHook(
+      { cwd, session_id: `sub-orch:${cwd}`, transcript_path: undefined },
+      { ...env, ...SUB_ORCH_ENV },
+      makeAdapter({ subagent: true, turn: 3 })
+    );
+    assertTagged(out, { state: "on", kind: "sub-orchestrator", body: SUB_ORCH_TEXT });
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("sub-orchestrator turns are STATELESS: pointer, marker, counter, metering untouched", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const parentSession = `parent-of-sub-orch:${cwd}`;
+  const session = `sub-orch-stateless:${cwd}`;
+  try {
+    // The parent orchestrator owns this cwd's session pointer.
+    writeCurrentSession(cwd, parentSession);
+    const payload = { cwd, session_id: session, transcript_path: "synthetic" };
+    const adapter = makeAdapter({ subagent: true, turn: 9, liftUsage: usageAtPct(80) });
+    const first = runHook(payload, { ...env, ...SUB_ORCH_ENV }, adapter);
+    const second = runHook(payload, { ...env, ...SUB_ORCH_ENV }, adapter);
+    assert.ok(first.includes(SUB_ORCH_TEXT), "precondition: the directive is injected");
+    assert.equal(second, first, "the emission is stateless: every turn is identical");
+    assert.equal(readCurrentSession(cwd), parentSession,
+      "a sub-orchestrator never steals the parent cwd's session pointer");
+    assert.equal(existsSync(markerPath(cwd)), false, "no marker is written");
+    assert.equal(existsSync(reminderPath(cwd)), false, "the reminder counter never advances");
+    assert.equal(readMetering(session) ?? null, null, "no metering record is persisted");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("sub-orchestrator emission is provider-agnostic and precedes the subagent bail", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const payload = { cwd, session_id: `sub-orch-both:${cwd}`, transcript_path: undefined };
+  const subEnv = { ...env, ...SUB_ORCH_ENV };
+  try {
+    // Both hook paths share this runHook; the adapters' own isSubagent (true for
+    // any child) must not be able to suppress the emission on either provider.
+    const claudeLike = { ...makeAdapter({ subagent: true }), anonScope: "claude" };
+    const codexLike = { ...makeAdapter({ subagent: true }), anonScope: "codex" };
+    const fromClaude = runHook(payload, subEnv, claudeLike);
+    const fromCodex = runHook(payload, subEnv, codexLike);
+    assertTagged(fromClaude, { state: "on", kind: "sub-orchestrator", body: SUB_ORCH_TEXT });
+    assert.equal(fromCodex, fromClaude, "both provider paths emit the same string");
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("plain subagent env (no sub-orchestrator marker) still bails to ''", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  try {
+    writeFreshMarker(cwd);
+    const out = runHook(
+      { cwd, session_id: `plain-child:${cwd}`, transcript_path: undefined },
+      { ...env, SUBAGENT_MCP_SUBAGENT: "1" },
+      makeAdapter({ subagent: true, turn: 0 })
+    );
+    assert.equal(out, "", "the second marker is required; a plain child stays exempt");
+    assert.equal(readMarker(cwd).baseline_turn, null, "no claim happens on a child turn");
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("missing sub-orchestrator asset -> '' (fail-safe: never a hollow tag)", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv({ withSubOrch: false });
+  try {
+    const out = runHook(
+      { cwd, session_id: `sub-orch-missing:${cwd}`, transcript_path: undefined },
+      { ...env, ...SUB_ORCH_ENV },
+      makeAdapter({ subagent: true, turn: 0 })
+    );
+    assert.equal(out, "", "an unresolvable directive injects nothing and never throws");
+    assert.equal(existsSync(markerPath(cwd)), false, "the fail-safe path writes no state either");
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("the shipped repo directives dir carries the sub-orchestrator asset", () => {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  assert.equal(
+    existsSync(join(repoRoot, "directives", SUB_ORCHESTRATOR_DIRECTIVE_FILE)),
+    true,
+    "an installed layout must resolve the asset the hook reads"
+  );
 });
 
 // ---------------------------------------------------------------------------

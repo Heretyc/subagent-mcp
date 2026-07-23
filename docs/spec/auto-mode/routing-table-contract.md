@@ -65,19 +65,61 @@ No cross-branch fallback: if the selected branch's `<task_category>` is
 empty/missing → `ERR_NO_CANDIDATES`; the resolver does NOT retry the other branch
 in EITHER direction.
 
+### Swarm pin (in-memory, per-process)
+
+A timestamp-based window inside the swarm session object (created by `createSwarmSession()` from
+`src/swarm.ts`). Scoped to the server PROCESS, shared across all concurrent callers (same
+shared-scope caveat as the deadlock window). Not persisted; a restart resets it.
+
+- **ARM:** `swarm(null)` (idle start) sets `pinExpiresAt = now + SWARM_PIN_WINDOW_MS` (1h).
+- **RESTART (replace expiry):** accepted `swarm(1)`, `swarm(2)`, `swarm(3)` each REPLACE the
+  expiry with `now + SWARM_PIN_WINDOW_MS`. A REPEATED call to an already-reported stage NEVER
+  restarts the window; only an ACCEPTED FORWARD ADVANCE does. Out-of-order, already-active, idle,
+  and invalid calls never touch the pin.
+- **AUTO-OFF trigger 1 (handoff-next):** accepted `swarm(4)` sets `pinExpiresAt = null`
+  immediately (stage 5 = handoff is now next). Force-cleared regardless of remaining time.
+- **AUTO-OFF trigger 2 (1h lazy):** `pinActive(now)` is false once `now >= pinExpiresAt`. Strict
+  boundary: active strictly BEFORE expiry. No background timers; same lazy pattern as
+  `src/orchestration/model-mode.ts`.
+- **Pure-auto-only:** `resolveBranch(pureAuto, deadlockActive, pinActive)` in `src/swarm.ts`
+  puts the pin inside the `pureAuto` guard. `provider`/`provider_model` launches ALWAYS read
+  `cost_efficiency` regardless of pin state. Swarm coaching mandates pure-auto (no
+  provider/model/effort), so all swarm-session launches route `performance` while pinned.
+- **slotInsert exclusion:** `slotInsert` is keyed on `branch === "cost_efficiency" &&
+  !subOrchestrator`, so pinned auto launches AND sub-orchestrator launches both lose API slots.
+- **consume() interplay:** `deadlockWindow.consume()` at line 1626-1628 fires when
+  `branch === "performance"`. It is a no-op when the deadlock counter is 0, and sub-orchestrator
+  launches that reach `performance` via the swarm pin are not deadlock-triggered and never
+  consumed by the deadlock counter.
+- **Sub-orchestrator launches:** sub-orchestrator=true launches exclude `slotInsert` (the
+  `!subOrchestrator` gate). They still read the branch selected by `resolveBranch`. Full contract:
+  `docs/spec/swarm/_INDEX.md`.
+
+Shared-process caveat (stated honestly): the pin is per-PROCESS, not per-task or per-caller. A
+window armed by a swarm in one task is consumed by ANY concurrent pure-auto launch in the same
+process. Under concurrency, performance launches are not guaranteed to be the swarm's own.
+
+Anti-gaming note (condensed; full rationale in `docs/spec/swarm/_INDEX.md`): the pin is bounded
+to 1 hour, armed only by a genuine swarm start, restarted ONLY by an accepted forward advance
+into a pre-handoff stage, and force-cleared the moment handoff becomes the next stage. A repeated
+call to an already-reported stage does NOT restart the window. There is no standalone lever,
+flag, or parameter that selects the performance band; no swarm response or tool description ever
+names it. Pinning exists only inside swarm pre-handoff stages and dies with them.
+
 ### Tool-surface opacity (INVARIANT)
 
-Tool descriptions and error texts NEVER name tiers, branches, counters, or
-windows. The only agent-visible deadlock metadata strings are the verbatim
-`DEADLOCK RULE:` tool-description line and the `deadlock` param MANDATE gloss
-(`tool-description.md`). One additional agent-visible runtime error string
-exists for `deadlock=true` combined with provider/model/effort; it is error text,
-not metadata, and must use attempts+task-identity/drop-overrides vocabulary.
-Sanctioned diagnostic exposures (payload fields, never description/error text)
-are exactly: `routing_tier` (poll), `ruleset_applied`,
-`ruleset_original_selection`, `failover_occurred`, `failover_from`, and
-`failover_note`
-(`../advanced-ruleset/visibility-and-failover.md`).
+Tool descriptions and error texts NEVER name tiers, branches, counters, or windows. The only
+agent-visible deadlock metadata strings are the verbatim `DEADLOCK RULE:` tool-description line
+and the `deadlock` param MANDATE gloss (`tool-description.md`). The swarm tool description and
+coaching text NEVER name the performance band, routing tier, pin, or window. One additional
+agent-visible runtime error string exists for `deadlock=true` combined with provider/model/effort;
+it is error text, not metadata, and must use attempts+task-identity/drop-overrides vocabulary.
+Sanctioned diagnostic exposures (payload fields, never description/error text) are exactly:
+`routing_tier` (poll), `ruleset_applied`, `ruleset_original_selection`, `failover_occurred`,
+`failover_from`, `failover_note` (`../advanced-ruleset/visibility-and-failover.md`), and
+`get_status.swarm.*` (the five swarm snapshot fields: `active`, `current_stage`, `stage_name`,
+`pin_active`, `pin_expires_at`). The `get_status.swarm` fields expose the pin state for
+observability (smoke tests, ops) without naming the branch or window in any tool description.
 
 ## Pairing object schema (authoritative source)
 

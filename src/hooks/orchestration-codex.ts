@@ -13,6 +13,7 @@ import {
   classifyOwnerClaim,
   computeEffectiveActive,
   cullHookZombies,
+  emitSubOrchestratorInjection,
   ownerKey,
   runHook,
   TRANSCRIPT_READ_CAP,
@@ -344,6 +345,9 @@ export function runCodexHook(
 ): string {
   try {
     if (payload.hook_event_name === "SessionStart") {
+      if (env.SUBAGENT_MCP_SUBAGENT === "1" && env.SUBAGENT_MCP_SUB_ORCHESTRATOR === "1") {
+        return emitSubOrchestratorInjection(env);
+      }
       cullHookZombies();
       if (adapter.isSubagent(payload, env)) {
         return "";

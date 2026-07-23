@@ -57,6 +57,10 @@ See [spec/provider-startup.md](spec/provider-startup.md).
 
 See [spec/agentstate.md](spec/agentstate.md).
 
+## Agentic Swarm Workflow
+
+See [spec/swarm/_INDEX.md](spec/swarm/_INDEX.md).
+
 ## Governance
 
 See [spec/governance.md](spec/governance.md).

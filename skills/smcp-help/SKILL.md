@@ -1,10 +1,10 @@
 ---
 name: smcp-help
 version: 1.0.0
-description: Explain and help configure the subagent-mcp addon in Claude Code and Codex without any API dependency. Use when the user says "smcp help", "subagent-mcp help", "/smcp:help", "how do I configure providers", "routing table", or "what is subagent-mcp". Covers marketplace and npm-global install, providers.jsonc slot semantics, .env key setup, and the doctor/rollback/upgrade CLI commands.
+description: Explain and help configure the subagent-mcp addon in Claude Code and Codex without any API dependency. Use when the user says "smcp help", "subagent-mcp help", "/smcp:help", "how do I configure providers", "routing table", "what is subagent-mcp", "swarm", or "sub-orchestrator". Covers marketplace and npm-global install, providers.jsonc slot semantics, .env key setup, the doctor/rollback/upgrade CLI commands, and the agentic-swarm workflow.
 author: Lexi Blackburn (https://github.com/Heretyc/)
 created: 2026-07-15
-updated: 2026-07-15
+updated: 2026-07-22
 ---
 
 # subagent-mcp Help
@@ -19,9 +19,16 @@ identically in Claude Code and Codex and needs no network or API access.
 subagent-mcp is an MCP stdio server plus per-turn `orchestration-mode` hooks
 that let a host CLI (Claude Code or Codex) launch and manage background
 subagents. The server exposes tools such as `launch_agent`, `poll_agent`,
-`wait`, `get_status`, `orchestration-mode`, and the `handoff-*` set. Providers
-and their routing preferences live in a user-owned `providers.jsonc`; secrets
-live only in a sibling `.env`.
+`wait`, `get_status`, `orchestration-mode`, `swarm`, and the `handoff-*` set.
+Providers and their routing preferences live in a user-owned `providers.jsonc`;
+secrets live only in a sibling `.env`.
+
+The `swarm` tool coaches a 7-stage agentic workflow for objectives projected
+to span multiple sessions. Call `swarm()` to start; the server tracks the
+current stage in memory and returns per-stage coaching with the exact next call.
+Stage 6 dispatches sub-orchestrators -- use `launch_agent` with
+`sub-orchestrator: true` (main orchestrator only) to launch a child as a
+delegate-only orchestrator; its own sub-agents run as normal workers.
 
 Scope note for this release: as of v3.0.0, provider `routing` slots are live
 routing config. They record per-category priority order, are validated and

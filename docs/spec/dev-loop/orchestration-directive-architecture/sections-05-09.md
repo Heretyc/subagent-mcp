@@ -78,6 +78,30 @@ Two code-enforced guards backstop the prose exemption:
    2. `launch_agent` is code-rejected at depth >= 2. A legacy sub-agent with
    `SUBAGENT_MCP_SUBAGENT=1` but no depth is treated as depth 1.
 
+### 6.4 Sub-orchestrator exemption-override (sole sanctioned case)
+
+The sub-orchestrator env pair (`SUBAGENT_MCP_SUBAGENT=1` AND `SUBAGENT_MCP_SUB_ORCHESTRATOR=1`)
+is the SOLE case where the first-line exemption's skip of the orchestration regime is OVERRIDDEN.
+A sub-orchestrator session has the first-line parent-process marker (it IS a sub-agent) but MUST
+NOT skip orchestration because it is a delegate-only orchestrator for its section.
+
+Override mechanism: `runHook` in `src/orchestration/hook-core.ts` checks the env pair BEFORE the
+`isSubagent` bail at line 756. When both are set it emits the orchestration tag stateless
+per-turn (kind="sub-orchestrator") and returns WITHOUT falling through to the bail.
+
+Anti-fork-bomb analysis with env strip:
+- The `sub-orchestrator: true` flag is available only at depth 0 (`ERR_SUBORCH_DEPTH` at depth >= 1).
+- `buildChildEnv` unconditionally DELETES `SUBAGENT_MCP_SUB_ORCHESTRATOR` from every child env
+  UNLESS this specific launch explicitly sets it. A sub-orchestrator's OWN workers get
+  `SUBAGENT_MCP_SUBAGENT=1, SUBAGENT_MCP_DEPTH=2` with NO sub-orchestrator marker.
+- Workers at depth 2 cannot spawn (the depth cap rejects `launch_agent` at >= 2).
+- The directive in the sub-orchestrator's prompt also states "NEVER set sub-orchestrator: true",
+  but this is a belt-and-suspenders prose guard; the code-enforced strip + depth cap make
+  env-based orchestrator propagation impossible even if the prompt is disobeyed.
+
+The sub-orchestrator remains a sub-agent for depth accounting, worktree carve-out, and pretool
+handling. Only the hook-skip consequence of the first-line exemption is overridden.
+
 ### 6.4 Hook-side child detection ladder
 
 Hook adapters detect child turns by degrading to the next-strongest signal,

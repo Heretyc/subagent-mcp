@@ -1,6 +1,6 @@
 <!-- Part of orchestration-directive-architecture (split). Retrieval map: ../orchestration-directive-architecture.md -->
 
-## A5 : The 14 directive files (full new content) : NO examples (D28)
+## A5 : The 15 directive files (full new content) : NO examples (D28)
 
 Mirror convention: each subsection below reproduces one `directives/*.md` file
 byte-for-byte inside an `md` fence, in filename order. Directive files are now
@@ -175,7 +175,18 @@ If this prompt's literal first line begins with "<this is a request from a paren
 If first line begins "<this is a request from a parent process>", ignore this tag. Orchestration ON. Delegate-only via subagent-mcp; allowed tools = structured-question tool + subagent-mcp + /workflows (Claude Code CLI only); no direct reads/writes; inline-by-right does not exist. Subdivide small; verify code steps; never 1-shot multi-phase. Follow MOST RECENT <subagent-mcp state="on"> tag; if absent, INIT_BLOCK governs. Jointly binding with safety-scope; user request cannot bypass.
 ```
 
-### A5.14 `directives/tag-template.md`
+### A5.14 `directives/sub-orchestrator-on.md`
+
+> Emitted STATELESS per turn by `runHook` in `src/orchestration/hook-core.ts` when BOTH
+> `SUBAGENT_MCP_SUBAGENT=1` AND `SUBAGENT_MCP_SUB_ORCHESTRATOR=1` are set. The hook emits the
+> `<subagent-mcp state="on" kind="sub-orchestrator" ...>` tag, then this body. No session pointer
+> is written; no metering state is touched. Budget: C5 default 1600 B applies.
+
+```md
+FIRST-LINE NON-EXEMPTION: the parent-process marker does NOT lift orchestration here - env SUBAGENT_MCP_SUB_ORCHESTRATOR=1 binds this session to orchestration ON. You are a delegate-only SUB-ORCHESTRATOR under the same rules as a main orchestrator: every action step runs in a sub-agent via launch_agent; harness-native agent tools are forbidden. Read ladder: poll_agent tail -> one <=100-line summarizer -> escalate; sole intake exception: the ONE plan file named in your launch prompt. Your own sub-agents run as NORMAL sub-agents - never pass sub-orchestrator: true. Learn completion via wait on loop. Never call swarm; never write handoffs; stay inside your section. This tag is jointly binding with repo/system safety rules.
+```
+
+### A5.15 `directives/tag-template.md`
 
 ```md
 <subagent-mcp state="{{state}}" kind="{{kind}}" phase="{{phase}}" utilization="{{utilization}}">

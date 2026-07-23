@@ -1,5 +1,39 @@
 # Changelog
 
+## 3.2.0
+
+### Added
+
+- `swarm` tool: 7-stage agentic workflow coach for objectives projected to span
+  multiple sessions. The server tracks the current stage in memory for the
+  process lifetime; each `swarm(N)` call registers stage N complete and returns
+  the next stage's coaching with the exact next call. `swarm()` starts from
+  idle; `swarm(0)` abandons. `swarm(5)` from idle is the designated
+  post-handoff re-entry (in-memory state does not survive the session boundary).
+  All replies are non-error; out-of-order and invalid calls return corrective
+  coaching without advancing state.
+- Performance routing for the pre-handoff swarm stages (1-4): the server
+  applies routing optimizations while genuine forward progress is being made.
+  Repeating a stage report never extends this -- only an accepted forward
+  advance does, and routing state is cleared when handoff becomes the next
+  step. A fresh `swarm()` start is required to re-arm (anti-gaming).
+- `launch_agent` flag `sub-orchestrator: true` (main orchestrator only, depth
+  0): launches a child as a delegate-only orchestrator with the server's
+  enforcement directive injected into the prompt and the sub-orchestrator env
+  marker set. The child's own sub-agents run as normal workers and never
+  inherit the flag (the server strips the marker from grandchildren, and the
+  depth cap prevents further spawning). Rejected at depth > 0.
+- Sub-orchestrator instructions variant served to flagged children; per-turn
+  hook directive `directives/sub-orchestrator-on.md` injected for stateless
+  enforcement; `respond_permission` available to sub-orchestrators so they can
+  answer their workers' parked permission requests.
+- `get_status.swarm` snapshot field: `active`, `current_stage`, `stage_name`,
+  `pin_active`, and `pin_expires_at`.
+- Unit tests: `swarm-stage-machine`, `swarm-pin`, `sub-orchestrator-flag`; e2e
+  test `swarm-e2e`.
+- Full spec and user documentation for the swarm workflow and sub-orchestrator
+  contract.
+
 ## 3.1.11
 
 ### Fixed

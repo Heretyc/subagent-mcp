@@ -18,6 +18,7 @@ Start a new always-interactive sub-agent session.
 | `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "fable" \| "gpt-5.5" \| "gpt-5.6"` | No | Override; omit to auto-select |
 | `effort` | `"medium" \| "high" \| "xhigh" \| "max" \| "ultracode"` | No | Override; omit to auto-select. See haiku note.[^haiku-effort] |
 | `deadlock` | boolean | No | MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory - the 3rd attempt onward. Re-wording or splitting unchanged work does NOT reset attempts. Auto mode only: cannot be combined with provider/model/effort; from the 3rd attempt, drop those params. Passing false is identical to omitting it. |
+| `sub-orchestrator` | boolean | No | Launch this child as a delegate-only sub-orchestrator for one disjoint plan section (swarm dispatch stage). The server injects an orchestration directive into the prompt and marks the child's env. The child's own sub-agents are normal workers and never inherit the flag. Available to the main orchestrator only (depth 0); rejected at greater depth. Omitting or `false` = normal sub-agent. |
 | `cwd` | string | No | Working directory for the agent session |
 
 [^haiku-effort]: `haiku` accepts any effort value but the effort is ignored : the Claude Agent SDK session takes no effort for Haiku.
@@ -40,7 +41,7 @@ Return live in-memory MCP server session state.
 
 No parameters.
 
-Returns: `{ providers_loaded, agent_count, session_start_time, last_routing_decisions }`. `session_start_time` is the MCP server process boot time; hook processes do not write a state file.
+Returns: `{ providers_loaded, agent_count, session_start_time, last_routing_decisions, swarm }`. `session_start_time` is the MCP server process boot time; hook processes do not write a state file. `swarm` is a snapshot of the agentic-swarm session: `{ active, current_stage, stage_name, pin_active, pin_expires_at }`. When `active` is false, `current_stage` and `stage_name` are null and `pin_active` is false.
 
 ---
 
@@ -175,3 +176,42 @@ Set or query the per-project MODEL SELECTION MODE, which gates `launch_agent`'s 
 Returns: `{ model_selection_mode, enabled_at, window_remaining_ms, marker_path }`.
 
 `smart` is the DEFAULT (used whenever unset): `launch_agent` REJECTS any call supplying provider/model/effort (`value !== undefined`, including empty strings) and the server auto-picks the best model for the `task_category`. `user-approved-overrides` opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (reverts to smart on the next `launch_agent` call after 30 minutes); re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set `user-approved-overrides` without explicit interactive user authorization via the structured-question tool; never enable it on your own initiative. State (mode + enable-timestamp) persists across MCP server restarts.
+
+---
+
+## `swarm`
+
+Agentic-swarm staged workflow coach. Offer it when an objective is projected to
+span multiple sessions. Available to the main orchestrator only; not registered
+for sub-agent or sub-orchestrator sessions.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `stage` | number \| null | No | Omit or `null` to start the swarm (returns stage-1 coaching). Pass N (1-7) to report "stage N is done" and receive the next stage's coaching. Pass 0 to abandon an active swarm. Out-of-order or invalid values return corrective coaching without changing state. |
+
+Returns: coaching text (plain string; never `isError`). Out-of-order, repeated,
+idle, or invalid calls return corrective coaching that embeds the current
+stage's coaching so the caller always holds the instructions it needs.
+
+**State** is in-memory, per server process, and resets on server restart.
+Seven fixed stages (in order):
+
+1. `planning-team` -- launch a planning team of 3 architects + 1 critic
+2. `critic-judgment` -- critic judges every draft plan before it is written
+3. `write-plan-files` -- approved plans written to temp files; orchestrator handles paths only
+4. `master-goal-prompt` -- goal prompt printed in chat for the user to copy/paste
+5. `handoff-resume` -- handoff to a new session and resume
+6. `dispatch` -- parallel sub-orchestrator launch, one per plan file path
+7. `test-complete` -- verify all work, re-dispatch until sufficient, complete
+
+`swarm(5)` from idle is the designated post-handoff re-entry: in-memory state
+does not survive the session boundary, so the resumed session calls `swarm(5)`
+to register stage 5 as done and receive stage-6 coaching. Cold calls for other
+stages (1-4, 6, 7) return not-active coaching.
+
+`get_status.swarm` exposes the live snapshot: `active`, `current_stage`,
+`stage_name`, `pin_active` (whether routing is optimized for the current stage),
+and `pin_expires_at` (epoch ms expiry, null when inactive).
+
+Full transition table and sub-orchestrator contract:
+[docs/spec/swarm/_INDEX.md](spec/swarm/_INDEX.md).
