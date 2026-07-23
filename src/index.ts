@@ -871,7 +871,7 @@ export function pickInstructions(env: NodeJS.ProcessEnv): string {
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.2.0-beta.1",
+    version: "3.2.0",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
