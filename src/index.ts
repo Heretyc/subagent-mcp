@@ -99,6 +99,7 @@ import {
   writeSlotMetadata,
   type ZombieRecord,
 } from "./concurrency.js";
+import { configure } from "./configure.js";
 import { shouldReapTerminalButAlive } from "./zombie.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
@@ -870,7 +871,7 @@ export function pickInstructions(env: NodeJS.ProcessEnv): string {
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.2.0",
+    version: "3.1.12-beta.1",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
@@ -2553,7 +2554,21 @@ server.tool(
   })
 );
 
-// Tool 13: swarm (main orchestrators only; children/sub-orchestrators never
+// Tool 13: configure -- one literal key table + one dispatch, in ./configure.ts.
+// The description below stays an inline literal: scripts/check_mcp_compliance.mjs
+// statically parses this argument to byte-size every tool description.
+server.tool(
+  "configure",
+  "List, read, or update subagent-mcp configuration by canonical key. `action=list` enumerates settings; `action=get` requires `key`; `action=set` requires `key` and, for settable keys, string `value`. Secrets are always redacted. Machine-global and mode-owned settings are read-only here: edit the reported global file as a human or use `orchestration-mode`/`model-selection-mode`. Provider and .env writes are validated, backed up, and atomic; responses report `restart_required`.",
+  {
+    action: z.enum(["list", "get", "set"]),
+    key: z.string().min(1).optional(),
+    value: z.string().optional(),
+  },
+  withMaintenance(async (params: any) => configure(params))
+);
+
+// Tool 14: swarm (main orchestrators only; children/sub-orchestrators never
 // drive the swarm). No .int()/bounds in the zod shape on purpose: stage
 // validation happens in the handler so every bad call receives corrective
 // coaching instead of a protocol validation error, and `null` stays legal.

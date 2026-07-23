@@ -38,6 +38,7 @@ Requires **Node.js >= 20**. After the build, confirm these exist:
 - `dist/hooks/orchestration-claude.js` : Claude per-turn hook
 - `dist/hooks/orchestration-claude-pretool.js` : Claude PreToolUse gate
 - `skills/smcp-handoff/SKILL.md` : Claude handoff resume Agent Skill
+- `skills/smcp-config/SKILL.md` : config management skill (`/smcp:config`)
 - `dist/hooks/orchestration-codex.js` : Codex per-turn hook
 
 > **Distribution note:** `dist/` is git-ignored, so it must be built before any

@@ -34,7 +34,7 @@ function rootFixture() {
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, "");
   }
-  for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
+  for (const name of ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     const skillDir = join(installRoot, "skills", name);
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), `${name} skill\n`);
@@ -222,7 +222,7 @@ test("upgrade deny migration is idempotent", () => withRoot(async (r) => {
 test("update deploys smcp skills and slash commands", () => withRoot(async (r) => {
   const o = opts(r, "npm-global");
   assert.equal(await runUpgrade(o.options), 0);
-  for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
+  for (const name of ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     assert.equal(readFileSync(join(r.home, ".claude", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);
     assert.equal(readFileSync(join(r.home, ".claude", "commands", `${name}.toml`), "utf8"), `${name} command\n`);
     assert.equal(readFileSync(join(r.home, ".agents", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);

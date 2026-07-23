@@ -1,0 +1,5 @@
+description = "Load skills/smcp-config/SKILL.md and read or change subagent-mcp settings."
+prompt = """
+Load skills/smcp-config/SKILL.md from this extension or repository and follow it exactly.
+Use it to answer the user's subagent-mcp configuration request.
+"""

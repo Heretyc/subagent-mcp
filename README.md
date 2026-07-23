@@ -93,7 +93,9 @@ Preview first with `subagent-mcp setup --dry-run`.
 For provider config, run `subagent-mcp config init`, edit the generated `.env`
 keys under your subagent-mcp config home, then run
 `subagent-mcp config validate`. See [skills/smcp-help/SKILL.md](skills/smcp-help/SKILL.md)
-for details.
+for details. Once the server is running, use the `configure` MCP tool (or the
+`/smcp:config` skill) to list, read, or update settings by canonical key without
+leaving the assistant.
 
 ### Restart, Then Turn On The Invariant
 
@@ -125,10 +127,18 @@ do not receive per-turn hook reminders.
 
 The server exposes `launch_agent`, `poll_agent`, `kill_agent`, `send_message`,
 `list_agents`, `wait`, `respond_permission`, `orchestration-mode`,
-`model-selection-mode`, and `swarm`; `get_status` returns `providers_loaded`,
-`agent_count`, `session_start_time`, `last_routing_decisions`, and `swarm`
-(active stage and routing state). See [docs/tools.md](docs/tools.md) for the
-full parameter and return reference.
+`model-selection-mode`, `configure`, and `swarm`; `get_status` returns
+`providers_loaded`, `agent_count`, `session_start_time`,
+`last_routing_decisions`, and `swarm` (active stage and routing state). See
+[docs/tools.md](docs/tools.md) for the full parameter and return reference.
+
+`configure` lists, reads, or updates config by canonical key (`action=list`,
+`get`, or `set`). Secret-matching values and all env values are always redacted
+in responses. Machine-global settings (`global.*`) are read-only through MCP; a
+set attempt returns a coaching message pointing to the resolved file path instead
+of writing. Settings that affect process environment state (`.env` entries,
+provider `key_env` changes) return `restart_required: true`. Use `/smcp:config`
+to invoke this tool interactively.
 
 You do not have to choose a model. Give `launch_agent` a prompt and a task
 category such as `coding`, `debugging`, or `security_review`; the server picks

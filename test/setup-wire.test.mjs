@@ -97,7 +97,7 @@ function sink() {
 }
 
 function writeSmcpAssets(root) {
-  for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
+  for (const name of ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     const skillDir = join(root, "skills", name);
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), `${name} skill\n`);
@@ -266,7 +266,7 @@ test("smcp skills and commands: setup deploys skills, siblings, and slash comman
     const r = deploySmcpSkillsAndCommands(root, home);
     assert.equal(r.status, "added");
     assert.equal(r.changed, true);
-    for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
+    for (const name of ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
       assert.equal(readFileSync(join(home, ".claude", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);
       assert.equal(readFileSync(join(home, ".claude", "skills", name, "notes.txt"), "utf8"), `${name} sibling\n`);
       assert.equal(readFileSync(join(home, ".claude", "commands", `${name}.toml`), "utf8"), `${name} command\n`);
@@ -274,7 +274,7 @@ test("smcp skills and commands: setup deploys skills, siblings, and slash comman
 
     const codex = deploySmcpSkillsAndCommands(root, home, "codex");
     assert.equal(codex.status, "added");
-    for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
+    for (const name of ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
       assert.equal(readFileSync(join(home, ".agents", "skills", name, "SKILL.md"), "utf8"), `${name} skill\n`);
     }
   }));

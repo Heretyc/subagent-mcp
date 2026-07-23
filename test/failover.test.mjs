@@ -89,6 +89,12 @@ function cleanupSharedSlotMarkers() {
   } catch {}
 }
 
+function rmTempRoot(path) {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  } catch {}
+}
+
 function createMcpSession(entrypoint, options = {}) {
   const child = spawn(process.execPath, [entrypoint], {
     cwd: options.cwd || repoRoot,
@@ -275,6 +281,7 @@ function makeFailoverEnv(codexMode, graceMs, options = {}) {
   const fakeBin = join(tempRoot, "bin");
   const workDir = join(tempRoot, "work");
   const fakePrefix = join(tempRoot, "empty-prefix");
+  const slotBaseDir = join(tempRoot, "slots");
   mkdirSync(fakeBin);
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
@@ -289,9 +296,12 @@ function makeFailoverEnv(codexMode, graceMs, options = {}) {
     `--require "${preloadPath.replace(/\\/g, "/")}"`,
     hookImport ? `--import ${pathToFileURL(hookImport).href}` : "",
   ].filter(Boolean).join(" ");
+  const baseEnv = { ...process.env };
+  delete baseEnv.SUBAGENT_MCP_SUBAGENT;
+  delete baseEnv.SUBAGENT_MCP_DEPTH;
   const env = prependPath(
     {
-      ...process.env,
+      ...baseEnv,
       FAKE_NPM_PREFIX: fakePrefix,
       SUBAGENT_SPAWN_GRACE_MS: String(graceMs),
       SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
@@ -303,6 +313,7 @@ function makeFailoverEnv(codexMode, graceMs, options = {}) {
       FAKE_RULESET_MODE_FILE: modeFile,
       FAKE_CLI_CLAUDE_MODE: options.claudeMode || "die",
       FAKE_CLI_CODEX_MODE: codexMode,
+      SUBAGENT_SLOT_DIR: slotBaseDir,
     },
     fakeBin
   );
@@ -349,7 +360,7 @@ async function withEnv(codexMode, graceMs, options, fn) {
   } finally {
     await session.close();
     cleanupSharedSlotMarkers();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 }
 
@@ -688,3 +699,4 @@ console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);
 }
+process.exit(0);
