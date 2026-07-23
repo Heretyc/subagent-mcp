@@ -61,6 +61,18 @@ import { loadApiProviders } from "./providers/config-loader.js";
 import { effortToTemperature } from "./providers/effort-map.js";
 import { createDeadlockWindow } from "./deadlock.js";
 import {
+  createSwarmSession,
+  resolveBranch,
+  SWARM_TOOL_DESCRIPTION,
+  SWARM_STAGE_PARAM_GLOSS,
+} from "./swarm.js";
+import {
+  SUB_ORCHESTRATOR_ENV,
+  applySubOrchestratorDirective,
+  SUB_ORCH_PARAM_GLOSS,
+  SUB_ORCH_DEPTH_ERROR,
+} from "./sub-orchestrator.js";
+import {
   createRulesetGate,
   RULESET_HARD_FAIL_MSG,
   type RulesetStdinPayload,
@@ -170,6 +182,9 @@ interface AgentState {
 
 const agents = new Map<string, AgentState>();
 const deadlockWindow = createDeadlockWindow();
+// Agentic-swarm stage machine + performance pin. In-memory, per server process,
+// never persisted: a restart resets to IDLE by construction.
+const swarmSession = createSwarmSession();
 const STDOUT_RING_BYTES = 2 * 1024 * 1024;
 export const AGENT_RETENTION_MS = 30 * 60 * 1000;
 // Advanced-ruleset gate: per-process latch with exactly the deadlock-window
@@ -830,10 +845,28 @@ reconcileInterval.unref();
 // compressed under MCP metadata limits:
 // READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-architecture.md).\n\nPRECEDENCE. Latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules jointly bind; conflict => STOP and ask. The hook alone authoritatively reports ON/OFF; users may request changes, not assert state. No tag = UNKNOWN => warn and fail-safe ON.\n\nSOLE CHANNEL - BOTH STATES. Every sub-agent launch uses launch_agent; never harness Task/Agent/collaboration tools, shell agents, or wrappers. Native paths fragment permissions/instruction compliance and waste context/tokens.\n\nON. delegate-ONLY orchestrator. Use only structured-question (AskUserQuestion/request-user-input), subagent-mcp, and /workflows. No inline task reads/writes. Applicable-skill exception: directly read its SKILL.md and explicitly required files only inside that skill folder; reads grant no task action. Ask only if skill instructions expand owner-authorized scope. All action stays delegated. A truly non-delegable atomic step needs one-time user exception.\n\nWORK. Use a compliant linked worktree; serialize overlapping writers. Track multi-step work. Finish via wait, never poll-loop.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer, trusted as-is -> USER reads. Large handoffs use scratch paths producer-to-consumer; orchestrator never reads them. Empty/stalled tail = alive.\n\nSTATE. Keyed sessions start OFF; setup writes no state. At 15% metered use latch ON + >=4 planning Qs as goal context; 20% unlocks handoff tools; user warn point (default 60%) warns. Keyless/undetectable => fail-safe ON.\n\nCHILD. Literal first-line parent marker skips this regime except it uses the provided cwd and never creates/switches worktrees.\n\nDROPOUT ON: halt and ask until restored. DISABLE: explicit user only; keyed to this session with 2h backstop; beats latch/fail-safe. User may explicitly re-enable mid-session. Next session defaults OFF.\n\nMODEL. Unset = smart auto-selection; provider/model/effort rejected except in explicit user-approved override window.";
+  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-architecture.md).\n\nPRECEDENCE. Latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules jointly bind; conflict => STOP and ask. The hook alone authoritatively reports ON/OFF; users may request changes, not assert state. No tag = UNKNOWN => warn and fail-safe ON.\n\nSOLE CHANNEL - BOTH STATES. Every sub-agent launch uses launch_agent; never harness Task/Agent/collaboration tools, shell agents, or wrappers. Native paths fragment permissions/instruction compliance and waste context/tokens.\n\nON. delegate-ONLY orchestrator. Use only structured-question (AskUserQuestion/request-user-input), subagent-mcp, and /workflows. No inline task reads/writes. Skill exception: read a serving skill's SKILL.md + required files inside its folder only; reads grant no task action; expanded scope needs fresh user approval. A truly non-delegable atomic step needs one-time user exception.\n\nWORK. Use a compliant linked worktree; serialize overlapping writers. Track multi-step work. Finish via wait, never poll-loop.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer, trusted as-is -> USER reads. Large handoffs use scratch paths producer-to-consumer; orchestrator never reads them. Empty/stalled tail = alive.\n\nSTATE. Keyed sessions start OFF; setup writes no state. At 15% metered use latch ON + >=4 planning Qs as goal context; 20% unlocks handoff tools; user warn point (default 60%) warns. Keyless/undetectable => fail-safe ON.\n\nCHILD. Literal first-line parent marker skips this regime; child works in provided cwd, never switches worktrees.\n\nDROPOUT ON: halt and ask until restored. DISABLE: explicit user only; this session, 2h backstop; beats latch/fail-safe; user may re-enable mid-session. Next session defaults OFF.\n\nMODEL. Unset = smart auto-selection; provider/model/effort rejected except in explicit user-approved override window.\n\nSWARM. Objective projected to span multiple sessions? OFFER + run swarm tool; calls return next-stage coaching.";
 
 const SUBAGENT_INSTRUCTIONS =
   "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that. launch_agent is code-capped at 2 spawn levels below the main orchestrator: depth 1 may launch depth 2 workers; depth 2 workers cannot spawn further.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
+
+// Third instructions variant, served only to a child launched with
+// sub-orchestrator: true. Such a child IS a subagent (depth accounting, worktree
+// carve-out, pretool handling all stay), but it operates as a delegate-only
+// orchestrator for one plan section, so the neutral SUBAGENT text would
+// under-govern it.
+const SUB_ORCHESTRATOR_INSTRUCTIONS =
+  "SUB-ORCHESTRATOR SESSION: you were launched by a parent orchestrator with sub-orchestrator: true. Orchestration mode is ON for you BY DIRECTIVE: you are a delegate-only orchestrator for exactly ONE disjoint section of a larger plan.\n\nSOLE CHANNEL. Every action step runs in a sub-agent launched via launch_agent; harness-native Task/Agent/collaboration tools and shell-spawned agents are forbidden.\n\nWORKERS. Your own sub-agents are NORMAL workers - never pass sub-orchestrator: true; launch_agent is code-capped 2 spawn levels below the main orchestrator, so your workers cannot spawn further. Serialize workers that write the same paths; never run concurrent writers over overlapping paths.\n\nREADS. Sole intake exception: directly read the ONE plan file named in your launch prompt; it grants no task action. Otherwise: poll_agent tail -> one <=100-line summarizer sub-agent, trusted as-is -> stop and report the gap. Large data moves between workers via scratch files under the temp dir; assign paths in prompts; never read those files inline. Learn completion via wait on loop; an empty or stalled tail means ALIVE.\n\nMODEL. Smart auto-selection only - do not pass provider/model/effort.\n\nSCOPE. Never call swarm; never write handoffs; stay inside your section. DONE: when your section meets its plan's done-condition, return the JSON summary your parent prompt requires: {status, summary, source_locators, risks, writes_requested}.";
+
+// Pure so the ctor and unit tests share one selection rule. Order matters: the
+// sub-orchestrator pair is checked first because it is a strict superset of the
+// plain-subagent condition.
+export function pickInstructions(env: NodeJS.ProcessEnv): string {
+  if (env.SUBAGENT_MCP_SUBAGENT !== "1") return ORCHESTRATION_INSTRUCTIONS;
+  return env[SUB_ORCHESTRATOR_ENV] === "1"
+    ? SUB_ORCHESTRATOR_INSTRUCTIONS
+    : SUBAGENT_INSTRUCTIONS;
+}
 
 const server = new McpServer(
   {
@@ -843,10 +876,7 @@ const server = new McpServer(
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
   {
-    instructions:
-      process.env.SUBAGENT_MCP_SUBAGENT === "1"
-        ? SUBAGENT_INSTRUCTIONS
-        : ORCHESTRATION_INSTRUCTIONS,
+    instructions: pickInstructions(process.env),
   }
 );
 
@@ -877,6 +907,10 @@ export function buildChildEnv(
   freshGhToken?: string
 ): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...parentEnv, ...overrides };
+  // Sub-orchestrator marker NEVER inherits: only a launch that explicitly sets
+  // it in `overrides` keeps it, so a sub-orchestrator's own workers (and every
+  // grandchild below them) spawn as normal sub-agents.
+  if (overrides[SUB_ORCHESTRATOR_ENV] !== "1") delete env[SUB_ORCHESTRATOR_ENV];
   if (parentEnv.SUBAGENT_MCP_PASS_GH_TOKENS === "1") {
     // Pass-through: keep parent GH_TOKEN / GITHUB_TOKEN verbatim, ignore fresh token.
     return env;
@@ -887,6 +921,26 @@ export function buildChildEnv(
     env.GH_TOKEN = freshGhToken;
   }
   return env;
+}
+
+export function buildLaunchAgentChildInputs(
+  parentEnv: NodeJS.ProcessEnv,
+  rawPrompt: string,
+  launchDepth: number,
+  subOrchestrator: boolean,
+  freshGhToken?: string
+): { prompt: string; env: NodeJS.ProcessEnv; allowApiSlotInsert: boolean } {
+  return {
+    prompt: subOrchestrator
+      ? applySubOrchestratorDirective(ensureParentMarker(rawPrompt))
+      : ensureParentMarker(rawPrompt),
+    env: buildChildEnv(parentEnv, {
+      SUBAGENT_MCP_SUBAGENT: "1",
+      SUBAGENT_MCP_DEPTH: String(launchDepth + 1),
+      ...(subOrchestrator ? { [SUB_ORCHESTRATOR_ENV]: "1" } : {}),
+    }, freshGhToken),
+    allowApiSlotInsert: !subOrchestrator,
+  };
 }
 
 // Result of invoking `gh auth token` (a spawnSync-shaped subset). Injectable so
@@ -955,7 +1009,8 @@ async function tryLaunchCandidate(
   rulesetInfo?: {
     applied: true;
     originalSelection: { provider: string; model: string; effort: string };
-  }
+  },
+  subOrchestrator?: boolean
 ): Promise<{ agentId: string } | { reason: string; failure_type: FailureType }> {
   if (candidate.provider === "api") {
     if (!candidate.apiProvider) {
@@ -1037,6 +1092,13 @@ async function tryLaunchCandidate(
   // strips token vars before invoking gh and falls back to strip-only on any
   // failure/timeout/empty output. No-op in pass-through mode.
   const freshGhToken = resolveFreshGhToken(process.env);
+  const childInputs = buildLaunchAgentChildInputs(
+    process.env,
+    prompt,
+    currentLaunchDepth(),
+    subOrchestrator === true,
+    freshGhToken
+  );
 
   let driver: ProviderDriver;
   try {
@@ -1045,10 +1107,7 @@ async function tryLaunchCandidate(
       command: cmd,
       args: buildResult.args,
       cwd: agentCwd,
-      env: buildChildEnv(process.env, {
-        SUBAGENT_MCP_SUBAGENT: "1",
-        SUBAGENT_MCP_DEPTH: String(currentLaunchDepth() + 1),
-      }, freshGhToken),
+      env: childInputs.env,
       model: candidate.model,
       effort: candidate.effort,
       ucSettingsPath: buildResult.ucSettingsPath,
@@ -1426,7 +1485,7 @@ function reattachCandidateMetadata(original: Candidate[], returned: Candidate[])
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent session. CONTRACT: every `prompt` states objective + required output format + tools/sources + boundaries; the server auto-upserts the self-identification marker \"<this is a request from a parent process>\" as the true first line (idempotent, never duplicated, body never mutated), so you need not add it. SCALE to complexity: ~1 agent for a simple fact-find, 2-4 for comparisons; never one-shot a multi-phase task: SPLIT into atomic steps that each map to ONE task_category, one agent per step. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category`, NO overrides; the server picks the best provider/model/effort for that category. FAILOVER: a launch-time failure (incl. a provider usage/rate-limit refusal before any output) quietly cascades down the ranking, and the switch is reported to you in `failover_note`; if EVERY candidate fails you get one loud error listing each candidate + reason. A provider+model override is PINNED: one attempt, no substitution. `provider`/`model`/`effort` are OVERRIDES, licensed on the 1st/2nd attempt ONLY when the task verifiably needs a specific capability: STATE that capability; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8+ only. SOLE CHANNEL: while this server is connected this is the ONLY sanctioned way to spawn sub-agents in BOTH orchestration states; harness-native Task/Agent tools are FORBIDDEN. Children run with env SUBAGENT_MCP_SUBAGENT=1 so orchestration hooks skip them (not orchestrators, no carryover re-trigger). Launch returns `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead: wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST set `deadlock=true` when, and ONLY when, 2 attempts for the SAME atomic task have already failed/been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting does NOT make it a new task), and NEVER otherwise: from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.",
+  "Spawn a sub-agent session. CONTRACT: `prompt` states objective + output format + tools/sources + boundaries; the server auto-upserts \"<this is a request from a parent process>\" as true first line (idempotent), so you need not add it. SCALE: ~1 agent for a simple fact-find, 2-4 for comparisons; split multi-phase work into atomic steps, one task_category each. AUTO MODE (mandatory first attempt unless override is licensed): pass only `prompt` + `task_category`; server picks provider/model/effort. FAILOVER: launch-time failure (incl. provider usage/rate-limit refusal before output) quietly cascades down ranking and reports `failover_note`; if all fail, one loud error lists every candidate + reason. Provider+model override is PINNED: one attempt, no substitute. `provider`/`model`/`effort` are OVERRIDES, licensed on 1st/2nd attempt only when task verifiably needs a specific capability: STATE it; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8+ only. SOLE CHANNEL: while connected this is the only sanctioned sub-agent launch path in BOTH orchestration states; harness-native Task/Agent tools forbidden. Children get SUBAGENT_MCP_SUBAGENT=1 so hooks skip them. Launch returns `processing` (alive); later `stalled` is alive-but-quiet, NOT dead: wait/re-poll, don't kill. DEADLOCK: set `deadlock=true` only after 2 failed/unsatisfactory attempts for the SAME atomic task; from 3rd attempt deadlock outranks overrides, so drop provider/model/effort. SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches a delegate-only orchestrator for one disjoint plan section, used by swarm dispatch; server injects directive + env marker; the child's own sub-agents run as normal workers (flag never inherits).",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
@@ -1435,10 +1494,12 @@ server.tool(
     effort: z.enum(["medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
     deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
+    "sub-orchestrator": z.boolean().optional().describe(SUB_ORCH_PARAM_GLOSS),
   },
   withMaintenance(async (params: any) => {
     const launchStartedAt = Date.now();
     const { task_category, provider, model, effort, deadlock } = params;
+    const subOrchestrator = params["sub-orchestrator"] === true;
     const launchDepth = currentLaunchDepth();
     if (launchDepth >= 2) {
       return errorResult(
@@ -1449,7 +1510,11 @@ server.tool(
     // D19/D20/S8: server silently upserts the parent-process marker as the TRUE
     // first line of every sub-agent prompt (idempotent; never duplicates; never
     // mutates the body). This is what makes the child first-line exemption fire.
-    const prompt = ensureParentMarker(params.prompt);
+    // A sub-orchestrator launch keeps that marker as line 1 and carries the
+    // delegate-only directive on lines 2..n, so the child is bound both by
+    // prompt and by env (SUB_ORCHESTRATOR_ENV, set at spawn).
+    const launchInputs = buildLaunchAgentChildInputs(process.env, params.prompt, launchDepth, subOrchestrator);
+    const prompt = launchInputs.prompt;
     const agentCwd = params.cwd || process.cwd();
     const permissionSnapshot = buildPermissionSnapshot(agentCwd);
 
@@ -1460,6 +1525,13 @@ server.tool(
     const presenceError = validatePresence({ task_category, provider, model, effort, deadlock });
     if (presenceError) {
       return errorResult(presenceError);
+    }
+
+    // Depth-0 gate: only the MAIN orchestrator may create a sub-orchestrator.
+    // From depth 1 the child's own workers would sit at depth 2 and could not
+    // spawn, leaving it with nothing to delegate to.
+    if (subOrchestrator && launchDepth >= 1) {
+      return errorResult(SUB_ORCH_DEPTH_ERROR(launchDepth));
     }
 
     const modelGate = modelMode.gateLaunch(agentCwd, { provider, model, effort });
@@ -1484,7 +1556,11 @@ server.tool(
     }
 
     const pureAuto = !provider && !model && !effort;
-    const branch: RoutingBranch = (pureAuto && deadlockWindow.active()) ? "performance" : "cost_efficiency";
+    const branch: RoutingBranch = resolveBranch(
+      pureAuto,
+      deadlockWindow.active(),
+      swarmSession.pinActive(Date.now())
+    );
     const routingTier = isExplicit ? "manual" : branch;
 
     const table = loadRoutingTable();
@@ -1527,6 +1603,7 @@ server.tool(
     if (
       pureAuto &&
       branch === "cost_efficiency" &&
+      launchInputs.allowApiSlotInsert &&
       process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1"
     ) {
       candidates = slotInsert(candidates, loadApiProviders(), task_category);
@@ -1614,7 +1691,8 @@ server.tool(
           routingTier,
           rulesetApplied && rulesetOriginalSelection !== undefined
             ? { applied: true, originalSelection: rulesetOriginalSelection }
-            : undefined
+            : undefined,
+          subOrchestrator
         );
         if (
           candidate.provider === "api" &&
@@ -1629,7 +1707,8 @@ server.tool(
             routingTier,
             rulesetApplied && rulesetOriginalSelection !== undefined
               ? { applied: true, originalSelection: rulesetOriginalSelection }
-              : undefined
+              : undefined,
+            subOrchestrator
           );
         }
         if ("agentId" in outcome) {
@@ -1741,7 +1820,7 @@ server.tool(
     content: [
       {
         type: "text",
-        text: JSON.stringify(getStatus()),
+        text: JSON.stringify({ ...getStatus(), swarm: swarmSession.snapshot(Date.now()) }),
       },
     ],
   }))
@@ -1949,8 +2028,13 @@ server.tool(
   })
 );
 
-// Tool 4: respond_permission (parents only; children cannot approve other children)
-if (process.env.SUBAGENT_MCP_SUBAGENT !== "1") {
+// Tool 4: respond_permission (parents only; children cannot approve other
+// children). A sub-orchestrator IS the parent of its own workers, so it keeps
+// this tool despite carrying the subagent marker.
+if (
+  process.env.SUBAGENT_MCP_SUBAGENT !== "1" ||
+  process.env[SUB_ORCHESTRATOR_ENV] === "1"
+) {
   server.tool(
     "respond_permission",
     "Answer a parked permission request for an agent. One-time only; does not create session-wide approvals. If request_id is omitted, answers the agent's oldest pending request.",
@@ -2483,6 +2567,23 @@ server.tool(
   },
   withMaintenance(async (params: any) => configure(params))
 );
+
+// Tool 14: swarm (main orchestrators only; children/sub-orchestrators never
+// drive the swarm). No .int()/bounds in the zod shape on purpose: stage
+// validation happens in the handler so every bad call receives corrective
+// coaching instead of a protocol validation error, and `null` stays legal.
+if (process.env.SUBAGENT_MCP_SUBAGENT !== "1") {
+  server.tool(
+    "swarm",
+    SWARM_TOOL_DESCRIPTION,
+    {
+      stage: z.union([z.number(), z.string()]).nullable().optional().describe(SWARM_STAGE_PARAM_GLOSS),
+    },
+    withMaintenance(async (params: any) => {
+      return textResult(swarmSession.handleCall(params.stage ?? null, Date.now()).text);
+    })
+  );
+}
 
 // Connect the stdio transport only when run as the entry point (the bin), NOT
 // when this module is imported (e.g. test/handler-validation.test.mjs importing

@@ -340,11 +340,15 @@ await test("get_status returns exact live status object", async () => {
       "last_routing_decisions",
       "providers_loaded",
       "session_start_time",
+      "swarm",
     ]);
     assert.equal(payload.agent_count, 0);
     assert.ok(Array.isArray(payload.providers_loaded));
     assert.ok(typeof payload.session_start_time === "string");
     assert.deepEqual(payload.last_routing_decisions, []);
+    // Fresh server: swarm state is IDLE and unpinned (in-memory, per process).
+    assert.equal(payload.swarm.active, false);
+    assert.equal(payload.swarm.pin_active, false);
   } finally {
     await session.close();
   }

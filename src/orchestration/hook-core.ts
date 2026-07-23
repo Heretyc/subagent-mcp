@@ -28,6 +28,7 @@ import {
   appendUpdateNotice,
   readInstalledPackageInfo,
 } from "./update-check.js";
+import { isSubOrchestratorEnv } from "../sub-orchestrator.js";
 
 /**
  * Provider-agnostic core of the UserPromptSubmit / SessionStart hook.
@@ -101,12 +102,41 @@ export interface LiftUsageResult {
   longContextHint?: boolean | null;
 }
 
-type TagKind = "directive" | "reminder" | "carryover" | "carrier";
+type TagKind =
+  | "directive"
+  | "reminder"
+  | "carryover"
+  | "carrier"
+  | "sub-orchestrator";
+
+/**
+ * Directive asset injected on EVERY turn of a sub-orchestrator session (the
+ * child launched with `sub-orchestrator: true`). Fixed name, not adapter-keyed:
+ * the body is provider-neutral, so Claude and Codex share the one asset.
+ */
+export const SUB_ORCHESTRATOR_DIRECTIVE_FILE = "sub-orchestrator-on.md";
 
 interface Emission {
   body: string;
   kind: TagKind;
   isLong: boolean;
+}
+
+export function emitSubOrchestratorInjection(env: NodeJS.ProcessEnv): string {
+  return (
+    composeInjection(
+      {
+        body: bodyFromDirective(
+          readDirective(env, SUB_ORCHESTRATOR_DIRECTIVE_FILE)
+        ),
+        kind: "sub-orchestrator",
+        isLong: true,
+      },
+      true,
+      "normal",
+      null
+    ) ?? ""
+  );
 }
 
 /**
@@ -731,6 +761,8 @@ function appendHookUpdateNotice(
  * Core hook logic. Returns the string to inject, or '' to inject nothing.
  *
  * Order:
+ *  0. sub-orchestrator (both env markers) -> STATELESS per-turn ON emission and
+ *     return; no state of any kind is read or written for that session.
  *  1. subagent -> '' (a subagent must never be nagged to delegate; the counter
  *     does not advance).
  *  2. marker not active for cwd -> OFF cadence: advance the session's counter
@@ -752,6 +784,20 @@ export function runHook(
   try {
     cullHookZombies();
     sweepHookState();
+
+    // Sub-orchestrator sessions: STATELESS per-turn ON emission, decided BEFORE
+    // the isSubagent bail (a sub-orchestrator IS a subagent by env, so it would
+    // otherwise return '' and lose orchestration). Shared by both providers via
+    // this one runHook; the adapters' isSubagent stay untouched.
+    //
+    // This branch NEVER falls through to writeCurrentSession/metering/latch/
+    // reminder: a sub-orchestrator usually shares the parent orchestrator's cwd,
+    // and any write here would steal the cwd session pointer that
+    // orchestration-mode and the handoff tools key on. Nothing is read either,
+    // so the emission is identical on every turn.
+    if (isSubOrchestratorEnv(env)) {
+      return emitSubOrchestratorInjection(env);
+    }
 
     if (adapter.isSubagent(payload, env)) {
       return "";

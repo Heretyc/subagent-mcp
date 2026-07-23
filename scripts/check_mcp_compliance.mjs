@@ -30,6 +30,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 //                             schema=3 single-tag directive assets.
 
 const indexPath = new URL("../src/index.ts", import.meta.url);
+const stringSourcePaths = [
+  indexPath,
+  new URL("../src/swarm.ts", import.meta.url),
+  new URL("../src/sub-orchestrator.ts", import.meta.url),
+];
 const directivesDir = new URL("../directives/", import.meta.url);
 
 const INSTRUCTIONS_HARD = 2048;
@@ -104,6 +109,29 @@ function parseConcatenated(src, i) {
   }
 }
 
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function resolveStringIdentifier(name, sources) {
+  for (const src of sources) {
+    const re = new RegExp(`(?:export\\s+)?const\\s+${escapeRegExp(name)}(?:\\s*:\\s*[^=]+)?\\s*=`, "m");
+    const m = re.exec(src);
+    if (!m) continue;
+    return parseConcatenated(src, m.index + m[0].length).value;
+  }
+  throw new Error(`string identifier ${name} declaration not found`);
+}
+
+function parseStringExpression(src, i, sources) {
+  let j = i;
+  while (j < src.length && /\s/.test(src[j])) j += 1;
+  if (src[j] === '"' || src[j] === "'" || src[j] === "`") return parseConcatenated(src, j);
+  const m = /^[A-Za-z_$][A-Za-z0-9_$]*/.exec(src.slice(j));
+  if (!m) throw new Error(`expected string literal or identifier at offset ${j}`);
+  return { value: resolveStringIdentifier(m[0], sources), end: j + m[0].length };
+}
+
 function extractInstructions(src) {
   const m = src.match(/const\s+ORCHESTRATION_INSTRUCTIONS\s*=/);
   if (!m) throw new Error("ORCHESTRATION_INSTRUCTIONS declaration not found in src/index.ts");
@@ -112,18 +140,18 @@ function extractInstructions(src) {
 
 // Each `server.tool(` call: first concatenated string = name, then `,`, then
 // second concatenated string = description.
-function extractTools(src) {
+function extractTools(src, sources) {
   const tools = [];
   const re = /server\.tool\(/g;
   let m;
   while ((m = re.exec(src))) {
     let i = m.index + m[0].length;
-    const name = parseConcatenated(src, i);
+    const name = parseStringExpression(src, i, sources);
     i = name.end;
     while (i < src.length && /\s/.test(src[i])) i += 1;
     if (src[i] !== ",") throw new Error(`expected ',' after tool name at offset ${i}`);
     i += 1;
-    const desc = parseConcatenated(src, i);
+    const desc = parseStringExpression(src, i, sources);
     tools.push({ name: name.value, description: desc.value });
   }
   return tools;
@@ -135,6 +163,7 @@ function main() {
     return 1;
   }
   const src = readFileSync(indexPath, "utf8");
+  const stringSources = stringSourcePaths.map((path) => readFileSync(path, "utf8"));
   const results = [];
 
   // C1 — server instructions.
@@ -147,7 +176,7 @@ function main() {
   });
 
   // C2 — tool descriptions, C3 — tool names.
-  const tools = extractTools(src);
+  const tools = extractTools(src, stringSources);
   if (tools.length === 0) {
     results.push({ name: "tool extraction", fail: true, detail: "no server.tool() calls parsed" });
   }
