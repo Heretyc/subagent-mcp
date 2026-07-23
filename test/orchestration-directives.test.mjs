@@ -217,25 +217,115 @@ test("OFF reminders mention the 15% latch doctrine", () => {
   }
 });
 
-test("latch and handoff directives carry provider-specific coaching counts", () => {
+// ---------------------------------------------------------------------------
+// LOCKED (context-coaching): the 15% latch coaching string is now ONE verbatim,
+// harness-NEUTRAL sentence shared identically by latch-claude.md and
+// latch-codex.md — it replaces the two harness-specific "EXACTLY 4" variants.
+// The handoff directives keep their provider split, but their numbers move:
+// handoff-write unlocks at 20% (was 40%) and the wind-down line must no longer
+// hardcode 50% because the warn threshold is now a user setting (default 60).
+// The line-5 "exactly 4" handoff-read confirmation is a SEPARATE policy and is
+// deliberately left untouched here.
+// ---------------------------------------------------------------------------
+// The exact, canonical latch coaching line. This is the SINGLE source of truth
+// and MUST match, byte-for-byte, line 1 of both latch directives and the A5.5 /
+// A5.6 spec fences. It is pinned literally (not by pattern) because 3.1.8
+// shipped a drifted "up to 4 ... in a SINGLE structured-question call" variant
+// that satisfied every intent-level assertion below while contradicting the
+// released spec. An exact pin is the only thing that catches that class of drift.
+const LATCH_COACHING_LINE =
+  "15% LATCH COACHING. Stop before continuing and ask AT LEAST 4 open planning questions using the structured question tool, or natural prose if not available.";
+
+test("latch coaching is one verbatim harness-neutral string in both latch directives", () => {
   const latchClaude = readFileSync(join(directivesDir, "latch-claude.md"), "utf8");
   const latchCodex = readFileSync(join(directivesDir, "latch-codex.md"), "utf8");
+
+  const claudeLatchLine = latchClaude.split("\n")[0];
+  const codexLatchLine = latchCodex.split("\n")[0];
+
+  assert.equal(claudeLatchLine, codexLatchLine,
+    "the 15% latch coaching line must be VERBATIM identical in latch-claude and latch-codex");
+  assert.match(claudeLatchLine, /15%/,
+    "the shared latch line must still state the 15% trigger");
+
+  // Exact-bytes pin of the coaching line itself.
+  assert.equal(claudeLatchLine, LATCH_COACHING_LINE,
+    "latch-claude.md line 1 must be the canonical latch coaching line verbatim");
+  assert.equal(codexLatchLine, LATCH_COACHING_LINE,
+    "latch-codex.md line 1 must be the canonical latch coaching line verbatim");
+
+  // The two files ship separately (per-provider lookup) but are asserted, not
+  // structurally, identical — so compare the WHOLE body, not just line 1.
+  assert.equal(latchClaude, latchCodex,
+    "latch-claude.md and latch-codex.md must be byte-identical in full");
+
+  for (const [name, line] of [["latch-claude", claudeLatchLine], ["latch-codex", codexLatchLine]]) {
+    assert.ok(!/EXACTLY 4/i.test(line),
+      `${name} must no longer hardcode the EXACTLY-4 question count in the latch line`);
+    // Harness neutrality: a single shared string cannot name one host's question
+    // tool to the exclusion of the other. Naming BOTH is fine; naming one is not.
+    const namesClaudeTool = line.includes("AskUserQuestion");
+    const namesCodexTool = REQUEST_USER_INPUT_RE.test(line);
+    assert.equal(namesClaudeTool, namesCodexTool,
+      `${name} latch line must be harness-neutral: name both question tools or neither`);
+  }
+});
+
+// The A5.5/A5.6 fences in appendix-a5-directives.md are the SPEC mirror of the
+// shipped latch directives. In 3.1.8 the appendix carried the correct text while
+// directives/ shipped the superseded one, and nothing compared them — so the
+// mismatch reached a release. Assert the shipped bytes against the spec bytes.
+test("latch directives are byte-identical to their A5.5/A5.6 spec fences", () => {
+  const appendixA5 = readFileSync(
+    join(__dirname, "..", "docs", "spec", "dev-loop",
+      "orchestration-directive-architecture", "appendix-a5-directives.md"),
+    "utf8"
+  );
+  const normalizeEol = (s) => s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  const fenceAfter = (heading) => {
+    const normalized = normalizeEol(appendixA5);
+    const start = normalized.indexOf(heading);
+    assert.notEqual(start, -1, `appendix-a5-directives.md must contain ${heading}`);
+    const match = normalized.slice(start).match(/```md\n([\s\S]*?)\n```/);
+    assert.ok(match, `${heading} must open a fenced md block`);
+    return match[1];
+  };
+
+  for (const [heading, file] of [
+    ["### A5.5", "latch-claude.md"],
+    ["### A5.6", "latch-codex.md"],
+  ]) {
+    const shipped = normalizeEol(readFileSync(join(directivesDir, file), "utf8")).replace(/\n$/, "");
+    assert.equal(shipped, fenceAfter(heading),
+      `directives/${file} must be byte-identical to its ${heading} spec fence`);
+    assert.ok(fenceAfter(heading).startsWith(LATCH_COACHING_LINE),
+      `${heading} fence must open with the canonical latch coaching line`);
+  }
+});
+
+test("handoff directives keep the provider split and carry the new thresholds", () => {
   const handoffClaude = readFileSync(join(directivesDir, "handoff-claude.md"), "utf8");
   const handoffCodex = readFileSync(join(directivesDir, "handoff-codex.md"), "utf8");
 
-  assert.match(latchClaude, /EXACTLY 4/i, "latch-claude must require exactly 4 questions");
-  assert.match(latchClaude, /AskUserQuestion/, "latch-claude must name AskUserQuestion");
-  assert.ok(!REQUEST_USER_INPUT_RE.test(latchClaude), "latch-claude must not name the Codex question tool");
-
-  assert.match(latchCodex, /EXACTLY 4/i, "latch-codex must require exactly 4 questions");
-  assert.match(latchCodex, REQUEST_USER_INPUT_RE, "latch-codex must name the Codex question tool");
-  assert.ok(!latchCodex.includes("AskUserQuestion"), "latch-codex must not name AskUserQuestion");
-
   for (const [name, body] of [["handoff-claude", handoffClaude], ["handoff-codex", handoffCodex]]) {
+    const lines = body.split("\n");
+
     assert.match(body, /handoff-write[\s\S]{0,160}10/i,
       `${name} must mention 10 questions near handoff-write`);
     assert.match(body, /handoff-read[\s\S]{0,160}4/i,
       `${name} must mention 4 questions near handoff-read`);
+
+    // Unlock moved 40% -> 20%.
+    assert.match(lines[2], /20%/,
+      `${name} must state the 20% handoff-write unlock`);
+    assert.ok(!/\b40%/.test(lines[2]),
+      `${name} must not still claim the retired 40% unlock`);
+
+    // The wind-down line is threshold-driven now (default 60, valid 40-90), so a
+    // baked-in "50%" is stale regardless of which wording L1 lands on.
+    assert.ok(!/\b50%/.test(lines[0]),
+      `${name} wind-down line must not hardcode the retired 50% warn threshold`);
   }
 
   assert.match(handoffClaude, /AskUserQuestion/, "handoff-claude must name AskUserQuestion");

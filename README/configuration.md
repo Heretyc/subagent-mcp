@@ -11,11 +11,12 @@ the sole source of truth for machine-wide defaults and is re-read on every
 `launch_agent`, so edits take effect with no restart. The legacy filename
 `dist/global-concurrency.jsonc` is still read when the new file is absent.
 
-Per-user permission rules layer on top of the global ceiling from
-`~/.subagent-mcp/settings.json` then `~/.subagent-mcp/settings.local.json`, then
-per-repo `<cwd>/.claude/settings.json` and `.claude/settings.local.json`. Only
-`permissions.{allow, deny, ask, additionalDirectories}` are read from those
-files. Deny and ask rules are unioned, so they only tighten. Full precedence:
+Per-user settings are read from `~/.subagent-mcp/settings.json` then
+`~/.subagent-mcp/settings.local.json`. Those files hold user permission rules
+and the context-coaching knobs. Per-repo `<cwd>/.claude/settings.json` and
+`.claude/settings.local.json` contribute only
+`permissions.{allow, deny, ask, additionalDirectories}`. Deny and ask rules are
+unioned, so they only tighten. Full precedence:
 [docs/spec/permissions.md](../docs/spec/permissions.md).
 
 ## Global Config Keys
@@ -28,6 +29,26 @@ files. Deny and ask rules are unioned, so they only tighten. Full precedence:
 | `escalation` | `irreversible-only` or `off`; applies in `auto` mode only | `irreversible-only` |
 | `strictReadParity` | `warn` or `off`; logging only | `warn` |
 | `sandboxNetwork` | `true` or `false`; Codex workspace-write network | `false` |
+
+## User Settings Keys
+
+| Key | Values | Default |
+|---|---|---|
+| `contextCoaching` | `true` or `false`; `false` mutes only the wind-down warning/steer | `true` |
+| `handoffWarnThreshold` | integer `40`-`90`; anything malformed or out of range resolves to `60` | `60` |
+
+## Updating Settings Via MCP
+
+The `configure` MCP tool lets you list, read, or update most settings without
+leaving the assistant. Use `action=list` to see all keys and their current
+values, `action=get` with a canonical key (for example `user.contextCoaching`)
+to read one setting, and `action=set` to update a settable key. Secret-matching
+values and all `env.*` values are always redacted in responses.
+
+Machine-global keys (`global.*`) are read-only through MCP. A set attempt
+returns a coaching message identifying the resolved config file path; a human
+must edit that file directly. Use `/smcp:config` to invoke the tool
+interactively.
 
 ## Permission And Selection Modes
 

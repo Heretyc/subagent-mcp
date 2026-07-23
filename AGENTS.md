@@ -5,9 +5,11 @@
 
 Upserted by `subagent-mcp init` at user request; re-running init keeps it in sync.
 
-SUB-AGENT EXEMPTION: if this session's prompt's literal FIRST LINE begins with "<this is a request from a parent process>", SKIP this entire block EXCEPT the SUB-AGENT WORKTREE CARVE-OUT below, which still applies (you are a sub-agent; this prevents fail-safe-ON recursion and fork-bombs). Leading blank lines do not count — the marker must be physically line 1.
+SUB-AGENT EXEMPTION: if this session's prompt's literal FIRST LINE begins with "<this is a request from a parent process>", SKIP this entire block EXCEPT the SUB-AGENT WORKTREE CARVE-OUT and the SUB-ORCHESTRATOR CARVE-OUT below, which still apply (you are a sub-agent; this prevents fail-safe-ON recursion and fork-bombs). Leading blank lines do not count — the marker must be physically line 1.
 
 SUB-AGENT WORKTREE CARVE-OUT: you are a delegated sub-agent (env SUBAGENT_MCP_SUBAGENT=1), already placed in your target working tree by the orchestrator. Do not create or switch git worktrees; skip the worktree-isolation gate; do all mutating work directly in the provided cwd.
+
+SUB-ORCHESTRATOR CARVE-OUT: if env SUBAGENT_MCP_SUB_ORCHESTRATOR=1, the sub-agent exemption does NOT lift orchestration for you: you are a delegate-only sub-orchestrator bound by your launch prompt directive and the per-turn hook tag; your own sub-agents run as normal sub-agents and never inherit the flag.
 
 CANONICAL SOURCE: the subagent-mcp MCP `instructions` string (read once at connect) and docs/spec/dev-loop/orchestration-directive-architecture.md. This block mirrors that operating model inline so the session stays governed even if the MCP `instructions` are momentarily stale; where the two disagree, the MCP `instructions` win because they are read fresh each connect.
 
@@ -26,9 +28,11 @@ ORCHESTRATOR WORKTREE SETUP: for mutating work, first place sub-agents in a comp
 
 READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 
-ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a 4-question planning stop. At 40% utilization handoff-write/handoff-read/handoff-clear unlock for a clean session handoff; at 50% the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.
+ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a planning stop of at least 4 open questions, whose answers become this session's goal context. At 20% utilization handoff-write/handoff-read/handoff-clear unlock so that goal context can be recorded for a clean session handoff; at the wind-down warning threshold (user setting, default 60%) the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.
 
 MODEL SELECTION: defaults to smart/automatic whenever unset — the server auto-picks each sub-agent's model and launch_agent rejects provider/model/effort selectors; those selectors are honored only inside the existing user-approved override window (model-selection-mode "user-approved-overrides", set only with explicit user authorization via the structured-question tool).
+
+SWARM WORKFLOW: when a work objective is projected to span multiple sessions, offer the agentic-swarm workflow and drive it with the swarm MCP tool - swarm() starts it, each swarm(N) reports stage N done and returns the next stage's coaching, swarm(0) abandons. Stage state lives in the server, in memory only - never self-assert a stage. The launch_agent sub-orchestrator: true flag exists ONLY for the swarm dispatch stage; never set it elsewhere.
 
 DROPOUT WHILE ON: if subagent-mcp stops responding while orchestration is ON, halt and ask the user; do nothing inline. Keep re-checking and stay halted until subagent-mcp is restored (no auto-degrade). The only user choices are keep-waiting (the default) or explicitly abandon the whole task; aborting ends the task, it never switches you to inline work.
 
@@ -39,8 +43,8 @@ DISABLE: never on your own initiative; you may propose OFF on task-fit mismatch 
 
 subagent-mcp turns a host CLI into an orchestrator for local sub-agent
 sessions. It exposes MCP tools such as `launch_agent`, `poll_agent`, `wait`,
-`get_status`, `orchestration-mode`, and handoff tools. Provider credentials and
-user config live outside the repo.
+`get_status`, `orchestration-mode`, `swarm`, and handoff tools. Provider
+credentials and user config live outside the repo.
 
 ## Fallback Rule
 
@@ -77,6 +81,8 @@ fallback use in Gemini CLI, Cursor, Windsurf, Kiro, Copilot, and similar agents.
 - `/smcp:status`: load `skills/smcp-status/SKILL.md` and call `get_status`.
 - `/smcp:doctor`: load `skills/smcp-doctor/SKILL.md`; run `subagent-mcp doctor`
   read-only first and ask before any repair.
+- `/smcp:config`: load `skills/smcp-config/SKILL.md` and call `configure` to
+  list, read, or update configuration by canonical key.
 - Config commands: `subagent-mcp config init`, `subagent-mcp config validate`,
   `subagent-mcp doctor`, `subagent-mcp upgrade`, `subagent-mcp rollback`.
 

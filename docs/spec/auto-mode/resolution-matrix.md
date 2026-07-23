@@ -15,9 +15,9 @@ cannot launch it.
 | C | P | M | E | Outcome |
 |---|---|---|---|---|
 | launchable valid | : | : | : | `auto` mode; build candidate list, attempt loop |
-| launchable valid | yes | : | : | `provider` mode; requested candidates first, then de-duplicated auto fallback candidates |
-| launchable valid | yes | yes | : | `provider_model` mode; requested candidates first, then de-duplicated auto fallback candidates |
-| launchable valid | yes | yes | yes | `explicit` mode; requested triple first, then de-duplicated auto fallback candidates |
+| launchable valid | yes | : | : | `provider` mode; provider-matched candidates first, then de-duplicated auto fallbacks; attempt loop |
+| launchable valid | yes | yes | : | `provider_model` mode; single attempt on rank-1 provider+model-matched candidate; hard-fails on failure with no auto substitute |
+| launchable valid | yes | yes | yes | `explicit` mode; single attempt on the fully-pinned triple; hard-fails loudly with no auto substitute |
 | fallback_default | : | : | : | **ERR_FALLBACK_DEFAULT** |
 | fallback_default | yes | : | : | **ERR_FALLBACK_DEFAULT** |
 | fallback_default | yes | yes | : | **ERR_FALLBACK_DEFAULT** |
@@ -45,6 +45,10 @@ Validation order in the handler:
    codex<->{gpt-5.5,gpt-5.6}); reuse that existing check and its message verbatim.
 6. If `task_category` is `fallback_default` and mode is not `explicit` ->
    `ERR_FALLBACK_DEFAULT`.
+6b. (Presence/mode validation complete.) If `sub-orchestrator: true`, check
+   `currentLaunchDepth() >= 1` -> `ERR_SUBORCH_DEPTH`. This depth gate runs AFTER
+   presence validation (so a bad presence combo gets the presence error, not the
+   depth error) and BEFORE the model-mode gate.
 7. All validation passed. If `deadlock === true`, ARM the deadlock window now
    (counter = 3; `routing-table-contract.md section Branch selection`) : never before
    this point, so a rejected call never arms. Then build the candidate list for

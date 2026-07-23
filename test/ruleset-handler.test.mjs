@@ -97,6 +97,12 @@ function prependPath(env, dir) {
   return next;
 }
 
+function rmTempRoot(path) {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  } catch {}
+}
+
 function createMcpSession(entrypoint, options = {}) {
   const child = spawn(process.execPath, [entrypoint], {
     cwd: options.cwd || repoRoot,
@@ -318,6 +324,7 @@ function makeRulesetTempEnv(initialMode) {
   const fakeBin = join(tempRoot, "bin");
   const workDir = join(tempRoot, "work");
   const fakePrefix = join(tempRoot, "empty-prefix");
+  const slotBaseDir = join(tempRoot, "slots");
   mkdirSync(fakeBin);
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
@@ -328,9 +335,12 @@ function makeRulesetTempEnv(initialMode) {
   const logFile = join(tempRoot, "ruleset-log.txt");
   writeFileSync(modeFile, initialMode);
   writeFileSync(logFile, "");
+  const baseEnv = { ...process.env };
+  delete baseEnv.SUBAGENT_MCP_SUBAGENT;
+  delete baseEnv.SUBAGENT_MCP_DEPTH;
   const env = prependPath(
     {
-      ...process.env,
+      ...baseEnv,
       FAKE_NPM_PREFIX: fakePrefix,
       // Mock provider drivers keep this suite independent of real CLIs;
       // failover.test.mjs owns post-spawn grace-window behavior.
@@ -347,6 +357,7 @@ function makeRulesetTempEnv(initialMode) {
         .join(" "),
       FAKE_RULESET_MODE_FILE: modeFile,
       FAKE_RULESET_LOG: logFile,
+      SUBAGENT_SLOT_DIR: slotBaseDir,
     },
     fakeBin
   );
@@ -413,7 +424,7 @@ await test("gate runs once per process: 3 launches → exactly 1 env-check; payl
       "the env check must run exactly once per server process (success latches) and routing mode never (disabled)");
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -438,7 +449,7 @@ await test("load-rules false: ruleset silently disabled — no route execution, 
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -474,7 +485,7 @@ await test("routing override: reorder honored verbatim; original vs final expose
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -500,7 +511,7 @@ await test("passthrough: ruleset ran but did not alter — visibility fields ABS
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -536,7 +547,7 @@ await test("explicit-mode override: ruleset replaces the requested triple; routi
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -572,7 +583,7 @@ await test("pure-auto ruleset stdin includes api slot candidates", async () => {
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -606,7 +617,7 @@ await test("explicit haiku + passthrough: effort normalized to 'none'; no hard f
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -648,7 +659,7 @@ await test("env-check failure: exact hard-fail string; recovery in the same sess
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -671,7 +682,7 @@ await test("ready:false env-check: exact hard-fail string", async () => {
       "ready:false must produce the identical verbatim hard-fail message");
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -708,7 +719,7 @@ await test("route failure (bad-model): exact hard-fail string; enabled latch sur
     await killAgent(session, agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -732,7 +743,7 @@ await test("empty list: exact veto error text (clean isError, not the hard-fail 
       "the veto error must be byte-exact (with AUTO_HINT) and distinct from the hard-fail message");
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -794,7 +805,7 @@ await test("deadlock window: ruleset failure does not consume a window counter",
     await killAgent(session, r5.agentId);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 });
 
@@ -802,3 +813,4 @@ console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);
 }
+process.exit(0);

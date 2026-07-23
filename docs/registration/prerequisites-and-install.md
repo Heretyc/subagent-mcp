@@ -3,7 +3,7 @@
 # Prerequisites & Install
 
 **Load when:** installing subagent-mcp from a package registry, wiring both CLIs
-in one shot with `setup`, tuning global machine-local settings, upserting managed
+in one shot with `setup`, tuning global or user settings, upserting managed
 blocks into provider global user-config, or installing from source.
 **Do not load when:** you only need the per-host MCP-server config snippet (see
 `claude-code.md`, `codex.md`, `gemini.md`) or the orchestration hook wiring (see
@@ -38,7 +38,8 @@ subagent-mcp setup
 
 `setup` writes the MCP server entry and per-turn hooks for each detected
 vendor. For Claude Code, it also wires `statusLine` and deploys `/smcp:*`
-commands plus Agent Skills to user scope. For Codex CLI, it deploys the same
+commands plus Agent Skills (`smcp-handoff`, `smcp-help`, `smcp-status`,
+`smcp-doctor`, `smcp-config`) to user scope. For Codex CLI, it deploys the same
 skills to `$HOME/.agents/skills`. Re-run after upgrading. Pass `--dry-run` to
 preview.
 
@@ -65,6 +66,16 @@ timestamp-only throttling.
 Set `"checkForUpdates": false` to skip the registry fetch and suppress the hook
 notice. `SUBAGENT_UPDATE_CHECK=0` or `SUBAGENT_UPDATE_CHECK=false`
 (case-insensitive) disables the same behavior for that process.
+
+## User settings
+
+`setup` asks first-run user settings only when `~/.subagent-mcp/settings.json`
+is missing or blank. Existing files that lack the keys use silent defaults.
+
+- `contextCoaching`: default `true`; `false` mutes only the wind-down warning
+  and handoff steer, not the 15% latch or 20% handoff unlock.
+- `handoffWarnThreshold`: default `60`; valid whole numbers are `40`-`90`.
+  Blank, malformed, or out-of-range values resolve to `60`.
 
 ## `init --global` (provider global user-config)
 

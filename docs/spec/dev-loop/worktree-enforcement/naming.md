@@ -11,10 +11,10 @@ is the operational naming contract for the Worktree-Isolation Mandate, not a new
 <type>/<actor>/<subject>    (3-segment, optional)
 ```
 
-## Allowed types (the approved 12 : do NOT invent new ones)
+## Allowed types (the approved 13 : do NOT invent new ones)
 
 ```
-feature  fix  hotfix  release  docs  test  refactor  chore  agent  user  integration  audit
+feature  fix  hotfix  release  docs  test  refactor  chore  agent  user  integration  audit  continuous-audit
 ```
 
 No `feat`, no `wip`, no other ad-hoc types. (Claude implementation routines may use the

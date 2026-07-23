@@ -1,6 +1,6 @@
 <!-- Part of orchestration-directive-architecture (split). Retrieval map: ../orchestration-directive-architecture.md -->
 
-## A5 : The 14 directive files (full new content) : NO examples (D28)
+## A5 : The 15 directive files (full new content) : NO examples (D28)
 
 Mirror convention: each subsection below reproduces one `directives/*.md` file
 byte-for-byte inside an `md` fence, in filename order. Directive files are now
@@ -39,9 +39,9 @@ While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (direc
 ### A5.3 `directives/handoff-claude.md`
 
 ```md
-You are at or above 50% context utilization. Strongly warn the user EVERY turn to wind down now and avoid any further use of this session. There is no exemption for small work or non-big work.
+You are at or above the wind-down warning threshold (user setting `handoffWarnThreshold`, default 60% context utilization, valid 40-90). Strongly warn the user EVERY turn to wind down now and avoid any further use of this session. There is no exemption for small work or non-big work.
 
-`handoff-write` is unlocked from 40% context utilization. Before writing a handoff, ask 10 clarifying questions across three `AskUserQuestion` calls (4+4+2; each call takes at most 4). Use the answers to shape a precise `/goal` prompt for the next session.
+`handoff-write` is unlocked from 20% context utilization. Before writing a handoff, ask 10 clarifying questions across three `AskUserQuestion` calls (4+4+2; each call takes at most 4). Use the answers to shape a precise `/goal` prompt for the next session, carrying forward the goal context set at the 15% latch.
 
 Before acting on `handoff-read`, confirm intent with exactly 4 structured questions in one `AskUserQuestion` call.
 
@@ -51,9 +51,9 @@ After a successful `handoff-read`, only this reading session gets the saved hand
 ### A5.4 `directives/handoff-codex.md`
 
 ```md
-You are at or above 50% context utilization. Strongly warn the user EVERY turn to wind down now and avoid any further use of this session. There is no exemption for small work or non-big work.
+You are at or above the wind-down warning threshold (user setting `handoffWarnThreshold`, default 60% context utilization, valid 40-90). Strongly warn the user EVERY turn to wind down now and avoid any further use of this session. There is no exemption for small work or non-big work.
 
-`handoff-write` is unlocked from 40% context utilization. Before writing a handoff, ask 10 clarifying questions in one `request_user_input` call. Use the answers to shape a precise `/goal` prompt for the next session.
+`handoff-write` is unlocked from 20% context utilization. Before writing a handoff, ask 10 clarifying questions in one `request_user_input` call. Use the answers to shape a precise `/goal` prompt for the next session, carrying forward the goal context set at the 15% latch.
 
 Before acting on `handoff-read`, confirm intent with exactly 4 structured questions in one `request_user_input` call.
 
@@ -62,8 +62,17 @@ After a successful `handoff-read`, only this reading session gets the saved hand
 
 ### A5.5 `directives/latch-claude.md`
 
+> The first line below is ONE verbatim, harness-NEUTRAL string shared
+> byte-for-byte by `latch-claude.md` and `latch-codex.md` (A5.6). It replaces the
+> two harness-specific "EXACTLY 4" variants: the count is now a FLOOR, the tool
+> is named generically, and prose is an allowed fallback where no structured
+> question tool exists. The separate handoff-read confirmation stays at
+> EXACTLY 4 (A5.3 / A5.4).
+
 ```md
-15% LATCH COACHING. Stop before continuing and ask EXACTLY 4 open planning questions in a SINGLE AskUserQuestion call (AskUserQuestion holds max 4). Do NOT split.
+15% LATCH COACHING. Stop before continuing and ask AT LEAST 4 open planning questions using the structured question tool, or natural prose if not available.
+
+Turn the answers into a GOAL CONTEXT for this session before any further work: a concrete goal, a measurable done-condition, and the next concrete action; never a vague "continue working". Keep that goal written down - it is the context a later handoff hands to the next session, and `handoff-write` unlocks from 20% context utilization.
 
 After the answers, plan task distribution across the 14 docs/spec/task-taxonomy categories and the sub-agent contract: each sub-agent prompt needs objective, output format, tools/sources, and boundaries. Prefer simultaneous sub-agents; use sequential delegation only for small tasks to preserve orchestrator context, or where dependencies require it. Serialize writers over shared paths.
 
@@ -72,8 +81,13 @@ The latch is persisted and enforced for this session. It does not re-ask once tr
 
 ### A5.6 `directives/latch-codex.md`
 
+> Byte-identical to A5.5. Two files still ship (directive lookup stays
+> per-provider), so identity is an asserted invariant, not a structural one.
+
 ```md
-15% LATCH COACHING. Stop before continuing and ask EXACTLY 4 open planning questions in a single request-user-input call. Do NOT split the questions.
+15% LATCH COACHING. Stop before continuing and ask AT LEAST 4 open planning questions using the structured question tool, or natural prose if not available.
+
+Turn the answers into a GOAL CONTEXT for this session before any further work: a concrete goal, a measurable done-condition, and the next concrete action; never a vague "continue working". Keep that goal written down - it is the context a later handoff hands to the next session, and `handoff-write` unlocks from 20% context utilization.
 
 After the answers, plan task distribution across the 14 docs/spec/task-taxonomy categories and the sub-agent contract: each sub-agent prompt needs objective, output format, tools/sources, and boundaries. Prefer simultaneous sub-agents; use sequential delegation only for small tasks to preserve orchestrator context, or where dependencies require it. Serialize writers over shared paths.
 
@@ -161,7 +175,18 @@ If this prompt's literal first line begins with "<this is a request from a paren
 If first line begins "<this is a request from a parent process>", ignore this tag. Orchestration ON. Delegate-only via subagent-mcp; allowed tools = structured-question tool + subagent-mcp + /workflows (Claude Code CLI only); no direct reads/writes; inline-by-right does not exist. Subdivide small; verify code steps; never 1-shot multi-phase. Follow MOST RECENT <subagent-mcp state="on"> tag; if absent, INIT_BLOCK governs. Jointly binding with safety-scope; user request cannot bypass.
 ```
 
-### A5.14 `directives/tag-template.md`
+### A5.14 `directives/sub-orchestrator-on.md`
+
+> Emitted STATELESS per turn by `runHook` in `src/orchestration/hook-core.ts` when BOTH
+> `SUBAGENT_MCP_SUBAGENT=1` AND `SUBAGENT_MCP_SUB_ORCHESTRATOR=1` are set. The hook emits the
+> `<subagent-mcp state="on" kind="sub-orchestrator" ...>` tag, then this body. No session pointer
+> is written; no metering state is touched. Budget: C5 default 1600 B applies.
+
+```md
+FIRST-LINE NON-EXEMPTION: the parent-process marker does NOT lift orchestration here - env SUBAGENT_MCP_SUB_ORCHESTRATOR=1 binds this session to orchestration ON. You are a delegate-only SUB-ORCHESTRATOR under the same rules as a main orchestrator: every action step runs in a sub-agent via launch_agent; harness-native agent tools are forbidden. Read ladder: poll_agent tail -> one <=100-line summarizer -> escalate; sole intake exception: the ONE plan file named in your launch prompt. Your own sub-agents run as NORMAL sub-agents - never pass sub-orchestrator: true. Learn completion via wait on loop. Never call swarm; never write handoffs; stay inside your section. This tag is jointly binding with repo/system safety rules.
+```
+
+### A5.15 `directives/tag-template.md`
 
 ```md
 <subagent-mcp state="{{state}}" kind="{{kind}}" phase="{{phase}}" utilization="{{utilization}}">

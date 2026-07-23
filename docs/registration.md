@@ -15,7 +15,7 @@ for the full technical specification.
 
 | Topic | Leaf |
 |---|---|
-| Prerequisites, `npm install`, `setup`, global settings, `init --global`, source install | [`registration/prerequisites-and-install.md`](registration/prerequisites-and-install.md) |
+| Prerequisites, `npm install`, `setup`, global/user settings, `init --global`, source install | [`registration/prerequisites-and-install.md`](registration/prerequisites-and-install.md) |
 | Claude Code / Claude Desktop MCP-server config | [`registration/claude-code.md`](registration/claude-code.md) |
 | Codex MCP-server config (`config.toml`) | [`registration/codex.md`](registration/codex.md) |
 | Gemini MCP-server config (`settings.json`) | [`registration/gemini.md`](registration/gemini.md) |
@@ -25,7 +25,7 @@ for the full technical specification.
 - register / wire / add / connect the server -> the per-host leaf for that vendor
 - install / setup / bootstrap -> `prerequisites-and-install.md`
 - plugin / hook / injection / `UserPromptSubmit` / per-turn directive -> `docs/install/_INDEX.md`
-- global config / machine settings / update check / concurrency cap -> `prerequisites-and-install.md` (Global settings)
+- global config / user settings / context coaching / update check / concurrency cap -> `prerequisites-and-install.md` (Settings)
 - `init --global` / global user-config / managed block -> `prerequisites-and-install.md`
 
 ## Task -> doc
@@ -33,7 +33,7 @@ for the full technical specification.
 | Task | Load |
 |---|---|
 | Install from npmjs or GitHub Packages and auto-wire both CLIs | `prerequisites-and-install.md` |
-| Tune `globalConcurrentSubagents` / `checkForUpdates` | `prerequisites-and-install.md` |
+| Tune `globalConcurrentSubagents` / `checkForUpdates` / `contextCoaching` / `handoffWarnThreshold` | `prerequisites-and-install.md` |
 | Upsert managed blocks into provider global user-config | `prerequisites-and-install.md` (`init --global`) |
 | Add the server to Claude Code (user or project scope) | `claude-code.md` |
 | Add the server to Codex | `codex.md` |

@@ -70,7 +70,7 @@ function withSkillRoot(fn) {
 }
 
 function writeSmcpAssets(root) {
-  for (const name of ["smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
+  for (const name of ["smcp-config", "smcp-doctor", "smcp-help", "smcp-status", "smcp-handoff"]) {
     const skillDir = join(root, "skills", name);
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), `${name} skill\n`);

@@ -12,8 +12,19 @@ is design + contract only.
 only `prompt` + `task_category`, the server reads the **cost_efficiency** branch of
 the routing table, builds a best-to-worst candidate list for that category, and
 launches the first candidate that spawns successfully : silently falling back
-down the list on any launch-time failure. `provider`/`model`/`effort` become
-optional overrides that are usually unnecessary.
+down the list on ANY launch-time failure (including provider-side limits: session
+limit, usage cap/limit, spend/spending limit, credits, billing, quota, rate limit,
+429/too-many-requests, overload, HTTP 5xx, or network errors). A successful
+reroute returns non-error `failover_occurred: true`, `failover_from[]`, and a
+human-readable `failover_note` naming the unavailable provider/reason and the
+winner. `ERR_ALL_FAILED` is returned only after every candidate is exhausted.
+There is no cooldown or cross-call persistence: ranking is fresh each launch.
+`provider`/`model`/`effort` become optional overrides that are usually unnecessary.
+
+Provider-only mode tries every requested-provider candidate, then de-duplicated
+auto fallbacks. A provider+model override is pinned to its rank-1 matching
+candidate; adding effort pins that exact triple. Pinned launches fail loudly
+with no substitute.
 
 Branch selection : the `cost_efficiency` default, the `performance` branch armed
 by the optional `deadlock` flag, and the window decrement/re-arm rules : is
@@ -27,11 +38,11 @@ front of that path.
 
 | File | Contains | Read when |
 |---|---|---|
-| `param-contract.md` | New `launch_agent` param schema; required/optional rules; selection modes. | Changing the tool's input schema or param semantics. |
-| `resolution-matrix.md` | Full presence-to-behavior matrix. | Implementing/validating param validation and candidate-list construction. |
-| `resolution-errors.md` | Exact auto-mode error text, shared hint blocks, and anti-examples. | Implementing/validating hard-error response text. |
-| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window), pairing schema ref, model->provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior. | Implementing the loader/resolver against the table. |
-| `tool-description.md` | Verbatim rewritten tool description + the 15 caveman `task_category` metadata glosses. | Rewriting the MCP tool metadata strings. |
+| `param-contract.md` | New `launch_agent` param schema; required/optional rules; selection modes; `sub-orchestrator?` row. | Changing the tool's input schema or param semantics. |
+| `resolution-matrix.md` | Full presence-to-behavior matrix; validation-order note including `ERR_SUBORCH_DEPTH` at step 6b. | Implementing/validating param validation and candidate-list construction. |
+| `resolution-errors.md` | Exact auto-mode error text, shared hint blocks, anti-examples, and `ERR_SUBORCH_DEPTH` verbatim text. | Implementing/validating hard-error response text. |
+| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window + swarm pin subsection), pairing schema ref, model->provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior; amended sanctioned-exposures list. | Implementing the loader/resolver against the table. |
+| `tool-description.md` | Verbatim rewritten tool description + 15 caveman `task_category` glosses; sub-orchestrator sentence + param gloss; swarm tool description + stage param gloss; byte accounting. | Rewriting the MCP tool metadata strings. |
 | `build-and-test.md` | B2 file partition (non-overlapping ownership) + the fixture-based test plan. | Splitting build work or writing tests. |
 
 Related leaf set: `../advanced-ruleset/` specifies the user-editable

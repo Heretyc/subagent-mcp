@@ -6,7 +6,7 @@
  * fake home so real user files are never touched.
  */
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -107,9 +107,47 @@ await test("runInit --global writes native-agent guards only in fake home", asyn
     const code = await runInit(["--global"]);
     assert.equal(code, 0);
     assert.match(readFileSync(join(fakeHome, ".codex", "config.toml"), "utf8"), /multi_agent = false/);
-    assert.match(readFileSync(join(fakeHome, ".claude", "settings.json"), "utf8"), /"Agent\(Explore\)"/);
+    const settings = JSON.parse(readFileSync(join(fakeHome, ".claude", "settings.json"), "utf8"));
+    assert.deepEqual(settings.permissions.deny, ["Agent"], "global init writes only the canonical deny rule");
     assert.match(readFileSync(join(fakeHome, ".gemini", "settings.json"), "utf8"), /"enableAgents": false/);
     assert.equal(existsSync(join(fakeHome, ".gemini", "policies", "subagent-mcp-native-agents.toml")), true);
+  } finally {
+    if (oldHome === undefined) delete process.env.HOME;
+    else process.env.HOME = oldHome;
+    if (oldUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = oldUserProfile;
+    rmSync(fakeHome, { recursive: true, force: true });
+  }
+});
+
+await test("runInit --global migrates a legacy deny list in place", async () => {
+  const fakeHome = mkdtempSync(join(tmpdir(), "sm-init-global-legacy-"));
+  const oldHome = process.env.HOME;
+  const oldUserProfile = process.env.USERPROFILE;
+  process.env.HOME = fakeHome;
+  process.env.USERPROFILE = fakeHome;
+  try {
+    const settingsFile = join(fakeHome, ".claude", "settings.json");
+    mkdirSync(dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, `${JSON.stringify({
+      theme: "dark",
+      permissions: { allow: ["Read(*)"], deny: ["Task", "Agent", "Explore", "Agent(Explore)", "Write(secret)"] },
+    }, null, 2)}\n`, "utf8");
+
+    assert.equal(await runInit(["--global"]), 0);
+
+    const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+    for (const legacy of ["Task", "Explore", "Agent(Explore)"]) {
+      assert.equal(settings.permissions.deny.includes(legacy), false, `${legacy} must be removed`);
+    }
+    assert.equal(settings.permissions.deny.includes("Agent"), true);
+    assert.equal(settings.permissions.deny.includes("Write(secret)"), true, "user entry preserved");
+    assert.equal(settings.theme, "dark");
+    assert.deepEqual(settings.permissions.allow, ["Read(*)"]);
+
+    const body = readFileSync(settingsFile, "utf8");
+    assert.equal(await runInit(["--global"]), 0);
+    assert.equal(readFileSync(settingsFile, "utf8"), body, "second --global run is a no-op");
   } finally {
     if (oldHome === undefined) delete process.env.HOME;
     else process.env.HOME = oldHome;

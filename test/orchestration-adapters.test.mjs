@@ -7,7 +7,7 @@
  * an isMain gate), so a test can import the exported adapters without the shim
  * firing. Covers:
  *   - claude currentTurn counts 'user' JSONL lines from a synthetic transcript.
- *   - codex currentTurn counts 'turn_context' JSONL lines.
+ *   - codex currentTurn counts Codex turn signals.
  *   - each provider's isSubagent signals.
  *   - codex SessionStart dispatch emits FULL when active (turn-0 coverage).
  */
@@ -44,6 +44,7 @@ import {
   writeStatuslineRecord,
 } from "../dist/orchestration/statusline-state.js";
 import { readReminder, reminderPath } from "../dist/orchestration/reminder.js";
+import { SUB_ORCHESTRATOR_DIRECTIVE_FILE } from "../dist/orchestration/hook-core.js";
 
 let passed = 0;
 let failed = 0;
@@ -445,7 +446,7 @@ test("shared parent marker predicate is exact, anchored, and BOM/CRLF tolerant",
 });
 
 // ---------------------------------------------------------------------------
-// Codex adapter: currentTurn counts 'turn_context' lines
+// Codex adapter: currentTurn counts live Codex turn signals
 // ---------------------------------------------------------------------------
 test("codex currentTurn: counts JSONL lines with type==='turn_context'", () => {
   const { dir, file } = writeJsonl([
@@ -453,6 +454,20 @@ test("codex currentTurn: counts JSONL lines with type==='turn_context'", () => {
     { type: "message" },
     { type: "turn_context" },
     { type: "turn_context" },
+  ]);
+  try {
+    assert.equal(codexAdapter.currentTurn(file), 3);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex currentTurn: token_count events keep metering alive when turn_context is frozen", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context" },
+    { type: "event_msg", payload: { type: "token_count" } },
+    { type: "event_msg", payload: { type: "token_count" } },
+    { type: "event_msg", payload: { type: "token_count" } },
   ]);
   try {
     assert.equal(codexAdapter.currentTurn(file), 3);
@@ -820,6 +835,36 @@ test("codex SessionStart: no persisted metering -> utilization unknown (no lifte
   } finally {
     rmSync(markerPath(cwd), { force: true });
     rmSync(reminderPath(cwd), { force: true });
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("codex SessionStart: sub-orchestrator emits shared stateless ON directive", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "orch-cx-cwd-"));
+  const root = mkdtempSync(join(tmpdir(), "orch-cx-root-"));
+  const ddir = join(root, "directives");
+  mkdirSync(ddir, { recursive: true });
+  writeFileSync(join(ddir, SUB_ORCHESTRATOR_DIRECTIVE_FILE), "CODEX-SUB-ORCH", "utf8");
+  const env = {
+    PLUGIN_ROOT: root,
+    npm_config_prefix: root,
+    SUBAGENT_MCP_SUBAGENT: "1",
+    SUBAGENT_MCP_SUB_ORCHESTRATOR: "1",
+  };
+  try {
+    const out = runCodexHook(
+      { hook_event_name: "SessionStart", cwd, source: { subagent: "spawn" } },
+      env
+    );
+    assert.match(
+      out,
+      /^<subagent-mcp state="on" kind="sub-orchestrator" phase="normal" utilization="unknown">\n/,
+      "SessionStart must emit the shared sub-orchestrator tag before subagent suppression"
+    );
+    assert.ok(out.includes("\nCODEX-SUB-ORCH\n</subagent-mcp>"), "SessionStart must use the shared directive asset");
+    assert.equal(readCurrentSession(cwd), undefined, "sub-orchestrator SessionStart must not write cwd session state");
+  } finally {
     rmSync(cwd, { recursive: true, force: true });
     rmSync(root, { recursive: true, force: true });
   }

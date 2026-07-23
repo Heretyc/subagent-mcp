@@ -18,7 +18,9 @@ import {
   ClaudeSdkDriver,
   ProviderTransientError,
   claudeMessageText,
+  describeFailureCause,
   isClaudeSessionLimit,
+  isTransientFailureText,
 } from "../dist/drivers.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -109,6 +111,12 @@ function prependPath(env, dir) {
     next.PATHEXT = next.PATHEXT || ".COM;.EXE;.BAT;.CMD";
   }
   return next;
+}
+
+function rmTempRoot(path) {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+  } catch {}
 }
 
 function createMcpSession(entrypoint, options = {}) {
@@ -261,6 +269,7 @@ function makeFailoverEnv(sessionLimitDelayMs = 0) {
   const fakeBin = join(tempRoot, "bin");
   const workDir = join(tempRoot, "work");
   const fakePrefix = join(tempRoot, "empty-prefix");
+  const slotBaseDir = join(tempRoot, "slots");
   mkdirSync(fakeBin);
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
@@ -275,9 +284,12 @@ function makeFailoverEnv(sessionLimitDelayMs = 0) {
     `--require "${preloadPath.replace(/\\/g, "/")}"`,
     `--import ${pathToFileURL(hookImport).href}`,
   ].filter(Boolean).join(" ");
+  const baseEnv = { ...process.env };
+  delete baseEnv.SUBAGENT_MCP_SUBAGENT;
+  delete baseEnv.SUBAGENT_MCP_DEPTH;
   const env = prependPath(
     {
-      ...process.env,
+      ...baseEnv,
       FAKE_NPM_PREFIX: fakePrefix,
       SUBAGENT_SPAWN_GRACE_MS: String(GRACE_MS),
       SUBAGENT_MOCK_CLAUDE_DRIVER: "jsonl",
@@ -287,6 +299,7 @@ function makeFailoverEnv(sessionLimitDelayMs = 0) {
       SUBAGENT_RULESET_PYTHON: process.execPath,
       NODE_OPTIONS: nodeOptions,
       FAKE_RULESET_MODE_FILE: modeFile,
+      SUBAGENT_SLOT_DIR: slotBaseDir,
     },
     fakeBin
   );
@@ -309,7 +322,7 @@ async function withFailoverSession(fn, sessionLimitDelayMs = 0) {
     await fn(session);
   } finally {
     await session.close();
-    rmSync(tempRoot, { recursive: true, force: true });
+    rmTempRoot(tempRoot);
   }
 }
 
@@ -329,7 +342,11 @@ await test("detector accepts Claude session-limit reset messages", () => {
   assert.equal(isClaudeSessionLimit("you've hit your session limit · resets 7:10pm (america/los_angeles)"), true);
 });
 
-await test("detector rejects non-session-limit and non-anchored messages", () => {
+// isClaudeSessionLimit stays the NARROW anchored detector: it only recognises
+// the exact "session limit · resets" banner. Broader launch-time limit refusals
+// are the job of isTransientFailureText, so wording this detector rejects is no
+// longer wording the failover path ignores — see the next test.
+await test("anchored session-limit detector stays narrow", () => {
   assert.equal(isClaudeSessionLimit("You've hit your rate limit · resets 7:10pm"), false);
   assert.equal(isClaudeSessionLimit("You've hit your usage limit · resets 7:10pm"), false);
   assert.equal(isClaudeSessionLimit("You've hit your session limit"), false);
@@ -337,6 +354,34 @@ await test("detector rejects non-session-limit and non-anchored messages", () =>
   assert.equal(isClaudeSessionLimit("Your session limit has been reached."), false);
   assert.equal(isClaudeSessionLimit("Sure — here is the result."), false);
   assert.equal(isClaudeSessionLimit(""), false);
+});
+
+await test("broadened detector matches usage/spend/credit/billing limit wording", () => {
+  for (const text of [
+    "You've hit your usage limit · resets 7:10pm",
+    "You have reached your spend limit for this month.",
+    "Spending cap exceeded for this workspace.",
+    "Your credit balance is too low to run this request.",
+    "Credits exhausted for this organization.",
+    "You are out of credits.",
+    "No credits remaining on this account.",
+    "insufficient credits remaining",
+    "This organization has a billing issue; please update payment details.",
+    "quota exceeded for this project",
+  ]) {
+    assert.equal(isTransientFailureText(text), true, `must be transient: ${text}`);
+    assert.equal(describeFailureCause(text), "usage limit", `cause for: ${text}`);
+  }
+
+  assert.equal(describeFailureCause("You've hit your session limit · resets 7:10pm"), "usage limit");
+  assert.equal(describeFailureCause("You've hit your rate limit · resets 7:10pm"), "rate limit");
+  assert.equal(describeFailureCause("429 too many requests"), "rate limit");
+  assert.equal(describeFailureCause("capacity overloaded"), "rate limit");
+
+  for (const text of ["Sure — here is the result.", "Refactor completed successfully.", ""]) {
+    assert.equal(isTransientFailureText(text), false, `must not be transient: ${text}`);
+    assert.equal(describeFailureCause(text), null, `no cause for: ${text}`);
+  }
 });
 
 await test("claudeMessageText extracts assistant and result text only", () => {
@@ -405,6 +450,88 @@ await test("Claude SDK driver resolves startup on first non-system assistant mes
   driver.kill();
 });
 
+// Drives the SDK driver over a scripted message stream and reports whether the
+// launch was rejected pre-start (-> failover) or started normally (-> the
+// stream is ordinary task output). Shared by the three result-shape tests.
+async function runSdkStream(messages) {
+  async function* query() {
+    for (const message of messages) {
+      yield message;
+      await delay(5);
+    }
+  }
+  const driver = new ClaudeSdkDriver(query);
+  const out = collect(driver.process.stdout);
+  const err = collect(driver.process.stderr);
+  driver.open(driverOptions("claude"));
+  await once(driver.process, "spawn");
+  await driver.start("start");
+  const outcome = await Promise.race([
+    driver.definitelyStarted.then(
+      () => ({ started: true }),
+      (error) => ({ started: false, error })
+    ),
+    delay(500).then(() => ({ started: null })),
+  ]);
+  return { outcome, out, err, driver };
+}
+
+const QUIET_SPEND_LIMIT = "You have reached your spend limit for this month.";
+
+await test("Claude result with is_error:true limit text is a pre-start launch failure", async () => {
+  const { outcome, err, driver } = await runSdkStream([
+    { type: "system", subtype: "init" },
+    { type: "result", is_error: true, result: "Your credit balance is too low to run this request." },
+  ]);
+  assert.equal(outcome.started, false, "is_error limit result must reject startup");
+  assert.ok(outcome.error instanceof ProviderTransientError);
+  assert.equal(outcome.error.isTransient, true);
+  assert.match(outcome.error.message, /credit balance/i);
+  assert.match(err(), /credit balance/i);
+  driver.kill();
+});
+
+// The quiet case this feature exists for: exit code 0, is_error:false, no throw
+// from the SDK — only the TEXT reveals the provider never ran the turn.
+await test("non-error limit result before startup becomes a launch failure, not task output", async () => {
+  const { outcome, out, err, driver } = await runSdkStream([
+    { type: "system", subtype: "init" },
+    { type: "result", is_error: false, result: QUIET_SPEND_LIMIT },
+  ]);
+  assert.equal(outcome.started, false, "quiet is_error:false limit must still reject startup");
+  assert.ok(outcome.error instanceof ProviderTransientError);
+  assert.equal(outcome.error.isTransient, true);
+  assert.match(outcome.error.message, /spend limit/i);
+  assert.match(err(), /spend limit/i);
+  assert.doesNotMatch(out(), /spend limit/i, "a refused launch must not surface as agent output");
+  driver.kill();
+});
+
+// Post-startup the same wording is the agent TALKING about limits: a task
+// outcome, never a relaunch on another provider.
+await test("limit wording after startup stays task output and does not fail the launch", async () => {
+  const { outcome, out, driver } = await runSdkStream([
+    { type: "system", subtype: "init" },
+    { type: "assistant", message: { content: [{ type: "text", text: "working on it" }] } },
+    { type: "result", is_error: false, result: QUIET_SPEND_LIMIT },
+  ]);
+  assert.equal(outcome.started, true, "startup already resolved; mid-run limit text must not reject");
+  await waitFor(() => /spend limit/i.test(out()), "mid-run result text on stdout");
+  assert.match(out(), /"text":"working on it"/);
+  driver.kill();
+});
+
+await test("ordinary result text with transient words stays task output", async () => {
+  const text = "Added authentication and fixed the timeout handling.";
+  const { outcome, out, driver } = await runSdkStream([
+    { type: "system", subtype: "init" },
+    { type: "result", is_error: false, result: text },
+  ]);
+  assert.equal(outcome.started, true);
+  await waitFor(() => out().includes(text), "ordinary result on stdout");
+  driver.kill();
+});
+
 await test("session-limit before the grace deadline fails over with transient_provider metadata", async () => {
   await withFailoverSession(async (session) => {
     const response = await callTool(session, "launch_agent", {
@@ -417,8 +544,14 @@ await test("session-limit before the grace deadline fails over with transient_pr
     assert.equal(payload.model, CE_RANK2.model);
     assert.equal(payload.effort, CE_RANK2.effort);
     assert.equal(payload.failover_occurred, true);
+    assert.equal(payload.failover_from.length, 1, "only the limited candidate is skipped");
     assertFailoverFrom(payload.failover_from[0], CE_RANK1, "transient_provider");
-    assert.match(payload.failover_note, /transient provider error/);
+    // The note must name the unavailable provider, WHY it was skipped, and the
+    // winner it routed to — a limit refusal reads as "usage limit", not a
+    // generic provider error.
+    assert.match(payload.failover_note, /claude/, "names the unavailable provider");
+    assert.match(payload.failover_note, /usage limit/, "names the limit reason");
+    assert.match(payload.failover_note, /gpt-5\.5@xhigh \(codex\)/, "names the winner");
 
     const pollResp = await callTool(session, "poll_agent", { agent_id: payload.agent_id });
     const pollPayload = JSON.parse(textOf(pollResp));
@@ -456,3 +589,4 @@ console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);
 }
+process.exit(0);

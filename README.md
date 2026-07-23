@@ -93,7 +93,9 @@ Preview first with `subagent-mcp setup --dry-run`.
 For provider config, run `subagent-mcp config init`, edit the generated `.env`
 keys under your subagent-mcp config home, then run
 `subagent-mcp config validate`. See [skills/smcp-help/SKILL.md](skills/smcp-help/SKILL.md)
-for details.
+for details. Once the server is running, use the `configure` MCP tool (or the
+`/smcp:config` skill) to list, read, or update settings by canonical key without
+leaving the assistant.
 
 ### Restart, Then Turn On The Invariant
 
@@ -124,14 +126,40 @@ do not receive per-turn hook reminders.
 ### Tools
 
 The server exposes `launch_agent`, `poll_agent`, `kill_agent`, `send_message`,
-`list_agents`, `wait`, `respond_permission`, `orchestration-mode`, and
-`model-selection-mode`; `get_status` returns `providers_loaded`, `agent_count`,
-`session_start_time`, and `last_routing_decisions`. See [docs/tools.md](docs/tools.md)
-for the full parameter and return reference.
+`list_agents`, `wait`, `respond_permission`, `orchestration-mode`,
+`model-selection-mode`, `configure`, and `swarm`; `get_status` returns
+`providers_loaded`, `agent_count`, `session_start_time`,
+`last_routing_decisions`, and `swarm` (active stage and routing state). See
+[docs/tools.md](docs/tools.md) for the full parameter and return reference.
+
+`configure` lists, reads, or updates config by canonical key (`action=list`,
+`get`, or `set`). Secret-matching values and all env values are always redacted
+in responses. Machine-global settings (`global.*`) are read-only through MCP; a
+set attempt returns a coaching message pointing to the resolved file path instead
+of writing. Settings that affect process environment state (`.env` entries,
+provider `key_env` changes) return `restart_required: true`. Use `/smcp:config`
+to invoke this tool interactively.
 
 You do not have to choose a model. Give `launch_agent` a prompt and a task
 category such as `coding`, `debugging`, or `security_review`; the server picks
 the provider, model, and effort.
+
+### Agentic Swarms
+
+`swarm()` starts a staged 7-step workflow for objectives projected to span
+multiple sessions. The server returns per-stage coaching and tracks the current
+stage in memory for the life of the process. Call `swarm(N)` to report stage N
+done and receive the next stage's coaching; call `swarm(0)` to abandon.
+
+Stage 6 dispatches one sub-orchestrator per plan section. Pass
+`sub-orchestrator: true` on a `launch_agent` call (main orchestrator only,
+depth 0) to launch a child as a delegate-only orchestrator; the server injects
+the directive and the child's own workers run as normal sub-agents without
+inheriting the flag.
+
+Stage-report spamming cannot extend active routing state: only a genuine
+forward advance to a new stage changes state, and all routing state clears
+when handoff becomes the next step.
 
 ### Concurrency
 
@@ -153,6 +181,11 @@ Machine-wide defaults live in `global-subagent-mcp-config.jsonc`, installed
 beside the compiled server and re-read on every `launch_agent`. It controls the
 global concurrency cap, update checks, permission ceiling, escalation behavior,
 strict read-parity logging, and Codex sandbox networking.
+
+Context-coaching preferences live only in `~/.subagent-mcp/settings.json` (or
+`settings.local.json`): `contextCoaching` defaults to `true`, and
+`handoffWarnThreshold` defaults to `60` with valid values `40`-`90`. Invalid,
+blank, or out-of-range thresholds resolve to `60`.
 
 User and repo permission files can only tighten or add scoped permissions on top
 of the global ceiling. See [README/configuration.md](README/configuration.md)

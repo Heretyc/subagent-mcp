@@ -101,16 +101,29 @@ Error: all <N> candidate launches failed for task_category <task_category>:
 ```
 
 Each numbered line carries the `failure_type` label in brackets :
-`[transient_provider]` (usage caps, quota 429, HTTP-status 5xx, network
-timeouts, ETIMEDOUT/ECONNRESET) or `[permanent]` (everything else, including
-bare three-digit numbers without HTTP-status context) : from
-`classifyFailureReason(reason, stderr)`. Exhaustion is `ERR_ALL_FAILED`
-regardless of classification; it carries no `failover_occurred` field (it is an
-error, not a success).
+`[transient_provider]` (provider-side limits and availability errors: session
+limit, usage cap/limit, spend/spending limit, credits exhausted, billing block,
+quota, rate limit, 429/too-many-requests, overload, HTTP-status 5xx, network
+timeouts, ETIMEDOUT/ECONNRESET/ECONNREFUSED) or `[permanent]` (everything
+else: ENOENT, EACCES, bad option, missing config, and bare three-digit numbers
+without HTTP-status context) : from `classifyFailureReason(reason, stderr)`.
+Exhaustion is `ERR_ALL_FAILED` regardless of classification; it carries no
+`failover_occurred` field (it is an error, not a success). Provider-only lists
+its requested-provider candidates followed by de-duplicated auto fallbacks.
+Provider+model, with or without effort, lists exactly one pinned candidate and
+has no substitute.
 
-Override selector modes use `ERR_ALL_FAILED` if every requested and fallback
-candidate fails. The requested route appears first in the numbered list; any
-valid auto candidates are appended after de-duping.
+## ERR_SUBORCH_DEPTH (`sub-orchestrator: true` at depth >= 1; validation step 6b)
+
+This error sets `isError: true`. Verbatim text from `SUB_ORCH_DEPTH_ERROR(depth)` in
+`src/sub-orchestrator.ts`:
+
+```
+Error: sub-orchestrator: true is only available to the main orchestrator (depth 0). Current SUBAGENT_MCP_DEPTH=<depth>: a sub-orchestrator launched from this depth could not delegate, because the 2-level spawn cap leaves its workers unable to run. Relaunch this agent as a normal sub-agent (omit sub-orchestrator).
+```
+
+Interpolate the actual `currentLaunchDepth()` value for `<depth>`. This error carries no
+`AUTO_HINT` (it is a structural depth violation, not a mode/category error).
 
 ## Anti-examples (what must NOT happen)
 

@@ -1,41 +1,18 @@
 # Tool Description and MCP Metadata Rewrite
 
-Normative. The verbatim strings B2 wires into the `launch_agent` tool
-registration in `src/index.ts`. Lead with auto mode (mandatory first attempt;
-capability-need overrides are licensed on any attempt); carry the SOLE CHANNEL
-mandate and the sub-agent PROMPT RULE; keep the existing factual notes EXCEPT
-two byte-forced drops recorded in the Rationale below (status semantics
-compressed; CLI-not-API note dropped); carry a caveman self-classification
-gloss on `task_category`.
+Normative. The first fenced block is the current `launch_agent` description in
+`src/index.ts`, verbatim. The later fenced blocks are the parameter metadata.
 
 ## Rewritten tool description (verbatim)
 
 ```
-Spawn a sub-agent. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category` and NO overrides; the server picks the best provider/model/effort for that category from its routing table, launches the top candidate, and silently falls back to the next-best on launch failure. `provider`/`model`/`effort` are overrides : licensed on 1st/2nd attempts ONLY when the task verifiably requires a specific capability; STATE that capability when overriding; if you pass `model` you must also pass `provider`, and if you pass `effort` you must pass both `provider` and `model`. SOLE CHANNEL: while this server is connected this tool is the ONLY sanctioned way to spawn sub-agents, in BOTH orchestration states : harness-native Task/Agent tools are FORBIDDEN for sub-agent launches. PROMPT RULE: the FIRST line of every `prompt` MUST be "<this is a request from a parent process>" (sub-agent self-identification). Unsure which task_category fits? Don't submit one amorphous task : SPLIT into atomic steps that each map to a single category, one agent per step. ultracode effort is Opus-4.8+ only (induced via a temp `--settings {"ultracode":true}` file; the CLI rejects `--effort ultracode`). Each sub-agent is a separate claude/codex CLI child that does NOT inherit this session's MCP servers; children run with env SUBAGENT_MCP_SUBAGENT=1 so the orchestration hooks skip them (they are not orchestrators and don't re-trigger carryover). Launch returns status `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead : wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST ALWAYS set `deadlock=true` when 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting the prompt does NOT make it a different task), and NEVER otherwise : from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.
+Spawn a sub-agent session. CONTRACT: every `prompt` states objective + required output format + tools/sources + boundaries; the server auto-upserts the self-identification marker "<this is a request from a parent process>" as the true first line (idempotent, never duplicated, body never mutated), so you need not add it. SCALE to complexity: ~1 agent for a simple fact-find, 2-4 for comparisons; never one-shot a multi-phase task: SPLIT into atomic steps that each map to ONE task_category, one agent per step. AUTO MODE (mandatory first attempt unless an override is licensed below): pass only `prompt` + `task_category`, NO overrides; the server picks the best provider/model/effort for that category. FAILOVER: a launch-time failure (incl. a provider usage/rate-limit refusal before any output) quietly cascades down the ranking, and the switch is reported to you in `failover_note`; if EVERY candidate fails you get one loud error listing each candidate + reason. A provider+model override is PINNED: one attempt, no substitution. `provider`/`model`/`effort` are OVERRIDES, licensed on the 1st/2nd attempt ONLY when the task verifiably needs a specific capability: STATE that capability; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8+ only. SOLE CHANNEL: while this server is connected this is the ONLY sanctioned way to spawn sub-agents in BOTH orchestration states; harness-native Task/Agent tools are FORBIDDEN. Children run with env SUBAGENT_MCP_SUBAGENT=1 so orchestration hooks skip them (not orchestrators, no carryover re-trigger). Launch returns `processing` (alive); a later `stalled` is alive-but-quiet (thinking or awaiting a temp-file handoff), NOT dead: wait or re-poll, don't kill (see poll_agent). DEADLOCK RULE: you MUST set `deadlock=true` when, and ONLY when, 2 attempts for the SAME atomic task have already failed/been unsatisfactory (the 3rd attempt onward; re-wording or re-splitting does NOT make it a new task), and NEVER otherwise: from the 3rd attempt deadlock outranks any capability override: drop provider/model/effort.
 ```
 
-Rationale (Structure/Clarity reviewers): auto mode still leads and is the
-MANDATORY first attempt; explicit `provider`/`model`/`effort` overrides are
-licensed on the 1st/2nd attempts ONLY for a verifiable capability need, which
-must be STATED at call time (capability need can override auto-first only
-before the deadlock rule applies; the stated capability makes self-certification
-auditable in the transcript). The SOLE CHANNEL mandate names and forbids the
-competing harness-native Task/Agent path in both orchestration states. PROMPT
-RULE encodes the safety-scope obligation (`docs/spec/safety-scope.md`) that
-the FIRST line of every sub-agent prompt carries the parent-process sentinel
-the hooks and sub-agent SCOPE/skip lines key on. The "split amorphous work"
-guidance appears here AND in the error hints (`resolution-matrix.md`) so it
-survives whether the caller reads docs or only hits an error. The
-`processing != dead` facts are preserved in COMPRESSED form, not verbatim:
-this string keeps the alive/not-dead verdicts and "(thinking or awaiting a
-temp-file handoff)" but drops the 10-minute activity window and the
-concurrency-cap accounting; the full window semantics (10-minute activity
-threshold, processing/stalled distinction) are carried on `poll_agent`'s
-description, so the "(see poll_agent)" pointer resolves, while the
-cap-accounting parenthetical has no remaining agent-visible carrier. The
-prior CLI-not-API note ("Spawns the LOCALLY INSTALLED ... no API keys, no
-SDK") is dropped entirely : only "separate claude/codex CLI child" remains as
-residue. Both are deliberate byte trades: the description sits at 2025/2048 B.
+Rationale: the live string states the prompt contract, scaling rule, quiet
+launch-time failover, visible `failover_note`, loud exhaustion, pinned
+provider+model behavior, override gate, sole launch channel, liveness, and
+deadlock rule.
 
 ## `deadlock` param metadata gloss (verbatim)
 
@@ -56,9 +33,8 @@ unchanged-parts clause ("splitting a failed task does NOT reset attempts for
 its unchanged parts") and the attempt-counting clause ("re-launching for the
 same deliverable means the prior attempt COUNTS as failed/unsatisfactory" :
 this closes the dodge of classifying every prior attempt as partial progress
-so the count never reaches 2). The tool description carries only the compact
-"or re-splitting" form of the same anti-dodge family because it sits at
-2025/2048 B.
+so the count never reaches 2). The tool description carries the compact
+"or re-splitting" form of the same anti-dodge family.
 
 ```
 MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory : the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort : from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it.
@@ -104,6 +80,51 @@ Boundary). These are the canonical per-key strings:
 | `fallback_default` | no category matches with confidence (under-specified/mixed/tied); read-only; PREFER splitting work into smaller atomic steps each mapping to one category |
 
 Keep the param description string in sync with this table if either is edited.
+
+## Sub-orchestrator launch_agent sentence (appended to the existing description)
+
+Verbatim sentence appended to the existing `launch_agent` description (321 B; 1844 -> 2165 B,
+measured; <= 2200 B hard cap; re-verify with `node scripts/check_mcp_compliance.mjs`):
+
+```
+ SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches the child as a delegate-only orchestrator for ONE disjoint plan section - used by the swarm dispatch stage; the server injects the directive + env marker, and the child's OWN sub-agents run as normal workers (the flag never inherits).
+```
+
+## `sub-orchestrator` param metadata gloss (verbatim)
+
+The `sub-orchestrator` param `.describe(...)` string. From `SUB_ORCH_PARAM_GLOSS` in
+`src/sub-orchestrator.ts`:
+
+```
+Launch this child as a SUB-ORCHESTRATOR: the server injects a delegate-only orchestration directive into the prompt and sets env SUBAGENT_MCP_SUB_ORCHESTRATOR=1, forcing orchestration-mode behavior ON for that agent. The child's OWN sub-agents are NOT bound by the flag - it never inherits (the server strips the marker from grandchildren). Available to the MAIN orchestrator only (depth 0); deeper launches are rejected because a sub-orchestrator's workers cannot spawn further under the 2-level depth cap. Intended use: the swarm workflow's dispatch stage, exactly one sub-orchestrator per plan file path, each on a disjoint section. Omitting or false = normal sub-agent.
+```
+
+## `swarm` tool description (verbatim)
+
+From `SWARM_TOOL_DESCRIPTION` in `src/swarm.ts`. Size: ~1230 B <= 2200 B cap.
+
+```
+Agentic-swarm staged workflow coach for work objectives projected to span MULTIPLE sessions - OFFER it to the user whenever you project that. Fixed 7-stage sequence: (1) planning team of 3 architects + 1 critic builds one plan per sub-orchestrator -> (2) critic judges every plan BEFORE it is written to disk, max 3 revision rounds then escalate to the user -> (3) approved plans written to temp files; the orchestrator handles PATHS only and never reads them -> (4) master goal prompt embedding those paths is PRINTED in chat for copy/paste (never via handoff-write) -> (5) handoff to a new session and resume -> (6) parallel sub-orchestrator dispatch, one per plan path -> (7) test all work, re-dispatch until sufficient, complete. CALLING: swarm() or swarm(null) starts and returns stage-1 coaching; swarm(N) means "stage N is done" and returns the NEXT stage's coaching plus the exact next call; swarm(0) abandons. Out-of-order or unknown stages return corrective coaching stating the expected current stage and never advance state. State is IN-MEMORY for THIS session only (never on disk); after the stage-5 handoff the resumed session calls swarm(5) as the designated re-entry. Follow each stage's returned coaching exactly and keep the harness task tracker updated.
+```
+
+## `stage` param metadata gloss (swarm tool; verbatim)
+
+From `SWARM_STAGE_PARAM_GLOSS` in `src/swarm.ts`:
+
+```
+Omit or pass null to START the swarm (returns stage-1 coaching). Pass N (1-7) to report "stage N is done" and receive the next stage's coaching. Pass 0 to abandon the active swarm. Out-of-order values return corrective coaching and change nothing.
+```
+
+## Byte accounting (post-3.2.0)
+
+| String | Bytes | Cap |
+|--------|-------|-----|
+| `launch_agent` description (after sub-orch sentence append) | 2165 B | 2200 B |
+| `ORCHESTRATION_INSTRUCTIONS` (MCP `instructions`) | 2045 B | 2048 B |
+| `swarm` tool description | ~1230 B | 2200 B |
+
+Verify after any edit with `node scripts/check_mcp_compliance.mjs`. The C1 gate hard-fails at
+2048 B for `ORCHESTRATION_INSTRUCTIONS` and the C2 gate hard-fails at 2200 B per description.
 
 ## Model-selection gating
 

@@ -34,6 +34,21 @@ Load files from this directory when:
 | `category-rationale.md` | Per-category 1-2 line rationale, benchmark families, and findability rating for the 10 parent tiles. |
 | `composite-inferred-tiles.md` | The 4 composite-inferred tiles (precedence 11:14): parent-map rationale, how downstream competency is composed, why they carry no benchmark alias. |
 
+## Routing band consumers
+
+The routing table's `cost_efficiency` and `performance` bands are consumed by two independent
+mechanisms; the taxonomy and schema are unchanged by either:
+
+1. **Deadlock window** (`src/deadlock.ts`): armed by `deadlock=true` on `launch_agent`, diverts
+   pure-auto launches to `performance` for up to 3 successes.
+2. **Swarm pin** (`src/swarm.ts`): armed by a genuine swarm start, diverts pure-auto launches to
+   `performance` during pre-handoff stages 1-4, with a 1-hour window that restarts only on
+   accepted forward advances. Full design: `docs/spec/swarm/_INDEX.md` and
+   `docs/spec/auto-mode/routing-table-contract.md`.
+
+No category, key, or taxonomy schema change is needed; both mechanisms read from the same
+14-category table.
+
 ## Related resources
 
 | Resource | Contains |

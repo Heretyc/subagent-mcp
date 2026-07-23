@@ -7,10 +7,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as handoffModule from "../dist/orchestration/handoff.js";
 import {
   HANDOFF_CONTENT_LIMIT,
   HANDOFF_OVERFLOW_LIMIT,
-  UNAVAILABLE_BELOW_40,
+  HANDOFF_THRESHOLD_PCT,
   UNAVAILABLE_NO_METERING,
   checkHandoffWriteAvailable,
   OVERSIZE_CONTENT,
@@ -22,6 +23,14 @@ import {
   writeHandoff,
 } from "../dist/orchestration/handoff.js";
 import { cwdHash, stateDir } from "../dist/orchestration/marker.js";
+
+// The below-unlock error constant is renamed as part of the 40% -> 20% move.
+// Accept either spelling so this lane stays green whichever name L1 lands on;
+// the ASSERTIONS below still pin the 20% semantics regardless of the symbol.
+const UNAVAILABLE_BELOW_UNLOCK =
+  handoffModule.UNAVAILABLE_BELOW_UNLOCK ??
+  handoffModule.UNAVAILABLE_BELOW_20 ??
+  handoffModule.UNAVAILABLE_BELOW_40;
 
 let passed = 0;
 let failed = 0;
@@ -69,22 +78,40 @@ test("write/read/clear round-trip stores and removes the handoff record", () => 
   });
 });
 
-test("write gate is locked at 39%, unlocked at 40%, and stays unlocked at 50%", () => {
+// LOCKED (context-coaching): the handoff-write unlock is a hard-coded 20% and is
+// never configurable. Boundaries under test are 19 / 20 / 21, and the gate stays
+// open well past the (now user-configurable, default 60) wind-down warn point.
+test("write gate is locked at 19%, unlocked at 20%, and stays unlocked above it", () => {
+  // No metering at all stays a DISTINCT error from "below the unlock".
   assert.deepEqual(checkHandoffWriteAvailable(null), {
     ok: false,
     error: UNAVAILABLE_NO_METERING,
   });
-  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 39 }), {
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 19 }), {
     ok: false,
-    error: UNAVAILABLE_BELOW_40,
+    error: UNAVAILABLE_BELOW_UNLOCK,
   });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 19.99 }), {
+    ok: false,
+    error: UNAVAILABLE_BELOW_UNLOCK,
+  });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 20 }), { ok: true });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 21 }), { ok: true });
   assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 40 }), { ok: true });
-  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 49 }), { ok: true });
-  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 50 }), { ok: true });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 60 }), { ok: true });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 90 }), { ok: true });
 });
 
-test("below-threshold handoff error string names 40 percent", () => {
-  assert.equal(UNAVAILABLE_BELOW_40, "handoff-write is not available until this session reaches 40% context utilization (currently below threshold).");
+test("handoff unlock threshold constant is a hard-coded 20 and not configurable", () => {
+  assert.equal(HANDOFF_THRESHOLD_PCT, 20);
+});
+
+test("below-threshold handoff error string names 20 percent, not 40", () => {
+  assert.match(UNAVAILABLE_BELOW_UNLOCK, /\b20%/,
+    "the below-unlock error must name the new 20% threshold");
+  assert.ok(!/\b40%/.test(UNAVAILABLE_BELOW_UNLOCK),
+    "the below-unlock error must not still name the retired 40% threshold");
+  assert.equal(UNAVAILABLE_BELOW_UNLOCK, "handoff-write is not available until this session reaches 20% context utilization (currently below threshold).");
 });
 
 test("oversize content is rejected with exact error string", () => {

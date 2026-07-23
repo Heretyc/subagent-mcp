@@ -38,6 +38,7 @@ Requires **Node.js >= 20**. After the build, confirm these exist:
 - `dist/hooks/orchestration-claude.js` : Claude per-turn hook
 - `dist/hooks/orchestration-claude-pretool.js` : Claude PreToolUse gate
 - `skills/smcp-handoff/SKILL.md` : Claude handoff resume Agent Skill
+- `skills/smcp-config/SKILL.md` : config management skill (`/smcp:config`)
 - `dist/hooks/orchestration-codex.js` : Codex per-turn hook
 
 > **Distribution note:** `dist/` is git-ignored, so it must be built before any
@@ -68,7 +69,7 @@ CLI or Codex CLI for the full behavior.
 
 | Host | Toggle works | Per-turn injection | Native-agent suppression |
 |---|---|---|---|
-| Claude Code CLI | yes | yes (`UserPromptSubmit` + `PreToolUse`) | settings deny rules |
+| Claude Code CLI | yes | yes (`UserPromptSubmit` + `PreToolUse`) | settings deny `Agent` + PreToolUse hook |
 | Codex CLI | yes | yes (bundled `SessionStart` + `UserPromptSubmit`) | `[features] multi_agent=false` |
 | Claude Desktop | yes | **no** : no hook host | none documented |
 | Codex Desktop / IDE | yes | **no** : no hook host | none documented |

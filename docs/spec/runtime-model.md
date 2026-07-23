@@ -18,6 +18,16 @@ is [global-concurrency/cap-contract.md](global-concurrency/cap-contract.md).
 
 Agents are stored in a module-level `Map<string, AgentState>` keyed by UUID. There is no persistence -- the map is cleared on server restart.
 
+The deadlock window is a module-level integer counter (see `src/deadlock.ts`). A server restart
+resets it to 0.
+
+The swarm session is a module-level object (created by `createSwarmSession()` from `src/swarm.ts`)
+holding `{ currentStage: 1..7 | null, pinExpiresAt: number | null }`. Nothing is persisted; a
+server restart resets it to IDLE. The swarm pin (`pinExpiresAt`) is part of this same object.
+Sanctioned observability: `get_status` returns a `swarm` snapshot field
+(`{ active, current_stage, stage_name, pin_active, pin_expires_at }`). Full spec:
+`docs/spec/swarm/_INDEX.md`.
+
 ## Cwd-Keyed State
 
 State keyed by working directory uses normalized cwd hashes. On Windows, the

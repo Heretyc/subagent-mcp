@@ -51,14 +51,39 @@ default ladder above. Contradictions resolve to the model's top known tier
 and clamp percentage at 100%.
 
 ### 3. Phase Computation
-Given `used_percentage`: `null` maps to `normal`, `>= 40` maps to
+Given `used_percentage`: `null` maps to `normal`, `>= 20` maps to
 `handoff`, `>= 15` maps to `plan`, and all lower numeric values map to
-`normal`.
+`normal`. Both phase constants are FIXED: `PLAN_LATCH_THRESHOLD_PCT = 15` and
+`HANDOFF_UNLOCK_THRESHOLD_PCT = 20` are never user-configurable.
 
-`near_limit` is true only when `used_percentage !== null && used_percentage >= 50`.
+`near_limit` is true only when `used_percentage !== null`, `contextCoaching` is
+enabled, and `used_percentage >= handoffWarnThreshold` (the user-configurable
+wind-down warning point, default `60`, valid `40`-`90`; see section 3.1).
 `used_percentage === null` still maps to
 `phase = "normal"`; the metering-undetectable fail-safe is separate
 enforcement and forces orchestration ON.
+
+### 3.1 Wind-Down Warning Configuration
+
+The wind-down warning is the ONLY configurable point in this model. It is
+configured USER-LEVEL ONLY, in the machine-local
+`~/.subagent-mcp/settings.json` / `settings.local.json`; there is no per-repo
+or per-project override.
+
+| Key | Values | Default |
+|---|---|---|
+| `contextCoaching` | `true` or `false` | `true` |
+| `handoffWarnThreshold` | integer percent, valid `40`-`90` | `60` |
+
+- A missing key is not an error: reads silently resolve to `true` / `60`. An
+  out-of-range or malformed number resolves to `60`.
+- `contextCoaching: false` suppresses ONLY the at-or-above-threshold wind-down
+  warning and the handoff steer that rides with it, and forces `near_limit` to
+  false. It does NOT change phase computation, does NOT affect the 15% plan
+  latch (force-enable or coaching), and does NOT affect the 20% handoff-write
+  unlock.
+- Because the setting only gates warn/steer emission, a session with coaching
+  off still records the same `used_percentage`, `phase`, and window fields.
 
 ### 4. Window Resolution Ladder
 

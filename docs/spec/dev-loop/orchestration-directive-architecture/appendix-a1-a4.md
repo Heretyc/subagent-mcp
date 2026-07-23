@@ -17,9 +17,11 @@
 
 Upserted by `subagent-mcp init` at user request; re-running init keeps it in sync.
 
-SUB-AGENT EXEMPTION: if this session's prompt's literal FIRST LINE begins with "<this is a request from a parent process>", SKIP this entire block EXCEPT the SUB-AGENT WORKTREE CARVE-OUT below, which still applies (you are a sub-agent; this prevents fail-safe-ON recursion and fork-bombs). Leading blank lines do not count — the marker must be physically line 1.
+SUB-AGENT EXEMPTION: if this session's prompt's literal FIRST LINE begins with "<this is a request from a parent process>", SKIP this entire block EXCEPT the SUB-AGENT WORKTREE CARVE-OUT and the SUB-ORCHESTRATOR CARVE-OUT below, which still apply (you are a sub-agent; this prevents fail-safe-ON recursion and fork-bombs). Leading blank lines do not count — the marker must be physically line 1.
 
 SUB-AGENT WORKTREE CARVE-OUT: you are a delegated sub-agent (env SUBAGENT_MCP_SUBAGENT=1), already placed in your target working tree by the orchestrator. Do not create or switch git worktrees; skip the worktree-isolation gate; do all mutating work directly in the provided cwd.
+
+SUB-ORCHESTRATOR CARVE-OUT: if env SUBAGENT_MCP_SUB_ORCHESTRATOR=1, the sub-agent exemption does NOT lift orchestration for you: you are a delegate-only sub-orchestrator bound by your launch prompt directive and the per-turn hook tag; your own sub-agents run as normal sub-agents and never inherit the flag.
 
 CANONICAL SOURCE: the subagent-mcp MCP `instructions` string (read once at connect) and docs/spec/dev-loop/orchestration-directive-architecture.md. This block mirrors that operating model inline so the session stays governed even if the MCP `instructions` are momentarily stale; where the two disagree, the MCP `instructions` win because they are read fresh each connect.
 
@@ -38,9 +40,11 @@ ORCHESTRATOR WORKTREE SETUP: for mutating work, first place sub-agents in a comp
 
 READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 
-ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a 4-question planning stop. At 40% utilization handoff-write/handoff-read/handoff-clear unlock for a clean session handoff; at 50% the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.
+ORCHESTRATION OFF BY DEFAULT -- each new session starts with orchestration OFF. A hook meters real provider-reported context usage (never tokenized, never self-estimated). At 15% utilization a persisted latch force-enables orchestration and coaches a planning stop of at least 4 open questions, whose answers become this session's goal context. At 20% utilization handoff-write/handoff-read/handoff-clear unlock so that goal context can be recorded for a clean session handoff; at the wind-down warning threshold (user setting, default 60%) the hook warns every turn to wind down. If context size cannot be measured, the hook fails safe to ON. Never assert a state yourself -- only the hook tag is authoritative.
 
 MODEL SELECTION: defaults to smart/automatic whenever unset — the server auto-picks each sub-agent's model and launch_agent rejects provider/model/effort selectors; those selectors are honored only inside the existing user-approved override window (model-selection-mode "user-approved-overrides", set only with explicit user authorization via the structured-question tool).
+
+SWARM WORKFLOW: when a work objective is projected to span multiple sessions, offer the agentic-swarm workflow and drive it with the swarm MCP tool - swarm() starts it, each swarm(N) reports stage N done and returns the next stage's coaching, swarm(0) abandons. Stage state lives in the server, in memory only - never self-assert a stage. The launch_agent sub-orchestrator: true flag exists ONLY for the swarm dispatch stage; never set it elsewhere.
 
 DROPOUT WHILE ON: if subagent-mcp stops responding while orchestration is ON, halt and ask the user; do nothing inline. Keep re-checking and stay halted until subagent-mcp is restored (no auto-degrade). The only user choices are keep-waiting (the default) or explicitly abandon the whole task; aborting ends the task, it never switches you to inline work.
 
@@ -72,19 +76,21 @@ PRECEDENCE. Latest <subagent-mcp state="..."> hook tag and repo/system safety ru
 
 SOLE CHANNEL - BOTH STATES. Every sub-agent launch uses launch_agent; never harness Task/Agent/collaboration tools, shell agents, or wrappers. Native paths fragment permissions/instruction compliance and waste context/tokens.
 
-ON. delegate-ONLY orchestrator. Use only structured-question (AskUserQuestion/request-user-input), subagent-mcp, and /workflows. No inline task reads/writes. Applicable-skill exception: directly read its SKILL.md and explicitly required files only inside that skill folder; reads grant no task action. Ask only if skill instructions expand owner-authorized scope. All action stays delegated. A truly non-delegable atomic step needs one-time user exception.
+ON. delegate-ONLY orchestrator. Use only structured-question (AskUserQuestion/request-user-input), subagent-mcp, and /workflows. No inline task reads/writes. Skill exception: read a serving skill's SKILL.md + required files inside its folder only; reads grant no task action; expanded scope needs fresh user approval. A truly non-delegable atomic step needs one-time user exception.
 
 WORK. Use a compliant linked worktree; serialize overlapping writers. Track multi-step work. Finish via wait, never poll-loop.
 
 READ LADDER. poll_agent tail -> one <=100-line summarizer, trusted as-is -> USER reads. Large handoffs use scratch paths producer-to-consumer; orchestrator never reads them. Empty/stalled tail = alive.
 
-STATE. Keyed sessions start OFF; setup writes no state. At 15% provider-metered use latch ON + 4-question plan; 40% unlocks handoff tools; 50% warns. Keyless or undetectable metering => fail-safe ON.
+STATE. Keyed sessions start OFF; setup writes no state. At 15% metered use latch ON + >=4 planning Qs as goal context; 20% unlocks handoff tools; user warn point (default 60%) warns. Keyless/undetectable => fail-safe ON.
 
-CHILD. A literal first-line parent marker skips this regime except it uses the provided cwd and never creates/switches worktrees.
+CHILD. Literal first-line parent marker skips this regime; child works in provided cwd, never switches worktrees.
 
-DROPOUT ON: halt and ask until restored. DISABLE: explicit user only; keyed to this session with 2h backstop; beats latch/fail-safe. User may explicitly re-enable mid-session. Next session returns to default OFF.
+DROPOUT ON: halt and ask until restored. DISABLE: explicit user only; this session, 2h backstop; beats latch/fail-safe; user may re-enable mid-session. Next session defaults OFF.
 
-MODEL. Unset = smart auto-selection; provider/model/effort selectors rejected except in an explicit user-approved override window.
+MODEL. Unset = smart auto-selection; provider/model/effort rejected except in explicit user-approved override window.
+
+SWARM. Objective projected to span multiple sessions? OFFER + run swarm tool; calls return next-stage coaching.
 ```
 
 ## A4 ? HOOK-STATE / JOINTLY BINDING CLAUSE (identical across CLAUDE.md / AGENTS.md / GEMINI.md ? D7)

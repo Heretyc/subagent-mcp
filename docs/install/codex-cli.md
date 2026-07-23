@@ -130,13 +130,6 @@ server defined in the user config, project config can toggle it:
 enabled = true  # or false
 ```
 
-Granular alternative : keep the server enabled but hide specific tools:
-
-```toml
-[mcp_servers.subagent-mcp]
-disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "list_agents", "wait"]
-```
-
 ---
 
 ## Verification
@@ -146,7 +139,8 @@ disabled_tools = ["launch_agent", "poll_agent", "kill_agent", "send_message", "l
 2. **Directive assets resolve:** confirm `directives/orchestration-codex.md`,
    `short-on.md`, `short-off.md`, and `carryover-codex.md` exist at `directives/`.
 3. **Skills deployed:** confirm `$HOME/.agents/skills/smcp-handoff/SKILL.md`
-   exists, along with `smcp-doctor`, `smcp-help`, and `smcp-status`.
+   exists, along with `smcp-doctor`, `smcp-help`, `smcp-status`, and
+   `smcp-config`.
 4. **Server + tools:** `codex mcp list` (or `/mcp` in a session) shows
    `subagent-mcp` and its tools (`orchestration-mode`, `launch_agent`, etc.).
 5. **Trust the hook:** start `codex`, run `/hooks`, and **trust** the new

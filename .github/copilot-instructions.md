@@ -2,8 +2,12 @@
 
 subagent-mcp turns a host CLI into an orchestrator for local sub-agent
 sessions. It exposes MCP tools such as `launch_agent`, `poll_agent`, `wait`,
-`get_status`, `orchestration-mode`, and handoff tools. Provider credentials and
-user config live outside the repo.
+`get_status`, `orchestration-mode`, `swarm`, and handoff tools. Provider
+credentials and user config live outside the repo.
+
+The `sub-orchestrator: true` flag on `launch_agent` is for the swarm dispatch
+stage only (main orchestrator, depth 0); it launches a delegate-only child
+orchestrator for one disjoint plan section and is never set elsewhere.
 
 ## Fallback Rule
 
@@ -40,6 +44,8 @@ fallback use in Gemini CLI, Cursor, Windsurf, Kiro, Copilot, and similar agents.
 - `/smcp:status`: load `skills/smcp-status/SKILL.md` and call `get_status`.
 - `/smcp:doctor`: load `skills/smcp-doctor/SKILL.md`; run `subagent-mcp doctor`
   read-only first and ask before any repair.
+- `/smcp:config`: load `skills/smcp-config/SKILL.md` and call `configure` to
+  list, read, or update configuration by canonical key.
 - Config commands: `subagent-mcp config init`, `subagent-mcp config validate`,
   `subagent-mcp doctor`, `subagent-mcp upgrade`, `subagent-mcp rollback`.
 

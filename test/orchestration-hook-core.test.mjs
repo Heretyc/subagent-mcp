@@ -14,6 +14,8 @@
  *     SAME-SESSION (owner === current) -> reminder cadence; notice fires once.
  *   - session change resets the reminder counter (per-session cadence).
  *   - subagent adapter -> '' AND the counter does not advance.
+ *   - sub-orchestrator (BOTH env markers) -> stateless ON emission decided
+ *     before the subagent bail, writing no state at all.
  *   - missing directive file -> '' for that asset (fail-safe read).
  *
  * Directive contents are controlled via PLUGIN_ROOT pointing at a temp
@@ -24,6 +26,7 @@
  */
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdtempSync,
   mkdirSync,
   writeFileSync,
@@ -41,13 +44,16 @@ import {
   runHook,
   REMINDER_PERIOD,
   sessionKey,
+  SUB_ORCHESTRATOR_DIRECTIVE_FILE,
 } from "../dist/orchestration/hook-core.js";
 import {
   markerPath,
   isActive,
+  readCurrentSession,
   readMarker,
   removeEnable,
   removeDisable,
+  writeCurrentSession,
   writeEnable,
   writeDisable,
   writeMarker,
@@ -60,6 +66,7 @@ import {
   reminderPath,
 } from "../dist/orchestration/reminder.js";
 import { clearLatch } from "../dist/orchestration/latch.js";
+import * as meteringModule from "../dist/orchestration/metering.js";
 import { readMetering } from "../dist/orchestration/metering.js";
 import {
   clearHandoff,
@@ -106,6 +113,7 @@ const REM_ON_TEXT = "REMINDER-ON-BLOCK";
 const REM_OFF_TEXT = "REMINDER-OFF-BLOCK";
 const LATCH_TEXT = "LATCH-COACH-BODY";
 const HANDOFF_TEXT = "HANDOFF-WINDDOWN-BODY";
+const SUB_ORCH_TEXT = "SUB-ORCHESTRATOR-ON-BODY";
 
 // Build a temp directives dir and an env that points the resolver at it.
 function makeDirectivesEnv({
@@ -117,6 +125,7 @@ function makeDirectivesEnv({
   withReminderOff = true,
   withLatch = true,
   withHandoff = true,
+  withSubOrch = true,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "orch-root-"));
   const dir = join(root, "directives");
@@ -129,10 +138,57 @@ function makeDirectivesEnv({
   if (withReminderOff) writeFileSync(join(dir, "rem-off.md"), REM_OFF_TEXT, "utf8");
   if (withLatch) writeFileSync(join(dir, "latch-test.md"), LATCH_TEXT, "utf8");
   if (withHandoff) writeFileSync(join(dir, "handoff-test.md"), HANDOFF_TEXT, "utf8");
+  // The sub-orchestrator asset name is fixed in production (provider-neutral),
+  // so the fixture writes it under the real name rather than an adapter field.
+  if (withSubOrch) {
+    writeFileSync(join(dir, SUB_ORCHESTRATOR_DIRECTIVE_FILE), SUB_ORCH_TEXT, "utf8");
+  }
   // Mark the temp plugin root trusted by pointing the install-prefix allowlist
   // (npm_config_prefix) at it; the resolver's trust gate then accepts it.
   return { root, env: { PLUGIN_ROOT: root, npm_config_prefix: root } };
 }
+
+// ---------------------------------------------------------------------------
+// Coaching-setting seam.
+//
+// The locked design stores contextCoaching / handoffWarnThreshold in the USER
+// settings file under the config home (~/.subagent-mcp/settings.json). To keep
+// these tests hermetic they redirect the config home at a temp dir via
+// SUBAGENT_CONFIG_HOME, which the production resolver MUST honour (see
+// src/config-home.ts getConfigHome(), which today reads homedir() with no
+// override). Both process.env and the env object handed to runHook are set so
+// the seam works whichever channel the resolver reads.
+// ---------------------------------------------------------------------------
+const coachingHomes = [];
+let savedConfigHome;
+let savedConfigHomeSet = false;
+
+function withCoachingSettings(env, settings) {
+  const home = mkdtempSync(join(tmpdir(), "orch-coach-home-"));
+  coachingHomes.push(home);
+  writeFileSync(join(home, "settings.json"), JSON.stringify(settings), "utf8");
+  if (!savedConfigHomeSet) {
+    savedConfigHome = process.env.SUBAGENT_CONFIG_HOME;
+    savedConfigHomeSet = true;
+  }
+  process.env.SUBAGENT_CONFIG_HOME = home;
+  return { ...env, SUBAGENT_CONFIG_HOME: home };
+}
+
+function withCoachingOff(env) {
+  return withCoachingSettings(env, { contextCoaching: false });
+}
+
+function restoreCoaching() {
+  if (!savedConfigHomeSet) return;
+  if (savedConfigHome === undefined) delete process.env.SUBAGENT_CONFIG_HOME;
+  else process.env.SUBAGENT_CONFIG_HOME = savedConfigHome;
+  savedConfigHomeSet = false;
+}
+
+process.on("exit", () => {
+  for (const home of coachingHomes) rmSync(home, { recursive: true, force: true });
+});
 
 // Synthetic adapter with injectable subagent/turn behavior.
 function makeAdapter({ subagent = false, turn = 0, liftUsage = () => null } = {}) {
@@ -616,6 +672,121 @@ test("subagent adapter -> '' AND the reminder counter does not advance", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Sub-orchestrator (BOTH env markers) -> stateless per-turn ON emission.
+//
+// WHY (Rule 9): a child launched with `sub-orchestrator: true` is a subagent by
+// env, so without this branch the isSubagent bail would silently un-govern it.
+// It runs in the PARENT orchestrator's cwd, so the branch must decide before the
+// bail AND write nothing: one writeCurrentSession here would hand the cwd
+// session pointer (orchestration-mode / handoff-*) to the child.
+// ---------------------------------------------------------------------------
+const SUB_ORCH_ENV = {
+  SUBAGENT_MCP_SUBAGENT: "1",
+  SUBAGENT_MCP_SUB_ORCHESTRATOR: "1",
+};
+
+test("sub-orchestrator env pair -> ON emission tagged kind=sub-orchestrator", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  try {
+    const out = runHook(
+      { cwd, session_id: `sub-orch:${cwd}`, transcript_path: undefined },
+      { ...env, ...SUB_ORCH_ENV },
+      makeAdapter({ subagent: true, turn: 3 })
+    );
+    assertTagged(out, { state: "on", kind: "sub-orchestrator", body: SUB_ORCH_TEXT });
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("sub-orchestrator turns are STATELESS: pointer, marker, counter, metering untouched", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const parentSession = `parent-of-sub-orch:${cwd}`;
+  const session = `sub-orch-stateless:${cwd}`;
+  try {
+    // The parent orchestrator owns this cwd's session pointer.
+    writeCurrentSession(cwd, parentSession);
+    const payload = { cwd, session_id: session, transcript_path: "synthetic" };
+    const adapter = makeAdapter({ subagent: true, turn: 9, liftUsage: usageAtPct(80) });
+    const first = runHook(payload, { ...env, ...SUB_ORCH_ENV }, adapter);
+    const second = runHook(payload, { ...env, ...SUB_ORCH_ENV }, adapter);
+    assert.ok(first.includes(SUB_ORCH_TEXT), "precondition: the directive is injected");
+    assert.equal(second, first, "the emission is stateless: every turn is identical");
+    assert.equal(readCurrentSession(cwd), parentSession,
+      "a sub-orchestrator never steals the parent cwd's session pointer");
+    assert.equal(existsSync(markerPath(cwd)), false, "no marker is written");
+    assert.equal(existsSync(reminderPath(cwd)), false, "the reminder counter never advances");
+    assert.equal(readMetering(session) ?? null, null, "no metering record is persisted");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("sub-orchestrator emission is provider-agnostic and precedes the subagent bail", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const payload = { cwd, session_id: `sub-orch-both:${cwd}`, transcript_path: undefined };
+  const subEnv = { ...env, ...SUB_ORCH_ENV };
+  try {
+    // Both hook paths share this runHook; the adapters' own isSubagent (true for
+    // any child) must not be able to suppress the emission on either provider.
+    const claudeLike = { ...makeAdapter({ subagent: true }), anonScope: "claude" };
+    const codexLike = { ...makeAdapter({ subagent: true }), anonScope: "codex" };
+    const fromClaude = runHook(payload, subEnv, claudeLike);
+    const fromCodex = runHook(payload, subEnv, codexLike);
+    assertTagged(fromClaude, { state: "on", kind: "sub-orchestrator", body: SUB_ORCH_TEXT });
+    assert.equal(fromCodex, fromClaude, "both provider paths emit the same string");
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("plain subagent env (no sub-orchestrator marker) still bails to ''", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  try {
+    writeFreshMarker(cwd);
+    const out = runHook(
+      { cwd, session_id: `plain-child:${cwd}`, transcript_path: undefined },
+      { ...env, SUBAGENT_MCP_SUBAGENT: "1" },
+      makeAdapter({ subagent: true, turn: 0 })
+    );
+    assert.equal(out, "", "the second marker is required; a plain child stays exempt");
+    assert.equal(readMarker(cwd).baseline_turn, null, "no claim happens on a child turn");
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("missing sub-orchestrator asset -> '' (fail-safe: never a hollow tag)", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv({ withSubOrch: false });
+  try {
+    const out = runHook(
+      { cwd, session_id: `sub-orch-missing:${cwd}`, transcript_path: undefined },
+      { ...env, ...SUB_ORCH_ENV },
+      makeAdapter({ subagent: true, turn: 0 })
+    );
+    assert.equal(out, "", "an unresolvable directive injects nothing and never throws");
+    assert.equal(existsSync(markerPath(cwd)), false, "the fail-safe path writes no state either");
+  } finally {
+    cleanup(cwd, root);
+  }
+});
+
+test("the shipped repo directives dir carries the sub-orchestrator asset", () => {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  assert.equal(
+    existsSync(join(repoRoot, "directives", SUB_ORCHESTRATOR_DIRECTIVE_FILE)),
+    true,
+    "an installed layout must resolve the asset the hook reads"
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Missing directive file -> '' for that asset (fail-safe)
 // ---------------------------------------------------------------------------
 test("missing directive files -> '' (fail-safe read, never throws)", () => {
@@ -843,61 +1014,102 @@ test("plan latch persists but the one-time latch coaching body does not re-fire"
   }
 });
 
-test("40-49% handoff phase unlocks without wind-down warning body", () => {
+// ---------------------------------------------------------------------------
+// LOCKED (context-coaching) threshold semantics exercised below:
+//   - handoff phase / handoff-tool unlock at a hard-coded 20% (was 40%);
+//   - the wind-down warning fires at a USER-CONFIGURABLE threshold
+//     (default 60, valid 40-90) instead of the retired hard-coded 50%;
+//   - contextCoaching=false mutes ONLY the wind-down warn body — the 15% latch
+//     coaching and the 20% unlock are unaffected.
+// The warn threshold is read from the production surface so these tests stay
+// correct whichever in-band default the settings resolve to.
+// ---------------------------------------------------------------------------
+function warnThresholdPct() {
+  const resolver =
+    meteringModule.resolveWarnThresholdPct ??
+    meteringModule.warnThresholdPct ??
+    meteringModule.resolveHandoffWarnThreshold;
+  if (typeof resolver === "function") return resolver();
+  const constant =
+    meteringModule.HANDOFF_WARNING_THRESHOLD_PCT ??
+    meteringModule.DEFAULT_HANDOFF_WARN_THRESHOLD_PCT;
+  return typeof constant === "number" ? constant : 60;
+}
+
+// claude-sonnet-4-5 -> 200000-token window, so used_percentage === input / 2000.
+function usageAtPct(pct) {
+  return () => ({
+    harness: "claude",
+    model: "claude-sonnet-4-5",
+    source_ref: "synthetic-transcript",
+    usage: { input: pct * 2000, output: 0, cache_creation: 0, cache_read: 0 },
+    harnessPercentage: null,
+  });
+}
+
+test("20% up to threshold-1 unlocks the handoff phase without a wind-down warning", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   const session = `s-meter-handoff-unlocked:${cwd}`;
-  const adapter = makeAdapter({
-    turn: 2,
-    liftUsage: () => ({
-      harness: "claude",
-      model: "claude-sonnet-4-5",
-      source_ref: "synthetic-transcript",
-      usage: { input: 80000, output: 0, cache_creation: 0, cache_read: 0 },
-      harnessPercentage: null,
-    }),
-  });
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(20) });
   try {
     const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
     assertTagged(claim, {
       state: "on",
       kind: "directive",
       phase: "handoff",
-      utilization: "40%",
+      utilization: "20%",
       body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
-      remaining: 60,
+      remaining: 80,
     });
-    assert.ok(!claim.includes(HANDOFF_TEXT), "40% claim turn must not include wind-down body");
+    assert.ok(!claim.includes(HANDOFF_TEXT), "20% claim turn must not include wind-down body");
     const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
     assertTagged(short, {
       state: "on",
       kind: "carrier",
       phase: "handoff",
-      utilization: "40%",
+      utilization: "20%",
       body: SHORT_ON_TEXT,
-      remaining: 60,
+      remaining: 80,
     });
-    assert.ok(!short.includes(HANDOFF_TEXT), "40-49% carrier turns must not include wind-down body");
+    assert.ok(!short.includes(HANDOFF_TEXT), "sub-threshold carrier turns must not include wind-down body");
   } finally {
     clearLatch(session);
     cleanup(cwd, root);
   }
 });
 
-test("50% warning threshold appends handoff body on both short and long cadence turns", () => {
+test("threshold-1 is still quiet: the retired 50% point no longer warns by default", () => {
+  const warn = warnThresholdPct();
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-handoff-below-warn:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn - 1) });
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assert.ok(!claim.includes(HANDOFF_TEXT),
+      `threshold-1 (${warn - 1}%) must not include the wind-down body`);
+    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assertTagged(short, {
+      state: "on",
+      kind: "carrier",
+      phase: "handoff",
+      utilization: `${warn - 1}%`,
+      body: SHORT_ON_TEXT,
+      remaining: 100 - (warn - 1),
+    });
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+test("warn threshold appends handoff body on both short and long cadence turns", () => {
+  const warn = warnThresholdPct();
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   const session = `s-meter-handoff:${cwd}`;
-  const adapter = makeAdapter({
-    turn: 2,
-    liftUsage: () => ({
-      harness: "claude",
-      model: "claude-sonnet-4-5",
-      source_ref: "synthetic-transcript",
-      usage: { input: 100000, output: 0, cache_creation: 0, cache_read: 0 },
-      harnessPercentage: null,
-    }),
-  });
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn) });
   try {
     const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
     assert.ok(claim.includes(HANDOFF_TEXT), "handoff claim turn includes wind-down body");
@@ -906,9 +1118,9 @@ test("50% warning threshold appends handoff body on both short and long cadence 
       state: "on",
       kind: "carrier",
       phase: "handoff",
-      utilization: "50%",
+      utilization: `${warn}%`,
       body: `${SHORT_ON_TEXT}\n${HANDOFF_TEXT}`,
-      remaining: 50,
+      remaining: 100 - warn,
     });
     for (let i = 0; i < 3; i++) {
       runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
@@ -918,13 +1130,114 @@ test("50% warning threshold appends handoff body on both short and long cadence 
       state: "on",
       kind: "reminder",
       phase: "handoff",
-      utilization: "50%",
+      utilization: `${warn}%`,
       body: `${REM_ON_TEXT}\n${HANDOFF_TEXT}`,
-      remaining: 50,
+      remaining: 100 - warn,
     });
   } finally {
     clearLatch(session);
     cleanup(cwd, root);
+  }
+});
+
+test("threshold+1 keeps warning", () => {
+  const warn = warnThresholdPct();
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-meter-handoff-above-warn:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn + 1) });
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+    assert.ok(claim.includes(HANDOFF_TEXT),
+      `threshold+1 (${warn + 1}%) must include the wind-down body`);
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// contextCoaching = false: mutes ONLY the wind-down warn/steering path.
+// It must NOT gate the 15% latch coaching body (hook-core.ts:806-813) and must
+// NOT gate the 20% handoff unlock / handoff phase.
+// ---------------------------------------------------------------------------
+test("coaching OFF suppresses the wind-down warn body at and above the threshold", () => {
+  const warn = warnThresholdPct();
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-coach-off-warn:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn) });
+  const offEnv = withCoachingOff(env);
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
+    assert.ok(!claim.includes(HANDOFF_TEXT),
+      "coaching OFF must suppress the wind-down body on the claim turn");
+    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
+    assert.ok(!short.includes(HANDOFF_TEXT),
+      "coaching OFF must suppress the wind-down body on carrier turns");
+    // The phase itself is NOT muted - only the warning prose is.
+    assertTagged(short, {
+      state: "on",
+      kind: "carrier",
+      phase: "handoff",
+      utilization: `${warn}%`,
+      body: SHORT_ON_TEXT,
+      remaining: 100 - warn,
+    });
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+    restoreCoaching();
+  }
+});
+
+test("coaching OFF still fires the 15% latch coaching and still force-enables orchestration", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-coach-off-latch:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(15) });
+  const offEnv = withCoachingOff(env);
+  try {
+    const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
+    assertTagged(out, {
+      state: "on",
+      kind: "directive",
+      phase: "plan",
+      utilization: "15%",
+      body: LATCH_TEXT,
+      remaining: 85,
+    });
+    assert.ok(isActive(cwd), "the 15% latch must force-enable orchestration even with coaching OFF");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+    restoreCoaching();
+  }
+});
+
+test("coaching OFF still reports the handoff phase at the 20% unlock", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-coach-off-unlock:${cwd}`;
+  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(20) });
+  const offEnv = withCoachingOff(env);
+  try {
+    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
+    assertTagged(claim, {
+      state: "on",
+      kind: "directive",
+      phase: "handoff",
+      utilization: "20%",
+      body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
+      remaining: 80,
+    });
+    const record = readMetering(session);
+    assert.equal(record.used_percentage, 20,
+      "metering still records utilization with coaching OFF");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+    restoreCoaching();
   }
 });
 

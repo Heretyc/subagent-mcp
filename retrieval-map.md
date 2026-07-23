@@ -20,6 +20,7 @@ everything else.
 | Tool reference (params/returns) | `docs/tools.md` |
 | Usage, model/effort matrix, ultracode | `docs/usage.md` |
 | Configuration keys and precedence | `README/configuration.md`, `docs/spec/permissions.md`, `docs/spec/global-concurrency/cap-contract/config-and-build.md` |
+| Config tool / read-update config via MCP | `docs/tools.md` (`configure` section), `skills/smcp-config/SKILL.md` |
 | Install / registration (all platforms) | `docs/registration.md`, `docs/install/_INDEX.md` |
 | Claude Code / Codex / Gemini / Desktop install | `docs/install/claude-code-cli.md`, `docs/install/codex-cli.md`, `docs/install/gemini-cli.md`, `docs/install/claude-desktop.md`, `docs/install/codex-desktop.md` |
 | Agent status lifecycle | `docs/reference/status-lifecycle.md` |
@@ -46,9 +47,13 @@ everything else.
 | Contributing / dev env | `CONTRIBUTING.md`, `docs/CONTRIBUTING.md` (redirect stub) |
 | Release notes | `docs/release-notes.md` |
 | Directive source assets | `directives/{orchestration-claude,orchestration-codex,carryover-claude,carryover-codex,reminder-on,reminder-off-claude,reminder-off-codex,short-on,short-off}.md` |
+| Agentic swarm workflow | `docs/spec/swarm/_INDEX.md`, `docs/tools.md` |
+| Performance pin / swarm routing | `docs/spec/swarm/_INDEX.md`, `docs/spec/auto-mode/routing-table-contract.md` |
+| Sub-orchestrators | `docs/spec/swarm/_INDEX.md`, `docs/tools.md` |
 | MCP builder skill | `skills/mcp-builder/SKILL.md` (+ `references/`) |
 | Model profiler skill | `skills/model-profiler/SKILL.md` (+ `references/`) |
 | Installer skill | `skills/subagent-mcp-installer/SKILL.md` (+ `references/`) |
+| Config skill (`/smcp:config`) | `skills/smcp-config/SKILL.md` |
 | Nested RAG map (skill) | `skills/mcp-builder/references/retrieval-map.md`, `.spec/references/retrieval-map.md` |
 
 ## 2. Alias / synonym index
@@ -63,6 +68,9 @@ everything else.
 | "category", "task type", "work category", "taxonomy" | task taxonomy | `docs/spec/task-taxonomy/_INDEX.md`, `.spec/references/work-categories.md` |
 | "stuck", "quiet", "not responding", "hung" | stalled lifecycle | `docs/reference/status-lifecycle.md` |
 | "hook", "injection", "reminder", "directive", "managed block" | orchestration directives | `docs/spec/dev-loop/orchestration-directive-architecture.md`, `directives/` |
+| "swarm", "agentic swarm", "staged workflow", "multi-session workflow" | swarm workflow | `docs/spec/swarm/_INDEX.md`, `docs/tools.md` |
+| "hive", "multi-session", "cross-session" | swarm workflow | `docs/spec/swarm/_INDEX.md` |
+| "sub-orchestrator", "delegate orchestrator", "dispatch flag", "sub-orchestrator: true" | sub-orchestrator | `docs/spec/swarm/_INDEX.md`, `docs/tools.md` |
 | "install", "setup", "register", "wire" | registration | `docs/registration.md`, `docs/install/_INDEX.md` |
 | "publish", "release", "npm", "ship" | release | `docs/spec/dev-loop/release-publishing.md` |
 | "worktree", "branch-per-task", "isolation" | worktree enforcement | `docs/spec/dev-loop/worktree-enforcement/_INDEX.md` |
@@ -181,6 +189,7 @@ everything else.
 - `skills/mcp-builder/SKILL.md` : building an MCP server.
 - `skills/model-profiler/SKILL.md` : re-profiling the fleet / routing-table regen.
 - `skills/subagent-mcp-installer/SKILL.md` : installing the addon globally.
+- `skills/smcp-config/SKILL.md` : listing, reading, or updating config via the `configure` tool.
 
 ## 11. When to stop and ask for more context
 

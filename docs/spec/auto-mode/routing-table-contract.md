@@ -65,19 +65,61 @@ No cross-branch fallback: if the selected branch's `<task_category>` is
 empty/missing → `ERR_NO_CANDIDATES`; the resolver does NOT retry the other branch
 in EITHER direction.
 
+### Swarm pin (in-memory, per-process)
+
+A timestamp-based window inside the swarm session object (created by `createSwarmSession()` from
+`src/swarm.ts`). Scoped to the server PROCESS, shared across all concurrent callers (same
+shared-scope caveat as the deadlock window). Not persisted; a restart resets it.
+
+- **ARM:** `swarm(null)` (idle start) sets `pinExpiresAt = now + SWARM_PIN_WINDOW_MS` (1h).
+- **RESTART (replace expiry):** accepted `swarm(1)`, `swarm(2)`, `swarm(3)` each REPLACE the
+  expiry with `now + SWARM_PIN_WINDOW_MS`. A REPEATED call to an already-reported stage NEVER
+  restarts the window; only an ACCEPTED FORWARD ADVANCE does. Out-of-order, already-active, idle,
+  and invalid calls never touch the pin.
+- **AUTO-OFF trigger 1 (handoff-next):** accepted `swarm(4)` sets `pinExpiresAt = null`
+  immediately (stage 5 = handoff is now next). Force-cleared regardless of remaining time.
+- **AUTO-OFF trigger 2 (1h lazy):** `pinActive(now)` is false once `now >= pinExpiresAt`. Strict
+  boundary: active strictly BEFORE expiry. No background timers; same lazy pattern as
+  `src/orchestration/model-mode.ts`.
+- **Pure-auto-only:** `resolveBranch(pureAuto, deadlockActive, pinActive)` in `src/swarm.ts`
+  puts the pin inside the `pureAuto` guard. `provider`/`provider_model` launches ALWAYS read
+  `cost_efficiency` regardless of pin state. Swarm coaching mandates pure-auto (no
+  provider/model/effort), so all swarm-session launches route `performance` while pinned.
+- **slotInsert exclusion:** `slotInsert` is keyed on `branch === "cost_efficiency" &&
+  !subOrchestrator`, so pinned auto launches AND sub-orchestrator launches both lose API slots.
+- **consume() interplay:** `deadlockWindow.consume()` at line 1626-1628 fires when
+  `branch === "performance"`. It is a no-op when the deadlock counter is 0, and sub-orchestrator
+  launches that reach `performance` via the swarm pin are not deadlock-triggered and never
+  consumed by the deadlock counter.
+- **Sub-orchestrator launches:** sub-orchestrator=true launches exclude `slotInsert` (the
+  `!subOrchestrator` gate). They still read the branch selected by `resolveBranch`. Full contract:
+  `docs/spec/swarm/_INDEX.md`.
+
+Shared-process caveat (stated honestly): the pin is per-PROCESS, not per-task or per-caller. A
+window armed by a swarm in one task is consumed by ANY concurrent pure-auto launch in the same
+process. Under concurrency, performance launches are not guaranteed to be the swarm's own.
+
+Anti-gaming note (condensed; full rationale in `docs/spec/swarm/_INDEX.md`): the pin is bounded
+to 1 hour, armed only by a genuine swarm start, restarted ONLY by an accepted forward advance
+into a pre-handoff stage, and force-cleared the moment handoff becomes the next stage. A repeated
+call to an already-reported stage does NOT restart the window. There is no standalone lever,
+flag, or parameter that selects the performance band; no swarm response or tool description ever
+names it. Pinning exists only inside swarm pre-handoff stages and dies with them.
+
 ### Tool-surface opacity (INVARIANT)
 
-Tool descriptions and error texts NEVER name tiers, branches, counters, or
-windows. The only agent-visible deadlock metadata strings are the verbatim
-`DEADLOCK RULE:` tool-description line and the `deadlock` param MANDATE gloss
-(`tool-description.md`). One additional agent-visible runtime error string
-exists for `deadlock=true` combined with provider/model/effort; it is error text,
-not metadata, and must use attempts+task-identity/drop-overrides vocabulary.
-Sanctioned diagnostic exposures (payload fields, never description/error text)
-are exactly: `routing_tier` (poll), `ruleset_applied`,
-`ruleset_original_selection`, `failover_occurred`, `failover_from`, and
-`failover_note`
-(`../advanced-ruleset/visibility-and-failover.md`).
+Tool descriptions and error texts NEVER name tiers, branches, counters, or windows. The only
+agent-visible deadlock metadata strings are the verbatim `DEADLOCK RULE:` tool-description line
+and the `deadlock` param MANDATE gloss (`tool-description.md`). The swarm tool description and
+coaching text NEVER name the performance band, routing tier, pin, or window. One additional
+agent-visible runtime error string exists for `deadlock=true` combined with provider/model/effort;
+it is error text, not metadata, and must use attempts+task-identity/drop-overrides vocabulary.
+Sanctioned diagnostic exposures (payload fields, never description/error text) are exactly:
+`routing_tier` (poll), `ruleset_applied`, `ruleset_original_selection`, `failover_occurred`,
+`failover_from`, `failover_note` (`../advanced-ruleset/visibility-and-failover.md`), and
+`get_status.swarm.*` (the five swarm snapshot fields: `active`, `current_stage`, `stage_name`,
+`pin_active`, `pin_expires_at`). The `get_status.swarm` fields expose the pin state for
+observability (smoke tests, ops) without naming the branch or window in any tool description.
 
 ## Pairing object schema (authoritative source)
 
@@ -115,29 +157,32 @@ candidate; `buildCommand` + `resolveEffort` remain the final authority.
 From the selected branch's `<task_category>` array (per section Branch selection), sorted by `rank` asc:
 
 - `auto`: all pairings.
-- `provider`: pairings whose mapped provider == the supplied provider.
+- `provider`: pairings whose mapped provider == the supplied provider, followed
+  by de-duplicated valid auto candidates for the category.
 - `provider_model`: pairings whose `model` == the supplied model (mapped
   provider must also equal supplied provider; mismatch is impossible if the
-  existing provider↔model check passed, but filter on model).
-- `explicit`: build the user's `{provider, model, effort}` candidate first,
-  even if it is absent from the table. If the table is available, append
-  de-duplicated valid auto candidates for the same task category.
+  existing provider↔model check passed, but filter on model), truncated to the
+  rank-1 match. This one candidate is pinned; no auto candidates are appended.
+- `explicit`: build the user's `{provider, model, effort}` candidate. No
+  de-duplicated auto candidates are appended; the fully-pinned triple is the
+  sole candidate. Failure returns a loud error with no substitute.
 
 Before the advanced ruleset runs, `slotInsert` augments only pure-auto
 `cost_efficiency` routing with eligible `providers.jsonc` API slots. Pure-auto
 `performance` and all manual/override modes exclude slot candidates. The
 ruleset retains final authority over the actual candidate list.
 
-After filtering and appending valid auto candidates, if the list is empty in
-auto/provider/provider_model mode -> `ERR_NO_CANDIDATES` with the matching
-`<scope>` (`resolution-matrix.md`).
+If the list is empty in auto/provider/provider_model mode ->
+`ERR_NO_CANDIDATES` with the matching `<scope>` (`resolution-matrix.md`).
 
 ## Attempt loop with SILENT fallback
 
-This fallback loop applies to auto and override selector modes. Override
-requests try their requested candidates first, then valid de-duplicated auto
-candidates for the same task category. The same `{provider,model,effort}` triple
-is never retried in one `launch_agent` call.
+Pure auto advances silently through the FULL ranked list on any launch-time
+failure. Provider-only mode likewise advances through its requested-provider
+candidates, then de-duplicated auto fallbacks. Provider+model is pinned to one
+rank-1 matching candidate; adding effort pins the exact requested triple.
+Pinned failures return a loud error with no substitute. The same
+`{provider,model,effort}` triple is never retried in one `launch_agent` call.
 
 For each candidate in order (best→worst):
 
@@ -159,15 +204,18 @@ For each candidate in order (best→worst):
    `"transient_provider"`, retry that same candidate exactly once before
    advancing. No permanent API failure, CLI candidate failure, or failed retry
    gets another same-candidate attempt. If still failed, record
-   `{model,effort,provider,reason,failure_type}` and SILENTLY advance to the
-   next candidate. Do not surface intermediate failures to the caller.
+   `{model,effort,provider,reason,failure_type}`. Cascading modes SILENTLY
+   advance; pinned modes exhaust and return `ERR_ALL_FAILED`.
    - `failure_type` is `classifyFailureReason(reason, stderr)` →
-     `"transient_provider"` (usage caps, quota 429, HTTP-status 5xx, network
-     timeouts, connection resets : ETIMEDOUT/ECONNRESET) or `"permanent"`
-     (everything else: ENOENT, EACCES, bad option, missing config, and bare
-     three-digit numbers without HTTP-status context). Except for the single
-     transient API retry above, it is a label only; auto mode advances to the
-     next candidate either way (same-call failover).
+     `"transient_provider"` (provider-side limits and availability errors:
+     session limit, usage cap/limit, spend/spending limit, credits exhausted,
+     billing block, quota, rate limit, 429/too-many-requests, overload,
+     HTTP-status 5xx, network timeouts, connection resets :
+     ETIMEDOUT/ECONNRESET/ECONNREFUSED) or `"permanent"` (everything else:
+     ENOENT, EACCES, bad option, missing config, and bare three-digit numbers
+     without HTTP-status context). Except for the single
+     transient API retry above, it is a label only; cascading modes advance to
+     the next candidate either way (same-call failover).
 4. On the FIRST successful driver start: register the agent with `AgentState`,
    stdout/stderr handlers, close handler, and `agents.set`, then return the
    success payload (`param-contract.md`). If any candidate was skipped before
@@ -189,7 +237,9 @@ via `poll_agent`/`wait` and is NEVER a fallback trigger.
 
 If ALL candidates fail → `ERR_ALL_FAILED` listing each
 `<model>@<effort> (<provider>) [<failure_type>]: <reason>` (`resolution-matrix.md`);
-each numbered line now carries the `[transient_provider]`/`[permanent]` label.
+each numbered line carries the `[transient_provider]`/`[permanent]` label.
+For provider+model modes the list has exactly one pinned entry; provider-only
+may list its requested-provider and de-duplicated auto candidates.
 
 ## Empty / missing table behavior (summary)
 | Condition | auto/provider/provider_model | explicit |

@@ -30,14 +30,24 @@ function templateFields(): SchemaField[] {
   }));
 }
 
-function readDotEnv(file: string): Map<string, string> {
+/** `KEY=value` grammar; last wins. Unreadable behaves as absent, never leaks bytes. */
+export function readDotEnv(file: string): Map<string, string> {
   const env = new Map<string, string>();
   if (!existsSync(file)) return env;
-  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
-    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
-    if (m) env.set(m[1], m[2].replace(/^["']|["']$/g, ""));
+  try {
+    for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
+      const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
+      if (m) env.set(m[1], m[2].replace(/^["']|["']$/g, ""));
+    }
+  } catch {
+    // Unreadable .env behaves as absent; never surface file contents.
   }
   return env;
+}
+
+/** Own-property read: an INHERITED value must never satisfy validation. */
+function own(obj: JsonObj, name: string): unknown {
+  return Object.prototype.hasOwnProperty.call(obj, name) ? obj[name] : undefined;
 }
 
 function providerEntries(config: JsonObj): Array<[string, JsonObj]> {
@@ -56,7 +66,8 @@ export function validateRoutingMap(name: string, routing: unknown): { errors: st
   const keys = Object.keys(map);
   for (const category of ROUTING_CATEGORIES) {
     if (!keys.includes(category)) errors.push(`routing provider ${name}: missing category ${category}`);
-    else if (!Number.isInteger(map[category])) errors.push(`routing provider ${name}: category ${category} slot must be integer`);
+    // SAFE integer: 2^53 and beyond round on the way to disk and stop comparing.
+    else if (!Number.isSafeInteger(map[category])) errors.push(`routing provider ${name}: category ${category} slot must be integer`);
     else if ((map[category] as number) >= 1) routed.push(category);
   }
   for (const key of keys) {
@@ -77,30 +88,32 @@ export function validateConfigFile(file: string): { ok: boolean; lines: string[]
 
   const env = readDotEnv(join(dirname(file), ".env"));
   for (const [name, provider] of providers) {
-    if (provider.api_style !== undefined) {
+    const apiStyle = own(provider, "api_style");
+    if (apiStyle !== undefined) {
       for (const field of [
         { name: "api_style", type: "string" },
         { name: "base_url", type: "string" },
         { name: "model", type: "string" },
         { name: "key_env", type: "string" },
       ] as const) {
-        const value = provider[field.name];
+        const value = own(provider, field.name);
         if (typeof value !== "string" || value.length === 0) errors.push(`schema provider ${name}: ${field.name} must be string`);
       }
-      if (provider.api_style !== "claude" && provider.api_style !== "openai") errors.push(`schema provider ${name}: api_style must be claude or openai`);
+      if (apiStyle !== "claude" && apiStyle !== "openai") errors.push(`schema provider ${name}: api_style must be claude or openai`);
     } else {
       for (const field of fields) {
-        const value = provider[field.name];
+        const value = own(provider, field.name);
         const ok = field.type === "array" ? Array.isArray(value) : field.type === "object" ? !!value && typeof value === "object" && !Array.isArray(value) : typeof value === "string" && value.length > 0;
         if (!ok) errors.push(`schema provider ${name}: ${field.name} must be ${field.type}`);
       }
     }
-    if (typeof provider.key_env === "string") {
-      const value = env.get(provider.key_env);
-      if (!value || value === "YOUR_KEY_HERE") errors.push(`env provider ${name}: missing key_env ${provider.key_env}`);
+    const keyEnv = own(provider, "key_env");
+    if (typeof keyEnv === "string") {
+      const value = env.get(keyEnv);
+      if (!value || value === "YOUR_KEY_HERE") errors.push(`env provider ${name}: missing key_env ${keyEnv}`);
     }
 
-    const routingResult = validateRoutingMap(name, provider.routing);
+    const routingResult = validateRoutingMap(name, own(provider, "routing"));
     for (const error of routingResult.errors) errors.push(error);
     for (const category of routingResult.routed) routed.add(category);
   }

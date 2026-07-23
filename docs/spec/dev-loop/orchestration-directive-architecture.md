@@ -14,8 +14,11 @@
 three surfaces (MCP `instructions`, upserted `INIT_BLOCK`, per-turn hook
 directives). ON = delegate-only orchestrator (launch_agent sole channel, no
 inline reads/writes). OFF = solo + provider-metered context tracking
-(context-metering.md); ENFORCED-ON at the 15%/40%/50% thresholds (see
-R-LATCH-15/R-HANDOFF-40/R-HANDOFF-WARN-50). State is
+(context-metering.md); ENFORCED-ON at the 15% latch, with the handoff tools
+unlocking at 20% and the wind-down warning firing at the user-configured
+threshold (default 60%, valid 40-90) unless `contextCoaching` is off (see
+R-LATCH-15/R-HANDOFF-40/R-HANDOFF-WARN-50; the two R-IDs keep their historical
+numbers). State is
 reported SOLELY by the hook `<subagent-mcp state="...">` tag; hookless hosts →
 UNKNOWN → fail-safe ON. Sub-agent first-line marker skips the whole regime.
 
@@ -24,10 +27,11 @@ mode governs *who* decides to delegate work to sub-agents; `permissionsCeiling`
 (`docs/spec/permissions.md`) governs *what* a launched sub-agent may do without
 escalation. The `permission_requested` status and the `respond_permission` tool
 belong to the permission system, not this regime. (Note: the Claude PreToolUse
-gate `src/orchestration/pretool.ts` denies harness-native `Task`/`Agent`/`Explore`
-calls for orchestrators **and** sub-agents alike : the SOLE-CHANNEL fork-bomb
-guard, see `sections-05-09.md` section 6.3; it does **not** make a launched child's
-permission decisions : those run through the shared engine in `src/drivers.ts`.)
+gate `src/orchestration/pretool.ts` denies the harness-native `Agent` launcher
+for orchestrators **and** sub-agents alike : the SOLE-CHANNEL fork-bomb
+guard, see `sections-05-09.md` section 6.3; Task widget tools and Explore are
+not denied by the hook; it does **not** make a launched child's permission
+decisions : those run through the shared engine in `src/drivers.ts`.)
 
 ## Leaf directory (load when / do not load when)
 
@@ -42,12 +46,24 @@ permission decisions : those run through the shared engine in `src/drivers.ts`.)
 | `.../appendix-a6-a7.md` | A6 marker spec/MIGRATE_RE/collapse algorithm, A7 `ensureParentMarker` + 7 test cases | implementing init migration or the parent-marker upsert | you need the ON/OFF prose model |
 | `.../statusline-signal.md` | Claude statusLine shim, `sl-*` records, harness percentage/window lift, setup wrapping, sweep | documenting or debugging Claude statusline context metering | you need ON/OFF prose semantics |
 
+## Swarm and sub-orchestrator retrieval
+
+| Topic | Leaf |
+|-------|------|
+| Agentic swarm workflow (7-stage machine, pin design, anti-gaming rationale) | `docs/spec/swarm/_INDEX.md` |
+| Performance pin / swarm routing (arm/restart/auto-off, call-site, branch selection) | `docs/spec/swarm/_INDEX.md`, `docs/spec/auto-mode/routing-table-contract.md` |
+| Sub-orchestrators (directive, env marker, depth gate, anti-inheritance, hook emission) | `docs/spec/swarm/_INDEX.md`, `orchestration-directive-architecture/appendix-a5-directives.md` |
+
+These entries are MAP ONLY. All normative content for swarm and sub-orchestrator lives in
+`docs/spec/swarm/_INDEX.md` and `docs/spec/auto-mode/` leaves, NOT in this retrieval map.
+
 ## Topic → leaf index
 
 - single tag `<subagent-mcp state kind>`, no dead values → `sections-00-04.md` (section 1)
 - joint binding, escalate-to-user, tag > user request → `sections-00-04.md` (section 2); verbatim clause → `appendix-a1-a4.md` (A4)
 - ON allowed-tools, sole channel, read-ladder → `sections-00-04.md` (section 3); ladder verbatim → `appendix-a1-a4.md` (A2)
 - OFF metering fail-safe + phase thresholds → `sections-00-04.md` (section 4), `context-metering.md`, `statusline-signal.md`, `handoff.md`
+- `contextCoaching` / `handoffWarnThreshold` user settings (what they mute, what they never mute) → `context-metering.md` (section 3.1), `handoff.md`; install-time prompts → `docs/spec/dev-loop/init-registry-and-update.md`
 - fail-safe ON / UNKNOWN / one-time opt-out → `sections-05-09.md` (section 5)
 - first-line `<this is a request from a parent process>` skip + upsert → `sections-05-09.md` (section 6), `appendix-a6-a7.md` (A7)
 - schema=3 markers, MIGRATE_RE, duplicate collapse → `sections-05-09.md` (section 8), `appendix-a6-a7.md` (A6)
@@ -64,7 +80,9 @@ permission decisions : those run through the shared engine in `src/drivers.ts`.)
 "orchestration ON/OFF", "delegate-only", "launch_agent", "read-escalation
 ladder", "jointly binding / supremacy clause", "fail-safe ON", "no-hook / UNKNOWN
 state", "first-line exemption / fork-bomb", "INIT_BLOCK", "MIGRATE_RE / schema=3
-markers", "ensureParentMarker", "R-ID derivation", "5-call rule".
+markers", "ensureParentMarker", "R-ID derivation", "5-call rule",
+"swarm", "agentic swarm", "sub-orchestrator", "performance pin", "swarm dispatch",
+"multi-session workflow".
 
 > **CRITICAL : do NOT answer orchestration questions from this map.** It is an
 > index. Open the named leaf and read the normative text before acting or

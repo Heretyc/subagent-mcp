@@ -40,9 +40,9 @@ cannot be measured.
 ## section 6 : Sub-Agent First-Line Exemption + `launch_agent` Upsert (D19 / D20 / S8)
 
 The first-line exemption and `SUBAGENT_MCP_SUBAGENT=1` spawn-env carve-out are
-unchanged by the context-metered redesign. Metering, the 15% latch, the 40%
-handoff unlock, and the 50%
-handoff phase do not alter these carve-outs.
+unchanged by the context-metered redesign. Metering, the 15% latch, the 20%
+handoff unlock, and the configurable wind-down warning threshold (default 60%)
+do not alter these carve-outs.
 
 ### 6.1 The exemption (D19)
 
@@ -69,13 +69,38 @@ is wired into all launch paths. The D20 unit test is gating.
 
 Two code-enforced guards backstop the prose exemption:
 
-1. Claude PreToolUse denies harness-native `Task`/`Agent`/`Explore` even when
-   the caller is a sub-agent (`SUBAGENT_MCP_SUBAGENT=1`). The sole-channel rule
-   is enforced on sub-agents, not just the root orchestrator.
+1. Claude PreToolUse denies the harness-native `Agent` launcher even when
+   the caller is a sub-agent (`SUBAGENT_MCP_SUBAGENT=1`). Task widget tools
+   and Explore are not denied by the hook. The sole-channel rule is enforced
+   on sub-agents, not just the root orchestrator.
 2. Each launch stamps `SUBAGENT_MCP_DEPTH = parent depth + 1`. Main
    orchestrator depth is 0, sub-orchestrators depth is 1, and workers depth is
    2. `launch_agent` is code-rejected at depth >= 2. A legacy sub-agent with
    `SUBAGENT_MCP_SUBAGENT=1` but no depth is treated as depth 1.
+
+### 6.4 Sub-orchestrator exemption-override (sole sanctioned case)
+
+The sub-orchestrator env pair (`SUBAGENT_MCP_SUBAGENT=1` AND `SUBAGENT_MCP_SUB_ORCHESTRATOR=1`)
+is the SOLE case where the first-line exemption's skip of the orchestration regime is OVERRIDDEN.
+A sub-orchestrator session has the first-line parent-process marker (it IS a sub-agent) but MUST
+NOT skip orchestration because it is a delegate-only orchestrator for its section.
+
+Override mechanism: `runHook` in `src/orchestration/hook-core.ts` checks the env pair BEFORE the
+`isSubagent` bail at line 756. When both are set it emits the orchestration tag stateless
+per-turn (kind="sub-orchestrator") and returns WITHOUT falling through to the bail.
+
+Anti-fork-bomb analysis with env strip:
+- The `sub-orchestrator: true` flag is available only at depth 0 (`ERR_SUBORCH_DEPTH` at depth >= 1).
+- `buildChildEnv` unconditionally DELETES `SUBAGENT_MCP_SUB_ORCHESTRATOR` from every child env
+  UNLESS this specific launch explicitly sets it. A sub-orchestrator's OWN workers get
+  `SUBAGENT_MCP_SUBAGENT=1, SUBAGENT_MCP_DEPTH=2` with NO sub-orchestrator marker.
+- Workers at depth 2 cannot spawn (the depth cap rejects `launch_agent` at >= 2).
+- The directive in the sub-orchestrator's prompt also states "NEVER set sub-orchestrator: true",
+  but this is a belt-and-suspenders prose guard; the code-enforced strip + depth cap make
+  env-based orchestrator propagation impossible even if the prompt is disobeyed.
+
+The sub-orchestrator remains a sub-agent for depth accounting, worktree carve-out, and pretool
+handling. Only the hook-skip consequence of the first-line exemption is overridden.
 
 ### 6.4 Hook-side child detection ladder
 
@@ -157,7 +182,7 @@ The context-metered redesign adds two session-keyed state files under
 | Record | File | Shape | Semantics |
 |---|---|---|---|
 | Enable | `orch-enable-<hashKey(sessionKey)>.json` | `{ enabled_at: number }` | explicit opt-in that raises a default-OFF hook-covered session to ON; same 2h TTL and lazy-GC pattern as disable; disable still wins |
-| Latch | `latch-<hashKey(sessionKey)>.json` | `{ latched: true, latched_at: number, session_id: string }` | written once at the first 15% plan-phase crossing; does not expire by time while the record exists; persists through the 40% handoff phase and 50% warning threshold for that session |
+| Latch | `latch-<hashKey(sessionKey)>.json` | `{ latched: true, latched_at: number, session_id: string }` | written once at the first 15% plan-phase crossing; does not expire by time while the record exists; persists through the 20% handoff phase and the wind-down warning threshold for that session, and is unaffected by `contextCoaching` |
 
 A brand-new session with a new `sessionKey` starts latch-free.
 

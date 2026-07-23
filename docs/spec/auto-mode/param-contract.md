@@ -13,6 +13,7 @@ Error message text and the full presence matrix live in `resolution-matrix.md`.
 | `model` | enum `["haiku","sonnet","opus","opus-4-8","fable","gpt-5.5","gpt-5.6"]` | optional | Override. Omit to auto-select. |
 | `effort` | enum `["medium","high","xhigh","max","ultracode"]` | optional | Override. **Remove the current `.default("high")`.** Omit to auto-select. |
 | `deadlock` | boolean | optional | Auto-mode-only escalation flag; omit normally. Agent-visible gloss is the verbatim MANDATE in `tool-description.md`: set `true` only on the 3rd+ launch attempt for the SAME atomic task. CANNOT be combined with `provider`/`model`/`effort` (→ `ERR_DEADLOCK_WITH_OVERRIDES`, `resolution-matrix.md`). `false` == omitting. Window mechanics: `routing-table-contract.md section Branch selection`. |
+| `sub-orchestrator` | boolean | optional | Main orchestrator only (depth 0). Launches the child as a delegate-only sub-orchestrator: the server injects the `SUB_ORCHESTRATOR_DIRECTIVE` below the parent-process marker and sets env `SUBAGENT_MCP_SUB_ORCHESTRATOR=1`. Deeper launches (depth >= 1) are rejected with `ERR_SUBORCH_DEPTH`. The flag is orthogonal to `provider`/`model`/`effort` and `deadlock`; `validatePresence` is NOT touched. `false` is identical to omitting it. Intended use: swarm dispatch stage only. See `docs/spec/swarm/_INDEX.md`. |
 | `cwd` | string | optional (unchanged) | Working directory for the spawned CLI. |
 
 The 15 `task_category` enum values (14 taxonomy categories + fallback):
@@ -44,10 +45,10 @@ applied:
 
 | Supplied overrides | mode (internal) | Candidate rule (see `routing-table-contract.md`) |
 |---|---|---|
-| none | `auto` | every pairing in the selected branch's `<task_category>`, rank ascending |
-| `provider` only | `provider` | requested provider pairings first, then de-duplicated valid auto candidates |
-| `provider` + `model` | `provider_model` | requested model pairings first, then de-duplicated valid auto candidates |
-| `provider` + `model` + `effort` | `explicit` | the requested triple first, then de-duplicated valid auto candidates if the table is available |
+| none | `auto` | every pairing in the selected branch's `<task_category>`, rank ascending; advances silently through the FULL list on any launch-time failure |
+| `provider` only | `provider` | requested-provider pairings first, then de-duplicated valid auto candidates; advances on any launch-time failure |
+| `provider` + `model` | `provider_model` | single attempt on the rank-1 provider+model-matched pairing; hard-fails with no auto substitute |
+| `provider` + `model` + `effort` | `explicit` | single attempt on the fully-pinned triple; hard-fails loudly with no auto substitute |
 
 `effort` alone, or `model` without `provider`, are NOT valid modes : they are
 hard errors (`resolution-matrix.md`). Net rule:

@@ -28,6 +28,7 @@ import {
   appendUpdateNotice,
   readInstalledPackageInfo,
 } from "./update-check.js";
+import { isSubOrchestratorEnv } from "../sub-orchestrator.js";
 
 /**
  * Provider-agnostic core of the UserPromptSubmit / SessionStart hook.
@@ -101,12 +102,41 @@ export interface LiftUsageResult {
   longContextHint?: boolean | null;
 }
 
-type TagKind = "directive" | "reminder" | "carryover" | "carrier";
+type TagKind =
+  | "directive"
+  | "reminder"
+  | "carryover"
+  | "carrier"
+  | "sub-orchestrator";
+
+/**
+ * Directive asset injected on EVERY turn of a sub-orchestrator session (the
+ * child launched with `sub-orchestrator: true`). Fixed name, not adapter-keyed:
+ * the body is provider-neutral, so Claude and Codex share the one asset.
+ */
+export const SUB_ORCHESTRATOR_DIRECTIVE_FILE = "sub-orchestrator-on.md";
 
 interface Emission {
   body: string;
   kind: TagKind;
   isLong: boolean;
+}
+
+export function emitSubOrchestratorInjection(env: NodeJS.ProcessEnv): string {
+  return (
+    composeInjection(
+      {
+        body: bodyFromDirective(
+          readDirective(env, SUB_ORCHESTRATOR_DIRECTIVE_FILE)
+        ),
+        kind: "sub-orchestrator",
+        isLong: true,
+      },
+      true,
+      "normal",
+      null
+    ) ?? ""
+  );
 }
 
 /**
@@ -491,11 +521,59 @@ function readMeteringState(current: string): {
   };
 }
 
-function shouldWarnHandoff(usedPercentage: number | null): boolean {
+/**
+ * Read the shared user-level context-coaching settings (`contextCoaching`,
+ * `handoffWarnThreshold`) for this turn.
+ *
+ * Fail-safe: any read/parse failure returns null, which makes
+ * metering.resolveHandoffWarningPct fall back to its conservative built-in
+ * threshold rather than silencing the warning. Resolved ONCE per runHook turn
+ * and threaded down, so the injected directive and the persisted `near_limit`
+ * flag can never disagree within a turn, and the config file is read once.
+ */
+export function readHandoffWarningSettings(): metering.HandoffWarningSettings | null {
+  return metering.readSharedCoachingSettings();
+}
+
+/**
+ * Wind-down warning gate. Threshold comes from the shared settings resolved for
+ * this turn, so the one knob that sets `near_limit` on the metering record also
+ * decides whether the handoff directive is appended to this turn's injection.
+ * `contextCoaching: false` resolves to null and suppresses the append entirely.
+ */
+function shouldWarnHandoff(
+  usedPercentage: number | null,
+  warningSettings: metering.HandoffWarningSettings | null
+): boolean {
+  const warningPct = metering.resolveHandoffWarningPct(warningSettings);
   return (
-    usedPercentage !== null &&
-    usedPercentage >= metering.HANDOFF_WARNING_THRESHOLD_PCT
+    usedPercentage !== null && warningPct !== null && usedPercentage >= warningPct
   );
+}
+
+/**
+ * The two latch directive assets whose bodies MUST be verbatim identical.
+ *
+ * The 15% latch coaching is provider-NEUTRAL by contract: it names the
+ * structured-question tool generically rather than one harness's tool, so a
+ * Claude session and a Codex session receive the same goal-setting instruction
+ * word for word. Two files still ship (packaging and directive lookup stay
+ * per-provider via providerDirectiveFile), so the invariant is asserted rather
+ * than structurally guaranteed — latchDirectivesIdentical() is the check.
+ */
+export const LATCH_DIRECTIVE_FILES = ["latch-claude.md", "latch-codex.md"] as const;
+
+/**
+ * True when every latch directive asset resolves to the same non-empty body.
+ * Fail-safe: an unreadable/empty asset reports false rather than throwing.
+ */
+export function latchDirectivesIdentical(env: NodeJS.ProcessEnv): boolean {
+  const bodies = LATCH_DIRECTIVE_FILES.map((file) =>
+    bodyFromDirective(readDirective(env, file))
+  );
+  const [first] = bodies;
+  if (first === undefined || first.trim() === "") return false;
+  return bodies.every((body) => body === first);
 }
 
 /**
@@ -513,7 +591,8 @@ function updateMeteringForTurn(
   env: NodeJS.ProcessEnv,
   adapter: ProviderAdapter,
   current: string,
-  turnIndex: number
+  turnIndex: number,
+  warningSettings: metering.HandoffWarningSettings | null
 ): boolean {
   if (turnIndex <= 1) return false;
   const lifted = adapter.liftUsage(payload, env, payload.transcript_path);
@@ -535,6 +614,7 @@ function updateMeteringForTurn(
     priorWindow: prior?.context_window_size ?? null,
     priorWindowSource: prior?.window_source ?? null,
     priorWindowFloor: prior?.window_floor ?? null,
+    warningSettings,
   });
   metering.writeMetering(current, record);
 
@@ -599,7 +679,10 @@ export function claimAndEmit(
   phase: metering.MeteringPhase = "normal",
   usedPercentage: number | null = null,
   updateNoticeSessionId?: string,
-  fullBodyFile?: string
+  fullBodyFile?: string,
+  // Optional trailing param: existing callers (the Codex SessionStart
+  // dispatcher) keep their signature and resolve the shared settings here.
+  warningSettings: metering.HandoffWarningSettings | null = readHandoffWarningSettings()
 ): string {
   const firstCarryover = kind === "carryover" && !m.carryover_ack;
   const full = fullBodyFile
@@ -608,7 +691,7 @@ export function claimAndEmit(
       "\n" +
       bodyFromDirective(readDirective(env, adapter.reminderOnFile));
   const handoffBody =
-    shouldWarnHandoff(usedPercentage)
+    shouldWarnHandoff(usedPercentage, warningSettings)
       ? "\n" +
         bodyFromDirective(readDirective(env, providerDirectiveFile(adapter, "handoff")))
       : "";
@@ -678,6 +761,8 @@ function appendHookUpdateNotice(
  * Core hook logic. Returns the string to inject, or '' to inject nothing.
  *
  * Order:
+ *  0. sub-orchestrator (both env markers) -> STATELESS per-turn ON emission and
+ *     return; no state of any kind is read or written for that session.
  *  1. subagent -> '' (a subagent must never be nagged to delegate; the counter
  *     does not advance).
  *  2. marker not active for cwd -> OFF cadence: advance the session's counter
@@ -700,6 +785,20 @@ export function runHook(
     cullHookZombies();
     sweepHookState();
 
+    // Sub-orchestrator sessions: STATELESS per-turn ON emission, decided BEFORE
+    // the isSubagent bail (a sub-orchestrator IS a subagent by env, so it would
+    // otherwise return '' and lose orchestration). Shared by both providers via
+    // this one runHook; the adapters' isSubagent stay untouched.
+    //
+    // This branch NEVER falls through to writeCurrentSession/metering/latch/
+    // reminder: a sub-orchestrator usually shares the parent orchestrator's cwd,
+    // and any write here would steal the cwd session pointer that
+    // orchestration-mode and the handoff tools key on. Nothing is read either,
+    // so the emission is identical on every turn.
+    if (isSubOrchestratorEnv(env)) {
+      return emitSubOrchestratorInjection(env);
+    }
+
     if (adapter.isSubagent(payload, env)) {
       return "";
     }
@@ -712,12 +811,15 @@ export function runHook(
     marker.writeCurrentSession(cwd, current);
     const now = Date.now();
     const turnIndex = adapter.currentTurn(payload.transcript_path);
+    // One config read per turn, shared by near_limit and the injection gate.
+    const warningSettings = readHandoffWarningSettings();
     const meteringUndetectableFailSafe = updateMeteringForTurn(
       payload,
       env,
       adapter,
       current,
-      turnIndex
+      turnIndex,
+      warningSettings
     );
     const meteringState = readMeteringState(current);
     const wasLatched = latch.isLatchActive(current, now);
@@ -781,7 +883,8 @@ export function runHook(
         updateNoticeSessionId,
         meteringState.phase === "plan" && justTrippedLatch
           ? providerDirectiveFile(adapter, "latch")
-          : undefined
+          : undefined,
+        warningSettings
       );
     }
 
@@ -812,7 +915,7 @@ export function runHook(
         isLong: true,
       };
     }
-    if (shouldWarnHandoff(meteringState.usedPercentage)) {
+    if (shouldWarnHandoff(meteringState.usedPercentage, warningSettings)) {
       emission = {
         ...emission,
         body:
