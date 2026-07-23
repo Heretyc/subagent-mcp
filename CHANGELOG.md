@@ -1,24 +1,5 @@
 # Changelog
 
-## 3.1.12
-
-### Added
-
-- `configure` MCP tool: list, read, or update subagent-mcp configuration by
-  canonical key (`action=list`, `action=get`, `action=set`). Covers all static
-  keys (`global.*`, `user.*`, `update.*`, `mode.*`) and dynamic provider/env
-  keys. Secret-matching values and all `env.*` values are always redacted in
-  responses. Machine-global and mode-owned keys are read-only through MCP; set
-  attempts return a coaching message and the resolved file path instead of
-  writing. Provider writes are validated in a scratch candidate file before
-  the real file is touched; `.env` writes are shape-checked (non-empty,
-  single-line) only. Every changed pre-existing file receives a sibling
-  backup. `.env` and `key_env` changes report `restart_required: true`; all
-  other settable keys report `restart_required: false`.
-- `smcp-config` Agent Skill and `/smcp:config` slash command: interactive
-  wrapper around the `configure` tool, deployed by `setup` for Claude Code and
-  Codex alongside the existing `smcp-*` skills.
-
 ## 3.2.0
 
 ### Added
@@ -52,6 +33,25 @@
   test `swarm-e2e`.
 - Full spec and user documentation for the swarm workflow and sub-orchestrator
   contract.
+
+## 3.1.12
+
+### Added
+
+- `configure` MCP tool: list, read, or update subagent-mcp configuration by
+  canonical key (`action=list`, `action=get`, `action=set`). Covers all static
+  keys (`global.*`, `user.*`, `update.*`, `mode.*`) and dynamic provider/env
+  keys. Secret-matching values and all `env.*` values are always redacted in
+  responses. Machine-global and mode-owned keys are read-only through MCP; set
+  attempts return a coaching message and the resolved file path instead of
+  writing. Provider writes are validated in a scratch candidate file before
+  the real file is touched; `.env` writes are shape-checked (non-empty,
+  single-line) only. Every changed pre-existing file receives a sibling
+  backup. `.env` and `key_env` changes report `restart_required: true`; all
+  other settable keys report `restart_required: false`.
+- `smcp-config` Agent Skill and `/smcp:config` slash command: interactive
+  wrapper around the `configure` tool, deployed by `setup` for Claude Code and
+  Codex alongside the existing `smcp-*` skills.
 
 ## 3.1.11
 
