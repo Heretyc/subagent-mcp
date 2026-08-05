@@ -19,6 +19,10 @@ function withConfigHome(fn) {
   }
 }
 
+function stripComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
 function json(result) {
   return JSON.parse(result.content[0].text);
 }
@@ -138,6 +142,70 @@ test("configure keeps contextCoaching settable with no restart, unrelated user s
   assert.equal(onDisk.contextCoaching, false);
   assert.deepEqual(onDisk.permissions, { allow: ["*"] }, "unrelated user settings must be preserved");
   assert.equal(onDisk.handoffWarnThreshold, undefined, "no unsupported threshold key is written back");
+}));
+
+test("configure user.personaMode: default, roundtrip, invalid values rejected", () => withConfigHome((root) => {
+  // Defaults with no settings file at all.
+  assert.equal(json(configure({ action: "get", key: "user.personaMode" })).value, "off");
+  assert.equal(text(json(configure({ action: "list" }))).includes("user.personaMode"), true);
+
+  // Enable persona mode, then flip back.
+  const enable = json(configure({ action: "set", key: "user.personaMode", value: "enabled" }));
+  assert.equal(enable.status, "updated");
+  assert.equal(enable.value, "enabled");
+  assert.equal(JSON.parse(readFileSync(join(root, "settings.json"), "utf8")).personaMode, "enabled");
+  assert.equal(json(configure({ action: "get", key: "user.personaMode" })).value, "enabled");
+  const disable = json(configure({ action: "set", key: "user.personaMode", value: "off" }));
+  assert.equal(disable.value, "off");
+
+  // Invalid values are rejected without touching the file.
+  const before = readFileSync(join(root, "settings.json"), "utf8");
+  for (const params of [
+    { action: "set", key: "user.personaMode", value: "true" },
+    { action: "set", key: "user.personaMode", value: "Enabled" },
+    { action: "set", key: "user.personaMode", value: "" },
+  ]) {
+    const r = configure(params);
+    assert.equal(r.isError, true, JSON.stringify(params));
+  }
+  assert.equal(readFileSync(join(root, "settings.json"), "utf8"), before);
+}));
+
+test("configure persona set edits the real key, not a commented copy, and fails loudly on malformed files", () => withConfigHome((root) => {
+  const file = join(root, "settings.json");
+
+  // A commented-out example of the assignment must never soak up the rewrite.
+  writeFileSync(file, '{\n  // example: "personaMode": "off"\n  "personaMode": "off"\n}\n', "utf8");
+  const set = json(configure({ action: "set", key: "user.personaMode", value: "enabled" }));
+  assert.equal(set.status, "updated");
+  const text = readFileSync(file, "utf8");
+  assert.match(text, /\/\/ example: "personaMode": "off"/);
+  assert.equal(json(configure({ action: "get", key: "user.personaMode" })).value, "enabled");
+
+  // A block-commented copy of the assignment must fail loudly rather than be
+  // rewritten and reported as success (the post-write verification re-parses).
+  writeFileSync(file, '{\n  /*\n  "personaMode": "off"\n  */\n  "personaMode": "enabled"\n}\n', "utf8");
+  const blockComment = configure({ action: "set", key: "user.personaMode", value: "off" });
+  assert.equal(blockComment.isError, true, "a comment-soaked rewrite must not report success");
+  assert.equal(
+    JSON.parse(stripComments(readFileSync(file, "utf8"))).personaMode,
+    "enabled",
+    "the real key is untouched when the rewrite could not land"
+  );
+
+  // A file with no top-level object cannot be silently "unchanged"-succeeded.
+  writeFileSync(file, "// just notes, no object\n", "utf8");
+  const broken = configure({ action: "set", key: "user.personaMode", value: "enabled" });
+  assert.equal(broken.isError, true);
+}));
+
+test("configure persona set reports a settings.local.json override instead of absorbing it", () => withConfigHome((root) => {
+  writeFileSync(join(root, "settings.local.json"), '{ "personaMode": "enabled" }\n', "utf8");
+  const set = json(configure({ action: "set", key: "user.personaMode", value: "off" }));
+  assert.equal(set.status, "updated");
+  assert.match(set.message ?? "", /overrides this key/);
+  assert.equal(set.value, "enabled", "effective value comes from the local override");
+  assert.equal(JSON.parse(readFileSync(join(root, "settings.json"), "utf8")).personaMode, "off");
 }));
 
 test("configure rejects invalid provider updates without changing the file", () => withConfigHome((root) => {
