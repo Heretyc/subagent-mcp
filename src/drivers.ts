@@ -5,6 +5,7 @@ import { resolve as resolvePath } from "node:path";
 import { PassThrough } from "node:stream";
 import { readMergedPermissionConfig } from "./concurrency.js";
 import { mapModel, type Provider } from "./effort.js";
+import { mapAgentDefinition, type WireAgentDefinition } from "./persona.js";
 import {
   applyPermissionCeiling,
   verdict,
@@ -37,6 +38,10 @@ export interface DriverLaunchOptions {
   ucSettingsDir?: string;
   agentId?: string;
   permissionSnapshot?: PermissionSnapshot;
+  // Persona passthrough (docs/spec/persona-mode/): Claude SDK path only; the
+  // launch handler rejects persona params for every other provider.
+  agent?: string;
+  agentDefinition?: WireAgentDefinition;
 }
 
 export interface ProviderDriver {
@@ -1130,6 +1135,14 @@ export class ClaudeSdkDriver implements ProviderDriver {
       sdkOptions.effort = options.effort;
     }
     if (options.ucSettingsPath) sdkOptions.settings = options.ucSettingsPath;
+    // Persona passthrough: emit the SDK keys only when set so the default
+    // options object stays byte-identical with persona mode off.
+    if (options.agent) {
+      sdkOptions.agent = options.agent;
+      if (options.agentDefinition) {
+        sdkOptions.agents = { [options.agent]: mapAgentDefinition(options.agentDefinition) };
+      }
+    }
 
     const query = this.queryFn({ prompt: this.input, options: sdkOptions });
     this.queryHandle = query as { close?: () => void };

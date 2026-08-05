@@ -52,7 +52,7 @@ All logs go to stderr; stdout carries only JSON-RPC messages.
 
 | Tool | Key params (zod) | Success return shape |
 |------|-----------------|----------------------|
-| `launch_agent` | `task_category` enum, `prompt` string, optional `provider`/`model`/`effort` overrides, `deadlock?` boolean, `sub-orchestrator?` boolean, `cwd?` string | `{ agent_id, status, provider, model, effort, task_category }`; runs zombie maintenance silently and omits `zombie_report` |
+| `launch_agent` | `task_category` enum, `prompt` string, optional `provider`/`model`/`effort` overrides, `deadlock?` boolean, `sub-orchestrator?` boolean, `cwd?` string, persona params gated by `user.personaMode`: `agent?` string, `agent_definition?` strict object | `{ agent_id, status, provider, model, effort, task_category }`; runs zombie maintenance silently and omits `zombie_report` |
 | `swarm` | `stage?` number or null | non-error text result: next-stage coaching, corrective coaching, or terminal/reset message; state is in-memory per process |
 | `poll_agent` | `agent_id` string, `verbose?` boolean (default `false`) | `{ id, provider, model, status, exit_code, stdout_tail, stderr_tail, started_at, last_activity, cwd, alive, idle_seconds, recent_stream, routing_tier }` (+ `hint` when stalled; + `final_output` when `verbose`; + `ruleset_applied`/`ruleset_original_selection` when ruleset altered routing; + `zombie_report` when culling) |
 | `kill_agent` | `agent_id` string | `{ agent_id, status, message }` (not-running is not an error) |
