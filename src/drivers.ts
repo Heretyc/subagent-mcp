@@ -3,8 +3,9 @@ import { EventEmitter } from "node:events";
 import { realpathSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
 import { PassThrough } from "node:stream";
-import { readMergedPermissionConfig } from "./concurrency.js";
+import { readMergedPermissionConfig, type SettingSource } from "./concurrency.js";
 import { mapModel, type Provider } from "./effort.js";
+import { mapAgentDefinition, type WireAgentDefinition } from "./persona.js";
 import {
   applyPermissionCeiling,
   verdict,
@@ -37,6 +38,12 @@ export interface DriverLaunchOptions {
   ucSettingsDir?: string;
   agentId?: string;
   permissionSnapshot?: PermissionSnapshot;
+  // Persona passthrough (docs/spec/persona-mode/): Claude SDK path only; the
+  // launch handler rejects persona params for every other provider.
+  agent?: string;
+  agentDefinition?: WireAgentDefinition;
+  systemPromptAppend?: string;
+  settingSources?: SettingSource[];
 }
 
 export interface ProviderDriver {
@@ -1053,7 +1060,7 @@ export class ClaudeSdkDriver implements ProviderDriver {
       pathToClaudeCodeExecutable: options.command,
       permissionMode: isYolo ? "bypassPermissions" : "default",
       allowDangerouslySkipPermissions: isYolo,
-      settingSources: [],
+      settingSources: options.settingSources ?? [],
       tools: { type: "preset", preset: "claude_code" },
       // Shared gate: the SINGLE source of truth for every permission decision.
       // `harnessChannel` names the SDK surface that invoked it so parked prompts
@@ -1064,7 +1071,8 @@ export class ClaudeSdkDriver implements ProviderDriver {
       maxTurns: 50,
       includePartialMessages: true,
     };
-    // PreToolUse hook: with permissionMode:"default" + settingSources:[] the SDK
+    // PreToolUse hook: with permissionMode:"default" + isolated settingSources
+    // (default [], configurable via user.settingSources) the SDK
     // auto-approves Bash (and any tool it treats as pre-approved) WITHOUT calling
     // canUseTool, so those calls would bypass the engine gate entirely. Register a
     // PreToolUse hook (no matcher => every tool) that routes EVERY tool call
@@ -1111,6 +1119,21 @@ export class ClaudeSdkDriver implements ProviderDriver {
       sdkOptions.effort = options.effort;
     }
     if (options.ucSettingsPath) sdkOptions.settings = options.ucSettingsPath;
+    // Persona passthrough: emit the SDK keys only when set so the default
+    // options object stays byte-identical with persona mode off.
+    if (options.agent) {
+      sdkOptions.agent = options.agent;
+      if (options.agentDefinition) {
+        sdkOptions.agents = { [options.agent]: mapAgentDefinition(options.agentDefinition) };
+      }
+    }
+    if (options.systemPromptAppend) {
+      sdkOptions.systemPrompt = {
+        type: "preset",
+        preset: "claude_code",
+        append: options.systemPromptAppend,
+      };
+    }
 
     const query = this.queryFn({ prompt: this.input, options: sdkOptions });
     this.queryHandle = query as { close?: () => void };

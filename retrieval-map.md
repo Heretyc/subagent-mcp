@@ -37,6 +37,7 @@ everything else.
 | Orchestration directive architecture | `docs/spec/dev-loop/orchestration-directive-architecture.md` (retrieval map over its subdir leaves) |
 | : arch subdir leaves | `docs/spec/dev-loop/orchestration-directive-architecture/{sections-00-04,sections-05-09,sections-10-13,derivation-map,appendix-a1-a4,appendix-a5-directives,appendix-a6-a7}.md` |
 | Model-selection mode | `docs/spec/model-selection-mode/_INDEX.md` |
+| Persona mode (launch_agent personas, user.personaMode, user.settingSources) | `docs/spec/persona-mode/_INDEX.md` |
 | Safety scope / clarifying cascade | `docs/spec/safety-scope.md` (+ `safety-scope/00-scope-and-cascade.md`, `01-question-flow.md`, `02-debug-and-credentials.md`, `03-subagents-platforms.md`) |
 | Worktree enforcement | `docs/spec/dev-loop/worktree-enforcement/_INDEX.md` (+ `enforcement.md`, `naming.md`, `claude.md`, `codex.md`) |
 | Git collaboration | `docs/spec/dev-loop/git-collaboration.md`, `agents/GIT_COLLABORATION.md` |

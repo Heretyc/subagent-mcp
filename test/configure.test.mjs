@@ -105,6 +105,85 @@ test("configure writes user setting once, backs up old bytes, then reports uncha
   assert.equal(backups(root, "settings.json").length, 1);
 }));
 
+test("configure persona keys: defaults, set roundtrip, invalid values rejected", () => withConfigHome((root) => {
+  // Defaults with no settings file at all.
+  assert.equal(json(configure({ action: "get", key: "user.personaMode" })).value, "off");
+  assert.deepEqual(json(configure({ action: "get", key: "user.settingSources" })).value, []);
+  const listed = json(configure({ action: "list" }));
+  assert.equal(text(listed).includes("user.personaMode"), true);
+  assert.equal(text(listed).includes("user.settingSources"), true);
+
+  // Enable persona mode, then flip back.
+  const enable = json(configure({ action: "set", key: "user.personaMode", value: "enabled" }));
+  assert.equal(enable.status, "updated");
+  assert.equal(enable.value, "enabled");
+  assert.equal(JSON.parse(readFileSync(join(root, "settings.json"), "utf8")).personaMode, "enabled");
+  assert.equal(json(configure({ action: "get", key: "user.personaMode" })).value, "enabled");
+  const disable = json(configure({ action: "set", key: "user.personaMode", value: "off" }));
+  assert.equal(disable.value, "off");
+
+  // settingSources roundtrip, including array rewrite in place.
+  const sources = json(configure({ action: "set", key: "user.settingSources", value: '["project"]' }));
+  assert.equal(sources.status, "updated");
+  assert.deepEqual(sources.value, ["project"]);
+  assert.deepEqual(json(configure({ action: "get", key: "user.settingSources" })).value, ["project"]);
+  const widened = json(configure({ action: "set", key: "user.settingSources", value: '["project","user"]' }));
+  assert.deepEqual(widened.value, ["project", "user"]);
+  const file = JSON.parse(readFileSync(join(root, "settings.json"), "utf8"));
+  assert.deepEqual(file.settingSources, ["project", "user"]);
+  assert.equal(file.personaMode, "off");
+
+  // Invalid values are rejected without touching the file.
+  const before = readFileSync(join(root, "settings.json"), "utf8");
+  for (const params of [
+    { action: "set", key: "user.personaMode", value: "true" },
+    { action: "set", key: "user.personaMode", value: "Enabled" },
+    { action: "set", key: "user.settingSources", value: '["bogus"]' },
+    { action: "set", key: "user.settingSources", value: '["project","project"]' },
+    { action: "set", key: "user.settingSources", value: '"project"' },
+    { action: "set", key: "user.settingSources", value: "project" },
+  ]) {
+    const r = configure(params);
+    assert.equal(r.isError, true, JSON.stringify(params));
+  }
+  assert.equal(readFileSync(join(root, "settings.json"), "utf8"), before);
+}));
+
+test("configure persona set edits the real key, not a commented copy, and fails loudly on malformed files", () => withConfigHome((root) => {
+  const file = join(root, "settings.json");
+
+  // A commented-out example of the assignment must never soak up the rewrite.
+  writeFileSync(file, '{\n  // example: "personaMode": "off"\n  "personaMode": "off"\n}\n', "utf8");
+  const set = json(configure({ action: "set", key: "user.personaMode", value: "enabled" }));
+  assert.equal(set.status, "updated");
+  const text = readFileSync(file, "utf8");
+  assert.match(text, /\/\/ example: "personaMode": "off"/);
+  assert.equal(json(configure({ action: "get", key: "user.personaMode" })).value, "enabled");
+
+  // An array value containing "]" inside a string must be replaced whole,
+  // never split mid-string into invalid JSON.
+  writeFileSync(file, '{\n  "settingSources": ["a]b"]\n}\n', "utf8");
+  const arr = json(configure({ action: "set", key: "user.settingSources", value: '["project"]' }));
+  assert.equal(arr.status, "updated");
+  assert.deepEqual(JSON.parse(readFileSync(file, "utf8")).settingSources, ["project"]);
+
+  // A file with no top-level object cannot be silently "unchanged"-succeeded.
+  writeFileSync(file, "// just notes, no object\n", "utf8");
+  const broken = configure({ action: "set", key: "user.personaMode", value: "enabled" });
+  assert.equal(broken.isError, true);
+}));
+
+test("configure persona set never promotes a settings.local.json override into settings.json", () => withConfigHome((root) => {
+  writeFileSync(join(root, "settings.local.json"), '{ "personaMode": "enabled" }\n', "utf8");
+  const set = json(configure({ action: "set", key: "user.settingSources", value: '["project"]' }));
+  assert.equal(set.status, "updated");
+  const durable = JSON.parse(readFileSync(join(root, "settings.json"), "utf8"));
+  assert.deepEqual(durable.settingSources, ["project"]);
+  assert.equal(durable.personaMode, "off");
+  // Effective (merged) view still honors the local override.
+  assert.equal(json(configure({ action: "get", key: "user.personaMode" })).value, "enabled");
+}));
+
 test("configure rejects invalid provider updates without changing the file", () => withConfigHome((root) => {
   mkdirSync(root, { recursive: true });
   const file = join(root, "providers.jsonc");

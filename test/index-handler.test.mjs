@@ -1601,6 +1601,109 @@ await test("api provider disable env keeps pre-api CLI routing", async () => {
   rmTempRoot(tempRoot);
 });
 
+await test("persona params: gated off by default, launch with inline definition when enabled", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const configHome = join(tempRoot, "config");
+  mkdirSync(configHome, { recursive: true });
+  const personaEnv = { ...env, SUBAGENT_CONFIG_HOME: configHome };
+  const definition = {
+    description: "probe",
+    prompt: "You are PROBE-7. Begin every reply with the token PROBE-7.",
+    tools: ["Read", "Grep", "Glob"],
+  };
+
+  // Default (no settings file): every persona param is rejected, naming the key.
+  let session = createMcpSession(distIndex, { cwd: workDir, env: personaEnv });
+  try {
+    await session.initialize();
+    for (const extra of [
+      { agent: "reviewer-probe", agent_definition: definition },
+      { system_prompt_append: "Prefer terse replies." },
+    ]) {
+      const resp = await session.request("tools/call", {
+        name: "launch_agent",
+        arguments: { task_category: "coding", prompt: "persona gated", ...extra },
+      });
+      assert.equal(resp.result.isError, true, JSON.stringify(extra));
+      assert.match(resp.result.content[0].text, /user\.personaMode/);
+    }
+  } finally {
+    await session.close();
+  }
+
+  // Enabled: inline persona launches through the mock claude driver.
+  writeFileSync(join(configHome, "settings.json"), '{\n  "personaMode": "enabled"\n}\n', "utf8");
+  session = createMcpSession(distIndex, { cwd: workDir, env: personaEnv });
+  try {
+    await session.initialize();
+    const { agentId, launchPayload } = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "persona launch",
+      agent: "reviewer-probe",
+      agent_definition: definition,
+    });
+    assert.equal(launchPayload.provider, "claude");
+    await killAgent(session, agentId);
+
+    // agent without a definition needs an on-disk source configured.
+    const namedOnly = await session.request("tools/call", {
+      name: "launch_agent",
+      arguments: { task_category: "coding", prompt: "named persona", agent: "implementer" },
+    });
+    assert.equal(namedOnly.result.isError, true);
+    assert.match(namedOnly.result.content[0].text, /user\.settingSources/);
+
+    // codex pin + persona is always rejected, never silently ignored.
+    const codexPersona = await session.request("tools/call", {
+      name: "launch_agent",
+      arguments: {
+        task_category: "coding",
+        prompt: "codex persona",
+        provider: "codex",
+        agent: "reviewer-probe",
+        agent_definition: definition,
+      },
+    });
+    assert.equal(codexPersona.result.isError, true);
+    assert.match(codexPersona.result.content[0].text, /codex/);
+
+    // agent_definition is strict: a model pin (or any unknown key) is rejected.
+    const withModel = await session.request("tools/call", {
+      name: "launch_agent",
+      arguments: {
+        task_category: "coding",
+        prompt: "model pin",
+        agent: "reviewer-probe",
+        agent_definition: { ...definition, model: "opus" },
+      },
+    });
+    assert.equal(withModel.result.isError, true);
+    assert.match(withModel.result.content[0].text, /model/);
+  } finally {
+    await session.close();
+  }
+
+  // settingSources with project unlocks named-only personas.
+  writeFileSync(
+    join(configHome, "settings.json"),
+    '{\n  "personaMode": "enabled",\n  "settingSources": ["project"]\n}\n',
+    "utf8"
+  );
+  session = createMcpSession(distIndex, { cwd: workDir, env: personaEnv });
+  try {
+    await session.initialize();
+    const { agentId } = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "named persona from disk",
+      agent: "implementer",
+    });
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmTempRoot(tempRoot);
+  }
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);

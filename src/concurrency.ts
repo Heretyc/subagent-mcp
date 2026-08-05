@@ -39,6 +39,9 @@ export const DEFAULT_STRICT_READ_PARITY = "warn" as const;
 export const DEFAULT_SANDBOX_NETWORK: boolean = true;
 export const DEFAULT_CONTEXT_COACHING: boolean = true;
 export const DEFAULT_HANDOFF_WARN_THRESHOLD: number = 60;
+export const DEFAULT_PERSONA_MODE: PersonaMode = "off";
+export const DEFAULT_SETTING_SOURCES: SettingSource[] = [];
+export const SETTING_SOURCE_VALUES: readonly SettingSource[] = ["user", "project", "local"];
 export const MIN_HANDOFF_WARN_THRESHOLD: number = 40;
 export const MAX_HANDOFF_WARN_THRESHOLD: number = 90;
 export const DEFAULT_HANDOFF_WARN_THRESHOLD_PCT = DEFAULT_HANDOFF_WARN_THRESHOLD;
@@ -86,6 +89,14 @@ export interface MergedPermissionConfig extends PermissionRulesConfig {
 export interface ContextCoachingSettings {
   contextCoaching: boolean;
   handoffWarnThreshold: number;
+}
+
+export type PersonaMode = "off" | "enabled";
+export type SettingSource = "user" | "project" | "local";
+
+export interface PersonaSettings {
+  personaMode: PersonaMode;
+  settingSources: SettingSource[];
 }
 
 export interface GlobalConfig {
@@ -294,6 +305,29 @@ export function sanitizeCoachingSettings(raw: unknown): ContextCoachingSettings 
   };
 }
 
+function sanitizeSettingSources(raw: unknown): SettingSource[] {
+  if (!Array.isArray(raw)) return [...DEFAULT_SETTING_SOURCES];
+  const sources: SettingSource[] = [];
+  for (const value of raw) {
+    if (!SETTING_SOURCE_VALUES.includes(value as SettingSource)) {
+      return [...DEFAULT_SETTING_SOURCES];
+    }
+    if (!sources.includes(value as SettingSource)) sources.push(value as SettingSource);
+  }
+  return sources;
+}
+
+export function sanitizePersonaSettings(raw: unknown): PersonaSettings {
+  const obj =
+    raw !== null && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  return {
+    personaMode: obj.personaMode === "enabled" ? "enabled" : DEFAULT_PERSONA_MODE,
+    settingSources: sanitizeSettingSources(obj.settingSources),
+  };
+}
+
 /** True when either coaching key is physically present, however malformed. */
 export function hasContextCoachingSettings(text: string): boolean {
   try {
@@ -407,17 +441,48 @@ export function userConfigMissingOrBlank(path: UserSettingsPathInput = undefined
 
 /** Rewrites `key` in JSONC text, appending it before the closing brace when absent. */
 function upsertJsoncScalar(text: string, key: string, literal: string): string {
+  try {
+    return upsertJsoncValue(text, key, literal);
+  } catch {
+    return text;
+  }
+}
+
+/**
+ * Rewrites `key` in JSONC text where the value may be a flat JSON array as
+ * well as a scalar literal, appending the key before the closing brace when
+ * absent. The key match is anchored to a position only a real member can
+ * occupy (start of text, or after a newline, `{`, or `,`) so an occurrence of
+ * the assignment inside a // comment is never the one rewritten. Throws when
+ * the key is absent and the text has no closing brace to append before.
+ */
+function upsertJsoncValue(text: string, key: string, literal: string): string {
   const assignment = new RegExp(
-    `("${key}"\\s*:\\s*)(?:true|false|null|-?\\d+(?:\\.\\d+)?|"(?:[^"\\\\]|\\\\.)*")`
+    `(^|[\\n{,])(\\s*"${key}"\\s*:\\s*)` +
+      `(?:\\[(?:"(?:[^"\\\\]|\\\\.)*"|[^\\]"])*\\]|true|false|null|-?\\d+(?:\\.\\d+)?|"(?:[^"\\\\]|\\\\.)*")`
   );
   if (assignment.test(stripJsoncComments(text)) && assignment.test(text)) {
-    return text.replace(assignment, `$1${literal}`);
+    return text.replace(assignment, `$1$2${literal}`);
   }
   const close = text.lastIndexOf("}");
-  if (close < 0) return text;
+  if (close < 0) {
+    throw new Error(`cannot upsert "${key}": no top-level object to update`);
+  }
   const head = text.slice(0, close).replace(/\s+$/, "");
   const separator = head.endsWith("{") ? "" : ",";
   return `${head}${separator}\n  "${key}": ${literal}\n${text.slice(close)}`;
+}
+
+/**
+ * Rewrites both persona keys in JSONC settings text, preserving every other
+ * key and comment. Throws when the text has no top-level object to update, so
+ * a set against a malformed file surfaces as an error instead of a silent
+ * no-op reported as success.
+ */
+export function applyPersonaSettings(text: string, settings: PersonaSettings): string {
+  const clean = sanitizePersonaSettings(settings);
+  const mode = upsertJsoncValue(text, "personaMode", JSON.stringify(clean.personaMode));
+  return upsertJsoncValue(mode, "settingSources", JSON.stringify(clean.settingSources));
 }
 
 export function applyContextCoachingSettings(text: string, settings: ContextCoachingSettings): string {
@@ -591,6 +656,31 @@ export function readContextCoachingSettings(
       }
     } catch {
       // Broken or blank user settings must not crash metering.
+    }
+  }
+  return settings;
+}
+
+/**
+ * Both persona settings in one read. Absent keys, an unparseable file, and an
+ * absent file all resolve SILENTLY to the built-in defaults (mode off, empty
+ * settingSources): no prompt, no warning, no write.
+ */
+export function readPersonaSettings(path: UserSettingsPathInput = undefined): PersonaSettings {
+  const settings = sanitizePersonaSettings({});
+  for (const file of [userSettingsPath(path), userSettingsLocalPath(path)].filter(Boolean)) {
+    if (!existsSync(file)) continue;
+    try {
+      const parsed = parseJsonObject(readFileSync(file, "utf8"));
+      const clean = sanitizePersonaSettings(parsed);
+      if (Object.prototype.hasOwnProperty.call(parsed, "personaMode")) {
+        settings.personaMode = clean.personaMode;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, "settingSources")) {
+        settings.settingSources = clean.settingSources;
+      }
+    } catch {
+      // Broken or blank user settings must not break launches.
     }
   }
   return settings;

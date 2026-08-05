@@ -102,6 +102,41 @@ Pass `verbose: true` to also get `final_output`, the agent's final assistant tur
 
 ---
 
+## Persona Sub-Agents (opt-in)
+
+Personas let a launch apply an agent definition (system prompt, tool
+restrictions, preloaded skills) to the spawned Claude sub-agent. The feature
+is off by default; enable it explicitly first:
+
+```json
+{ "tool": "configure", "arguments": { "action": "set", "key": "user.personaMode", "value": "enabled" } }
+```
+
+**Launch with an inline persona:**
+
+```json
+{
+  "tool": "launch_agent",
+  "arguments": {
+    "task_category": "quality_review",
+    "agent": "reviewer",
+    "agent_definition": {
+      "description": "Read-only code reviewer",
+      "prompt": "You are a strict code reviewer. You may only read files, never write.",
+      "tools": ["Read", "Grep", "Glob"]
+    },
+    "prompt": "Review src/parser.ts for correctness issues and report findings."
+  }
+}
+```
+
+To launch a persona defined on disk in `.claude/agents/` instead, set
+`user.settingSources` to include `"project"` (or `"user"`) and pass only
+`agent`. Details, validation matrix, and invariants:
+[docs/spec/persona-mode/_INDEX.md](spec/persona-mode/_INDEX.md).
+
+---
+
 ## Agentic Swarm
 
 For objectives projected to span multiple sessions, use the `swarm` tool to

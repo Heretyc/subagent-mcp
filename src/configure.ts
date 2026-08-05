@@ -20,13 +20,17 @@ import {
   DEFAULT_ESCALATION,
   DEFAULT_HANDOFF_WARN_THRESHOLD,
   DEFAULT_PERMISSIONS_CEILING,
+  DEFAULT_PERSONA_MODE,
   DEFAULT_SANDBOX_NETWORK,
+  DEFAULT_SETTING_SOURCES,
   DEFAULT_STRICT_READ_PARITY,
   MAX_HANDOFF_WARN_THRESHOLD,
   MIN_HANDOFF_WARN_THRESHOLD,
+  SETTING_SOURCE_VALUES,
   USER_SETTINGS_FILENAME,
   USER_SETTINGS_LOCAL_FILENAME,
   applyContextCoachingSettings,
+  applyPersonaSettings,
   defaultConfigPath,
   parseCheckForUpdatesConfig,
   parseConcurrencyConfig,
@@ -35,8 +39,10 @@ import {
   parseSandboxNetworkConfig,
   parseStrictReadParityConfig,
   readContextCoachingSettings,
+  readPersonaSettings,
   resolveGlobalConfigPath,
   stripJsoncComments,
+  type SettingSource,
 } from "./concurrency.js";
 import { getConfigHome } from "./config-home.js";
 import { ROUTING_CATEGORIES, readDotEnv, validateConfigFile } from "./config-validate.js";
@@ -190,6 +196,8 @@ const CONFIG_KEYS: Record<string, KeyMeta> = {
   "global.sandboxNetwork": { scope: "global", type: "boolean", settable: false, restart: false, def: DEFAULT_SANDBOX_NETWORK, valid: "true, false (parser fallback is true when missing/invalid; the shipped scaffold writes false)" },
   "user.contextCoaching": { scope: "user", type: "boolean", settable: true, restart: false, def: DEFAULT_CONTEXT_COACHING, valid: "true, false" },
   "user.handoffWarnThreshold": { scope: "user", type: "integer", settable: true, restart: false, def: DEFAULT_HANDOFF_WARN_THRESHOLD, valid: `whole integer ${MIN_HANDOFF_WARN_THRESHOLD}..${MAX_HANDOFF_WARN_THRESHOLD}` },
+  "user.personaMode": { scope: "user", type: "enum", settable: true, restart: false, def: DEFAULT_PERSONA_MODE, valid: "off, enabled; gates the launch_agent persona parameters (agent, agent_definition, system_prompt_append)" },
+  "user.settingSources": { scope: "user", type: "string[]", settable: true, restart: false, def: DEFAULT_SETTING_SOURCES, valid: 'JSON array subset of ["user","project","local"], no duplicates; [] preserves SDK filesystem isolation for spawned Claude sub-agents' },
   "update.autoUpdate": { scope: "update", type: "boolean", settable: false, restart: true, def: false, valid: "true, false" },
   "mode.orchestration": { scope: "mode", type: "state", settable: false, restart: false, def: null, valid: "ON, disabled-this-session (plus session_scope); set via the orchestration-mode tool" },
   "mode.modelSelection": { scope: "mode", type: "state", settable: false, restart: false, def: "smart", valid: "smart, user-approved-overrides (plus window metadata); set via the model-selection-mode tool" },
@@ -297,6 +305,16 @@ function readStatic(key: string): Resolved {
       const merged = readContextCoachingSettings();
       return {
         value: merged[prop as "contextCoaching" | "handoffWarnThreshold"],
+        path: settingsFile(),
+        source: settingsLocalHas(prop) ? settingsLocalFile() : undefined,
+      };
+    }
+    case "user.personaMode":
+    case "user.settingSources": {
+      const prop = key === "user.personaMode" ? "personaMode" : "settingSources";
+      const merged = readPersonaSettings();
+      return {
+        value: merged[prop as "personaMode" | "settingSources"],
         path: settingsFile(),
         source: settingsLocalHas(prop) ? settingsLocalFile() : undefined,
       };
@@ -527,7 +545,75 @@ function coached(key: string, message: string, path: string | null) {
 // set: user settings
 // ---------------------------------------------------------------------------
 
+function parseSettingSourcesValue(raw: string): SettingSource[] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  const sources: SettingSource[] = [];
+  for (const value of parsed) {
+    if (!SETTING_SOURCE_VALUES.includes(value as SettingSource)) return null;
+    if (sources.includes(value as SettingSource)) return null;
+    sources.push(value as SettingSource);
+  }
+  return sources;
+}
+
+function setPersonaSetting(key: string, raw: string) {
+  const prop = key === "user.personaMode" ? "personaMode" : "settingSources";
+  // Seed from the DURABLE file only (never the settings.local.json overlay):
+  // apply rewrites both persona keys, and seeding from the merged view would
+  // silently promote a local-only override of the other key into the shared
+  // file as a side effect of this set.
+  const next = { ...readPersonaSettings(settingsFile()) };
+  if (prop === "personaMode") {
+    if (raw !== "off" && raw !== "enabled") {
+      return fail("set", key, `invalid value for ${key}; expected exactly "off" or "enabled"`);
+    }
+    next.personaMode = raw;
+  } else {
+    const sources = parseSettingSourcesValue(raw);
+    if (sources === null) {
+      return fail("set", key, `invalid value for ${key}; expected a JSON array subset of ["user","project","local"] without duplicates, e.g. ["project"]`);
+    }
+    next.settingSources = sources;
+  }
+
+  const target = settingsFile();
+  const existing = readIfExists(target);
+  const blank = existing === null || existing.trim() === ""; // trim() already drops a U+FEFF BOM
+  const base = blank ? "{}\n" : (existing as string);
+  let text: string;
+  try {
+    text = applyPersonaSettings(base, next);
+  } catch (e) {
+    return fail("set", key, `could not update ${target}: ${sanitizeMessage(e)}`);
+  }
+  if (existing !== null && text === existing) {
+    return ok({ ok: true, action: "set", key, value: next[prop], status: "unchanged", path: target, backup: null, restart_required: false });
+  }
+  let backup: string | null;
+  try {
+    backup = backupAndWrite(target, text);
+  } catch (e) {
+    return fail("set", key, `could not write ${target}: ${sanitizeMessage(e)}`);
+  }
+  const effective = readPersonaSettings()[prop];
+  const overridden =
+    settingsLocalHas(prop) && JSON.stringify(effective) !== JSON.stringify(next[prop]);
+  return ok({
+    ok: true, action: "set", key, value: effective, status: "updated", path: target, backup, restart_required: false,
+    ...(overridden ? { message: `written to ${target}, but ${settingsLocalFile()} overrides this key; the effective value is unchanged.`, source: settingsLocalFile() } : {}),
+  });
+}
+
 function setUserSetting(key: string, raw: string) {
+  if (key === "user.personaMode" || key === "user.settingSources") {
+    return setPersonaSetting(key, raw);
+  }
   const prop = key === "user.contextCoaching" ? "contextCoaching" : "handoffWarnThreshold";
   const merged = readContextCoachingSettings();
   const next = { ...merged };
