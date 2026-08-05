@@ -19,6 +19,9 @@ Start a new always-interactive sub-agent session.
 | `effort` | `"medium" \| "high" \| "xhigh" \| "max" \| "ultracode"` | No | Override; omit to auto-select. See haiku note.[^haiku-effort] |
 | `deadlock` | boolean | No | MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory - the 3rd attempt onward. Re-wording or splitting unchanged work does NOT reset attempts. Auto mode only: cannot be combined with provider/model/effort; from the 3rd attempt, drop those params. Passing false is identical to omitting it. |
 | `sub-orchestrator` | boolean | No | Launch this child as a delegate-only sub-orchestrator for one disjoint plan section (swarm dispatch stage). The server injects an orchestration directive into the prompt and marks the child's env. The child's own sub-agents are normal workers and never inherit the flag. Available to the main orchestrator only (depth 0); rejected at greater depth. Omitting or `false` = normal sub-agent. |
+| `agent` | string | No | Persona name applied to the sub-agent's main thread. Opt-in: rejected unless `user.personaMode` is `enabled` (configure tool). Claude provider only. Define inline via `agent_definition`, or load from `.claude/agents/` on disk when `user.settingSources` includes `project` or `user`. |
+| `agent_definition` | object | No | Inline persona registered under `agent`: `{ description, prompt, tools?, disallowed_tools?, skills? }`. Strict shape with deliberately NO `model` field : routing keeps sole ownership of model choice. Requires `agent`. |
+| `system_prompt_append` | string | No | Lighter-weight persona alternative: text appended to the stock `claude_code` system prompt preset. Same `user.personaMode` gate. Cannot be combined with `agent`. |
 | `cwd` | string | No | Working directory for the agent session |
 
 [^haiku-effort]: `haiku` accepts any effort value but the effort is ignored : the Claude Agent SDK session takes no effort for Haiku.
@@ -30,6 +33,8 @@ Returns: `{ agent_id, status, provider, model, effort, task_category }`, plus `r
 **Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. A provider-only override tries its matching candidates first, then de-duplicated auto fallbacks. Adding `model` pins the rank-1 matching candidate to one attempt; adding `effort` pins that exact triple. Pinned failures are loud and never substitute another candidate. `model` requires `provider`; `effort` requires both.
 
 Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable`. Codex accepts `gpt-5.5` or `gpt-5.6`.
+
+**Personas (opt-in):** with `user.personaMode` set to `enabled` via the configure tool, `agent`/`agent_definition`/`system_prompt_append` apply a persona (system prompt, tool restrictions, preloaded skills) to the spawned Claude sub-agent. Default off with zero behavior change; codex and API-provider candidates are excluded rather than silently dropping the persona. Spec: [docs/spec/persona-mode/_INDEX.md](spec/persona-mode/_INDEX.md).
 
 Spec: [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_INDEX.md) (param contract, presence→behavior matrix, exact error text).
 

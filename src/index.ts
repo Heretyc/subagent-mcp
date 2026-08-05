@@ -93,6 +93,7 @@ import {
   readPermissionsCeiling,
   ensureFirstRunPermissionCeiling,
   readGlobalCap,
+  readPersonaSettings,
   releaseSlot,
   reserveSlot,
   slotDir,
@@ -100,6 +101,13 @@ import {
   type ZombieRecord,
 } from "./concurrency.js";
 import { configure } from "./configure.js";
+import {
+  hasPersonaParams,
+  validatePersonaParams,
+  wireAgentDefinitionSchema,
+  type WireAgentDefinition,
+} from "./persona.js";
+import type { SettingSource } from "./concurrency.js";
 import { shouldReapTerminalButAlive } from "./zombie.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
@@ -1010,7 +1018,15 @@ async function tryLaunchCandidate(
     applied: true;
     originalSelection: { provider: string; model: string; effort: string };
   },
-  subOrchestrator?: boolean
+  subOrchestrator?: boolean,
+  // Defaulting to empty settingSources fails closed: a call site that omits
+  // the argument launches a fully isolated child, never a persona-bearing one.
+  persona: {
+    agent?: string;
+    agentDefinition?: WireAgentDefinition;
+    systemPromptAppend?: string;
+    settingSources: SettingSource[];
+  } = { settingSources: [] }
 ): Promise<{ agentId: string } | { reason: string; failure_type: FailureType }> {
   if (candidate.provider === "api") {
     if (!candidate.apiProvider) {
@@ -1113,6 +1129,7 @@ async function tryLaunchCandidate(
       ucSettingsPath: buildResult.ucSettingsPath,
       ucSettingsDir: buildResult.ucSettingsDir,
       agentId,
+      ...persona,
     });
   } catch (error) {
     // Synchronous spawn throw (rare) — clean up and report as a launch failure.
@@ -1493,6 +1510,11 @@ server.tool(
     model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5", "gpt-5.6"]).optional(),
     effort: z.enum(["medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
+    agent: z.string().min(1).optional().describe("PERSONA (opt-in; requires configure user.personaMode=enabled; Claude provider only): agent name applied to the sub-agent's main thread. Define it inline via agent_definition, or load it from .claude/agents/ on disk when user.settingSources includes project or user."),
+    agent_definition: wireAgentDefinitionSchema
+      .optional()
+      .describe("PERSONA: inline definition registered under `agent` — system prompt, optional tool allow/deny lists, optional preloaded skills. Deliberately has NO model field: routing keeps sole ownership of model choice."),
+    system_prompt_append: z.string().min(1).optional().describe("PERSONA: lighter-weight alternative to a full agent definition — text appended to the stock claude_code system prompt preset. Cannot be combined with `agent`."),
     deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
     "sub-orchestrator": z.boolean().optional().describe(SUB_ORCH_PARAM_GLOSS),
   },
@@ -1526,6 +1548,33 @@ server.tool(
     if (presenceError) {
       return errorResult(presenceError);
     }
+
+    // Persona gate (docs/spec/persona-mode/). Settings are re-read per launch,
+    // matching the config-file re-read ethos; while user.personaMode is off the
+    // three persona params are rejected outright, so default behavior is
+    // untouched. Runs before the model gate: persona params are not model
+    // selectors and must not depend on model-selection-mode state.
+    const personaSettings = readPersonaSettings();
+    const personaParams = {
+      provider,
+      agent: params.agent as string | undefined,
+      agentDefinition: params.agent_definition as WireAgentDefinition | undefined,
+      systemPromptAppend: params.system_prompt_append as string | undefined,
+    };
+    const personaError = validatePersonaParams(personaSettings, personaParams);
+    if (personaError) {
+      return errorResult(personaError);
+    }
+    const personaRequested = hasPersonaParams(personaParams);
+    // settingSources rides along on every launch (it is an independent config
+    // key, not gated by personaMode); the persona fields are undefined unless
+    // supplied, which the driver treats identically to absent.
+    const persona = {
+      settingSources: personaSettings.settingSources,
+      agent: personaParams.agent,
+      agentDefinition: personaParams.agentDefinition,
+      systemPromptAppend: personaParams.systemPromptAppend,
+    };
 
     // Depth-0 gate: only the MAIN orchestrator may create a sub-orchestrator.
     // From depth 1 the child's own workers would sit at depth 2 and could not
@@ -1600,8 +1649,20 @@ server.tool(
 
     const requestedCandidates = mode === "provider_model" ? result.candidates.slice(0, 1) : result.candidates;
     let candidates = appendDedupedCandidates(requestedCandidates, autoCandidates);
+    if (personaRequested) {
+      // Only the Claude SDK path can apply a persona; codex/api candidates
+      // would silently drop it, so they are excluded rather than attempted
+      // (the api slotInsert below is skipped for the same reason).
+      candidates = candidates.filter((c) => c.provider === "claude");
+      if (candidates.length === 0) {
+        return errorResult(
+          `Error: persona parameters require a Claude candidate, but the routing table has no launchable claude pairing for ${task_category}. Drop the persona parameters, or pick a task_category with a claude route.\n${AUTO_HINT}`
+        );
+      }
+    }
     if (
       pureAuto &&
+      !personaRequested &&
       branch === "cost_efficiency" &&
       launchInputs.allowApiSlotInsert &&
       process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1"
@@ -1651,6 +1712,18 @@ server.tool(
         };
       }
       candidates = reattachCandidateMetadata(candidates, applied.candidates);
+      // The ruleset may return launchable claude/codex candidates that were
+      // not in its input (only api candidates are constrained to the input
+      // list), so the persona constraint must be re-established on its output:
+      // a codex or api candidate would silently drop the persona.
+      if (personaRequested) {
+        candidates = candidates.filter((c) => c.provider === "claude");
+        if (candidates.length === 0) {
+          return errorResult(
+            `Error: advanced ruleset returned no claude candidate for a persona launch of ${task_category}; persona parameters require the Claude SDK path.\n${AUTO_HINT}`
+          );
+        }
+      }
     }
 
     // 6. Attempt loop: best→worst. Register on first successful driver start; silently
@@ -1692,7 +1765,8 @@ server.tool(
           rulesetApplied && rulesetOriginalSelection !== undefined
             ? { applied: true, originalSelection: rulesetOriginalSelection }
             : undefined,
-          subOrchestrator
+          subOrchestrator,
+          persona
         );
         if (
           candidate.provider === "api" &&
@@ -1708,7 +1782,8 @@ server.tool(
             rulesetApplied && rulesetOriginalSelection !== undefined
               ? { applied: true, originalSelection: rulesetOriginalSelection }
               : undefined,
-            subOrchestrator
+            subOrchestrator,
+            persona
           );
         }
         if ("agentId" in outcome) {

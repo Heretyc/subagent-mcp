@@ -327,6 +327,74 @@ await test("Claude SDK driver maps Opus launch ids to the full SDK model id", as
   assert.equal(await openWith("haiku"), "claude-haiku-4-5");
 });
 
+await test("Claude SDK driver forwards persona options and keeps the default byte-identical", async () => {
+  async function openWith(extra) {
+    let sdkOptions;
+    async function* query(params) {
+      sdkOptions = params.options;
+      for await (const _msg of params.prompt) {
+        yield { type: "result", result: "ok" };
+      }
+    }
+    const driver = new ClaudeSdkDriver(query);
+    driver.open({ ...options("claude"), ...extra });
+    await once(driver.process, "spawn");
+    await driver.start("hi");
+    await waitFor(() => sdkOptions !== undefined, "Claude SDK options captured");
+    driver.kill();
+    return sdkOptions;
+  }
+
+  // Default: no persona keys at all, isolation preserved.
+  const plain = await openWith({});
+  assert.deepEqual(plain.settingSources, []);
+  assert.equal("agent" in plain, false);
+  assert.equal("agents" in plain, false);
+  assert.equal("systemPrompt" in plain, false);
+
+  // Inline persona: agent + camelCase definition, never a model pin.
+  const withPersona = await openWith({
+    agent: "reviewer-probe",
+    agentDefinition: {
+      description: "probe",
+      prompt: "You are PROBE-7.",
+      tools: ["Read", "Grep"],
+      disallowed_tools: ["Write"],
+      skills: ["smcp-help"],
+    },
+  });
+  assert.equal(withPersona.agent, "reviewer-probe");
+  assert.deepEqual(withPersona.agents, {
+    "reviewer-probe": {
+      description: "probe",
+      prompt: "You are PROBE-7.",
+      tools: ["Read", "Grep"],
+      disallowedTools: ["Write"],
+      skills: ["smcp-help"],
+    },
+  });
+  assert.equal("model" in withPersona.agents["reviewer-probe"], false);
+  assert.equal("systemPrompt" in withPersona, false);
+
+  // Named-only persona (definition expected on disk): no agents map.
+  const namedOnly = await openWith({
+    agent: "implementer",
+    settingSources: ["project"],
+  });
+  assert.equal(namedOnly.agent, "implementer");
+  assert.equal("agents" in namedOnly, false);
+  assert.deepEqual(namedOnly.settingSources, ["project"]);
+
+  // Append-only persona: preset+append form, nothing else.
+  const withAppend = await openWith({ systemPromptAppend: "Prefer terse replies." });
+  assert.deepEqual(withAppend.systemPrompt, {
+    type: "preset",
+    preset: "claude_code",
+    append: "Prefer terse replies.",
+  });
+  assert.equal("agent" in withAppend, false);
+});
+
 await test("mock driver script seam requires test env or explicit opt-in", async () => {
   const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-mock-seam-"));
   const oldEnv = {
