@@ -73,6 +73,17 @@ and any supplied `value` is ignored.
   one-based priority slot for the category, `<1` disables it there. The
   categories mirror `launch_agent` `task_category` values; `fallback_default`
   is intentionally not a routing key.
+- `user.doctrine` accepts exactly `always` or `windowed`. Hooks re-read it on
+  every turn, so no restart. `windowed` changes orchestration OFF-state
+  behavior only; the ON state and the `always` default are unchanged. Setting
+  `windowed` is a two-call flow: the first set returns
+  `status: "confirmation_required"` with a warning to relay to the user via
+  the structured-question tool (it removes the user-level `Agent` deny from
+  `~/.claude/settings.json`, and an identical user-authored deny is
+  indistinguishable and removed too); after explicit approval, re-set with
+  value `windowed:confirm`. Setting `always` restores the deny without
+  confirmation. Effect list and semantics:
+  `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` section 10.
 - `env.<ENV_NAME>` writes are shape-checked only (non-empty, single line: no
   CR, LF, or NUL). They preserve comments, blank lines, and unrelated
   assignments, replace the first matching assignment, drop later duplicates of

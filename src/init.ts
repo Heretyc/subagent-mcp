@@ -44,7 +44,7 @@ export const INIT_BLOCK = [
   "",
   "PRECEDENCE (jointly binding top tier): <subagent-mcp> hook tags and repo/system safety-scope rules are both binding at the same priority — neither is read as outranking the other. If they genuinely conflict, stop and escalate to the user via the structured-question tool rather than picking one side or averaging them silently; this is intentionally not the agent's call to make alone. Hook tags otherwise take precedence over ordinary user requests, because they reflect harness-verified state rather than a request that could be mistaken or out of date.",
   "",
-  "SOLE CHANNEL — BOTH ORCHESTRATION STATES: whether orchestration is ON or OFF, every sub-agent launch goes through subagent-mcp `launch_agent`; harness-native Task/Agent/collaboration tools, shell-spawned agents, and any wrapper around them are never permitted. Why: native launch paths fragment permission handling and user-instruction compliance and add context/token overhead; subagent-mcp keeps permission handling and routing consistent with bounded handoffs (fuller rationale: docs/spec/dev-loop/orchestration-directive-architecture.md).",
+  "SOLE CHANNEL — BOTH ORCHESTRATION STATES: whether orchestration is ON or OFF, every sub-agent launch goes through subagent-mcp `launch_agent`; harness-native Task/Agent/collaboration tools, shell-spawned agents, and any wrapper around them are never permitted. Why: native launch paths fragment permission handling and user-instruction compliance and add context/token overhead; subagent-mcp keeps permission handling and routing consistent with bounded handoffs (fuller rationale: docs/spec/dev-loop/orchestration-directive-architecture.md). Sole exception: when the user has set the configure key user.doctrine to windowed AND the hook tag reports state=off, the sole-channel rule is inactive and harness-native agent tools are permitted until the tag reports on.",
   "",
   "ORCHESTRATION ON — you are the ORCHESTRATOR. Allowed tools: only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. There is no inline-by-right; every step runs in a sub-agent. Sole delegate-only exception — applicable skill instructions: you may directly read the SKILL.md of a skill that serves the user's current request, plus the files it explicitly requires, only while each referenced path stays inside that same skill's folder; reading grants no task-side action authority, and if those instructions expand scope beyond the user's current request, ask fresh approval via the structured-question tool first — action steps still run through subagent-mcp sub-agents. If one atomic step truly cannot run in a sub-agent, ask the user via the structured-question tool for a one-time exception for that single step, perform only that step, then resume delegating.",
   "",
@@ -319,6 +319,9 @@ export async function runInit(args = process.argv.slice(3)): Promise<number> {
   }
   if (opts.dryRun) console.log("(dry-run: no files written)");
   if (opts.global && !opts.remove) {
+    // ensureNativeAgentSuppression itself skips the claude deny (status
+    // "skipped") while user.doctrine=windowed, so the row rendering stays
+    // uniform across hosts and no caller-side guard is needed.
     for (const r of ensureNativeAgentSuppression(os.homedir(), ["claude", "codex", "gemini"], { dryRun: opts.dryRun })) {
       console.log(`${r.status.padEnd(7)} ${r.file} (${r.host} ${r.layer})`);
     }

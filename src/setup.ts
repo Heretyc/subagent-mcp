@@ -38,6 +38,7 @@ import { askLine, type PromptOptions } from "./prompt.js";
 import {
   ensureFirstRunPermissionCeiling,
   ensureFirstRunUserSettings,
+  readDoctrine,
   userConfigMissingOrBlank,
   type ContextCoachingSettings,
 } from "./concurrency.js";
@@ -106,7 +107,7 @@ function smcpAssetPaths(
 // Pure helpers exported for tests and setup wiring.
 // ---------------------------------------------------------------------------
 
-export type WireStatus = "ok" | "added" | "repaired";
+export type WireStatus = "ok" | "added" | "repaired" | "skipped";
 export type JsonObj = Record<string, unknown>;
 
 export interface SmcpSkillsAndCommandsResult {
@@ -939,7 +940,13 @@ function wireClaude(): void {
     if (!read.ok) throw new Error(`${sfile} is not valid JSON; repair it before running setup`);
     const s = read.value;
     const hooks = reconcileClaudeSettings(s, p.claudeHook);
-    const deny = reconcileClaudeNativeAgentDeny(s);
+    // Under windowed doctrine the user has confirmed lifting the user-level
+    // Agent deny; setup must not silently re-add it (skip-only guard, same
+    // invariant ensureNativeAgentSuppression enforces for init/upgrade).
+    const deny =
+      readDoctrine() === "windowed"
+        ? { changed: false, status: "skipped" as const }
+        : reconcileClaudeNativeAgentDeny(s);
     if ((hooks.changed || deny.changed) && !DRY_RUN) writeJsonWithBackup(sfile, s);
     describe(hooks.status, "UserPromptSubmit + PreToolUse hooks");
     describe(deny.status, "native-agent static deny");
@@ -1219,6 +1226,9 @@ export function verifyWiring(
   repair: boolean = false,
   home: string = homedir()
 ): CheckResult[] {
+  // Windowed doctrine intentionally lifts the claude user-level Agent deny;
+  // verify must agree with setup/doctor instead of advising an unfollowable fix.
+  const windowedDoctrine = readDoctrine() === "windowed";
   const p = serverPaths(root);
   const results: CheckResult[] = [];
 
@@ -1248,8 +1258,12 @@ export function verifyWiring(
     });
     results.push({
       label: "claude: native-agent static deny",
-      ok: deny.status === "ok",
-      detail: deny.status === "ok" ? "permissions.deny blocks Agent" : "stale or missing - run: subagent-mcp setup",
+      ok: windowedDoctrine || deny.status === "ok",
+      detail: windowedDoctrine
+        ? "intentionally absent (user.doctrine=windowed)"
+        : deny.status === "ok"
+          ? "permissions.deny blocks Agent"
+          : "stale or missing - run: subagent-mcp setup",
     });
     const sl = reconcileClaudeStatusLine(sj, p.claudeStatuslineHook);
     results.push({
@@ -1281,8 +1295,12 @@ export function verifyWiring(
     });
     results.push({
       label: "claude: native-agent static deny",
-      ok: deny.status === "ok",
-      detail: deny.status === "ok" ? "permissions.deny blocks Agent" : "stale or missing - run: subagent-mcp setup",
+      ok: windowedDoctrine || deny.status === "ok",
+      detail: windowedDoctrine
+        ? "intentionally absent (user.doctrine=windowed)"
+        : deny.status === "ok"
+          ? "permissions.deny blocks Agent"
+          : "stale or missing - run: subagent-mcp setup",
     });
     const sl = reconcileClaudeStatusLine(sj, p.claudeStatuslineHook);
     results.push({

@@ -20,6 +20,12 @@ import { join } from "node:path";
 
 import { currentUserSlotNamespace, slotDir as currentSlotDir } from "../dist/concurrency.js";
 import { alivePath, touchAlive, LIVENESS_TTL_MS } from "../dist/orchestration/liveness.js";
+import {
+  removeDisable,
+  removeEnable,
+  writeDisable,
+  writeEnable,
+} from "../dist/orchestration/marker.js";
 import { runClaudePreTool } from "../dist/orchestration/pretool.js";
 import {
   slotPathForAgent,
@@ -301,6 +307,131 @@ test("no lifecycle/compaction tool gating: handoff and ordinary tools stay allow
       cleanup(p);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// Windowed doctrine (user.doctrine): the Agent deny holds only while the
+// session is effectively ON; always/unset keep the unconditional deny.
+// ---------------------------------------------------------------------------
+
+const DENY_REASON =
+  "subagent-mcp is alive; the harness-native Agent tool is not the sanctioned sub-agent channel. Use the subagent-mcp launch_agent MCP tool with the parent-process sentinel as prompt line 1.";
+const DENY_DECISION = {
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse",
+    permissionDecision: "deny",
+    permissionDecisionReason: DENY_REASON,
+  },
+};
+
+function withDoctrineHome(settings, fn) {
+  const home = mkdtempSync(join(tmpdir(), "orch-pt-config-"));
+  const previous = process.env.SUBAGENT_CONFIG_HOME;
+  if (settings !== null) {
+    writeFileSync(join(home, "settings.json"), JSON.stringify(settings), "utf8");
+  }
+  process.env.SUBAGENT_CONFIG_HOME = home;
+  try {
+    return fn();
+  } finally {
+    if (previous === undefined) delete process.env.SUBAGENT_CONFIG_HOME;
+    else process.env.SUBAGENT_CONFIG_HOME = previous;
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
+test("doctrine golden: absent file, empty settings, and explicit always all deny Agent with the literal decision", () => {
+  touchAlive();
+  for (const settings of [null, {}, { doctrine: "always" }]) {
+    withDoctrineHome(settings, () => {
+      const p = payload("Agent");
+      try {
+        assert.deepEqual(
+          runClaudePreTool(p, {}),
+          DENY_DECISION,
+          `settings=${JSON.stringify(settings)}`
+        );
+      } finally {
+        cleanup(p);
+      }
+    });
+  }
+});
+
+test("windowed + OFF session -> abstain on Agent (host rules decide)", () => {
+  touchAlive();
+  withDoctrineHome({ doctrine: "windowed" }, () => {
+    const p = payload("Agent");
+    try {
+      // Abstain, not allow: a PreToolUse allow only skips the interactive
+      // prompt (matching deny rules still apply afterward), so the dormant
+      // OFF state is enforced by the settings-level deny toggle instead and
+      // the hook stays out of the way.
+      assert.equal(runClaudePreTool(p, {}), null);
+    } finally {
+      cleanup(p);
+    }
+  });
+});
+
+test("windowed + enabled session -> deny, byte-identical to the always decision", () => {
+  touchAlive();
+  withDoctrineHome({ doctrine: "windowed" }, () => {
+    const p = payload("Agent");
+    try {
+      writeEnable(p.session_id);
+      assert.deepEqual(runClaudePreTool(p, {}), DENY_DECISION);
+    } finally {
+      removeEnable(p.session_id);
+      cleanup(p);
+    }
+  });
+});
+
+test("windowed + explicit disable record -> abstain (disable wins)", () => {
+  touchAlive();
+  withDoctrineHome({ doctrine: "windowed" }, () => {
+    const p = payload("Agent");
+    try {
+      writeDisable(p.session_id);
+      assert.equal(runClaudePreTool(p, {}), null);
+    } finally {
+      removeDisable(p.session_id);
+      cleanup(p);
+    }
+  });
+});
+
+test("windowed + payload without session_id -> deny (anon owner key is fail-safe ON)", () => {
+  touchAlive();
+  withDoctrineHome({ doctrine: "windowed" }, () => {
+    const p = payload("Agent");
+    delete p.session_id;
+    try {
+      assert.deepEqual(runClaudePreTool(p, {}), DENY_DECISION);
+    } finally {
+      cleanup(p);
+    }
+  });
+});
+
+test("windowed leaves non-Agent tools and stale-liveness fail-open unchanged", () => {
+  touchAlive();
+  withDoctrineHome({ doctrine: "windowed" }, () => {
+    const ordinary = payload("Bash");
+    const stale = payload("Agent");
+    try {
+      assert.equal(runClaudePreTool(ordinary, {}), null);
+      assert.equal(
+        runClaudePreTool(stale, {}, Date.now() + LIVENESS_TTL_MS + 1),
+        null,
+        "stale-liveness fail-open is byte-identical in both doctrines"
+      );
+    } finally {
+      cleanup(ordinary);
+      cleanup(stale);
+    }
+  });
 });
 
 test("source comments no longer mention the retired 200-line self-estimation doctrine", () => {

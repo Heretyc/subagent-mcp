@@ -1,8 +1,9 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { readDoctrine } from "./concurrency.js";
 import { atomicWriteFile } from "./orchestration/atomic-write.js";
 
-export type NativeSuppressionStatus = "ok" | "added" | "repaired";
+export type NativeSuppressionStatus = "ok" | "added" | "repaired" | "skipped";
 export type JsonObj = Record<string, unknown>;
 
 /**
@@ -26,9 +27,11 @@ function uniqueStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
+export type ReconcileStatus = "ok" | "added" | "repaired";
+
 export function reconcileClaudeNativeAgentDeny(
   s: JsonObj
-): { changed: boolean; status: NativeSuppressionStatus } {
+): { changed: boolean; status: ReconcileStatus } {
   const permissions =
     s.permissions && typeof s.permissions === "object" && !Array.isArray(s.permissions)
       ? (s.permissions as JsonObj)
@@ -48,9 +51,65 @@ export function reconcileClaudeNativeAgentDeny(
   return { changed, status: changed ? (before.length ? "repaired" : "added") : "ok" };
 }
 
+/** True when the parsed Claude settings carry any smcp-owned deny rule. */
+export function hasClaudeNativeAgentDeny(json: JsonObj | null): boolean {
+  const permissions = json?.permissions;
+  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) return false;
+  const deny = (permissions as JsonObj).deny;
+  if (!Array.isArray(deny)) return false;
+  const owned = new Set<string>([...CLAUDE_NATIVE_AGENT_DENY, ...CLAUDE_NATIVE_AGENT_DENY_LEGACY]);
+  return deny.some((rule) => typeof rule === "string" && owned.has(rule));
+}
+
+/** Drop the Claude `permissions.deny` rules smcp writes; keep every other rule. */
+export function removeClaudeNativeAgentDeny(json: JsonObj | null): number {
+  const permissions = json?.permissions;
+  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) return 0;
+  const perms = permissions as JsonObj;
+  if (!Array.isArray(perms.deny)) return 0;
+  const owned = new Set<string>([...CLAUDE_NATIVE_AGENT_DENY, ...CLAUDE_NATIVE_AGENT_DENY_LEGACY]);
+  const before = perms.deny as unknown[];
+  const kept = before.filter((rule) => !(typeof rule === "string" && owned.has(rule)));
+  if (kept.length === before.length) return 0;
+  if (kept.length > 0) {
+    perms.deny = kept;
+  } else {
+    delete perms.deny;
+    if (Object.keys(perms).length === 0) delete (json as JsonObj).permissions;
+  }
+  return before.length - kept.length;
+}
+
+export interface NativeDenyRemovalResult {
+  file: string;
+  changed: boolean;
+  removed: number;
+}
+
+/**
+ * Remove the smcp-owned Agent deny rules from `~/.claude/settings.json`,
+ * keeping every other rule. No sidecar restore state is needed: smcp only ever
+ * appends its own deny rules, so dropping them restores the pre-smcp list
+ * exactly. A timestamped backup is written before any change.
+ */
+export function removeNativeAgentDenyFromClaudeSettings(
+  home: string,
+  opts: { dryRun?: boolean } = {}
+): NativeDenyRemovalResult {
+  const file = join(home, ".claude", "settings.json");
+  if (!existsSync(file)) return { file, changed: false, removed: 0 };
+  const json = readJson(file);
+  const removed = removeClaudeNativeAgentDeny(json);
+  if (removed > 0 && !opts.dryRun) {
+    backup(file);
+    atomicWriteFile(file, `${JSON.stringify(json, null, 2)}\n`, { encoding: "utf8" });
+  }
+  return { file, changed: removed > 0, removed };
+}
+
 export function reconcileCodexNativeAgentDisable(
   toml: string
-): { toml: string; changed: boolean; status: NativeSuppressionStatus } {
+): { toml: string; changed: boolean; status: ReconcileStatus } {
   const blockMatch = featuresBlock(toml);
   const block = blockMatch?.[0] ?? null;
   if (!block) {
@@ -77,7 +136,7 @@ export function codexNativeAgentDisableOk(toml: string): boolean {
 
 export function reconcileGeminiSettings(
   s: JsonObj
-): { changed: boolean; status: NativeSuppressionStatus } {
+): { changed: boolean; status: ReconcileStatus } {
   const experimental =
     s.experimental && typeof s.experimental === "object" && !Array.isArray(s.experimental)
       ? (s.experimental as JsonObj)
@@ -129,19 +188,32 @@ export interface NativeSuppressionWriteResult {
 export function ensureNativeAgentSuppression(
   home: string,
   hosts: Array<"claude" | "codex" | "gemini">,
-  opts: { dryRun?: boolean } = {}
+  opts: { dryRun?: boolean; force?: boolean; configHome?: string } = {}
 ): NativeSuppressionWriteResult[] {
   const out: NativeSuppressionWriteResult[] = [];
   if (hosts.includes("claude")) {
     const file = join(home, ".claude", "settings.json");
-    const json = readJson(file);
-    const r = reconcileClaudeNativeAgentDeny(json);
-    if (r.changed && !opts.dryRun) {
-      mkdirSync(dirname(file), { recursive: true });
-      backup(file);
-      atomicWriteFile(file, `${JSON.stringify(json, null, 2)}\n`, { encoding: "utf8" });
+    // Under windowed doctrine the user has confirmed lifting the user-level
+    // Agent deny, so every writer skips re-adding it HERE - the invariant
+    // cannot depend on each caller remembering a guard. Only the confirmed
+    // doctrine transition in configure passes `force` to restore it.
+    // `configHome` overrides the doctrine-read location for hermetic tests;
+    // the default honors SUBAGENT_CONFIG_HOME like every other doctrine read.
+    const windowed =
+      !opts.force &&
+      readDoctrine(opts.configHome ? { configHome: opts.configHome } : undefined) === "windowed";
+    if (windowed) {
+      out.push({ host: "claude", layer: "permissions.deny", file, changed: false, status: "skipped" });
+    } else {
+      const json = readJson(file);
+      const r = reconcileClaudeNativeAgentDeny(json);
+      if (r.changed && !opts.dryRun) {
+        mkdirSync(dirname(file), { recursive: true });
+        backup(file);
+        atomicWriteFile(file, `${JSON.stringify(json, null, 2)}\n`, { encoding: "utf8" });
+      }
+      out.push({ host: "claude", layer: "permissions.deny", file, ...r });
     }
-    out.push({ host: "claude", layer: "permissions.deny", file, ...r });
   }
   if (hosts.includes("codex")) {
     const file = join(home, ".codex", "config.toml");
