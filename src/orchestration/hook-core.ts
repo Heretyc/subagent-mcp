@@ -19,9 +19,11 @@ import { sweepHookState } from "./state-sweep.js";
 import * as template from "./template.js";
 import {
   cullStaleSlots,
+  readDoctrine,
   slotDir,
   ZOMBIE_FORCE_GRACE_MS,
   type CullDeps,
+  type DoctrineMode,
   type ZombieRecord,
 } from "../concurrency.js";
 import {
@@ -55,6 +57,13 @@ import { isSubOrchestratorEnv } from "../sub-orchestrator.js";
 
 /** Long-reminder cadence: every Nth counted prompt is a LONG turn. */
 export const REMINDER_PERIOD = 5;
+
+/**
+ * The single neutral line a windowed-doctrine session emits while OFF. It
+ * carries the harness-verified state without any doctrine or adoption text.
+ */
+export const WINDOWED_OFF_BODY =
+  "Orchestration is OFF for this session (user.doctrine=windowed). Sole-channel and delegation rules are inactive until the tag reports on.";
 export const ANON_CLAIM_TTL_MS = 2 * 60 * 60 * 1000;
 const OWNER_CLAIM_CAP = 8;
 
@@ -643,15 +652,25 @@ function providerDirectiveFile(adapter: ProviderAdapter, prefix: string): string
  * supplied by the caller because only the caller knows its own turn context: the
  * hook honors the turn-1 grace window (no completed turn yet, so early turns are
  * NOT fail-safed), and the tool derives it from the persisted metering record.
+ *
+ * Under `user.doctrine: "windowed"` the latch and metering-fail-safe terms are
+ * inert: only an active marker (an explicit session enable record, or the
+ * unconditional-ON anonymous/keyless owner carryover inside marker.isActive)
+ * makes the session effectively ON. The doctrine value defaults to a fresh
+ * settings read so every caller shares the same decision without plumbing.
  */
 export function computeEffectiveActive(
   cwd: string,
   current: string | undefined,
   now: number,
-  meteringUndetectableFailSafe: boolean
+  meteringUndetectableFailSafe: boolean,
+  doctrine: DoctrineMode = readDoctrine()
 ): boolean {
   if (current !== undefined && marker.isSessionDisabled(current, now)) {
     return false;
+  }
+  if (doctrine === "windowed") {
+    return marker.isActive(cwd, current);
   }
   const latched = current !== undefined && latch.isLatchActive(current, now);
   return marker.isActive(cwd, current) || latched || meteringUndetectableFailSafe;
@@ -813,6 +832,9 @@ export function runHook(
     const turnIndex = adapter.currentTurn(payload.transcript_path);
     // One config read per turn, shared by near_limit and the injection gate.
     const warningSettings = readHandoffWarningSettings();
+    // One doctrine read per turn, shared by the latch gate, the effective-state
+    // decision, and the OFF emission gate so they cannot disagree within a turn.
+    const doctrine = readDoctrine();
     const meteringUndetectableFailSafe = updateMeteringForTurn(
       payload,
       env,
@@ -823,20 +845,50 @@ export function runHook(
     );
     const meteringState = readMeteringState(current);
     const wasLatched = latch.isLatchActive(current, now);
-    if (meteringState.phase !== "normal" || wasLatched) {
+    // Under windowed doctrine the latch record is written only while the
+    // session is effectively ON (latch-within-ON semantics are unchanged); a
+    // record written while OFF would be a persisted force-ON that fires the
+    // moment doctrine flips back to "always". The effective state is computed
+    // once here: under windowed the latch and fail-safe terms are inert, so
+    // tripLatch cannot change it, and the "always" path keeps its original
+    // post-trip computation and ordering.
+    const windowedActive =
+      doctrine === "windowed"
+        ? computeEffectiveActive(cwd, current, now, meteringUndetectableFailSafe, doctrine)
+        : undefined;
+    if (
+      (meteringState.phase !== "normal" || wasLatched) &&
+      (doctrine === "always" || windowedActive === true)
+    ) {
       latch.tripLatch(current, now);
     }
     const isLatched = latch.isLatchActive(current, now);
     const justTrippedLatch = !wasLatched && isLatched;
-    const effectiveActive = computeEffectiveActive(
-      cwd,
-      current,
-      now,
-      meteringUndetectableFailSafe
-    );
+    const effectiveActive =
+      windowedActive ??
+      computeEffectiveActive(cwd, current, now, meteringUndetectableFailSafe, doctrine);
 
     if (!effectiveActive) {
       const r = reminder.advance(cwd, current);
+      // Windowed doctrine: the OFF state emits a minimal state tag and nothing
+      // else - no carrier, no LONG reminder, no handoff re-append, no update
+      // notices (pending notices defer to the next full emission). The tag
+      // itself must stay: the doctrine layer treats a tag-less session as
+      // state-unknown and fails safe to ON, which would defeat the dormant
+      // window. This gate is emission-only by position - every side effect
+      // above it (zombie cull, state sweep, session-pointer write, metering,
+      // latch decision, reminder counter) has already run, so the
+      // orchestration-mode enable path and the cadence state stay intact.
+      if (doctrine === "windowed") {
+        return (
+          composeInjection(
+            { kind: "carrier", body: WINDOWED_OFF_BODY, isLong: false },
+            false,
+            meteringState.phase,
+            meteringState.usedPercentage
+          ) ?? ""
+        );
+      }
       // A session that has already read a handoff re-appends the saved content
       // to EVERY LONG reminder (spec), regardless of ON/OFF cadence.
       const offEmission = cadenceEmit(

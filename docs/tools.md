@@ -163,6 +163,8 @@ Returns: `{ orchestration_mode, marker_path }`.
 
 When ON, act as a delegate-only orchestrator: every step runs in a sub-agent; inline-by-right does not exist; a non-delegable atomic step needs a one-time user-approved exception. ON/OFF is governed by session-keyed state; `orch-<cwdHash>.flag` is claim/carryover state only. DISABLE is never on your own initiative : you may PROPOSE OFF, but only explicit user permission (via the structured-question tool) may set `enabled:false`. Per-turn injection fires only in CLI hosts that load the bundled hook; desktop hosts toggle state but inject nothing.
 
+Opt-in doctrine window: the configure key `user.doctrine` (`always` default, `windowed`) selects whether the OFF state is dormant. `always` behaves identically to the key being absent. Semantics and the OFF-state effect list: [docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md](spec/dev-loop/orchestration-directive-architecture/sections-10-13.md) section 10.
+
 ---
 
 ## `model-selection-mode`

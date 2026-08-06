@@ -102,6 +102,27 @@ Pass `verbose: true` to also get `final_output`, the agent's final assistant tur
 
 ---
 
+## Doctrine Windows (opt-in)
+
+With the configure key `user.doctrine` set to `windowed`, the server stays
+dormant while orchestration is OFF: the per-prompt hook emits only a minimal
+state tag, the automatic 15% latch never force-enables, and on Claude hosts
+the harness-native `Agent` tool passes through (Codex/Gemini native-agent
+suppression is installer-level configuration and stays in place). Opening a
+window with `orchestration-mode enabled:true` applies full doctrine
+(sole-channel, delegate-only, swarm and sub-orchestrators); the window closes
+on `enabled:false` or the enable record's 2h backstop, and dormancy returns.
+
+```json
+{ "tool": "configure", "arguments": { "action": "set", "key": "user.doctrine", "value": "windowed" } }
+```
+
+The default `always` behaves identically to the key being absent. Semantics:
+[docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md](spec/dev-loop/orchestration-directive-architecture/sections-10-13.md)
+section 10.
+
+---
+
 ## Agentic Swarm
 
 For objectives projected to span multiple sessions, use the `swarm` tool to
