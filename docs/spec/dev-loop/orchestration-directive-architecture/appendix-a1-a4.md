@@ -29,7 +29,7 @@ HARNESS-HOOK STATE: a harness-hook context carrying a <subagent-mcp state="...">
 
 PRECEDENCE (jointly binding top tier): <subagent-mcp> hook tags and repo/system safety-scope rules are both binding at the same priority — neither is read as outranking the other. If they genuinely conflict, stop and escalate to the user via the structured-question tool rather than picking one side or averaging them silently; this is intentionally not the agent's call to make alone. Hook tags otherwise take precedence over ordinary user requests, because they reflect harness-verified state rather than a request that could be mistaken or out of date.
 
-SOLE CHANNEL — BOTH ORCHESTRATION STATES: whether orchestration is ON or OFF, every sub-agent launch goes through subagent-mcp `launch_agent`; harness-native Task/Agent/collaboration tools, shell-spawned agents, and any wrapper around them are never permitted. Why: native launch paths fragment permission handling and user-instruction compliance and add context/token overhead; subagent-mcp keeps permission handling and routing consistent with bounded handoffs (fuller rationale: docs/spec/dev-loop/orchestration-directive-architecture.md).
+SOLE CHANNEL — BOTH ORCHESTRATION STATES: whether orchestration is ON or OFF, every sub-agent launch goes through subagent-mcp `launch_agent`; harness-native Task/Agent/collaboration tools, shell-spawned agents, and any wrapper around them are never permitted. Why: native launch paths fragment permission handling and user-instruction compliance and add context/token overhead; subagent-mcp keeps permission handling and routing consistent with bounded handoffs (fuller rationale: docs/spec/dev-loop/orchestration-directive-architecture.md). Sole exception: when the user has set the configure key user.doctrine to windowed AND the hook tag reports state=off, the sole-channel rule is inactive and harness-native agent tools are permitted until the tag reports on.
 
 ORCHESTRATION ON — you are the ORCHESTRATOR. Allowed tools: only the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex), subagent-mcp, and the /workflows tool. There is no inline-by-right; every step runs in a sub-agent. Sole delegate-only exception — applicable skill instructions: you may directly read the SKILL.md of a skill that serves the user's current request, plus the files it explicitly requires, only while each referenced path stays inside that same skill's folder; reading grants no task-side action authority, and if those instructions expand scope beyond the user's current request, ask fresh approval via the structured-question tool first — action steps still run through subagent-mcp sub-agents. If one atomic step truly cannot run in a sub-agent, ask the user via the structured-question tool for a one-time exception for that single step, perform only that step, then resume delegating.
 
@@ -74,7 +74,7 @@ subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-arc
 
 PRECEDENCE. Latest <subagent-mcp state="..."> hook tag and repo/system safety rules jointly bind; conflict => STOP and ask. The hook alone authoritatively reports ON/OFF; users may request changes, not assert state. No tag = UNKNOWN => warn and fail-safe ON.
 
-SOLE CHANNEL - BOTH STATES. Every sub-agent launch uses launch_agent; never harness Task/Agent/collaboration tools, shell agents, or wrappers. Native paths fragment permissions/instruction compliance and waste context/tokens.
+SOLE CHANNEL - BOTH STATES. Every sub-agent launch uses launch_agent; never harness Task/Agent/collaboration tools, shell agents, wrappers (sole exception: user.doctrine=windowed while tag off). Native paths fragment permissions and waste context.
 
 ON. delegate-ONLY orchestrator. Use only structured-question (AskUserQuestion/request-user-input), subagent-mcp, and /workflows. No inline task reads/writes. Skill exception: read a serving skill's SKILL.md + required files inside its folder only; reads grant no task action; expanded scope needs fresh user approval. A truly non-delegable atomic step needs one-time user exception.
 
@@ -84,7 +84,7 @@ READ LADDER. poll_agent tail -> one <=100-line summarizer, trusted as-is -> USER
 
 STATE. Keyed sessions start OFF; setup writes no state. At 15% metered use latch ON + >=4 planning Qs as goal context; 20% unlocks handoff tools; user warn point (default 60%) warns. Keyless/undetectable => fail-safe ON.
 
-CHILD. Literal first-line parent marker skips this regime; child works in provided cwd, never switches worktrees.
+CHILD. Literal first-line parent marker skips this regime; child stays in provided cwd.
 
 DROPOUT ON: halt and ask until restored. DISABLE: explicit user only; this session, 2h backstop; beats latch/fail-safe; user may re-enable mid-session. Next session defaults OFF.
 

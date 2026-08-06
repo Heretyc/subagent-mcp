@@ -73,6 +73,11 @@ and any supplied `value` is ignored.
   one-based priority slot for the category, `<1` disables it there. The
   categories mirror `launch_agent` `task_category` values; `fallback_default`
   is intentionally not a routing key.
+- `user.doctrine` accepts exactly `always` or `windowed`. Hooks re-read it on
+  every turn, so no restart. `windowed` changes orchestration OFF-state
+  behavior only; the ON state and the `always` default are unchanged. Effect
+  list and semantics:
+  `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` section 10.
 - `env.<ENV_NAME>` writes are shape-checked only (non-empty, single line: no
   CR, LF, or NUL). They preserve comments, blank lines, and unrelated
   assignments, replace the first matching assignment, drop later duplicates of

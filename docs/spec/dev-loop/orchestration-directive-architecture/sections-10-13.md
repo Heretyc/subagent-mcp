@@ -134,6 +134,54 @@
   fails safe, but an unknown window alone is not the rule. An explicit session
   disable-record overrides enable, latch, and metering fail-safe. See section 5
   (D18/D6) and the section 9 host matrix.
+- **Doctrine window (`user.doctrine`, opt-in).** A user-scope enum set via the
+  `configure` tool: `always` (default) or `windowed`. Hooks are per-turn
+  processes and re-read the key each invocation, so `restart_required: false`.
+  Under `windowed`, the OFF state honors the orchestration-mode contract's
+  "Default is OFF each session" dormantly, and the ON state is full doctrine,
+  unchanged. A window opens on explicit `enabled:true` (or an already-ON
+  marker) and closes on explicit `enabled:false` or the enable record's 2h
+  backstop expiry. Normative effects, all keyed on the shared
+  `computeEffectiveActive` decision (which under `windowed` reduces to:
+  disable-record wins, then `marker.isActive` only - the latch and
+  metering-fail-safe terms are inert; anonymous/keyless owners therefore
+  remain fail-safe ON):
+  - Minimal-tag OFF emission: while effectively OFF, the per-turn hook emits
+    exactly one neutral `state="off"` tag line (`WINDOWED_OFF_BODY` in
+    `src/orchestration/hook-core.ts`) instead of the carrier/LONG OFF
+    reminder - no adoption text, no upgrade-ask, no update notices (pending
+    notices defer to the next full emission), and no handoff re-append (the
+    re-append rule binds to LONG reminders, which do not occur while OFF
+    under `windowed`; ON turns re-append as usual). The tag itself is
+    load-bearing: the doctrine layer treats a tag-less session as
+    state-unknown and fails safe to ON. Every side effect still runs -
+    zombie cull, state sweep, session-pointer write, metering record,
+    reminder counter - so the `orchestration-mode` enable path and cadence
+    state stay intact.
+  - Latch gating: the 15% latch record is written only while the session is
+    effectively ON (latch-within-ON coaching and semantics are unchanged).
+    Two flip consequences follow: setting `windowed` neutralizes any existing
+    latch record immediately, and flipping back to `always` re-honors a
+    surviving record (and would re-trip on the next non-normal-phase turn
+    anyway).
+  - PreToolUse scope (Claude hosts only): the sole-channel deny of the
+    harness-native `Agent` tool applies only while effectively ON. While OFF
+    under `windowed` the hook answers an explicit `allow` for that one tool -
+    regardless of server liveness, because only an explicit allow outranks
+    the static `permissions.deny` entry the installer writes and an abstain
+    with the server down would leave the session with no sub-agent channel.
+    A payload without a session key falls back to the anon owner key and
+    stays denied. Codex and Gemini native-agent suppression is installer-level
+    static configuration (`src/native-suppression.ts`) and is NOT doctrine
+    gated; on those hosts `windowed` silences emissions only.
+  - Instruction layer: the managed CLAUDE.md block (`src/init.ts`), the MCP
+    `instructions` string, and the `launch_agent`/`orchestration-mode` tool
+    descriptions carry a matching sole-channel exception scoped to
+    `windowed` sessions whose hook tag reports off.
+  - `always` (or the key absent/malformed): every path above is byte-identical
+    to the no-key behavior; the golden tests in
+    `test/orchestration-hook-core.test.mjs` and
+    `test/orchestration-pretool.test.mjs` pin this.
 
 ---
 

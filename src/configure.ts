@@ -17,6 +17,7 @@ import {
   DEFAULT_CAP,
   DEFAULT_CHECK_FOR_UPDATES,
   DEFAULT_CONTEXT_COACHING,
+  DEFAULT_DOCTRINE,
   DEFAULT_ESCALATION,
   DEFAULT_HANDOFF_WARN_THRESHOLD,
   DEFAULT_PERMISSIONS_CEILING,
@@ -27,6 +28,7 @@ import {
   USER_SETTINGS_FILENAME,
   USER_SETTINGS_LOCAL_FILENAME,
   applyContextCoachingSettings,
+  applyDoctrineSetting,
   defaultConfigPath,
   parseCheckForUpdatesConfig,
   parseConcurrencyConfig,
@@ -35,6 +37,7 @@ import {
   parseSandboxNetworkConfig,
   parseStrictReadParityConfig,
   readContextCoachingSettings,
+  readDoctrine,
   resolveGlobalConfigPath,
   stripJsoncComments,
 } from "./concurrency.js";
@@ -190,6 +193,7 @@ const CONFIG_KEYS: Record<string, KeyMeta> = {
   "global.sandboxNetwork": { scope: "global", type: "boolean", settable: false, restart: false, def: DEFAULT_SANDBOX_NETWORK, valid: "true, false (parser fallback is true when missing/invalid; the shipped scaffold writes false)" },
   "user.contextCoaching": { scope: "user", type: "boolean", settable: true, restart: false, def: DEFAULT_CONTEXT_COACHING, valid: "true, false" },
   "user.handoffWarnThreshold": { scope: "user", type: "integer", settable: true, restart: false, def: DEFAULT_HANDOFF_WARN_THRESHOLD, valid: `whole integer ${MIN_HANDOFF_WARN_THRESHOLD}..${MAX_HANDOFF_WARN_THRESHOLD}` },
+  "user.doctrine": { scope: "user", type: "enum", settable: true, restart: false, def: DEFAULT_DOCTRINE, valid: "always, windowed; windowed makes the orchestration OFF state dormant (no injections, no auto-latch, native Agent allowed) while ON keeps full doctrine" },
   "update.autoUpdate": { scope: "update", type: "boolean", settable: false, restart: true, def: false, valid: "true, false" },
   "mode.orchestration": { scope: "mode", type: "state", settable: false, restart: false, def: null, valid: "ON, disabled-this-session (plus session_scope); set via the orchestration-mode tool" },
   "mode.modelSelection": { scope: "mode", type: "state", settable: false, restart: false, def: "smart", valid: "smart, user-approved-overrides (plus window metadata); set via the model-selection-mode tool" },
@@ -301,6 +305,12 @@ function readStatic(key: string): Resolved {
         source: settingsLocalHas(prop) ? settingsLocalFile() : undefined,
       };
     }
+    case "user.doctrine":
+      return {
+        value: readDoctrine(),
+        path: settingsFile(),
+        source: settingsLocalHas("doctrine") ? settingsLocalFile() : undefined,
+      };
     case "update.autoUpdate":
       return {
         value: readInitRegistry(homedir()).autoUpdate,
@@ -527,7 +537,58 @@ function coached(key: string, message: string, path: string | null) {
 // set: user settings
 // ---------------------------------------------------------------------------
 
+function setDoctrineSetting(key: string, raw: string) {
+  if (raw !== "always" && raw !== "windowed") {
+    return fail("set", key, `invalid value for ${key}; expected exactly "always" or "windowed"`);
+  }
+
+  const target = settingsFile();
+  const existing = readIfExists(target);
+  const blank = existing === null || existing.trim() === ""; // trim() already drops a U+FEFF BOM
+  const base = blank ? "{}\n" : (existing as string);
+  let text: string;
+  try {
+    text = applyDoctrineSetting(base, raw);
+  } catch (e) {
+    return fail("set", key, `could not update ${target}: ${sanitizeMessage(e)}`);
+  }
+  // Verify the rewrite actually landed on the real key. A malformed file (no
+  // top-level object, or the assignment reachable only inside a comment) makes
+  // the JSONC upsert a no-op or a comment edit; without this check that would
+  // be reported as success while the effective doctrine stays unchanged.
+  let applied: string | null = null;
+  try {
+    applied = String((JSON.parse(stripJsoncComments(text)) as Record<string, unknown>).doctrine);
+  } catch {
+    applied = null;
+  }
+  if (applied !== raw) {
+    return fail("set", key, `could not update ${target}: the file has no top-level JSON object for the doctrine key`);
+  }
+  const overrideEnvelope = () => {
+    const effective = readDoctrine();
+    const overridden = settingsLocalHas("doctrine") && effective !== raw;
+    return {
+      value: effective,
+      ...(overridden ? { message: `written to ${target}, but ${settingsLocalFile()} overrides this key; the effective value is unchanged.`, source: settingsLocalFile() } : {}),
+    };
+  };
+  if (existing !== null && text === existing) {
+    return ok({ ok: true, action: "set", key, status: "unchanged", path: target, backup: null, restart_required: false, ...overrideEnvelope() });
+  }
+  let backup: string | null;
+  try {
+    backup = backupAndWrite(target, text);
+  } catch (e) {
+    return fail("set", key, `could not write ${target}: ${sanitizeMessage(e)}`);
+  }
+  return ok({
+    ok: true, action: "set", key, status: "updated", path: target, backup, restart_required: false, ...overrideEnvelope(),
+  });
+}
+
 function setUserSetting(key: string, raw: string) {
+  if (key === "user.doctrine") return setDoctrineSetting(key, raw);
   const prop = key === "user.contextCoaching" ? "contextCoaching" : "handoffWarnThreshold";
   const merged = readContextCoachingSettings();
   const next = { ...merged };

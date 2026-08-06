@@ -105,6 +105,53 @@ test("configure writes user setting once, backs up old bytes, then reports uncha
   assert.equal(backups(root, "settings.json").length, 1);
 }));
 
+test("configure user.doctrine: default, roundtrip, invalid values, local override", () => withConfigHome((root) => {
+  // Defaults with no settings file at all.
+  const row = json(configure({ action: "get", key: "user.doctrine" }));
+  assert.equal(row.value, "always");
+  assert.equal(text(json(configure({ action: "list" }))).includes("user.doctrine"), true);
+
+  // Roundtrip.
+  const set = json(configure({ action: "set", key: "user.doctrine", value: "windowed" }));
+  assert.equal(set.status, "updated");
+  assert.equal(set.value, "windowed");
+  assert.equal(set.restart_required, false);
+  assert.equal(set.backup !== null, false, "no backup when the file did not exist");
+  assert.equal(JSON.parse(readFileSync(join(root, "settings.json"), "utf8")).doctrine, "windowed");
+  assert.equal(json(configure({ action: "get", key: "user.doctrine" })).value, "windowed");
+  const again = json(configure({ action: "set", key: "user.doctrine", value: "windowed" }));
+  assert.equal(again.status, "unchanged");
+  const back = json(configure({ action: "set", key: "user.doctrine", value: "always" }));
+  assert.equal(back.value, "always");
+
+  // Invalid values are rejected without touching the file.
+  const before = readFileSync(join(root, "settings.json"), "utf8");
+  for (const value of ["Windowed", "true", "", " windowed", "off"]) {
+    const r = configure({ action: "set", key: "user.doctrine", value });
+    assert.equal(r.isError, true, JSON.stringify(value));
+    assert.equal(
+      json(r).error.includes('expected exactly "always" or "windowed"'),
+      true,
+      JSON.stringify(value)
+    );
+  }
+  assert.equal(readFileSync(join(root, "settings.json"), "utf8"), before);
+
+  // Unrelated keys survive a doctrine write.
+  writeFileSync(join(root, "settings.json"), '{\n  "contextCoaching": false\n}\n', "utf8");
+  json(configure({ action: "set", key: "user.doctrine", value: "windowed" }));
+  const merged = JSON.parse(readFileSync(join(root, "settings.json"), "utf8"));
+  assert.equal(merged.contextCoaching, false);
+  assert.equal(merged.doctrine, "windowed");
+
+  // settings.local.json override is reported, not silently absorbed.
+  writeFileSync(join(root, "settings.local.json"), '{ "doctrine": "windowed" }\n', "utf8");
+  const overridden = json(configure({ action: "set", key: "user.doctrine", value: "always" }));
+  assert.equal(overridden.status, "updated");
+  assert.match(overridden.message ?? "", /overrides this key/);
+  assert.equal(overridden.value, "windowed", "effective value comes from the local override");
+}));
+
 test("configure rejects invalid provider updates without changing the file", () => withConfigHome((root) => {
   mkdirSync(root, { recursive: true });
   const file = join(root, "providers.jsonc");

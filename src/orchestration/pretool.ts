@@ -1,6 +1,8 @@
 import { serverAlive } from "./liveness.js";
 import { type HookPayload } from "./hook-core.js";
-import { cullHookZombies } from "./hook-core.js";
+import { computeEffectiveActive, cullHookZombies, sessionKey } from "./hook-core.js";
+import { anonKey } from "./marker.js";
+import { readDoctrine } from "../concurrency.js";
 
 /**
  * Harness-native sub-agent launchers gated by the sole-channel rule. Exactly
@@ -61,17 +63,39 @@ export function runClaudePreTool(
       ? decision("allow", "maintenance completed; allowing requested tool.")
       : null;
 
-    if (!serverAlive(now)) return maintenanceAllowedDecision;
-
     const tool = typeof payload.tool_name === "string" ? payload.tool_name : "";
-    if (!tool) return maintenanceAllowedDecision;
 
-    if (NATIVE_SUBAGENT_TOOLS.has(tool)) {
+    if (tool && NATIVE_SUBAGENT_TOOLS.has(tool)) {
+      const doctrine = readDoctrine();
+      if (doctrine === "windowed") {
+        const cwd = payload.cwd || process.cwd();
+        const current = sessionKey(payload) ?? anonKey(cwd, "claude");
+        // The one doctrine read above is threaded through so the branch and
+        // the effective-state decision cannot disagree; the fail-safe term is
+        // inert under windowed, so passing `false` is exact. A payload without
+        // a session_id falls back to the anon key, which marker.isActive
+        // treats as unconditionally ON -> still denied. This check runs
+        // BEFORE the liveness bail on purpose: init/setup writes a static
+        // permissions.deny for Agent into the harness settings, and only an
+        // explicit PreToolUse "allow" outranks it - abstaining with the
+        // server down would leave a windowed OFF session with no sub-agent
+        // channel at all.
+        if (!computeEffectiveActive(cwd, current, now, false, doctrine)) {
+          return decision(
+            "allow",
+            "user.doctrine=windowed and orchestration is OFF for this session; the harness-native Agent tool is permitted while OFF. It is denied again whenever orchestration-mode is ON."
+          );
+        }
+      }
+      if (!serverAlive(now)) return maintenanceAllowedDecision;
       return decision(
         "deny",
         "subagent-mcp is alive; the harness-native Agent tool is not the sanctioned sub-agent channel. Use the subagent-mcp launch_agent MCP tool with the parent-process sentinel as prompt line 1."
       );
     }
+
+    if (!serverAlive(now)) return maintenanceAllowedDecision;
+    if (!tool) return maintenanceAllowedDecision;
 
     if (env.SUBAGENT_MCP_SUBAGENT === "1") return maintenanceAllowedDecision;
 

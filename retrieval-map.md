@@ -33,7 +33,7 @@ everything else.
 | Task taxonomy (14 categories) | `docs/spec/task-taxonomy/_INDEX.md` (+ `category-rationale.md`, `composite-inferred-tiles.md`, `derivation-methodology.md`, `determination-rationale.md`) |
 | Work categories (fixed taxonomy) | `.spec/references/work-categories.md` |
 | Advanced ruleset override | `docs/spec/advanced-ruleset/_INDEX.md` (+ `execution-contract.md`, `io-contract.md`, `visibility-and-failover.md`, `build-and-test.md`, `scaffold-and-deployment.md`) |
-| Orchestration mode semantics | `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` (section 10) |
+| Orchestration mode semantics, windowed doctrine (user.doctrine) | `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` (section 10) |
 | Orchestration directive architecture | `docs/spec/dev-loop/orchestration-directive-architecture.md` (retrieval map over its subdir leaves) |
 | : arch subdir leaves | `docs/spec/dev-loop/orchestration-directive-architecture/{sections-00-04,sections-05-09,sections-10-13,derivation-map,appendix-a1-a4,appendix-a5-directives,appendix-a6-a7}.md` |
 | Model-selection mode | `docs/spec/model-selection-mode/_INDEX.md` |

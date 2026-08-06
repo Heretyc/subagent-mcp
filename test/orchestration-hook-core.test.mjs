@@ -38,8 +38,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   ANON_CLAIM_TTL_MS,
+  computeEffectiveActive,
   cullHookZombies,
   ownerKey,
+  WINDOWED_OFF_BODY,
   resolveDirectivesDir,
   runHook,
   REMINDER_PERIOD,
@@ -65,7 +67,7 @@ import {
   readReminder,
   reminderPath,
 } from "../dist/orchestration/reminder.js";
-import { clearLatch } from "../dist/orchestration/latch.js";
+import { clearLatch, latchPath } from "../dist/orchestration/latch.js";
 import * as meteringModule from "../dist/orchestration/metering.js";
 import { readMetering } from "../dist/orchestration/metering.js";
 import {
@@ -1413,6 +1415,220 @@ test("carryover + just-tripped latch: notice emits AND carryover_ack burns toget
     removeEnable(session);
     clearLatch(session);
     cleanup(cwd, root);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Windowed doctrine (user.doctrine): OFF is dormant, ON is full doctrine, and
+// the default ("always" or key unset) matches the literal cadence texts.
+// ---------------------------------------------------------------------------
+
+function runOffLoop(env, adapter, cwd, session, prompts = 10) {
+  const outs = [];
+  const payload = { cwd, session_id: session, transcript_path: undefined };
+  for (let prompt = 1; prompt <= prompts; prompt++) {
+    outs.push(runHook(payload, env, adapter));
+  }
+  return outs;
+}
+
+// The windowed OFF emission is exactly the minimal state tag: off carrier
+// carrying WINDOWED_OFF_BODY and none of the cadence directive texts.
+function assertWindowedOffTag(out, label) {
+  assert.match(out, /^<subagent-mcp state="off" kind="carrier"/, label);
+  assert.ok(out.includes(WINDOWED_OFF_BODY), `${label}: carries the minimal body`);
+  assert.ok(!out.includes(SHORT_OFF_TEXT), `${label}: no carrier directive text`);
+  assert.ok(!out.includes(REM_OFF_TEXT), `${label}: no LONG reminder text`);
+}
+
+test("windowed doctrine: OFF cadence is the minimal state tag while pointer, counter, and enable path stay live", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-windowed-off:${cwd}`;
+  const winEnv = withCoachingSettings(env, { doctrine: "windowed" });
+  try {
+    const outs = runOffLoop(winEnv, makeAdapter(), cwd, session);
+    outs.forEach((out, i) => assertWindowedOffTag(out, `turn ${i + 1}`));
+    assert.equal(new Set(outs).size, 1, "every OFF turn emits the identical minimal tag");
+    assert.equal(readReminder(cwd).counts[session], 10, "reminder counter still advances");
+    assert.equal(readCurrentSession(cwd), session, "session pointer still written (enable path intact)");
+    assert.ok(!existsSync(latchPath(session)), "no latch record appears");
+
+    // Toggle round-trip: enable opens the window with the FULL claim payload.
+    writeEnable(session);
+    const claim = runHook({ cwd, session_id: session, transcript_path: undefined }, winEnv, makeAdapter({ turn: 3 }));
+    assertTagged(claim, { state: "on", kind: "directive", body: `${FULL_TEXT}\n${REM_ON_TEXT}` });
+    removeEnable(session);
+    writeDisable(session);
+    assertWindowedOffTag(
+      runHook({ cwd, session_id: session, transcript_path: undefined }, winEnv, makeAdapter()),
+      "disable returns to the minimal tag"
+    );
+    removeDisable(session);
+    assertWindowedOffTag(
+      runHook({ cwd, session_id: session, transcript_path: undefined }, winEnv, makeAdapter()),
+      "default OFF (no records)"
+    );
+  } finally {
+    removeEnable(session);
+    removeDisable(session);
+    cleanup(cwd, root);
+    restoreCoaching();
+  }
+});
+
+test("windowed doctrine golden: key unset and explicit always both emit the literal OFF cadence, byte-identical", () => {
+  const { root, env } = makeDirectivesEnv();
+  const runs = [];
+  const cwds = [];
+  try {
+    for (const settings of [{}, { doctrine: "always" }]) {
+      const cwd = makeCwd();
+      cwds.push(cwd);
+      const homedEnv = withCoachingSettings(env, settings);
+      const outs = runOffLoop(homedEnv, makeAdapter(), cwd, `s-golden:${cwd}`);
+      outs.forEach((out, i) => {
+        if ((i + 1) % REMINDER_PERIOD === 0) {
+          assertTagged(out, { state: "off", kind: "reminder", body: REM_OFF_TEXT });
+        } else {
+          assertTagged(out, { state: "off", kind: "carrier", body: SHORT_OFF_TEXT });
+        }
+      });
+      runs.push(outs);
+    }
+    assert.deepEqual(runs[0], runs[1], "unset key and explicit always produce identical emissions");
+  } finally {
+    for (const cwd of cwds) {
+      rmSync(reminderPath(cwd), { force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+    rmSync(root, { recursive: true, force: true });
+    restoreCoaching();
+  }
+});
+
+test("windowed doctrine: ON cadence is byte-identical across unset, always, and windowed", () => {
+  const { root, env } = makeDirectivesEnv();
+  const runs = [];
+  const cwds = [];
+  const sessions = [];
+  try {
+    for (const settings of [{}, { doctrine: "always" }, { doctrine: "windowed" }]) {
+      const cwd = makeCwd();
+      cwds.push(cwd);
+      const session = `s-on-golden:${cwd}`;
+      sessions.push(session);
+      const homedEnv = withCoachingSettings(env, settings);
+      writeEnable(session);
+      const outs = [];
+      for (let prompt = 1; prompt <= 6; prompt++) {
+        outs.push(runHook({ cwd, session_id: session, transcript_path: undefined }, homedEnv, makeAdapter({ turn: 3 })));
+      }
+      runs.push(outs);
+    }
+    assertTagged(runs[2][0], { state: "on", kind: "directive", body: `${FULL_TEXT}\n${REM_ON_TEXT}` });
+    assert.deepEqual(runs[0], runs[1], "unset and always identical while ON");
+    assert.deepEqual(runs[1], runs[2], "windowed is byte-identical while ON (the window is full doctrine)");
+  } finally {
+    sessions.forEach((session) => removeEnable(session));
+    for (const cwd of cwds) {
+      rmSync(markerPath(cwd), { force: true });
+      rmSync(reminderPath(cwd), { force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+    rmSync(root, { recursive: true, force: true });
+    restoreCoaching();
+  }
+});
+
+test("windowed doctrine: anonymous owner key stays ON (keyless carryover preserved)", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const winEnv = withCoachingSettings(env, { doctrine: "windowed" });
+  try {
+    // No session_id: ownerKey falls back to the anon cwd key, which isActive
+    // treats as unconditionally ON.
+    const out = runHook({ cwd, session_id: undefined, transcript_path: undefined }, winEnv, makeAdapter({ turn: 3 }));
+    assertTagged(out, { state: "on", kind: "directive", body: `${FULL_TEXT}\n${REM_ON_TEXT}` });
+  } finally {
+    cleanup(cwd, root);
+    restoreCoaching();
+  }
+});
+
+test("windowed doctrine: 15% metering and undetectable metering never trip the latch or force ON while OFF", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-windowed-latch:${cwd}`;
+  const winEnv = withCoachingSettings(env, { doctrine: "windowed" });
+  try {
+    const at15 = makeAdapter({ turn: 2, liftUsage: usageAtPct(15) });
+    for (let prompt = 1; prompt <= 3; prompt++) {
+      const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, winEnv, at15);
+      assertWindowedOffTag(out, `15% turn ${prompt}`);
+      assert.ok(!out.includes(LATCH_TEXT), "no latch coaching while OFF under windowed");
+      assert.match(out, /utilization="15%"/, "the minimal tag still reports utilization");
+    }
+    assert.ok(!existsSync(latchPath(session)), "no latch record is written at 15% while OFF");
+    assert.equal(
+      computeEffectiveActive(cwd, session, Date.now(), false),
+      false,
+      "session remains effectively OFF"
+    );
+
+    const undetectable = makeAdapter({ turn: 3, liftUsage: () => null });
+    assertWindowedOffTag(
+      runHook({ cwd, session_id: session, transcript_path: "synthetic" }, winEnv, undetectable),
+      "undetectable metering does not fail-safe ON under windowed"
+    );
+    assert.equal(computeEffectiveActive(cwd, session, Date.now(), true), false,
+      "the metering fail-safe term is inert under windowed");
+  } finally {
+    clearLatch(session);
+    cleanup(cwd, root);
+    restoreCoaching();
+  }
+});
+
+test("windowed doctrine: latch-within-ON trips and coaches, byte-identical to always", () => {
+  const { root, env } = makeDirectivesEnv();
+  const runs = [];
+  const cwds = [];
+  const sessions = [];
+  try {
+    for (const settings of [{ doctrine: "always" }, { doctrine: "windowed" }]) {
+      const cwd = makeCwd();
+      cwds.push(cwd);
+      const session = `s-on-latch:${cwd}`;
+      sessions.push(session);
+      const homedEnv = withCoachingSettings(env, settings);
+      writeEnable(session);
+      const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(15) });
+      const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, homedEnv, adapter);
+      assertTagged(out, {
+        state: "on",
+        kind: "directive",
+        phase: "plan",
+        utilization: "15%",
+        body: LATCH_TEXT,
+        remaining: 85,
+      });
+      assert.ok(existsSync(latchPath(session)), "latch record IS written while ON");
+      runs.push(out);
+    }
+    assert.equal(runs[0], runs[1], "latch coaching while ON is byte-identical across doctrines");
+  } finally {
+    sessions.forEach((session) => {
+      removeEnable(session);
+      clearLatch(session);
+    });
+    for (const cwd of cwds) {
+      rmSync(markerPath(cwd), { force: true });
+      rmSync(reminderPath(cwd), { force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+    rmSync(root, { recursive: true, force: true });
+    restoreCoaching();
   }
 });
 
