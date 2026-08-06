@@ -6,6 +6,14 @@ import { dirname, join } from "node:path";
 import { globalTargetFiles, upsertInitBlock } from "../dist/init.js";
 import { runUpgrade } from "../dist/upgrade.js";
 
+// Doctrine reads resolve via SUBAGENT_CONFIG_HOME first; pin it to a throwaway
+// dir so the suite never reads the developer's real ~/.subagent-mcp settings.
+import { mkdtempSync as cfgMkdtemp } from "node:fs";
+import { tmpdir as cfgTmpdir } from "node:os";
+import { join as cfgJoin } from "node:path";
+process.env.SUBAGENT_CONFIG_HOME = cfgMkdtemp(cfgJoin(cfgTmpdir(), "cfg-home-"));
+
+
 let passed = 0;
 let failed = 0;
 const tests = [];

@@ -140,6 +140,133 @@ test("configure keeps contextCoaching settable with no restart, unrelated user s
   assert.equal(onDisk.handoffWarnThreshold, undefined, "no unsupported threshold key is written back");
 }));
 
+// user.doctrine mutates the CLAUDE user settings (permissions.deny toggle), so
+// these tests isolate the OS home as well as the smcp config home.
+function withFakeHome(fn) {
+  const home = mkdtempSync(join(tmpdir(), "configure-doctrine-home-"));
+  const prevHome = process.env.HOME;
+  const prevProfile = process.env.USERPROFILE;
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  try {
+    return fn(home);
+  } finally {
+    if (prevHome === undefined) delete process.env.HOME;
+    else process.env.HOME = prevHome;
+    if (prevProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = prevProfile;
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
+function claudeSettingsIn(home) {
+  return join(home, ".claude", "settings.json");
+}
+
+function writeClaudeSettings(home, value) {
+  mkdirSync(join(home, ".claude"), { recursive: true });
+  writeFileSync(claudeSettingsIn(home), `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+test("configure user.doctrine: confirmation gate, deny removal, restore roundtrip", () => withFakeHome((home) => withConfigHome((root) => {
+  writeClaudeSettings(home, {
+    permissions: { deny: ["Agent", "Task", "custom-user-rule"], allow: ["Bash(ls:*)"] },
+    unrelated: true,
+  });
+  const claudeBefore = readFileSync(claudeSettingsIn(home), "utf8");
+
+  // Defaults with no settings file at all.
+  assert.equal(json(configure({ action: "get", key: "user.doctrine" })).value, "always");
+  assert.equal(text(json(configure({ action: "list" }))).includes("user.doctrine"), true);
+
+  // Phase 1 is non-mutating and carries the exact confirmation contract.
+  const phase1 = json(configure({ action: "set", key: "user.doctrine", value: "windowed" }));
+  assert.equal(phase1.status, "confirmation_required");
+  assert.equal(phase1.confirm_value, "windowed:confirm");
+  assert.equal(phase1.restart_required, false);
+  assert.match(phase1.warning, /indistinguishable from the one subagent-mcp installs/);
+  assert.match(phase1.warning, /structured-question tool/);
+  assert.equal(existsSync(join(root, "settings.json")), false, "phase 1 writes no smcp settings");
+  assert.equal(readFileSync(claudeSettingsIn(home), "utf8"), claudeBefore, "phase 1 never touches claude settings");
+
+  // Phase 2 writes both files: doctrine key + surgical deny removal with backup.
+  const confirm = json(configure({ action: "set", key: "user.doctrine", value: "windowed:confirm" }));
+  assert.equal(confirm.status, "updated");
+  assert.equal(confirm.value, "windowed");
+  assert.equal(confirm.native_deny.action, "removed");
+  assert.equal(confirm.native_deny.removed, 2, "the canonical entry and the legacy entry are both smcp-owned");
+  assert.equal(JSON.parse(readFileSync(join(root, "settings.json"), "utf8")).doctrine, "windowed");
+  const afterRemove = JSON.parse(readFileSync(claudeSettingsIn(home), "utf8"));
+  assert.deepEqual(afterRemove.permissions.deny, ["custom-user-rule"], "unrelated deny rules survive");
+  assert.deepEqual(afterRemove.permissions.allow, ["Bash(ls:*)"], "allow rules untouched");
+  assert.equal(afterRemove.unrelated, true);
+  assert.equal(
+    readdirSync(join(home, ".claude")).some((f) => f.startsWith("settings.json.bak-native-agent-")),
+    true,
+    "a timestamped backup precedes the deny mutation"
+  );
+
+  // Idempotence: windowed with the deny already absent needs no re-confirmation.
+  const again = json(configure({ action: "set", key: "user.doctrine", value: "windowed" }));
+  assert.equal(again.status, "unchanged");
+
+  // always restores the deny with no confirmation (safe direction).
+  const back = json(configure({ action: "set", key: "user.doctrine", value: "always" }));
+  assert.equal(back.status, "updated");
+  assert.equal(back.value, "always");
+  assert.equal(back.native_deny.action, "restored");
+  const restored = JSON.parse(readFileSync(claudeSettingsIn(home), "utf8"));
+  assert.equal(restored.permissions.deny.includes("Agent"), true);
+  assert.equal(restored.permissions.deny.includes("custom-user-rule"), true);
+
+  // always again: smcp file unchanged, deny already present.
+  const stable = json(configure({ action: "set", key: "user.doctrine", value: "always" }));
+  assert.equal(stable.status, "unchanged");
+  assert.equal(stable.native_deny.action, "none");
+
+  // Invalid values are rejected without touching either file.
+  const smcpBefore = readFileSync(join(root, "settings.json"), "utf8");
+  const claudeStable = readFileSync(claudeSettingsIn(home), "utf8");
+  for (const value of ["Windowed", "true", "", " windowed", "off", "windowed:CONFIRM"]) {
+    const r = configure({ action: "set", key: "user.doctrine", value });
+    assert.equal(r.isError, true, JSON.stringify(value));
+    assert.equal(
+      json(r).error.includes('expected exactly "always" or "windowed"'),
+      true,
+      JSON.stringify(value)
+    );
+  }
+  assert.equal(readFileSync(join(root, "settings.json"), "utf8"), smcpBefore);
+  assert.equal(readFileSync(claudeSettingsIn(home), "utf8"), claudeStable);
+})));
+
+test("configure user.doctrine: confirm with no claude settings file reports none", () => withFakeHome((home) => withConfigHome((root) => {
+  const phase1 = json(configure({ action: "set", key: "user.doctrine", value: "windowed" }));
+  assert.equal(phase1.status, "confirmation_required", "no deny on disk still confirms (the setting also suppresses future re-adds)");
+  const confirm = json(configure({ action: "set", key: "user.doctrine", value: "windowed:confirm" }));
+  assert.equal(confirm.status, "updated");
+  assert.equal(confirm.native_deny.action, "none");
+  assert.equal(existsSync(claudeSettingsIn(home)), false, "no claude settings file is scaffolded by the removal path");
+})));
+
+test("configure user.doctrine: settings.local.json override skips the deny mutation", () => withFakeHome((home) => withConfigHome((root) => {
+  writeClaudeSettings(home, { permissions: { deny: ["Agent"] } });
+  writeFileSync(join(root, "settings.local.json"), '{ "doctrine": "always" }\n', "utf8");
+  const confirm = json(configure({ action: "set", key: "user.doctrine", value: "windowed:confirm" }));
+  assert.equal(confirm.status, "updated");
+  assert.equal(confirm.value, "always", "effective value comes from the local override");
+  assert.match(confirm.message ?? "", /overrides this key/);
+  assert.equal(confirm.native_deny.action, "skipped_local_override");
+  assert.deepEqual(
+    JSON.parse(readFileSync(claudeSettingsIn(home), "utf8")).permissions.deny,
+    ["Agent"],
+    "the deny stays while the override keeps windowed from being effective"
+  );
+  // Unrelated smcp keys survive the doctrine write.
+  const merged = JSON.parse(readFileSync(join(root, "settings.json"), "utf8"));
+  assert.equal(merged.doctrine, "windowed");
+})));
+
 test("configure rejects invalid provider updates without changing the file", () => withConfigHome((root) => {
   mkdirSync(root, { recursive: true });
   const file = join(root, "providers.jsonc");

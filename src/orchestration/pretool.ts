@@ -1,6 +1,8 @@
 import { serverAlive } from "./liveness.js";
 import { type HookPayload } from "./hook-core.js";
-import { cullHookZombies } from "./hook-core.js";
+import { computeEffectiveActive, cullHookZombies, sessionKey } from "./hook-core.js";
+import { anonKey } from "./marker.js";
+import { readDoctrine } from "../concurrency.js";
 
 /**
  * Harness-native sub-agent launchers gated by the sole-channel rule. Exactly
@@ -49,6 +51,14 @@ function decision(
  * Long-horizon upgrades are now driven by provider-metered context tracking
  * (see docs/spec/dev-loop/orchestration-directive-architecture/context-metering.md),
  * not any hook-side footprint counting.
+ *
+ * Windowed doctrine: while user.doctrine is "windowed" and the session is not
+ * effectively ON, this hook ABSTAINS on the Agent tool (returns null) so the
+ * host's own permission rules decide. Enforcement of the dormant OFF state is
+ * the settings-level deny toggle owned by `configure set user.doctrine`, not a
+ * hook counter-decision (a PreToolUse allow only skips the interactive prompt;
+ * matching deny rules still apply afterward). Project- and managed-scope deny
+ * rules keep winning natively either way.
  */
 export function runClaudePreTool(
   payload: PreToolPayload,
@@ -67,6 +77,19 @@ export function runClaudePreTool(
     if (!tool) return maintenanceAllowedDecision;
 
     if (NATIVE_SUBAGENT_TOOLS.has(tool)) {
+      const doctrine = readDoctrine();
+      if (doctrine === "windowed") {
+        const cwd = payload.cwd || process.cwd();
+        const current = sessionKey(payload) ?? anonKey(cwd, "claude");
+        // The one doctrine read above is threaded through so the branch and
+        // the effective-state decision cannot disagree; the fail-safe term is
+        // inert under windowed, so passing `false` is exact. A payload without
+        // a session_id falls back to the anon key, which marker.isActive
+        // treats as unconditionally ON -> still denied.
+        if (!computeEffectiveActive(cwd, current, now, false, doctrine)) {
+          return null;
+        }
+      }
       return decision(
         "deny",
         "subagent-mcp is alive; the harness-native Agent tool is not the sanctioned sub-agent channel. Use the subagent-mcp launch_agent MCP tool with the parent-process sentinel as prompt line 1."

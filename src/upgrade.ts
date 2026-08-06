@@ -138,6 +138,8 @@ async function manageGlobalInitBlocks(opts: UpgradeOptions): Promise<{ updated: 
  */
 function migrateClaudeNativeDeny(home: string): string {
   try {
+    // ensureNativeAgentSuppression reports "skipped" while
+    // user.doctrine=windowed, so upgrade never silently re-adds the deny.
     return ensureNativeAgentSuppression(home, ["claude"])[0]?.status ?? "skipped";
   } catch (e) {
     return `error(${e instanceof Error ? e.message : String(e)})`;
