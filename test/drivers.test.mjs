@@ -11,7 +11,23 @@ import {
   createProviderDriver,
   killProviderChildProcess,
   providerChildSpawnOptions,
+  resolveCodexLaunchValues,
 } from "../dist/drivers.js";
+
+// Explicit per-launch permission snapshot (#373). Ambient config is absent in
+// the test env (defaults to ceiling "auto"), so passing an explicit snapshot
+// whose ceiling differs proves the supplied snapshot — not ambient config —
+// drives launch values and permission behavior.
+function permissionSnapshot(overrides = {}) {
+  return {
+    ceiling: "auto",
+    escalation: "irreversible-only",
+    rules: { allow: [], deny: [], ask: [] },
+    additionalDirectories: [],
+    repoConfigChangedSinceFirstSeen: false,
+    ...overrides,
+  };
+}
 
 let passed = 0;
 let failed = 0;
@@ -519,6 +535,96 @@ await test("Codex app-server startup failure rejects loudly", async () => {
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+await test("resolveCodexLaunchValues locks auto/manual/yolo launch value shapes", () => {
+  const NON_YOLO = {
+    approvalPolicy: "untrusted",
+    threadSandbox: "workspace-write",
+    turnSandboxPolicy: { type: "workspaceWrite", writableRoots: [], networkAccess: true },
+    cliConfigArgs: ["-c", "sandbox_workspace_write.network_access=true"],
+  };
+  // auto and manual are both approval-gated: identical launch values, only the
+  // gate-time ceiling application differs. yolo is the sole no-sandbox shape.
+  assert.deepEqual(resolveCodexLaunchValues(permissionSnapshot({ ceiling: "auto" }), false), NON_YOLO);
+  assert.deepEqual(resolveCodexLaunchValues(permissionSnapshot({ ceiling: "manual" }), false), NON_YOLO,
+    "manual shares the approval-gated launch shape with auto");
+  assert.deepEqual(resolveCodexLaunchValues(permissionSnapshot({ ceiling: "yolo" }), false), {
+    approvalPolicy: "never",
+    threadSandbox: "danger-full-access",
+    turnSandboxPolicy: { type: "dangerFullAccess" },
+    cliConfigArgs: [],
+  });
+  // additionalDirectories from the snapshot flow into non-yolo writableRoots.
+  assert.deepEqual(
+    resolveCodexLaunchValues(permissionSnapshot({ additionalDirectories: ["/w/a"] }), false).turnSandboxPolicy,
+    { type: "workspaceWrite", writableRoots: ["/w/a"], networkAccess: true }
+  );
+});
+
+await test("Codex launch honors the explicitly supplied snapshot over ambient config", async () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-snapshot-"));
+  try {
+    const logFile = join(tempRoot, "app-server.log");
+    const script = writeFakeAppServer(tempRoot, logFile);
+    const child = spawnFakeAppServer(script, { APP_SERVER_LOG: logFile });
+    // Explicit yolo snapshot; ambient default would be non-yolo "auto".
+    const driver = new CodexAppServerDriver(child, {
+      ...options("codex"),
+      permissionSnapshot: permissionSnapshot({ ceiling: "yolo" }),
+    });
+    const stdout = collect(driver.process.stdout);
+    await once(driver.process, "spawn");
+    await driver.start("first");
+    await waitFor(() => readTurnStarts(logFile).length === 1, "yolo turn/start");
+    // Await the turn's own completion before killing. The fake app-server emits
+    // turn/completed immediately after turn/start; killing mid-flight would end
+    // the driver's logical stream while that completion is still being written
+    // (ERR_STREAM_WRITE_AFTER_END). Draining "done:first" settles the turn so the
+    // kill is deterministic — no production change needed.
+    await waitFor(() => stdout().includes("done:first"), "yolo turn completion");
+
+    const thread = readThreadStarts(logFile)[0].params;
+    assert.equal(thread.approvalPolicy, "never", "thread/start approvalPolicy follows the supplied snapshot");
+    assert.equal(thread.sandbox, "danger-full-access", "thread/start sandbox follows the supplied snapshot");
+    const turn = readTurnStarts(logFile)[0].params;
+    assert.equal(turn.approvalPolicy, "never");
+    assert.deepEqual(turn.sandboxPolicy, { type: "dangerFullAccess" },
+      "turn/start sandboxPolicy follows the supplied snapshot, not ambient config");
+    driver.kill();
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+await test("Claude launch options follow the explicitly supplied snapshot (auto vs yolo)", async () => {
+  async function openWith(snapshot) {
+    let sdkOptions;
+    async function* query(params) {
+      sdkOptions = params.options;
+      for await (const _msg of params.prompt) {
+        yield { type: "result", result: "ok" };
+      }
+    }
+    const driver = new ClaudeSdkDriver(query);
+    driver.open({ ...options("claude"), permissionSnapshot: snapshot });
+    await once(driver.process, "spawn");
+    await driver.start("hi");
+    await waitFor(() => sdkOptions !== undefined, "Claude SDK options captured");
+    driver.kill();
+    return sdkOptions;
+  }
+
+  const auto = await openWith(permissionSnapshot({ ceiling: "auto" }));
+  assert.equal(auto.permissionMode, "default");
+  assert.equal(auto.allowDangerouslySkipPermissions, false);
+  assert.ok(auto.hooks && Array.isArray(auto.hooks.PreToolUse),
+    "non-yolo launches keep the PreToolUse gate");
+
+  const yolo = await openWith(permissionSnapshot({ ceiling: "yolo" }));
+  assert.equal(yolo.permissionMode, "bypassPermissions");
+  assert.equal(yolo.allowDangerouslySkipPermissions, true);
+  assert.equal(yolo.hooks, undefined, "yolo launches stay hook-free");
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

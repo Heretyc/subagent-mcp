@@ -24,8 +24,10 @@ with deny over ask over allow.
 
 `permissionsCeiling` is a machine-wide posture from
 `global-subagent-mcp-config.jsonc` (see `config-and-lifecycle.md` section 6).
-Read fresh per `launch_agent` and snapshotted into the agent at launch (before
-the first `await`), never re-read.
+It is read fresh per `launch_agent` and merged into the single launch
+snapshot at launch (before the first `await`), forwarded to the provider driver,
+and reused unchanged for every launch value and gating decision; it is never
+re-read.
 
 | Mode | Effect (truthful) |
 |---|---|

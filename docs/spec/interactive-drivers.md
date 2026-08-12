@@ -6,8 +6,12 @@ Normative model for launched agents.
 
 All launched agents are interactive sessions. `launch_agent` starts a provider
 driver, submits the initial prompt as the first user input, and stores only
-in-memory session state. `send_message` enqueues later user input on that same
-driver. Callers observe output with `poll_agent` or `wait`.
+in-memory session state. All permission config is merged once per `launch_agent`,
+before the first `await`, into a single launch snapshot that is read once and
+reused unchanged by both provider drivers for their launch values and gating
+decisions.
+`send_message` enqueues later user input on that same driver. Callers observe
+output with `poll_agent` or `wait`.
 
 There is no one-shot fallback path:
 
@@ -36,7 +40,9 @@ turns submit after the active turn completes.
 
 Supported options are preserved where the protocol exposes them: `cwd`, model,
 and effort. Approval policy and sandbox policy are driven by the launch
-`permissionsCeiling` snapshot via `resolveCodexLaunchValues` (`drivers.ts`): a
+snapshot (the once-per-`launch_agent` merge of all permission config, taken
+before the first `await` and forwarded to the driver) via
+`resolveCodexLaunchValues` (`drivers.ts`): a
 non-yolo launch uses `approvalPolicy: 'untrusted'` + `sandbox: 'workspace-write'`
 at both `thread/start` and `turn/start`, so every mutation generates an approval
 that the shared permission engine evaluates; `yolo` uses `approvalPolicy: 'never'`

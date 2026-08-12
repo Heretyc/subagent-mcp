@@ -363,6 +363,25 @@ function assertPrivateTextualContracts() {
     /createProviderDriver\(\{[\s\S]*?\bagentId\b[\s\S]*?\}\)/,
     "private tryLaunchCandidate must forward agentId into createProviderDriver"
   );
+  // Launch-snapshot authority (#373): tryLaunchCandidate builds one per-launch
+  // permission snapshot and forwards that exact object into createProviderDriver.
+  // The createProviderDriver({ ... }) argument body carries no parentheses, so the
+  // [^)] runs keep this match inside that single call — it cannot skip past the
+  // call's closing "})" to an unrelated permissionSnapshot reference later in the
+  // file, which a greedy [\s\S] gap would wrongly accept.
+  assert.match(
+    source,
+    /createProviderDriver\(\{[^)]*?\bpermissionSnapshot\b[^)]*?\}\)/,
+    "private tryLaunchCandidate must forward permissionSnapshot into createProviderDriver"
+  );
+  // The per-launch snapshot must capture the two driver-facing config fields
+  // (strictReadParity, sandboxNetwork) from the SAME single merged read, so no
+  // downstream re-read can diverge from the values the drivers act on.
+  assert.match(
+    source,
+    /function buildPermissionSnapshot[\s\S]*?strictReadParity:\s*merged\.strictReadParity[\s\S]*?sandboxNetwork:\s*merged\.sandboxNetwork/,
+    "buildPermissionSnapshot must capture strictReadParity and sandboxNetwork into the launch snapshot"
+  );
 }
 
 try {
