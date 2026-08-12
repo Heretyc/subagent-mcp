@@ -23,6 +23,11 @@ permission requests are created only by typed harness channels, resolved only by
 
 ## 3. Config sources, precedence, mapping
 
+All of these sources are merged once per `launch_agent`, before the first
+`await`, into a single launch snapshot that is read once and forwarded to the
+provider driver, then reused unchanged for every Claude and Codex launch value
+and permission decision; no source is re-read after launch.
+
 Fixed order (deny/ask unioned across all sources incl. repo; allow honored):
 
 1. built-in SAFE/DANGER floor (compiled)
@@ -124,6 +129,11 @@ answered | auto_answered | errored`: code adds `errored`.
 | `strictReadParity` | `warn`\|`off` | `warn` | Logging only; unparseable Codex approvals and malformed repo Codex TOML fail-closed to `ask`, but valid `#` inside strings and multiline strings parse normally. |
 | `sandboxNetwork` | boolean | `true` | Codex only: workspace-write **always** launches with `sandbox_workspace_write.network_access=true` (an unconditional `-c` flag), so this key no longer gates network: approved Codex processes can always reach the network inside workspace-write regardless of its value or the effective allow rules. Retained for compatibility; approvals still gate actions. |
 | `disableBypassPermissionsMode` | `disable` | : | User-scope only (`~/.subagent-mcp/`), tighten-only: caps the effective ceiling at `auto`. Repo scope has no effect. |
+
+Every key in this table is read once per `launch_agent` and merged into the
+launch snapshot described in section 3, so `permissionsCeiling`, `escalation`,
+`strictReadParity`, and `sandboxNetwork` are resolved before the first `await`
+and reused unchanged for that agent's launch values and decisions.
 
 ## 8. Child lockout
 

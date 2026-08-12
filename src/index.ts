@@ -97,6 +97,7 @@ import {
   reserveSlot,
   slotDir,
   writeSlotMetadata,
+  type MergedPermissionConfig,
   type ZombieRecord,
 } from "./concurrency.js";
 import { configure } from "./configure.js";
@@ -219,7 +220,15 @@ function ceilingRank(ceiling: "manual" | "auto" | "yolo"): number {
   return ceiling === "manual" ? 0 : ceiling === "auto" ? 1 : 2;
 }
 
-function buildPermissionSnapshot(cwd: string): PermissionSnapshot {
+// Authoritative per-launch snapshot: the public PermissionSnapshot plus the two
+// driver-facing fields the Codex adapter reads (strictReadParity for its unmatched
+// -payload logging, sandboxNetwork carried inert). Private to this module so the
+// exported PermissionSnapshot surface is unchanged; both extra fields come from the
+// SAME single merged read below so no downstream re-read can diverge from it.
+type LaunchPermissionSnapshot = PermissionSnapshot &
+  Pick<MergedPermissionConfig, "strictReadParity" | "sandboxNetwork">;
+
+function buildPermissionSnapshot(cwd: string): LaunchPermissionSnapshot {
   const merged = readMergedPermissionConfig(cwd);
   return {
     ceiling: merged.permissionsCeiling,
@@ -231,6 +240,8 @@ function buildPermissionSnapshot(cwd: string): PermissionSnapshot {
     },
     additionalDirectories: merged.additionalDirectories,
     repoConfigChangedSinceFirstSeen: merged.repoConfigChangedSinceFirstSeen,
+    strictReadParity: merged.strictReadParity,
+    sandboxNetwork: merged.sandboxNetwork,
   };
 }
 
@@ -1113,6 +1124,7 @@ async function tryLaunchCandidate(
       ucSettingsPath: buildResult.ucSettingsPath,
       ucSettingsDir: buildResult.ucSettingsDir,
       agentId,
+      permissionSnapshot,
     });
   } catch (error) {
     // Synchronous spawn throw (rare) — clean up and report as a launch failure.
