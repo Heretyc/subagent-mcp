@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "subagent-mcp",
-      "version": "3.2.2-beta.0",
+      "version": "3.2.2",
       "source": "./",
       "description": "MCP server for local Claude Code / Codex CLI sub-agents, plus orchestration-mode directive and tool-gate hooks."
     }
