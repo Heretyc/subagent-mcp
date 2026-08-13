@@ -1,8 +1,8 @@
 /**
  * orchestration-directives.test.mjs — Content assertions for the repo-root
- * directive assets (directives/*.md), MIGRATED to the schema=3 redesign.
+ * directive assets (directives/*.md) and their current schema contract.
  *
- * WHY (Rule 9): two protective contracts survive the redesign and are encoded
+ * WHY (Rule 9): two protective contracts are encoded
  * here against INTENT, not wording, so they keep failing if a recompression
  * drops a half:
  *   1. Provider-split permission tool — each variant must name ITS OWN
@@ -10,12 +10,12 @@
  *      "request-user-input" (or a codex directive that leaked
  *      "AskUserQuestion") would route the agent to a tool that does not exist
  *      on its provider, silently breaking the permission/confirm gate.
- *   2. Single-tag authority — every directive now carries exactly one
- *      <subagent-mcp state=... kind=...> tag. The legacy split tags
+ *   2. Single-tag authority — every directive carries exactly one
+ *      <subagent-mcp state=... kind=...> tag. Split tags
  *      (<ORCHESTRATION-INVARIANT>, <ORCHESTRATION-CARRYOVER>,
- *      <SUB-AGENT-INVARIANT>, ...-REMINDER-INVARIANT) are REMOVED; their
- *      reappearance would give agents competing authority labels and break the
- *      machine-checkable per-turn line. The deleted 5-call rule must stay gone.
+ *      <SUB-AGENT-INVARIANT>, ...-REMINDER-INVARIANT) are forbidden; their
+ *      presence would give agents competing authority labels and break the
+ *      machine-checkable per-turn line. No 5-call rule is permitted.
  * The 200-line cap keeps the injected directives lean.
  */
 import assert from "node:assert/strict";
@@ -48,8 +48,8 @@ const indexSource = readFileSync(join(srcDir, "index.ts"), "utf8");
 const WRAPPER_OPEN_LINE_RE = /^\s*<subagent-mcp\s+state="(?:on|off)"[^>]*>\s*$/;
 const WRAPPER_CLOSE_LINE_RE = /^\s*<\/subagent-mcp>\s*$/;
 
-// Legacy constructs the redesign intentionally removed — these must be ABSENT.
-const LEGACY_TAGS = [
+// Forbidden split authority tags must be absent.
+const SPLIT_AUTHORITY_TAGS = [
   "ORCHESTRATION-" + "INVARIANT",
   "ORCHESTRATION-" + "CARRYOVER",
   "SUB-" + "AGENT-INVARIANT",
@@ -155,10 +155,10 @@ test("no directive or canonical instruction source contains banned orchestration
 });
 
 // ---------------------------------------------------------------------------
-// Single authority tag + NO legacy tags + NO deleted 5-call rule
+// Single authority tag + no split tags or 5-call cue
 //
-// WHY (Rule 9): every surface now carries exactly one schema=3 tag with the
-// correct state/kind. Any legacy split tag or any "5-call" cue reappearing is
+// WHY (Rule 9): every surface carries exactly one schema=3 tag with the
+// correct state/kind. Any split tag or "5-call" cue is
 // the regression this guards against.
 // ---------------------------------------------------------------------------
 test("directive bodies contain zero literal hook authority tags", () => {
@@ -174,19 +174,19 @@ test("directive bodies contain zero literal hook authority tags", () => {
   }
 });
 
-test("no directive keeps a legacy authority tag", () => {
+test("no directive contains a split authority tag", () => {
   for (const [name, body] of ALL) {
-    for (const legacy of LEGACY_TAGS) {
-      assert.ok(!body.includes(legacy),
-        `${name} must not keep the legacy "${legacy}" tag`);
+    for (const splitTag of SPLIT_AUTHORITY_TAGS) {
+      assert.ok(!body.includes(splitTag),
+        `${name} must not contain the split "${splitTag}" tag`);
     }
   }
 });
 
-test("the deleted 5-call rule appears in NO directive", () => {
+test("the 5-call rule appears in no directive", () => {
   for (const [name, body] of ALL) {
     assert.ok(!/5[ -]?call/i.test(body),
-      `${name} must not reference the deleted 5-call rule`);
+      `${name} must not reference the forbidden 5-call rule`);
   }
 });
 
@@ -202,8 +202,7 @@ test("every directive carries the first-line parent-process exemption", () => {
 });
 
 // ---------------------------------------------------------------------------
-// OFF reminders encode the NEW upgrade trigger: cumulative >200-line context
-// footprint, asked every qualifying turn (replaces the deleted 5-call trigger).
+// OFF reminders encode the 15% latch and contain no 5-call cue.
 // ---------------------------------------------------------------------------
 test("OFF reminders mention the 15% latch doctrine", () => {
   for (const [name, body] of [
@@ -211,28 +210,24 @@ test("OFF reminders mention the 15% latch doctrine", () => {
     ["reminder-off-codex", reminderOffCodex],
   ]) {
     assert.match(body, /15%|latch/i,
-      `${name} must state the 15% latch replacement doctrine`);
+      `${name} must state the 15% latch doctrine`);
     assert.match(body, /subagent-mcp/i,
       `${name} must preserve the subagent-mcp routing cue while OFF`);
   }
 });
 
 // ---------------------------------------------------------------------------
-// LOCKED (context-coaching): the 15% latch coaching string is now ONE verbatim,
+// LOCKED (context-coaching): the 15% latch coaching string is ONE verbatim,
 // harness-NEUTRAL sentence shared identically by latch-claude.md and
-// latch-codex.md — it replaces the two harness-specific "EXACTLY 4" variants.
-// The handoff directives keep their provider split, but their numbers move:
-// handoff-write unlocks at 20% (was 40%) and the wind-down line must no longer
-// hardcode 50% because the warn threshold is now a user setting (default 60).
-// The line-5 "exactly 4" handoff-read confirmation is a SEPARATE policy and is
-// deliberately left untouched here.
+// latch-codex.md. The handoff directives keep their provider split and fixed
+// lifecycle contract: voluntary handoff-write availability begins at 20%, and
+// no wind-down warning or user-configurable warning threshold exists.
+// The line-5 "exactly 4" handoff-read confirmation is a SEPARATE policy.
 // ---------------------------------------------------------------------------
 // The exact, canonical latch coaching line. This is the SINGLE source of truth
 // and MUST match, byte-for-byte, line 1 of both latch directives and the A5.5 /
-// A5.6 spec fences. It is pinned literally (not by pattern) because 3.1.8
-// shipped a drifted "up to 4 ... in a SINGLE structured-question call" variant
-// that satisfied every intent-level assertion below while contradicting the
-// released spec. An exact pin is the only thing that catches that class of drift.
+// A5.6 spec fences. A literal pin catches wording that remains intent-valid
+// while contradicting the canonical spec.
 const LATCH_COACHING_LINE =
   "15% LATCH COACHING. Stop before continuing and ask AT LEAST 4 open planning questions using the structured question tool, or natural prose if not available.";
 
@@ -261,7 +256,7 @@ test("latch coaching is one verbatim harness-neutral string in both latch direct
 
   for (const [name, line] of [["latch-claude", claudeLatchLine], ["latch-codex", codexLatchLine]]) {
     assert.ok(!/EXACTLY 4/i.test(line),
-      `${name} must no longer hardcode the EXACTLY-4 question count in the latch line`);
+      `${name} must not hardcode the EXACTLY-4 question count in the latch line`);
     // Harness neutrality: a single shared string cannot name one host's question
     // tool to the exclusion of the other. Naming BOTH is fine; naming one is not.
     const namesClaudeTool = line.includes("AskUserQuestion");
@@ -272,9 +267,7 @@ test("latch coaching is one verbatim harness-neutral string in both latch direct
 });
 
 // The A5.5/A5.6 fences in appendix-a5-directives.md are the SPEC mirror of the
-// shipped latch directives. In 3.1.8 the appendix carried the correct text while
-// directives/ shipped the superseded one, and nothing compared them — so the
-// mismatch reached a release. Assert the shipped bytes against the spec bytes.
+// shipped latch directives. Assert the shipped bytes against the spec bytes.
 test("latch directives are byte-identical to their A5.5/A5.6 spec fences", () => {
   const appendixA5 = readFileSync(
     join(__dirname, "..", "docs", "spec", "dev-loop",
@@ -304,28 +297,81 @@ test("latch directives are byte-identical to their A5.5/A5.6 spec fences", () =>
   }
 });
 
-test("handoff directives keep the provider split and carry the new thresholds", () => {
+// The A5.3/A5.4/A5.16 fences in appendix-a5-directives.md are the SPEC mirror of
+// the shipped body-only handoff-lifecycle directives. The intent-level assertions
+// below (write_required/session_handoff_required, question counts, 20% unlock,
+// no wind-down) catch a dropped half, but they cannot catch a recompression that
+// stays intent-valid while drifting the exact bytes the runtime injects. Pin the
+// shipped bytes to the spec bytes, byte-for-byte, exactly as the latch mirror does.
+test("handoff-lifecycle directives are byte-identical to their A5.3/A5.4/A5.16 spec fences", () => {
+  const appendixA5 = readFileSync(
+    join(__dirname, "..", "docs", "spec", "dev-loop",
+      "orchestration-directive-architecture", "appendix-a5-directives.md"),
+    "utf8"
+  );
+  const normalizeEol = (s) => s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  const fenceAfter = (heading) => {
+    const normalized = normalizeEol(appendixA5);
+    const start = normalized.indexOf(heading);
+    assert.notEqual(start, -1, `appendix-a5-directives.md must contain ${heading}`);
+    const match = normalized.slice(start).match(/```md\n([\s\S]*?)\n```/);
+    assert.ok(match, `${heading} must open a fenced md block`);
+    return match[1];
+  };
+
+  for (const [heading, file] of [
+    ["### A5.3", "handoff-claude.md"],
+    ["### A5.4", "handoff-codex.md"],
+    ["### A5.16", "session-handoff-required.md"],
+  ]) {
+    const shipped = normalizeEol(readFileSync(join(directivesDir, file), "utf8")).replace(/\n$/, "");
+    assert.equal(shipped, fenceAfter(heading),
+      `directives/${file} must be byte-identical to its ${heading} spec fence`);
+  }
+});
+
+test("handoff directives are lifecycle-state driven with the voluntary 20% unlock and no wind-down", () => {
   const handoffClaude = readFileSync(join(directivesDir, "handoff-claude.md"), "utf8");
   const handoffCodex = readFileSync(join(directivesDir, "handoff-codex.md"), "utf8");
 
   for (const [name, body] of [["handoff-claude", handoffClaude], ["handoff-codex", handoffCodex]]) {
-    const lines = body.split("\n");
+    // The two mandatory lifecycle transitions the directive acts on.
+    assert.match(body, /write_required/,
+      `${name} must act on the write_required transition`);
+    assert.match(body, /session_handoff_required/,
+      `${name} must act on the session_handoff_required transition`);
 
-    assert.match(body, /handoff-write[\s\S]{0,160}10/i,
-      `${name} must mention 10 questions near handoff-write`);
-    assert.match(body, /handoff-read[\s\S]{0,160}4/i,
-      `${name} must mention 4 questions near handoff-read`);
+    // A successful mandatory write PREPARES and keeps working; it must not demand
+    // an immediate new session.
+    assert.match(body, /keep working in this same session/i,
+      `${name} must state the mandatory write keeps working in-session`);
+    assert.match(body, /do NOT start a new session/i,
+      `${name} must forbid starting a new session on a successful write`);
 
-    // Unlock moved 40% -> 20%.
-    assert.match(lines[2], /20%/,
-      `${name} must state the 20% handoff-write unlock`);
-    assert.ok(!/\b40%/.test(lines[2]),
-      `${name} must not still claim the retired 40% unlock`);
+    // session_handoff_required mandates a handoff-read before ordinary work.
+    assert.match(body, /handoff-read/,
+      `${name} must direct handoff-read on the read transition`);
 
-    // The wind-down line is threshold-driven now (default 60, valid 40-90), so a
-    // baked-in "50%" is stale regardless of which wording L1 lands on.
-    assert.ok(!/\b50%/.test(lines[0]),
-      `${name} wind-down line must not hardcode the retired 50% warn threshold`);
+    // Question counts: 10 to shape the next goal on write, exactly 4 to confirm on read.
+    assert.match(body, /10 clarifying questions/i,
+      `${name} must ask 10 clarifying questions on the write transition`);
+    assert.match(body, /exactly 4 structured questions/i,
+      `${name} must confirm with exactly 4 structured questions on the read transition`);
+
+    // The voluntary goal-capture write stays available from a hard-coded 20%.
+    assert.match(body, /20% context utilization/,
+      `${name} must keep the voluntary 20% handoff-write availability`);
+    assert.ok(!/\b40%/.test(body),
+      `${name} must not claim the forbidden 40% unlock`);
+
+    // No wind-down warning, warn framing, or baked-in threshold exists.
+    assert.ok(!/wind-?down/i.test(body),
+      `${name} must not mention a wind-down warning`);
+    assert.ok(!/\b50%/.test(body),
+      `${name} must not hardcode the forbidden 50% warn threshold`);
+    assert.ok(!/handoffWarnThreshold/i.test(body),
+      `${name} must not reference the unsupported handoffWarnThreshold knob`);
   }
 
   assert.match(handoffClaude, /AskUserQuestion/, "handoff-claude must name AskUserQuestion");
@@ -403,7 +449,7 @@ test("both carryover notices carry the notify/ask/advise intent", () => {
 // WHY (Rule 9): keyed sessions START OFF. The carryover carrier fires only on
 // the turn that inherits an already-active enable/latch record; its disable
 // path is THIS-session-only (2h backstop, honored even after the 15% latch) and
-// user-approved enabled:true may re-enable mid-session. The stale
+// user-approved enabled:true may re-enable mid-session. The forbidden
 // "resumes ON / no mid-session re-enable / carried over from a PRIOR session"
 // polarity contradicts source/spec and must stay gone.
 // ---------------------------------------------------------------------------
@@ -416,9 +462,9 @@ test("carryover notices state current-session semantics, not cross-session persi
     assert.match(body, /starts OFF/i,
       `${name} carryover must state each new session starts OFF`);
     assert.ok(!/resumes ON/.test(body),
-      `${name} carryover must not keep the stale "resumes ON" polarity`);
+      `${name} carryover must not keep the forbidden "resumes ON" polarity`);
     assert.ok(!/no mid-session re-enable/i.test(body),
-      `${name} carryover must not keep the stale "no mid-session re-enable" polarity`);
+      `${name} carryover must not keep the forbidden "no mid-session re-enable" polarity`);
     assert.ok(!/carried over from a PRIOR session/i.test(body),
       `${name} carryover must not frame ON as cross-session carryover`);
   }

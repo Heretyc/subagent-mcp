@@ -51,10 +51,72 @@ interface UsageLiftResult {
   harnessPercentage: number | null;
   harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
+  // Optional provenance of the newest context compaction proven from the
+  // transcript tail. 'claude:<uuid>' for a proven auto boundary; null when the
+  // newest boundary is manual or lacks a valid proof; key omitted when the
+  // bounded tail shows no compaction boundary at all.
+  compaction_generation?: string | null;
 }
 
 function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+// Canonical 8-4-4-4-12 hex UUID. A compact_boundary's top-level uuid is the
+// only accepted proof of an auto generation; anything else is treated as
+// missing/invalid (-> null), never inferred from surrounding text.
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
+
+function recordField(value: unknown, key: string): unknown {
+  if (!value || typeof value !== "object") return undefined;
+  return (value as Record<string, unknown>)[key];
+}
+
+/**
+ * Resolve the newest context-compaction generation from the already-read
+ * transcript tail lines. Scans newest-first for the newest EXACT record with
+ * type==='system' and subtype==='compact_boundary'; that newest boundary alone
+ * decides the outcome:
+ *   - compactMetadata.trigger==='auto' + a valid top-level uuid -> 'claude:'+uuid
+ *   - trigger==='manual', or a missing/invalid uuid proof        -> null
+ * Returns undefined when the bounded tail contains no compaction boundary (the
+ * caller then omits the optional field entirely). Never infers the generation
+ * from prompt/source/event strings.
+ */
+function resolveClaudeCompactionGeneration(
+  lines: string[],
+): string | null | undefined {
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      // Skip malformed transcript lines and keep scanning older records.
+      continue;
+    }
+    if (!parsed || typeof parsed !== "object") continue;
+    const record = parsed as Record<string, unknown>;
+    // Sidechain (subagent) records must never prove the parent's compaction
+    // generation, mirroring the isSidechain guard in the usage scan.
+    if (record.isSidechain === true) continue;
+    if (record.type !== "system" || record.subtype !== "compact_boundary") {
+      continue;
+    }
+    // Newest boundary wins: decide from THIS record and stop scanning.
+    const trigger = recordField(record.compactMetadata, "trigger");
+    if (trigger === "auto" && isValidUuid(record.uuid)) {
+      return `claude:${record.uuid}`;
+    }
+    return null;
+  }
+  return undefined;
 }
 
 function isRealClaudeModel(value: unknown): value is string {
@@ -106,6 +168,10 @@ function liftClaudeUsageFromTranscript(transcriptPath: string | undefined): Usag
   if (raw === null || !transcriptPath) return null;
   const lines = raw.split("\n");
 
+  // Resolve compaction provenance independently of the usage scan so neither
+  // early-terminates the other; both draw from the same bounded tail lines.
+  const compactionGeneration = resolveClaudeCompactionGeneration(lines);
+
   for (let i = lines.length - 1; i >= 0; i -= 1) {
     const trimmed = lines[i].trim();
     if (!trimmed) continue;
@@ -142,6 +208,9 @@ function liftClaudeUsageFromTranscript(transcriptPath: string | undefined): Usag
             : 0,
         },
         harnessPercentage: null,
+        ...(compactionGeneration !== undefined
+          ? { compaction_generation: compactionGeneration }
+          : {}),
       };
     } catch {
       // Skip malformed transcript lines and keep scanning older completed turns.

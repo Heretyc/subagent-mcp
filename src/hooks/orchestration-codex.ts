@@ -57,6 +57,13 @@ export interface LiftedUsage {
   harnessPercentage?: number | null;
   harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
+  cumulative?: boolean | null;
+  // Optional provenance of the newest context compaction proven from the
+  // rollout tail. 'codex:<window_id>' when a valid window_id is present, else
+  // 'codex-window:<n>' for a valid nonnegative integer window_number; null when
+  // the newest 'compacted' record lacks a valid proof; key omitted when the
+  // bounded tail shows no 'compacted' record at all.
+  compaction_generation?: string | null;
 }
 
 type CodexAdapter = ProviderAdapter & {
@@ -198,6 +205,62 @@ function tokenUsageTotal(usage: Record<string, unknown>): number | null {
   return finiteNumber(total) ? total : null;
 }
 
+// Return the record that carries a compaction's window fields when a line is an
+// EXACT 'compacted' event, tolerating the two observed rollout shapes: a
+// top-level {type:'compacted', ...} record, or an {payload:{type:'compacted',
+// ...}} envelope (mirroring how token_count appears both ways). Any other type
+// (e.g. 'context_compacted') is not a match.
+function compactedRecord(
+  obj: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (obj.type === "compacted") return obj;
+  const payload = nestedRecord(obj, "payload");
+  if (payload && payload.type === "compacted") return payload;
+  return null;
+}
+
+/**
+ * Resolve the newest context-compaction generation from the already-read
+ * rollout tail lines. Scans newest-first for the newest EXACT 'compacted'
+ * record; that newest record alone decides the outcome:
+ *   - a valid (non-empty string) window_id  -> 'codex:'+window_id
+ *   - else a valid nonnegative integer window_number -> 'codex-window:'+number
+ *   - else                                   -> null
+ * Returns undefined when the bounded tail contains no 'compacted' record (the
+ * caller then omits the optional field entirely).
+ */
+function resolveCodexCompactionGeneration(
+  lines: string[],
+): string | null | undefined {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(lines[i]);
+    } catch {
+      // Skip unparseable lines; never throw.
+      continue;
+    }
+    if (!parsed || typeof parsed !== "object") continue;
+    const compacted = compactedRecord(parsed as Record<string, unknown>);
+    if (!compacted) continue;
+    // Newest compacted wins: decide from THIS record and stop scanning.
+    const windowId = compacted.window_id;
+    if (typeof windowId === "string" && windowId.trim() !== "") {
+      return `codex:${windowId}`;
+    }
+    const windowNumber = compacted.window_number;
+    if (
+      typeof windowNumber === "number" &&
+      Number.isInteger(windowNumber) &&
+      windowNumber >= 0
+    ) {
+      return `codex-window:${windowNumber}`;
+    }
+    return null;
+  }
+  return undefined;
+}
+
 function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUsage | null {
   let latestTokenInfo: Record<string, unknown> | null = null;
   let latestModel: string | null = null;
@@ -257,6 +320,11 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
       ? (totalTokens / harnessContextWindow) * 100
       : null;
 
+  // Resolve compaction provenance from the same bounded tail lines. Computed
+  // after usage validation but independently of it, so neither resolution
+  // short-circuits the other.
+  const compactionGeneration = resolveCodexCompactionGeneration(lines);
+
   // Always return the lift even when neither a harness percentage nor a static
   // window is available (unknown codex model). hook-core is the sole writer and
   // persists a null-window "unknown + fail-safe" metering record — matching the
@@ -274,6 +342,13 @@ function liftCodexUsageFromRollout(transcriptPath: string | undefined): LiftedUs
     },
     harnessPercentage,
     harnessContextWindow,
+    // The last_token_usage path is the CURRENT per-turn figure; the
+    // total_token_usage fallback is a cumulative session total, which can
+    // decrease for reasons unrelated to compaction. Mark it ineligible.
+    cumulative: last === null,
+    ...(compactionGeneration !== undefined
+      ? { compaction_generation: compactionGeneration }
+      : {}),
   };
 }
 

@@ -1,6 +1,6 @@
 <!-- Part of orchestration-directive-architecture (split). Retrieval map: ../orchestration-directive-architecture.md -->
 
-## A5 : The 15 directive files (full new content) : NO examples (D28)
+## A5 : The 16 directive files (full content) : NO examples (D28)
 
 Mirror convention: each subsection below reproduces one `directives/*.md` file
 byte-for-byte inside an `md` fence, in filename order. Directive files are now
@@ -38,24 +38,42 @@ While ON, follow the MOST RECENT <subagent-mcp state="on"> tag in context (direc
 
 ### A5.3 `directives/handoff-claude.md`
 
+> Injected in two mandatory lifecycle states (coaching-off isolation: both fire
+> regardless of `contextCoaching`):
+> 1. **write_required** - utilization >= 80% (HANDOFF_REQUIRED_THRESHOLD_PCT) and
+>    no eligible prepared record for this session.
+> 2. **session_handoff_required** - compaction detected after an eligible prepared record;
+>    fires exactly one turn per generation UUID.
+
 ```md
-You are at or above the wind-down warning threshold (user setting `handoffWarnThreshold`, default 60% context utilization, valid 40-90). Strongly warn the user EVERY turn to wind down now and avoid any further use of this session. There is no exemption for small work or non-big work.
+The runtime prefixes this directive with the current handoff lifecycle state. Act on the prefixed state:
 
-`handoff-write` is unlocked from 20% context utilization. Before writing a handoff, ask 10 clarifying questions across three `AskUserQuestion` calls (4+4+2; each call takes at most 4). Use the answers to shape a precise `/goal` prompt for the next session, carrying forward the goal context set at the 15% latch.
+**`write_required`** - Prepare and record a fresh handoff, then keep working in this same session. Do NOT start a new session. First ask 10 clarifying questions across three `AskUserQuestion` calls (4+4+2; each call takes at most 4 questions). Use the answers to shape a precise `/goal` prompt for the next session, carrying forward the goal context you set at the 15% latch. Make the goal DEFINABLE AND ACHIEVABLE: state a concrete goal, a measurable done-condition, and the next concrete action; never a vague "continue working". Then call `handoff-write` and continue the task.
 
-Before acting on `handoff-read`, confirm intent with exactly 4 structured questions in one `AskUserQuestion` call.
+**`session_handoff_required`** - Call `handoff-read` before any ordinary task work. After a successful `handoff-read`, confirm intent with exactly 4 structured questions in one `AskUserQuestion` call before acting on the saved handoff. Then resume and RUN UNTIL the handoff's stated goals are achieved OR the subagent-mcp hook context-exhaustion alert says a new handoff is needed; do not stop early for review pauses unless the handoff says so.
+
+`handoff-write` remains voluntarily available from 20% context utilization for goal capture outside these mandatory transitions.
 
 After a successful `handoff-read`, only this reading session gets the saved handoff appended verbatim to LONG reminders every 5th turn. Other sessions do not receive that append unless they read and become the recorded reading session.
 ```
 
 ### A5.4 `directives/handoff-codex.md`
 
+> Injected in two mandatory lifecycle states (coaching-off isolation: both fire
+> regardless of `contextCoaching`):
+> 1. **write_required** - utilization >= 80% (HANDOFF_REQUIRED_THRESHOLD_PCT) and
+>    no eligible prepared record for this session.
+> 2. **session_handoff_required** - compaction detected after an eligible prepared record;
+>    fires exactly one turn per generation UUID.
+
 ```md
-You are at or above the wind-down warning threshold (user setting `handoffWarnThreshold`, default 60% context utilization, valid 40-90). Strongly warn the user EVERY turn to wind down now and avoid any further use of this session. There is no exemption for small work or non-big work.
+The runtime prefixes this directive with the current handoff lifecycle state. Act on the prefixed state:
 
-`handoff-write` is unlocked from 20% context utilization. Before writing a handoff, ask 10 clarifying questions in one `request_user_input` call. Use the answers to shape a precise `/goal` prompt for the next session, carrying forward the goal context set at the 15% latch.
+**`write_required`** - Prepare and record a fresh handoff, then keep working in this same session. Do NOT start a new session. First ask 10 clarifying questions in one `request_user_input` call. Use the answers to shape a precise `/goal` prompt for the next session, carrying forward the goal context you set at the 15% latch. Make the goal DEFINABLE AND ACHIEVABLE: state a concrete goal, a measurable done-condition, and the next concrete action; never a vague "continue working". Then call `handoff-write` and continue the task.
 
-Before acting on `handoff-read`, confirm intent with exactly 4 structured questions in one `request_user_input` call.
+**`session_handoff_required`** - Call `handoff-read` before any ordinary task work. After a successful `handoff-read`, confirm intent with exactly 4 structured questions in one `request_user_input` call before acting on the saved handoff. Then resume and RUN UNTIL the handoff's stated goals are achieved OR the subagent-mcp hook context-exhaustion alert says a new handoff is needed; do not stop early for review pauses unless the handoff says so.
+
+`handoff-write` remains voluntarily available from 20% context utilization for goal capture outside these mandatory transitions.
 
 After a successful `handoff-read`, only this reading session gets the saved handoff appended verbatim to LONG reminders every 5th turn. Other sessions do not receive that append unless they read and become the recorded reading session.
 ```
@@ -191,4 +209,19 @@ FIRST-LINE NON-EXEMPTION: the parent-process marker does NOT lift orchestration 
 ```md
 <subagent-mcp state="{{state}}" kind="{{kind}}" phase="{{phase}}" utilization="{{utilization}}">
 <!-- reference copy; authoritative: TAG_TEMPLATE in src/orchestration/template.ts -->
+```
+
+### A5.16 `directives/session-handoff-required.md`
+
+> Injected body for the `session_handoff_required` lifecycle state: the hook fires
+> this for exactly one turn per generation UUID after compaction is detected on a
+> eligible prepared record (coaching-off isolation applies). Body-only; the wrapper tag
+> is composed by the hook from `tag-template.md`.
+
+```md
+Handoff lifecycle: `session_handoff_required` - a generation-scoped duty that fires for exactly one turn.
+
+Call `handoff-read` now. For this one turn it is the ONLY ordinary-work action: do no other task work until the read completes.
+
+After a successful `handoff-read`, confirm intent with EXACTLY 4 structured confirmation questions in a single structured-question call before acting on the saved handoff. Then resume the handoff's stated work.
 ```

@@ -15,12 +15,18 @@ three surfaces (MCP `instructions`, upserted `INIT_BLOCK`, per-turn hook
 directives). ON = delegate-only orchestrator (launch_agent sole channel, no
 inline reads/writes). OFF = solo + provider-metered context tracking
 (context-metering.md); ENFORCED-ON at the 15% latch, with the handoff tools
-unlocking at 20% and the wind-down warning firing at the user-configured
-threshold (default 60%, valid 40-90) unless `contextCoaching` is off (see
-R-LATCH-15/R-HANDOFF-40/R-HANDOFF-WARN-50; the two R-IDs keep their historical
-numbers). State is
-reported SOLELY by the hook `<subagent-mcp state="...">` tag; hookless hosts →
-UNKNOWN → fail-safe ON. Sub-agent first-line marker skips the whole regime.
+unlocking at 20% (voluntary goal-context capture) and a mandatory handoff-write
+directive firing at 80% (HANDOFF_REQUIRED_THRESHOLD_PCT = CODEX_AUTOCOMPACT_PCT
+- 10; directive-only, coaching-off isolation); compaction detected when a single
+adjacent-sample >= 10-point drop from >= 80% is ALSO accompanied by a fresh
+structural compaction-generation proof (Claude: newest main-chain system
+`compact_boundary`, valid only when that exact boundary is auto-triggered and
+has a canonical top-level UUID; Codex: fresh compacted window id/number). This
+triggers a mandatory one-turn handoff-read injection followed, after a
+successful read, by exactly four structured confirmation questions (see
+R-LATCH-15/R-HANDOFF-20/R-HANDOFF-80). State is reported SOLELY by the hook
+`<subagent-mcp state="...">` tag; hookless hosts → UNKNOWN → fail-safe ON.
+Sub-agent first-line marker skips the whole regime.
 
 Orchestration mode is **orthogonal** to the permission system: orchestration
 mode governs *who* decides to delegate work to sub-agents; `permissionsCeiling`
@@ -38,7 +44,7 @@ decisions : those run through the shared engine in `src/drivers.ts`.)
 | Leaf | Covers | Load when | Do NOT load when |
 |---|---|---|---|
 | `orchestration-directive-architecture/sections-00-04.md` | section 0 layering/redundancy, section 1 single tag schema, section 2 precedence/joint-binding, section 3 ON model; links to `sections-04.md` for section 4 OFF model | you need the tag schema, ON/OFF operating model, or precedence rules | you only need marker/persistence or test mechanics |
-| `.../sections-04.md` | section 4 OFF model: default-OFF, metering fail-safe, phase definitions, plan/handoff/wind-down thresholds, 5-call rule deletion | implementing or testing the OFF-mode phase thresholds and metering-driven enforcement | you need the ON model or tag schema (load `sections-00-04.md`) |
+| `.../sections-04.md` | section 4 OFF model: default-OFF, metering fail-safe, phase definitions (15%/20%/80%), CODEX_AUTOCOMPACT_PCT/HANDOFF_REQUIRED_THRESHOLD_PCT/COMPACTION_DROP_THRESHOLD_PCT constants, 5-call rule deletion | implementing or testing the OFF-mode phase thresholds and metering-driven enforcement | you need the ON model or tag schema (load `sections-00-04.md`) |
 | `.../sections-05-09.md` | section 5 no-hook fail-safe ON + opt-out, section 6 first-line exemption + launch_agent upsert, section 7 dropout/HALT, section 8 markers/MIGRATE_RE/collapse; links to `sections-09.md` for section 9 cross-provider matrix | debugging hookless hosts, sub-agent fork-bomb prevention, dropout, or block migration | you need the ON/OFF model or appendices |
 | `.../sections-09.md` | section 9 cross-provider behavior matrix (Claude Code CLI, Codex, Gemini, Desktop) | checking per-host hook/state/tool behavior | you need marker or test specs |
 | `.../sections-10-13.md` | section 10 persistence/carryover/disable, section 11 tests, section 12 failure matrix, section 13 structured-question tool map | reasoning about marker persistence, carryover, disable, or the test gates | you need tag/ON/OFF semantics |
@@ -66,7 +72,8 @@ These entries are MAP ONLY. All normative content for swarm and sub-orchestrator
 - joint binding, escalate-to-user, tag > user request → `sections-00-04.md` (section 2); verbatim clause → `appendix-a1-a4.md` (A4)
 - ON allowed-tools, sole channel, read-ladder → `sections-00-04.md` (section 3); ladder verbatim → `appendix-a1-a4.md` (A2)
 - OFF metering fail-safe + phase thresholds → `sections-04.md`, `context-metering.md`, `statusline-signal.md`, `handoff.md`
-- `contextCoaching` / `handoffWarnThreshold` user settings (what they mute, what they never mute) → `context-metering.md` (section 3.1), `handoff.md`; install-time prompts → `docs/spec/dev-loop/init-registry-and-update.md`
+- `contextCoaching` user setting / coaching-off isolation (mandatory lifecycle injections always fire) → `context-metering.md` (section 3.1), `handoff.md`; install-time prompts → `docs/spec/dev-loop/init-registry-and-update.md`
+- `CODEX_AUTOCOMPACT_PCT` / `HANDOFF_REQUIRED_THRESHOLD_PCT` / `COMPACTION_DROP_THRESHOLD_PCT` constants → `context-metering.md` (section 3), `handoff.md`, `sections-04.md`; setup reconciliation → `init-registry-and-update.md`, `docs/install/claude-code-cli.md`
 - Claude/Codex usage lift, state migration, display → `context-metering-usage-lift.md` (sections 6-10)
 - fail-safe ON / UNKNOWN / one-time opt-out → `sections-05-09.md` (section 5)
 - first-line `<this is a request from a parent process>` skip + upsert → `sections-05-09.md` (section 6), `appendix-a6-a7.md` (A7)

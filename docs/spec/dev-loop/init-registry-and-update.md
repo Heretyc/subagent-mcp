@@ -90,33 +90,51 @@ enable it without prompting. The choice is persisted in the registry
 
 ## Context-Coaching Setup Prompts
 
-Context coaching has exactly two user-level settings, persisted in
+Context coaching has one user-level setting, persisted in
 `~/.subagent-mcp/settings.json` or `settings.local.json` (never per-repo, never
 per-project):
 
 | Key | Values | Default |
 |---|---|---|
 | `contextCoaching` | `true` or `false` | `true` |
-| `handoffWarnThreshold` | integer percent, valid `40`-`90` | `60` |
 
 Prompt behavior, mirroring the auto-update pattern:
 
-- When `~/.subagent-mcp/settings.json` is missing or blank, `setup` asks BOTH
-  prompts, in order:
-  1. context coaching on/off (default yes),
-  2. wind-down warning threshold, accepted only as a whole number `40`-`90`
-     (default `60`).
-- An unrecognized answer RE-PROMPTS rather than being coerced: a typo can never
-  silently flip coaching off or move the threshold (`askYesNoStrict` /
-  `askIntegerInRange` in `src/prompt.ts`). Empty input takes the stated default.
-- When an existing settings file has content, even without these keys, `setup`
+- When `~/.subagent-mcp/settings.json` is missing or blank, `setup` asks the
+  context coaching on/off prompt (default yes).
+- An unrecognized answer RE-PROMPTS rather than being coerced (`askYesNoStrict`
+  in `src/prompt.ts`). Empty input takes the stated default.
+- When an existing settings file has content, even without the key, `setup`
   asks neither prompt.
 - At runtime a missing key is never an error: reads silently resolve to
-  `contextCoaching: true` and `handoffWarnThreshold: 60`. Any out-of-range or
-  malformed threshold resolves to `60`.
-- `contextCoaching: false` mutes ONLY the at-or-above-threshold wind-down
-  warning and its handoff steer. The 15% orchestration latch and the fixed 20%
-  `handoff-write` unlock are unaffected.
+  `contextCoaching: true`.
+- `contextCoaching: false` does NOT mute mandatory lifecycle injections
+  (write_required at 80% and session_handoff_required on compaction). Mandatory
+  injections fire regardless of this setting (coaching-off isolation). The 15%
+  orchestration latch and the 20% `handoff-write` unlock are also unaffected.
+
+## Auto-Compact Reconciliation Setup
+
+`setup` reconciles Claude Code's user-scope `settings.json` by writing
+`env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"`. The value comes from the source
+constant `CODEX_AUTOCOMPACT_PCT`; that constant is not the Claude setting name.
+This supports the compaction contract in `handoff.md`:
+
+- Reads the current `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` value before any
+  write.
+- Backs up existing settings with a timestamped sibling file (same backup
+  pattern as other setup writes).
+- Writes the string value `"90"`, preserving every unrelated setting and env
+  key.
+- Reads back the written value to verify it was applied correctly.
+- Emits restart messaging: the change takes effect after the next Claude Code
+  session restart.
+- If the existing `env` value is present but is not a JSON object (`null`, an
+  array, or another scalar), leaves it untouched, logs a non-fatal unsupported-
+  shape error with repair instructions, and continues setup. There is no
+  host-version capability detection.
+
+Codex CLI compacts natively at 90% and requires no setup-time change.
 
 When `autoUpdate=true`, a newer npm `latest` can trigger self-update only when:
 
@@ -159,7 +177,7 @@ missing or out-of-date managed blocks; otherwise it is `PASS`.
 | `setup` init scope | Defaults to `global`. |
 | `setup` auto-update | Defaults to enabled. |
 | `setup` context coaching | Defaults to enabled (`contextCoaching: true`), no prompt. |
-| `setup` wind-down warning threshold | Defaults to `60`, no prompt. |
+| `setup` auto-compact reconciliation | Writes Claude Code `settings.json` `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"` without prompting; emits restart notice. |
 | update missing or empty registry | Runs global init without prompting. |
 | update stale roots | Keeps entries and logs a warning. |
 

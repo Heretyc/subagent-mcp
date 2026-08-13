@@ -139,6 +139,12 @@ and offers repair. `uninstall` reverts the `Agent` deny entry that smcp owns.
    Task widget tools and Explore are not in the static deny list.
 7. **Manual wiring only:** `claude mcp get subagent-mcp` shows the
    `node dist/index.js` command, and the settings.json hooks fire.
+8. **Auto-compact reconciliation (setup only):** after `subagent-mcp setup`,
+   confirm the user-scope `settings.json` contains
+   `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"`. The setup log confirms the
+   write and read-back verification. A present non-object `env` is the supported
+   repair failure: setup leaves it untouched and reports how to make it an
+   object. Restart the session for the change to take effect.
 
 ## Reversibility
 

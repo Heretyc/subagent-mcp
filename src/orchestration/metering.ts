@@ -6,10 +6,6 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  DEFAULT_HANDOFF_WARN_THRESHOLD,
-  readContextCoachingSettings,
-} from "../concurrency.js";
 import { atomicWriteJson } from "./atomic-write.js";
 import {
   hashKey,
@@ -20,19 +16,52 @@ import {
 export const PLAN_LATCH_THRESHOLD_PCT = 15;
 /**
  * Goal-context unlock. `handoff-write` unlocks at 20% so the session captures a
- * DEFINABLE AND ACHIEVABLE goal while it still has the context to describe one,
- * rather than at the old 40% wind-down-adjacent point. The literal `20` is the
+ * DEFINABLE AND ACHIEVABLE goal while it still has the context to describe one.
+ * The literal `20` is the
  * single source of truth for the unlock WORDING too: handoff.ts pins its
  * unavailable string to this constant with a template-literal type, so the
  * number and the user-visible sentence cannot drift apart.
  */
 export const HANDOFF_UNLOCK_THRESHOLD_PCT = 20;
-const FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT = DEFAULT_HANDOFF_WARN_THRESHOLD;
 export const DEFAULT_CONTEXT_WINDOW = 200000;
 export const LONG_CONTEXT_WINDOW = 1000000;
 
+/**
+ * Host auto-compaction line. Codex 0.147.0 compacts at this utilization and
+ * setup reconciles Claude Code's auto-compact percentage to the same number, so
+ * both harnesses exhaust context at one shared point. Fixed in code, never a
+ * user knob.
+ */
+export const CODEX_AUTOCOMPACT_PCT = 90;
+/**
+ * Mandatory fresh-handoff-write line. A session that reaches this utilization
+ * with no eligible prepared handoff record must write one, 10 points before the
+ * host compacts, so a durable resume record exists before context is dropped.
+ * Not user configurable: derived from CODEX_AUTOCOMPACT_PCT so the two move
+ * together.
+ */
+export const HANDOFF_REQUIRED_THRESHOLD_PCT = CODEX_AUTOCOMPACT_PCT - 10;
+/**
+ * Minimum previous->current utilization drop (in points) that reads as host
+ * auto-compaction rather than a normal turn-to-turn decrease.
+ */
+export const COMPACTION_DROP_THRESHOLD_PCT = 10;
+/**
+ * Freshness horizon for compaction detection. The current sample must be this
+ * recent, and the adjacent previous sample no older than this before it, or the
+ * pair is stale and cannot be trusted to describe one compaction event.
+ */
+export const COMPACTION_SAMPLE_MAX_AGE_MS = 30 * 60 * 1000;
+
 export type MeteringHarness = "claude" | "codex";
 export type MeteringPhase = "normal" | "plan" | "handoff";
+/**
+ * Whether a usage sample is the harness's CURRENT (per-turn, non-cumulative)
+ * figure or a CUMULATIVE session total. Cumulative samples (e.g. the Codex
+ * total_token_usage fallback) can decrease for reasons unrelated to compaction,
+ * so they are ineligible for compaction detection.
+ */
+export type MeteringSampleKind = "current" | "cumulative";
 export type WindowSource =
   | "harness"
   | "mapping"
@@ -63,7 +92,22 @@ export interface MeteringRecord {
   usage: MeteringUsage;
   used_tokens: number | null;
   used_percentage: number | null;
-  near_limit: boolean;
+  /**
+   * Monotonic per-session sample counter. Each persisted sample is exactly one
+   * greater than the prior one, so compaction detection can require adjacency
+   * and reject out-of-order or gapped samples.
+   */
+  sample_seq: number;
+  /** Whether this sample is a current per-turn figure or a cumulative total. */
+  sample_kind: MeteringSampleKind;
+  /**
+   * Provider-derived generation fingerprint proving a post-compaction
+   * generation. The pre-compaction sample may omit it; `null` means no eligible
+   * proof this turn, and a string is the fingerprint.
+   */
+  compaction_generation?: string | null;
+  /** True when this sample belongs to a sub-agent session (never compacts). */
+  sub_agent: boolean;
   event: string;
   updated_at: number;
 }
@@ -81,12 +125,14 @@ export interface BuildMeteringRecordInput {
   priorWindow?: number | null;
   priorWindowSource?: WindowSource;
   priorWindowFloor?: number | null;
-  /**
-   * Shared context-coaching settings backing `near_limit`. Injected by the
-   * caller (the hook resolves them once per turn) so this module stays a pure,
-   * IO-free leaf. Omitted/null falls back to the default warn threshold.
-   */
-  warningSettings?: HandoffWarningSettings | null;
+  /** The prior persisted sample's sequence number, to derive this sample's. */
+  priorSampleSeq?: number | null;
+  /** Current vs cumulative usage; defaults to "current" when omitted. */
+  sampleKind?: MeteringSampleKind | null;
+  /** Provider-derived generation fingerprint proof; defaults to null. */
+  compactionGeneration?: string | null;
+  /** Whether this sample belongs to a sub-agent session; defaults to false. */
+  subAgent?: boolean | null;
 }
 
 export interface UsedPercentageInput {
@@ -401,72 +447,139 @@ export function computeUsedPercentage(record: UsedPercentageInput): number | nul
 }
 
 /**
- * Structural view of the shared context-coaching settings
- * (`ContextCoachingSettings` in src/concurrency.ts, read via
- * `readContextCoachingSettings()`). Declared structurally rather than imported
- * so this module stays an IO-free leaf: concurrency.ts performs file reads at
- * import time, and metering.ts is loaded by both the MCP server and every
- * per-turn hook process. hook-core.ts owns the actual config read and injects
- * the result here.
+ * The minimal, structural view of a metering sample the compaction detector
+ * reads. `MeteringRecord` satisfies it, but declaring it separately keeps
+ * `detectCompaction` a pure function that unit tests can exercise with plain
+ * object literals for every rejection path.
  */
-export interface HandoffWarningSettings {
-  contextCoaching: boolean;
-  handoffWarnThreshold: number;
+export interface CompactionSample {
+  session_id: string;
+  harness: MeteringHarness;
+  model: string;
+  source_ref: string;
+  context_window_size: number | null;
+  used_percentage: number | null;
+  sample_seq: number;
+  sample_kind: MeteringSampleKind;
+  compaction_generation?: string | null;
+  sub_agent: boolean;
+  updated_at: number;
 }
 
 /**
- * Resolve the effective wind-down warning threshold, or `null` when warning is
- * switched off.
- *
- * Configurability is bounded to exactly what the shared settings surface
- * supports today: `contextCoaching` (off => no warning at all) and
- * `handoffWarnThreshold` (the percentage). Range sanitation is NOT repeated
- * here — `clampHandoffWarnThreshold()` in concurrency.ts already defaults
- * malformed user values at read time, so this stays the single consumer of
- * an already-valid number and cannot disagree with it.
+ * Why a previous/current sample pair is NOT auto-compaction. Every value is a
+ * distinct, unit-testable rejection path; `null` reason with `detected: true`
+ * is the sole accept.
  */
-export function resolveHandoffWarningPct(
-  settings?: HandoffWarningSettings | null,
-): number | null {
-  if (settings === undefined || settings === null) {
-    return FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT;
+export type CompactionRejectionReason =
+  | "no-previous"
+  | "sub-agent"
+  | "session-mismatch"
+  | "harness-mismatch"
+  | "model-change"
+  | "source-mismatch"
+  | "context-window-change"
+  | "cumulative-sample"
+  | "no-generation-proof"
+  | "same-generation"
+  | "non-monotonic-sequence"
+  | "non-adjacent-sequence"
+  | "non-monotonic-timestamp"
+  | "stale-sample"
+  | "unknown-percentage"
+  | "previous-below-threshold"
+  | "insufficient-drop";
+
+export interface CompactionDetection {
+  detected: boolean;
+  reason: CompactionRejectionReason | null;
+  drop_pct: number | null;
+}
+
+export interface DetectCompactionOptions {
+  now?: number;
+  maxSampleAgeMs?: number;
+}
+
+/**
+ * Pure, single-path auto-compaction detector: ONE adjacent previous/current
+ * sample comparison. Auto-compaction is a >= COMPACTION_DROP_THRESHOLD_PCT drop
+ * in utilization between two otherwise-continuous samples with a fresh
+ * provider-derived generation fingerprint on the current sample. The
+ * pre-compaction sample naturally has no fingerprint; a repeated fingerprint is
+ * rejected after the detected sample is persisted. Missing/null current proof
+ * and an unchanged fingerprint never trigger.
+ * Every mismatch, stale/out-of-order/unknown/cumulative sample, or missing/
+ * unchanged proof is rejected with a specific reason so the caller rebaselines
+ * instead of firing. No native compaction hook informs this; it is derived
+ * solely from the two samples.
+ */
+export function detectCompaction(
+  previous: CompactionSample | null | undefined,
+  current: CompactionSample,
+  options: DetectCompactionOptions = {},
+): CompactionDetection {
+  const reject = (reason: CompactionRejectionReason): CompactionDetection => ({
+    detected: false,
+    reason,
+    drop_pct: null,
+  });
+  if (!previous) return reject("no-previous");
+  if (current.sub_agent || previous.sub_agent) return reject("sub-agent");
+  if (current.session_id !== previous.session_id) return reject("session-mismatch");
+  if (current.harness !== previous.harness) return reject("harness-mismatch");
+  const curModel = normalizeModelId(current.model)?.base ?? null;
+  const prevModel = normalizeModelId(previous.model)?.base ?? null;
+  if (curModel === null || prevModel === null || curModel !== prevModel) {
+    return reject("model-change");
   }
-  if (settings.contextCoaching === false) return null;
-  return finiteNumber(settings.handoffWarnThreshold)
-    ? settings.handoffWarnThreshold
-    : FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT;
-}
-
-/**
- * Read the shared context-coaching settings, fail-safe.
- *
- * Any read/parse failure yields null so resolveHandoffWarningPct falls back to
- * the conservative built-in threshold rather than silencing the warning.
- */
-export function readSharedCoachingSettings(): HandoffWarningSettings | null {
-  try {
-    return readContextCoachingSettings();
-  } catch {
-    return null;
+  if (current.source_ref !== previous.source_ref) return reject("source-mismatch");
+  if (current.context_window_size !== previous.context_window_size) {
+    return reject("context-window-change");
   }
-}
-
-/**
- * The effective wind-down warning percentage for this machine's configuration.
- *
- * Zero-argument convenience over resolveHandoffWarningPct(): it always returns
- * a NUMBER, because callers that merely need to know "where is the warn line"
- * (status surfaces, docs, tests) still need a percentage even when
- * `contextCoaching` is false and no warning will actually be emitted. Whether
- * the warning FIRES is a separate question, answered by
- * resolveHandoffWarningPct() returning null.
- */
-export function resolveWarnThresholdPct(): number {
-  const settings = readSharedCoachingSettings();
-  if (settings === null) return FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT;
-  return finiteNumber(settings.handoffWarnThreshold)
-    ? settings.handoffWarnThreshold
-    : FALLBACK_HANDOFF_WARNING_THRESHOLD_PCT;
+  if (current.sample_kind !== "current" || previous.sample_kind !== "current") {
+    return reject("cumulative-sample");
+  }
+  // Proof appears on the first post-compaction sample. Once persisted, replay
+  // presents the same fingerprint on both sides and is rejected exactly once.
+  if (typeof current.compaction_generation !== "string") {
+    return reject("no-generation-proof");
+  }
+  if (
+    typeof previous.compaction_generation === "string" &&
+    current.compaction_generation === previous.compaction_generation
+  ) {
+    return reject("same-generation");
+  }
+  if (!finiteNumber(current.sample_seq) || !finiteNumber(previous.sample_seq)) {
+    return reject("non-monotonic-sequence");
+  }
+  if (current.sample_seq <= previous.sample_seq) return reject("non-monotonic-sequence");
+  if (current.sample_seq !== previous.sample_seq + 1) return reject("non-adjacent-sequence");
+  if (
+    !finiteNumber(current.updated_at) ||
+    !finiteNumber(previous.updated_at) ||
+    current.updated_at < previous.updated_at
+  ) {
+    return reject("non-monotonic-timestamp");
+  }
+  const now = finiteNumber(options.now) ? options.now : Date.now();
+  const maxAge = finiteNumber(options.maxSampleAgeMs)
+    ? options.maxSampleAgeMs
+    : COMPACTION_SAMPLE_MAX_AGE_MS;
+  if (now - current.updated_at > maxAge) return reject("stale-sample");
+  if (current.updated_at - previous.updated_at > maxAge) return reject("stale-sample");
+  if (!finiteNumber(current.used_percentage) || !finiteNumber(previous.used_percentage)) {
+    return reject("unknown-percentage");
+  }
+  if (previous.used_percentage < HANDOFF_REQUIRED_THRESHOLD_PCT) {
+    return reject("previous-below-threshold");
+  }
+  const drop = previous.used_percentage - current.used_percentage;
+  if (drop < COMPACTION_DROP_THRESHOLD_PCT) {
+    return { detected: false, reason: "insufficient-drop", drop_pct: drop };
+  }
+  return { detected: true, reason: null, drop_pct: drop };
 }
 
 export function phaseFor(usedPercentage: number | null): MeteringPhase {
@@ -496,16 +609,7 @@ export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRe
     used_tokens: normalized.used_tokens,
     harnessPercentage: input.harnessPercentage,
   });
-  // Explicit injection wins (the hook resolves settings ONCE per turn and passes
-  // them here, so the tag and near_limit agree). An absent field means "resolve
-  // for me" — callers outside the hook still get configuration-correct
-  // near_limit rather than the bare fallback. An explicit null means "no
-  // settings available", which is what the fail-safe fallback is for.
-  const warningPct = resolveHandoffWarningPct(
-    input.warningSettings === undefined
-      ? readSharedCoachingSettings()
-      : input.warningSettings,
-  );
+  const priorSeq = finiteNumber(input.priorSampleSeq) ? input.priorSampleSeq : null;
   return {
     session_id: input.session_id,
     harness: input.harness,
@@ -517,10 +621,10 @@ export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRe
     usage: normalized.usage,
     used_tokens: normalized.used_tokens,
     used_percentage,
-    near_limit:
-      used_percentage !== null &&
-      warningPct !== null &&
-      used_percentage >= warningPct,
+    sample_seq: priorSeq === null ? 0 : priorSeq + 1,
+    sample_kind: input.sampleKind === "cumulative" ? "cumulative" : "current",
+    compaction_generation: input.compactionGeneration ?? null,
+    sub_agent: input.subAgent === true,
     event: input.event,
     updated_at: Date.now(),
   };

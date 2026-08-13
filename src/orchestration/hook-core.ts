@@ -34,15 +34,14 @@ import { isSubOrchestratorEnv } from "../sub-orchestrator.js";
  * Provider-agnostic core of the UserPromptSubmit / SessionStart hook.
  *
  * The MCP tool only ever WRITES the marker. A SEPARATE hook process (one per
- * turn) READS the marker here and decides what to inject. The hook now emits in
+ * turn) READS the marker here and decides what to inject. The hook emits in
  * BOTH marker states, on a per-prompt counter (reminder.ts): every
  * REMINDER_PERIOD-th prompt injects the LONG mode-specific
  * <subagent-mcp> reminder block, every prompt between injects the
  * one-line rule carrier. Marker ON adds the claim machinery: the claim turn
  * (fresh enable or carryover re-claim) emits the FULL directive plus the ON
- * reminder block and re-baselines the counter. (Supersedes LOCKED DECISION 2's
- * same-session rel%5 FULL re-emission — owner directive 2026-06-11: steady
- * state is the leaner tagged reminder, FULL fires on claim turns only.) The
+ * reminder block and re-baselines the counter. FULL fires on claim turns only.
+ * The
  * marker PERSISTS across sessions/restarts, so the first turn of a new session
  * that inherits an already-ON marker emits a CARRYOVER notice (prepended to
  * FULL) once per project marker, ack-latched in marker state, and re-claims
@@ -100,6 +99,18 @@ export interface LiftUsageResult {
   harnessPercentage?: number | null;
   harnessContextWindow?: number | null;
   longContextHint?: boolean | null;
+  /**
+   * True when the lifted usage is a CUMULATIVE session total (e.g. the Codex
+   * total_token_usage fallback) rather than a current per-turn figure. Marks the
+   * sample ineligible for compaction detection.
+   */
+  cumulative?: boolean | null;
+  /**
+   * Provider-derived generation fingerprint for this turn. A string is the proof
+   * a NEW post-compaction generation began; null means no eligible proof this
+   * turn. Undefined (field omitted) is treated as null when persisted.
+   */
+  compaction_generation?: string | null;
 }
 
 type TagKind =
@@ -107,6 +118,7 @@ type TagKind =
   | "reminder"
   | "carryover"
   | "carrier"
+  | "lifecycle"
   | "sub-orchestrator";
 
 /**
@@ -322,7 +334,7 @@ export function countJsonlType(
 }
 
 /**
- * Return the stable key used to compare hook claims. Some hosts omit
+ * Return the stable key for comparing hook claims. Some hosts omit
  * session_id; transcript_path is per-session, so a short hash keeps the claim
  * sticky without changing classifyClaim's string/undefined contract.
  */
@@ -349,8 +361,8 @@ export function ownerKey(payload: HookPayload, cwd: string, adapter: ProviderAda
  * Decide whether a marker that is already active is being seen by a FRESH claim
  * or by a CARRYOVER from a prior/other session. Orchestration mode now PERSISTS
  * across process restarts/sessions (under default-ON, absence of an active
- * disable record = ON; OFF is an active session-keyed disable record; the legacy
- * owner_session marker is only used to detect carried-over/legacy ON for the
+ * disable record = ON; OFF is an active session-keyed disable record; the
+ * owner_session marker only detects carried-over ON for the
  * one-time remain-enabled notice), so the first turn of a new session can inherit
  * a marker some earlier session left behind.
  *
@@ -522,33 +534,76 @@ function readMeteringState(current: string): {
 }
 
 /**
- * Read the shared user-level context-coaching settings (`contextCoaching`,
- * `handoffWarnThreshold`) for this turn.
- *
- * Fail-safe: any read/parse failure returns null, which makes
- * metering.resolveHandoffWarningPct fall back to its conservative built-in
- * threshold rather than silencing the warning. Resolved ONCE per runHook turn
- * and threaded down, so the injected directive and the persisted `near_limit`
- * flag can never disagree within a turn, and the config file is read once.
+ * Provider-neutral asset carrying the MANDATORY post-compaction read directive.
+ * Injected for exactly one turn when the writer's prepared handoff has just
+ * moved to `session_handoff_required`. Fail-safe: if the asset is missing the
+ * body reads empty and no claim is burned (see emitSessionHandoffReadInjection).
  */
-export function readHandoffWarningSettings(): metering.HandoffWarningSettings | null {
-  return metering.readSharedCoachingSettings();
+export const SESSION_HANDOFF_REQUIRED_DIRECTIVE_FILE = "session-handoff-required.md";
+
+const WRITE_REQUIRED_PREFIX = "Handoff lifecycle: `write_required`.";
+
+/** Emit the mandatory handoff-write directive while a fresh record is owed. */
+function emitWriteRequiredInjection(
+  cwd: string,
+  current: string,
+  env: NodeJS.ProcessEnv,
+  adapter: ProviderAdapter,
+  effectiveActive: boolean,
+  phase: metering.MeteringPhase,
+  usedPercentage: number | null,
+  updateNoticeSessionId: string | undefined
+): string | null {
+  if (!handoff.isWriteRequired(cwd, current, usedPercentage)) return null;
+  const body = bodyFromDirective(
+    readDirective(env, providerDirectiveFile(adapter, "handoff"))
+  );
+  if (body === "") return null;
+  const injected = composeHookUpdateNotice(
+    env,
+    updateNoticeSessionId,
+    { body: `${WRITE_REQUIRED_PREFIX}\n${body}`, kind: "lifecycle", isLong: true },
+    effectiveActive,
+    phase,
+    usedPercentage
+  );
+  return injected === "" ? null : injected;
 }
 
 /**
- * Wind-down warning gate. Threshold comes from the shared settings resolved for
- * this turn, so the one knob that sets `near_limit` on the metering record also
- * decides whether the handoff directive is appended to this turn's injection.
- * `contextCoaching: false` resolves to null and suppresses the append entirely.
+ * Claim the one mandated post-compaction read injection, if owed. The asset body
+ * is resolved FIRST so a missing directive never burns the once-per-generation
+ * claim; only after a real injection composes is the record advanced to
+ * `resuming`. Directive-only and coaching-independent: this fires
+ * regardless of optional context coaching.
  */
-function shouldWarnHandoff(
+function emitSessionHandoffReadInjection(
+  cwd: string,
+  current: string,
+  env: NodeJS.ProcessEnv,
+  effectiveActive: boolean,
+  phase: metering.MeteringPhase,
   usedPercentage: number | null,
-  warningSettings: metering.HandoffWarningSettings | null
-): boolean {
-  const warningPct = metering.resolveHandoffWarningPct(warningSettings);
-  return (
-    usedPercentage !== null && warningPct !== null && usedPercentage >= warningPct
+  updateNoticeSessionId: string | undefined
+): string | null {
+  if (!handoff.isSessionHandoffRequired(handoff.readHandoff(cwd), current)) {
+    return null;
+  }
+  const body = bodyFromDirective(
+    readDirective(env, SESSION_HANDOFF_REQUIRED_DIRECTIVE_FILE)
   );
+  if (body.trim() === "") return null;
+  const injected = composeHookUpdateNotice(
+    env,
+    updateNoticeSessionId,
+    { body, kind: "lifecycle", isLong: true },
+    effectiveActive,
+    phase,
+    usedPercentage
+  );
+  if (injected === "") return null;
+  if (handoff.claimSessionHandoffRead(cwd, current) === null) return null;
+  return injected;
 }
 
 /**
@@ -576,27 +631,37 @@ export function latchDirectivesIdentical(env: NodeJS.ProcessEnv): boolean {
   return bodies.every((body) => body === first);
 }
 
+export interface MeteringTurnResult {
+  /** Whether context size is undetectable this turn (drives fail-safe ON). */
+  meteringUndetectableFailSafe: boolean;
+  /** Single-path compaction verdict for the prior->current sample pair. */
+  detection: metering.CompactionDetection | null;
+}
+
 /**
- * Lift this turn's usage, persist the metering record, and report whether
- * metering is undetectable (fail-safe ON) for THIS turn.
+ * Lift this turn's usage, persist the metering record (with sample sequence /
+ * kind / generation-proof metadata), and run the single-path compaction detector
+ * over the prior->current sample pair.
  *
  * One-turn lag (accepted by design, see context-metering.md): the transcript
  * only carries the PRIOR assistant turn's usage, so the metering data reflects
  * the last COMPLETED turn, not the in-flight one. Thresholds therefore trip one
  * turn late, which is harmless. Turn <= 1 has no completed turn yet, so it is a
  * grace window: no metering is expected and the session is NOT fail-safed.
+ *
+ * Rejected pairs simply persist the current sample and return no detection, so
+ * the next turn rebaselines against it.
  */
 function updateMeteringForTurn(
   payload: HookPayload,
   env: NodeJS.ProcessEnv,
   adapter: ProviderAdapter,
   current: string,
-  turnIndex: number,
-  warningSettings: metering.HandoffWarningSettings | null
-): boolean {
-  if (turnIndex <= 1) return false;
+  turnIndex: number
+): MeteringTurnResult {
+  if (turnIndex <= 1) return { meteringUndetectableFailSafe: false, detection: null };
   const lifted = adapter.liftUsage(payload, env, payload.transcript_path);
-  if (lifted === null) return true;
+  if (lifted === null) return { meteringUndetectableFailSafe: true, detection: null };
   const prior = metering.readMetering(current);
   const record = metering.buildMeteringRecord({
     session_id: current,
@@ -614,8 +679,15 @@ function updateMeteringForTurn(
     priorWindow: prior?.context_window_size ?? null,
     priorWindowSource: prior?.window_source ?? null,
     priorWindowFloor: prior?.window_floor ?? null,
-    warningSettings,
+    priorSampleSeq: prior?.sample_seq ?? null,
+    sampleKind: lifted.cumulative === true ? "cumulative" : "current",
+    compactionGeneration: lifted.compaction_generation ?? null,
+    subAgent: false,
   });
+  // Detect BEFORE overwriting the prior metering proof on disk: the detector
+  // compares the prior persisted generation against the current one, so the
+  // verdict must be computed from `prior` before `record` replaces it.
+  const detection = metering.detectCompaction(prior, record);
   metering.writeMetering(current, record);
 
   // A valid harness-reported percentage stands on its own. Without one, we fall
@@ -625,7 +697,11 @@ function updateMeteringForTurn(
   const hasHarnessPercentage =
     typeof lifted.harnessPercentage === "number" &&
     Number.isFinite(lifted.harnessPercentage);
-  return !hasHarnessPercentage && record.context_window_size === null;
+  return {
+    meteringUndetectableFailSafe:
+      !hasHarnessPercentage && record.context_window_size === null,
+    detection,
+  };
 }
 
 function providerDirectiveFile(adapter: ProviderAdapter, prefix: string): string {
@@ -679,10 +755,7 @@ export function claimAndEmit(
   phase: metering.MeteringPhase = "normal",
   usedPercentage: number | null = null,
   updateNoticeSessionId?: string,
-  fullBodyFile?: string,
-  // Optional trailing param: existing callers (the Codex SessionStart
-  // dispatcher) keep their signature and resolve the shared settings here.
-  warningSettings: metering.HandoffWarningSettings | null = readHandoffWarningSettings()
+  fullBodyFile?: string
 ): string {
   const firstCarryover = kind === "carryover" && !m.carryover_ack;
   const full = fullBodyFile
@@ -690,21 +763,16 @@ export function claimAndEmit(
     : bodyFromDirective(readDirective(env, adapter.fullDirectiveFile)) +
       "\n" +
       bodyFromDirective(readDirective(env, adapter.reminderOnFile));
-  const handoffBody =
-    shouldWarnHandoff(usedPercentage, warningSettings)
-      ? "\n" +
-        bodyFromDirective(readDirective(env, providerDirectiveFile(adapter, "handoff")))
-      : "";
   // The CARRYOVER notice must be emitted on the SAME turn that burns
   // carryover_ack (set above), even when a FULL-body override (e.g. the
   // just-tripped latch coaching) also fires this turn. Prepend it ahead of that
   // body rather than dropping it, or the once-per-marker notice is lost.
   const emission: Emission = {
-    body: (firstCarryover
+    body: firstCarryover
       ? bodyFromDirective(readDirective(env, adapter.carryoverDirectiveFile)) +
         "\n" +
         full
-      : full) + handoffBody,
+      : full,
     kind: firstCarryover ? "carryover" : "directive",
     isLong: true,
   };
@@ -811,16 +879,18 @@ export function runHook(
     marker.writeCurrentSession(cwd, current);
     const now = Date.now();
     const turnIndex = adapter.currentTurn(payload.transcript_path);
-    // One config read per turn, shared by near_limit and the injection gate.
-    const warningSettings = readHandoffWarningSettings();
-    const meteringUndetectableFailSafe = updateMeteringForTurn(
+    const meteringTurn = updateMeteringForTurn(
       payload,
       env,
       adapter,
       current,
-      turnIndex,
-      warningSettings
+      turnIndex
     );
+    // Single-path compaction: a detected drop moves THIS session's prepared
+    // handoff to session_handoff_required so the read injection below can fire.
+    if (meteringTurn.detection?.detected) {
+      handoff.markSessionHandoffRequired(cwd, current);
+    }
     const meteringState = readMeteringState(current);
     const wasLatched = latch.isLatchActive(current, now);
     if (meteringState.phase !== "normal" || wasLatched) {
@@ -832,8 +902,36 @@ export function runHook(
       cwd,
       current,
       now,
-      meteringUndetectableFailSafe
+      meteringTurn.meteringUndetectableFailSafe
     );
+
+    // MANDATORY lifecycle read: fires for exactly one turn after compaction,
+    // BEFORE the ON/OFF cadence and independent of it (directive-only, no tool
+    // gate, no coaching dependency). Claimed once per generation.
+    const lifecycleInjection = emitSessionHandoffReadInjection(
+      cwd,
+      current,
+      env,
+      effectiveActive,
+      meteringState.phase,
+      meteringState.usedPercentage,
+      updateNoticeSessionId
+    );
+    if (lifecycleInjection !== null) return lifecycleInjection;
+
+    // Derived from utilization plus the handoff record and emitted before
+    // ordinary cadence. This directive does not gate tools or end the session.
+    const writeRequiredInjection = emitWriteRequiredInjection(
+      cwd,
+      current,
+      env,
+      adapter,
+      effectiveActive,
+      meteringState.phase,
+      meteringState.usedPercentage,
+      updateNoticeSessionId
+    );
+    if (writeRequiredInjection !== null) return writeRequiredInjection;
 
     if (!effectiveActive) {
       const r = reminder.advance(cwd, current);
@@ -883,8 +981,7 @@ export function runHook(
         updateNoticeSessionId,
         meteringState.phase === "plan" && justTrippedLatch
           ? providerDirectiveFile(adapter, "latch")
-          : undefined,
-        warningSettings
+          : undefined
       );
     }
 
@@ -913,17 +1010,6 @@ export function runHook(
         ),
         kind: "directive",
         isLong: true,
-      };
-    }
-    if (shouldWarnHandoff(meteringState.usedPercentage, warningSettings)) {
-      emission = {
-        ...emission,
-        body:
-          emission.body +
-          "\n" +
-          bodyFromDirective(
-            readDirective(env, providerDirectiveFile(adapter, "handoff"))
-          ),
       };
     }
     return composeHookUpdateNotice(

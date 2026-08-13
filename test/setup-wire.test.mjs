@@ -25,6 +25,7 @@ import {
   wireMcpServer,
   registrationDetail,
   reconcileClaudeSettings,
+  claudeUserSettingsPath,
   deploySmcpSkillsAndCommands,
   ensureSetupAutoUpdate,
   runSetupInitMenu,
@@ -407,6 +408,51 @@ await (async () => {
     failed++;
   }
 })();
+
+// ---------------------------------------------------------------------------
+// claudeUserSettingsPath — the real settings-file resolver the auto-compact
+// host-conformance write targets. Setup pins Claude Code's auto-compact
+// override (env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90") in the user-scope
+// settings.json, and it must locate that file exactly the way Claude Code
+// itself does: honoring $CLAUDE_CONFIG_DIR (absolute as-is; relative under
+// home) and falling back to ~/.claude. Bound directly to the real export with
+// an injected env — deterministic, no process.env mutation.
+//
+// The file-level write mechanics themselves (pre-edit backup, --dry-run
+// no-write, JSON read-back verify, malformed-settings / non-object-env
+// refusal, restart messaging) run inside runSetup() (the `subagent-mcp setup`
+// CLI body). setup-cli-integration.test.mjs proves them end-to-end: it drives
+// the real `subagent-mcp setup` CLI against an isolated CLAUDE_CONFIG_DIR and
+// reads the results back off disk, so they are not re-proved here.
+// ---------------------------------------------------------------------------
+test("claudeUserSettingsPath: no CLAUDE_CONFIG_DIR -> home/.claude/settings.json", () => {
+  const home = "C:/fake-home";
+  assert.equal(claudeUserSettingsPath(home, {}), join(home, ".claude", "settings.json"));
+});
+
+test("claudeUserSettingsPath: absolute CLAUDE_CONFIG_DIR -> used as-is", () => {
+  const abs = process.platform === "win32" ? "C:/cfg/claude" : "/cfg/claude";
+  assert.equal(
+    claudeUserSettingsPath("C:/fake-home", { CLAUDE_CONFIG_DIR: abs }),
+    join(abs, "settings.json")
+  );
+});
+
+test("claudeUserSettingsPath: relative CLAUDE_CONFIG_DIR -> resolved under home", () => {
+  const home = "C:/fake-home";
+  assert.equal(
+    claudeUserSettingsPath(home, { CLAUDE_CONFIG_DIR: "rel-cfg" }),
+    join(home, "rel-cfg", "settings.json")
+  );
+});
+
+test("claudeUserSettingsPath: blank/whitespace CLAUDE_CONFIG_DIR -> default ~/.claude", () => {
+  const home = "C:/fake-home";
+  assert.equal(
+    claudeUserSettingsPath(home, { CLAUDE_CONFIG_DIR: "   " }),
+    join(home, ".claude", "settings.json")
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Summary

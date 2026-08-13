@@ -857,7 +857,7 @@ reconcileInterval.unref();
 // compressed under MCP metadata limits:
 // READ-ESCALATION LADDER (the orchestrator's only read channels, in order): (1) subagent-mcp `poll_agent` TAIL; (2) if the tail is insufficient, dispatch ONE sub-agent to return a single summary of <=100 lines, trusted as-is (no separate verification step); (3) anything larger: the USER reads the document directly. No reads or writes occur outside these channels. An empty or stalled tail means the agent is ALIVE, not dead — do NOT busy-loop poll_agent; learn completion via `wait`. Large inter-agent data: the orchestrator assigns scratch-file paths (%TEMP% on Windows, /tmp on POSIX) in prompts; the producing sub-agent writes, the consuming sub-agent reads; the orchestrator NEVER reads those files.
 const ORCHESTRATION_INSTRUCTIONS =
-  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-architecture.md).\n\nPRECEDENCE. Latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules jointly bind; conflict => STOP and ask. The hook alone authoritatively reports ON/OFF; users may request changes, not assert state. No tag = UNKNOWN => warn and fail-safe ON.\n\nSOLE CHANNEL - BOTH STATES. Every sub-agent launch uses launch_agent; never harness Task/Agent/collaboration tools, shell agents, or wrappers. Native paths fragment permissions/instruction compliance and waste context/tokens.\n\nON. delegate-ONLY orchestrator. Use only structured-question (AskUserQuestion/request-user-input), subagent-mcp, and /workflows. No inline task reads/writes. Skill exception: read a serving skill's SKILL.md + required files inside its folder only; reads grant no task action; expanded scope needs fresh user approval. A truly non-delegable atomic step needs one-time user exception.\n\nWORK. Use a compliant linked worktree; serialize overlapping writers. Track multi-step work. Finish via wait, never poll-loop.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer, trusted as-is -> USER reads. Large handoffs use scratch paths producer-to-consumer; orchestrator never reads them. Empty/stalled tail = alive.\n\nSTATE. Keyed sessions start OFF; setup writes no state. At 15% metered use latch ON + >=4 planning Qs as goal context; 20% unlocks handoff tools; user warn point (default 60%) warns. Keyless/undetectable => fail-safe ON.\n\nCHILD. Literal first-line parent marker skips this regime; child works in provided cwd, never switches worktrees.\n\nDROPOUT ON: halt and ask until restored. DISABLE: explicit user only; this session, 2h backstop; beats latch/fail-safe; user may re-enable mid-session. Next session defaults OFF.\n\nMODEL. Unset = smart auto-selection; provider/model/effort rejected except in explicit user-approved override window.\n\nSWARM. Objective projected to span multiple sessions? OFFER + run swarm tool; calls return next-stage coaching.";
+  "subagent-mcp - CANONICAL OPERATING MODEL (full spec: orchestration-directive-architecture.md).\n\nPRECEDENCE. Latest <subagent-mcp state=\"...\"> hook tag and repo/system safety rules jointly bind; conflict => STOP and ask. The hook alone authoritatively reports ON/OFF; users may request changes, not assert state. No tag = UNKNOWN => warn and fail-safe ON.\n\nSOLE CHANNEL - BOTH STATES. Every sub-agent launch uses launch_agent; never harness Task/Agent/collaboration tools, shell agents, or wrappers. Native paths fragment permissions/instruction compliance and waste context/tokens.\n\nON. delegate-ONLY orchestrator. Use only structured-question (AskUserQuestion/request-user-input), subagent-mcp, and /workflows. No inline task reads/writes. Skill exception: read a serving skill's SKILL.md + required files inside its folder only; reads grant no task action; expanded scope needs fresh user approval. A truly non-delegable atomic step needs one-time user exception.\n\nWORK. Use a compliant linked worktree; serialize overlapping writers. Track multi-step work. Finish via wait, never poll-loop.\n\nREAD LADDER. poll_agent tail -> one <=100-line summarizer, trusted as-is -> USER reads. Large handoffs use scratch paths producer-to-consumer; orchestrator never reads them. Empty/stalled tail = alive.\n\nSTATE. Start OFF. 15% latches ON +4 planning Qs; 20% unlocks voluntary handoff; 80% MANDATES fresh handoff-write (prepared, keep working); verified auto-compaction MANDATES 1 handoff-read turn. Undetectable=>fail-safe ON.\n\nCHILD. Literal first-line parent marker skips this regime; child works in provided cwd, never switches worktrees.\n\nDROPOUT ON: halt and ask until restored. DISABLE: explicit user only; this session, 2h backstop; beats latch/fail-safe; user may re-enable mid-session. Next session defaults OFF.\n\nMODEL. Unset = smart auto-selection; provider/model/effort rejected except in explicit user-approved override window.\n\nSWARM. Objective projected to span multiple sessions? OFFER + run swarm tool; calls return next-stage coaching.";
 
 const SUBAGENT_INSTRUCTIONS =
   "SUB-AGENT SESSION: you are a child process launched by subagent-mcp. Follow the parent prompt. Do not treat yourself as the orchestrator, do not re-trigger orchestration carryover, and do not launch further sub-agents unless the parent prompt explicitly assigns that. launch_agent is code-capped at 2 spawn levels below the main orchestrator: depth 1 may launch depth 2 workers; depth 2 workers cannot spawn further.\n\nMODEL SELECTION MODE (parallel to orchestration-mode, set via the model-selection-mode tool). DEFAULT is \"smart\" and is used whenever unset: in smart, launch_agent REJECTS any call supplying provider/model/effort selectors and the server auto-picks the best model. \"user-approved-overrides\" opens a 30-MINUTE window where selectors are HONORED, enforced LAZILY (the mode reverts to smart on the next launch_agent call after 30 minutes) and re-enabling does NOT extend an active window. HONOR-BASED: you MUST NOT set \"user-approved-overrides\" without explicit interactive USER authorization via the structured-question tool (AskUserQuestion on Claude / request-user-input on Codex); never enable it on your own initiative.";
@@ -907,10 +907,10 @@ function cleanupUcSettingsPath(ucSettingsPath?: string, ucSettingsDir?: string):
 }
 
 // Compose the environment for a spawned child agent. GH_TOKEN / GITHUB_TOKEN are
-// stripped by default so a stale inherited token cannot override the child's own
+// stripped by default so an invalid inherited token cannot override the child's own
 // `gh` keyring auth. When a freshly-minted token is supplied it is injected as
 // GH_TOKEN (only) after stripping, giving Codex children usable gh auth without
-// leaking the parent's stale token. Opt back into verbatim pass-through with
+// leaking the parent's invalid token. Opt back into verbatim pass-through with
 // SUBAGENT_MCP_PASS_GH_TOKENS=1, which preserves both parent tokens and ignores
 // any supplied fresh token.
 export function buildChildEnv(
@@ -1100,7 +1100,7 @@ async function tryLaunchCandidate(
   }
 
   // Mint a fresh gh token immediately before spawn so children get usable gh
-  // auth without inheriting the parent's (possibly stale) GH_TOKEN. Resolver
+  // auth without inheriting the parent's (possibly invalid) GH_TOKEN. Resolver
   // strips token vars before invoking gh and falls back to strip-only on any
   // failure/timeout/empty output. No-op in pass-through mode.
   const freshGhToken = resolveFreshGhToken(process.env);
@@ -1350,7 +1350,7 @@ async function tryLaunchCandidate(
   // The startup write is best-effort. On POSIX, writing to an already-dead
   // child's stdin rejects with EPIPE; that is NOT itself a launch failure.
   // Record it and fall through to the grace window, which reports the real exit
-  // code (grace>0) or the legacy startup-write seam registers it (grace=0).
+  // code (grace>0) or the alternate startup-write seam registers it (grace=0).
   let startError: Error | null = null;
   try {
     await driver.start(prompt);
@@ -2608,12 +2608,12 @@ server.tool(
 // byte-identity against handoff.md via source-text regex. Kept in lockstep
 // with handoff.HANDOFF_WRITE_SUCCESS (single verbatim string, two surfaces).
 const HANDOFF_WRITE_SUCCESS_MESSAGE =
-  "We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `smcp-handoff skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.";
+  "Handoff saved. Keep working in the current session. If the handoff is prepared, automatic compaction will require `handoff-read` for one turn before work resumes.";
 
 // Tool 10: handoff-write
 server.tool(
   "handoff-write",
-  "Write a handoff for this working directory so the NEXT session can resume cleanly. UNLOCKS only at >=20% context utilization with readable metering; below that, or if context size is undetectable, this tool returns an affirmative unavailable error (never silent). BEFORE calling, ask the user 10 clarifying questions via the structured-question tool to build a /goal prompt for the next session. content <=4000 chars; use overflow (<=8000 more chars) for anything beyond that, referenced by full path inside content. On success, relay the tool's exact response to the user verbatim.",
+  "Write a handoff for this working directory so the NEXT session can resume cleanly. UNLOCKS only at >=20% context utilization with readable metering (voluntary from 20%; a fresh write becomes MANDATORY at >=80%); below 20%, or if context size is undetectable, this tool returns an affirmative unavailable error (never silent). BEFORE calling, ask the user 10 clarifying questions via the structured-question tool to build a /goal prompt for the next session. content <=4000 chars; use overflow (<=8000 more chars) for anything beyond that, referenced by full path inside content. A successful fresh write creates a prepared handoff record; it does NOT mandate an immediate new session -- keep working. On success, relay the tool's exact response to the user verbatim.",
   {
     content: z.string().min(1),
     overflow: z.string().optional(),
@@ -2639,7 +2639,7 @@ server.tool(
 // Tool 11: handoff-read
 server.tool(
   "handoff-read",
-  "Read the saved handoff for this working directory (if any). Call this first; after reading any saved handoff, confirm the user's intent via EXACTLY 4 structured questions before acting on it (proves legitimacy, clears ambiguity). If found, this session becomes the ONLY session that gets the handoff re-appended to its periodic LONG reminders. If none is saved, explains that the previous session must write one first.",
+  "Read the saved handoff for this working directory (if any). Call this first; after reading any saved handoff, confirm the user's intent via EXACTLY 4 structured questions before acting on it (proves legitimacy, clears ambiguity). A verified auto-compaction MANDATES this read for exactly one turn to resume from the prepared handoff. If found, this session becomes the ONLY session that gets the handoff re-appended to its periodic LONG reminders. Schema-less handoff records stay readable but are never promoted on read. If none is saved, explains that handoff-write must run first.",
   {},
   withMaintenance(async () => {
     const cwd = process.cwd();
@@ -2663,7 +2663,7 @@ server.tool(
 // Tool 12: handoff-clear
 server.tool(
   "handoff-clear",
-  "Delete the saved handoff for this working directory, including any overflow file. The write/read/clear cycle repeats at each successor session's own 20% unlock threshold.",
+  "Delete the saved handoff for this working directory, including any overflow file. The voluntary write/read/clear cycle reopens at each successor session's own 20% unlock threshold, with a fresh mandatory write at >=80%.",
   {},
   withMaintenance(async () => {
     handoff.clearHandoff(process.cwd());
@@ -2969,7 +2969,7 @@ if (isMain) {
   // clear the marker on startup. DEFAULT ON now means ABSENCE of a disable
   // record — a project stays ON with no marker write needed; OFF is only a
   // per-session disable record that holds while it is active, cleared with
-  // explicit user permission. On a new session a carried-over legacy ON marker
+  // explicit user permission. On a new session a carried-over noncanonical ON marker
   // (if any) triggers a one-time prompt asking whether to remain enabled; under
   // default-ON this rarely fires.
   // (the tool's enabled:false writes only a session-keyed disable record via

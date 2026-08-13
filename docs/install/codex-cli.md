@@ -38,8 +38,19 @@ tool_timeout_sec = 60
 # args = ["C:/Users/YourName/Dropbox/subagent-mcp/dist/index.js"]
 ```
 
-Hooks are **enabled by default** in Codex 0.131+. Add the block below **only**
-if a profile/admin disabled them:
+Hooks are **enabled by default** in Codex 0.131+. Codex CLI natively compacts
+context at ~90% utilization (`CODEX_AUTOCOMPACT_PCT`); `subagent-mcp setup`
+writes Claude Code `settings.json`
+`env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"`. No Codex-side auto-compact
+setting is required.
+On Codex, detection requires both a qualifying utilization drop and a fresh
+structural proof of compaction (a freshly compacted context-window identity,
+`window_id` / `window_number`). Because Codex does not report whether a
+compaction was automatic or manual, a manual `/compact` at or above 80% with a
+qualifying drop is indistinguishable from auto-compaction and will trigger the
+one-turn handoff-read mandate. After a successful read, the caller must ask
+exactly four structured confirmation questions before acting on the handoff.
+Add the block below **only** if a profile/admin disabled hooks:
 
 ```toml
 [features]
