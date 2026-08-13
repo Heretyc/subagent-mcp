@@ -17,7 +17,7 @@ A handoff record MUST carry a DEFINABLE AND ACHIEVABLE goal. When shaping the `/
 
 ## Coach the successor (handoff-read)
 
-After the 4-question confirm, RUN UNTIL the handoff's stated goals are achieved (its done-condition is met) OR the subagent-mcp hook wind-down alert (fired at or above the user's `handoffWarnThreshold`, default 60% context utilization) says a new handoff is needed. This is a run-until-achieved loop: do not stop early for review pauses unless the handoff explicitly asks for them. If context exhausts before the goal is met, write a fresh handoff and hand off again.
+After the 4-question confirm, RUN UNTIL the handoff's stated goals are achieved (its done-condition is met). If mandatory `write_required` fires at H=80 first, write a fresh handoff and keep working in the same session. After automatic compaction, `session_handoff_required` requires `handoff-read` followed by exactly 4 structured confirmation questions before task work resumes. Do not stop early for review pauses unless the handoff explicitly asks for them.
 
 ## Swarm master goal prompt (re-entry after a swarm stage-5 handoff)
 

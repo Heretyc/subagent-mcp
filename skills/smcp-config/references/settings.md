@@ -20,7 +20,7 @@ scaffolded file.
 Representative call:
 
 ```json
-{ "action": "set", "key": "user.handoffWarnThreshold", "value": "75" }
+{ "action": "set", "key": "user.contextCoaching", "value": "false" }
 ```
 
 ## Resolved files by scope
