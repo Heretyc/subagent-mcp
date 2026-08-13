@@ -278,6 +278,31 @@ test("subagent env still allows ordinary inline tools", () => {
   }
 });
 
+// The handoff lifecycle (write_required / session_handoff_required / prepared /
+// resuming) is DIRECTIVE-ONLY: it adds no PreToolUse gating in any state. The
+// handoff MCP tools and ordinary inline tools must stay allowed regardless of
+// utilization or lifecycle, so the mandate can never harden into a tool gate.
+test("no lifecycle/compaction tool gating: handoff and ordinary tools stay allowed", () => {
+  touchAlive();
+  for (const tool of [
+    "mcp__subagent_mcp__handoff-write",
+    "mcp__subagent_mcp__handoff-read",
+    "mcp__subagent-mcp__handoff-clear",
+    "Bash",
+    "Read",
+  ]) {
+    const p = payload(tool);
+    try {
+      assert.equal(runClaudePreTool(p, {}), null,
+        `${tool} must never be gated by any handoff lifecycle state`);
+      assert.equal(runClaudePreTool(p, { SUBAGENT_MCP_SUBAGENT: "1" }), null,
+        `${tool} must stay ungated inside a subagent env too`);
+    } finally {
+      cleanup(p);
+    }
+  }
+});
+
 test("source comments no longer mention the retired 200-line self-estimation doctrine", () => {
   const source = readFileSync(join(process.cwd(), "src", "orchestration", "pretool.ts"), "utf8");
   assert.doesNotMatch(source, /200 line/i);

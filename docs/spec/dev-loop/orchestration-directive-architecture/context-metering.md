@@ -35,11 +35,26 @@ where usage itself is unavailable.
   usage: { input: number, output: number, cache_creation: number, cache_read: number },
   used_tokens: number | null,
   used_percentage: number | null,
-  near_limit: boolean,
+  sample_seq: number,
+  sample_kind: "current" | "cumulative",
+  compaction_generation?: string | null,
   event: string,
   updated_at: number
 }
 ```
+
+`compaction_generation` persists the last-observed structural compaction proof
+used by handoff.md Compaction Detection. For Claude, only the newest main-chain
+system `compact_boundary` is considered; that exact boundary must be auto-
+triggered and carry a canonical top-level UUID, so a newer manual or invalid
+boundary masks older valid auto boundaries. For Codex, proof is the latest
+compacted `window_id` / `window_number`. The field is optional; an absent or
+`null` value means that sample carries no structural compaction proof. It reuses
+this existing record; no new config key, state file, or dependency is added.
+
+`sample_seq` is the monotonic per-session sample counter and must advance by
+exactly one for adjacent-pair detection. `sample_kind` distinguishes current
+per-turn usage from cumulative accounting; only `"current"` pairs qualify.
 
 `used_tokens` is the usage-field sum, or `null` when usage is absent.
 `prompt_side_tokens` is non-persisted input + cache creation + cache read;
@@ -51,39 +66,38 @@ default ladder above. Contradictions resolve to the model's top known tier
 and clamp percentage at 100%.
 
 ### 3. Phase Computation
+
+Three fixed constants drive phase and mandatory-lifecycle derivation:
+
+| Constant | Value | Role |
+|---|---|---|
+| `PLAN_LATCH_THRESHOLD_PCT` | 15 | Triggers the 15% orchestration latch. |
+| `HANDOFF_UNLOCK_THRESHOLD_PCT` | 20 | Unlocks voluntary handoff-write for goal-context capture. |
+| `HANDOFF_REQUIRED_THRESHOLD_PCT` | 80 | Mandatory handoff write threshold (H = CODEX_AUTOCOMPACT_PCT - 10). |
+| `CODEX_AUTOCOMPACT_PCT` | 90 | Fixed threshold value used by Codex metering and by setup when writing Claude Code `settings.json` `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"`. |
+| `COMPACTION_DROP_THRESHOLD_PCT` | 10 | Minimum adjacent-sample percentage-point drop; necessary but not sufficient (a fresh structural compaction-generation proof is also required, see handoff.md) to classify a pair as auto-compaction. |
+
 Given `used_percentage`: `null` maps to `normal`, `>= 20` maps to
 `handoff`, `>= 15` maps to `plan`, and all lower numeric values map to
-`normal`. Both phase constants are FIXED: `PLAN_LATCH_THRESHOLD_PCT = 15` and
-`HANDOFF_UNLOCK_THRESHOLD_PCT = 20` are never user-configurable.
+`normal`. All phase constants are FIXED and never user-configurable.
 
-`near_limit` is true only when `used_percentage !== null`, `contextCoaching` is
-enabled, and `used_percentage >= handoffWarnThreshold` (the user-configurable
-wind-down warning point, default `60`, valid `40`-`90`; see section 3.1).
-`used_percentage === null` still maps to
-`phase = "normal"`; the metering-undetectable fail-safe is separate
-enforcement and forces orchestration ON.
+`write_required` is a **derived** condition, not a stored phase: it is true
+when `used_percentage >= HANDOFF_REQUIRED_THRESHOLD_PCT` (80%) AND no eligible
+prepared handoff record exists for the current session. Mandatory lifecycle
+injection fires when `write_required` is true; it is directive-only with no
+tool gate, and fires regardless of the `contextCoaching` setting.
 
-### 3.1 Wind-Down Warning Configuration
+`used_percentage === null` still maps to `phase = "normal"`; the
+metering-undetectable fail-safe is separate enforcement and forces orchestration ON.
 
-The wind-down warning is the ONLY configurable point in this model. It is
-configured USER-LEVEL ONLY, in the machine-local
-`~/.subagent-mcp/settings.json` / `settings.local.json`; there is no per-repo
-or per-project override.
+### 3.1 contextCoaching Setting
 
-| Key | Values | Default |
-|---|---|---|
-| `contextCoaching` | `true` or `false` | `true` |
-| `handoffWarnThreshold` | integer percent, valid `40`-`90` | `60` |
-
-- A missing key is not an error: reads silently resolve to `true` / `60`. An
-  out-of-range or malformed number resolves to `60`.
-- `contextCoaching: false` suppresses ONLY the at-or-above-threshold wind-down
-  warning and the handoff steer that rides with it, and forces `near_limit` to
-  false. It does NOT change phase computation, does NOT affect the 15% plan
-  latch (force-enable or coaching), and does NOT affect the 20% handoff-write
-  unlock.
-- Because the setting only gates warn/steer emission, a session with coaching
-  off still records the same `used_percentage`, `phase`, and window fields.
+`contextCoaching` (default `true`) is a USER-LEVEL ONLY setting in
+`~/.subagent-mcp/settings.json` / `settings.local.json`. A missing key silently
+resolves to `true`. `contextCoaching: false` does NOT affect phase computation,
+the 15% latch, the 20% handoff-write unlock, the 80% mandatory handoff
+directive, or compaction-detection lifecycle injections. Mandatory lifecycle
+injections fire regardless of this setting (coaching-off isolation).
 
 ### 4. Window Resolution Ladder
 

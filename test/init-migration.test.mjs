@@ -8,21 +8,33 @@ import { upsertInitBlock, INIT_BLOCK } from "../dist/init.js";
 const SCHEMA2_BEGIN = "<!-- subagent-mcp:managed:begin schema=2 -->";
 const SCHEMA3_BEGIN = "<!-- subagent-mcp:managed:begin schema=3 -->";
 const SCHEMA4_BEGIN = "<!-- subagent-mcp:managed:begin schema=4 -->";
-const SCHEMA5_BEGIN = "<!-- subagent-mcp:managed:begin schema=5 -->";
 const MANAGED_END = "<!-- subagent-mcp:managed:end -->";
-const LEGACY_BEGIN = "<!-- subagent-mcp:begin -->";
-const LEGACY_END = "<!-- subagent-mcp:end -->";
+const UNVERSIONED_BEGIN = "<!-- subagent-mcp:begin -->";
+const UNVERSIONED_END = "<!-- subagent-mcp:end -->";
+
+// Derive the canonical begin marker from INIT_BLOCK so compatibility assertions
+// do not hard-code its schema number.
+const CANONICAL_BEGIN_MATCH = INIT_BLOCK.match(/<!-- subagent-mcp:managed:begin schema=\d+ -->/);
+assert.ok(CANONICAL_BEGIN_MATCH, "INIT_BLOCK must open with a schema begin marker");
+const CANONICAL_BEGIN = CANONICAL_BEGIN_MATCH[0];
+
+// The canonical block has no wind-down warning or handoffWarnThreshold knob.
+function assertNoWarnSurface(out, where) {
+  assert.doesNotMatch(out, /handoffWarnThreshold/, `${where}: handoffWarnThreshold must be absent`);
+  assert.doesNotMatch(out, /wind[- ]?down/i, `${where}: wind-down wording must be absent`);
+  assert.doesNotMatch(out, /warns every turn/i, `${where}: 'warns every turn' cadence must be absent`);
+}
 
 function count(haystack, needle) {
   return haystack.split(needle).length - 1;
 }
 
-// A v1 legacy managed block (pre-schema=2 markers).
-const LEGACY_BLOCK = [LEGACY_BEGIN, "## old managed content", "do not edit", LEGACY_END].join("\n");
+// An unversioned managed-block compatibility fixture.
+const UNVERSIONED_BLOCK = [UNVERSIONED_BEGIN, "## fixture managed content", "do not edit", UNVERSIONED_END].join("\n");
 const SCHEMA2_BLOCK = [
   SCHEMA2_BEGIN,
-  "## stale schema 2 managed content",
-  "old invariant text",
+  "## schema 2 fixture content",
+  "fixture invariant text",
   MANAGED_END,
 ].join("\n");
 const SCHEMA3_BLOCK = [
@@ -56,11 +68,9 @@ const SCHEMA3_BLOCK = [
   "DISABLE: never on your own initiative; you may propose OFF on task-fit mismatch via the structured-question tool, and only explicit user approval may set enabled:false. Per-session only; the next new session resumes ON; no mid-session re-enable.",
   MANAGED_END,
 ].join("\n");
-// A schema=4 managed block: it carries the FAT ON model but PRE-DATES the
-// schema=5 additions (sole-channel-both-states, smart model default, skill-read
-// carve-out) and still uses the stale "resumes ON next new session / no
-// mid-session re-enable" disable polarity. Upserting must upgrade it to the
-// canonical schema=5 block, dropping that stale polarity.
+// A schema=4 compatibility fixture lacks the current sole-channel-both-states,
+// smart model default, and skill-read carve-out rules. It also carries forbidden
+// disable polarity; upserting must yield the canonical schema=5 block.
 const SCHEMA4_BLOCK = [
   SCHEMA4_BEGIN,
   "## subagent-mcp invariant — managed block, do not edit between markers",
@@ -107,23 +117,23 @@ function withTempFile(initialContent, fn) {
   }
 }
 
-test("legacy v1 block migrates to exactly one schema=5 block, legacy markers gone", () => {
-  const content = `# Project\n\nIntro text.\n\n${LEGACY_BLOCK}\n\nTrailing text.\n`;
+test("unversioned block normalizes to exactly one schema=5 block", () => {
+  const content = `# Project\n\nIntro text.\n\n${UNVERSIONED_BLOCK}\n\nTrailing text.\n`;
   withTempFile(content, (file) => {
     const result = upsertInitBlock(file);
     assert.equal(result.changed, true);
     const out = readFileSync(file, "utf8");
 
-    assert.equal(count(out, SCHEMA5_BEGIN), 1, "exactly one schema=5 begin marker");
+    assert.equal(count(out, CANONICAL_BEGIN), 1, "exactly one canonical begin marker");
     assert.equal(count(out, MANAGED_END), 1, "exactly one managed end marker");
-    assert.equal(count(out, LEGACY_BEGIN), 0, "legacy begin marker removed");
-    assert.equal(count(out, LEGACY_END), 0, "legacy end marker removed");
+    assert.equal(count(out, UNVERSIONED_BEGIN), 0, "unversioned begin marker absent");
+    assert.equal(count(out, UNVERSIONED_END), 0, "unversioned end marker absent");
     assert.ok(out.includes(INIT_BLOCK), "canonical schema=5 block present");
     assert.ok(out.includes("Trailing text."), "surrounding content preserved");
   });
 });
 
-test("existing schema=2 managed block migrates to exactly one schema=5 block", () => {
+test("schema=2 managed block normalizes to exactly one schema=5 block", () => {
   const content = `# Project\n\nIntro text.\n\n${SCHEMA2_BLOCK}\n\nTrailing text.\n`;
   withTempFile(content, (file) => {
     const result = upsertInitBlock(file);
@@ -131,16 +141,16 @@ test("existing schema=2 managed block migrates to exactly one schema=5 block", (
     assert.equal(result.changed, true);
     const out = readFileSync(file, "utf8");
 
-    assert.equal(count(out, SCHEMA5_BEGIN), 1, "exactly one schema=5 begin marker");
+    assert.equal(count(out, CANONICAL_BEGIN), 1, "exactly one canonical begin marker");
     assert.equal(count(out, MANAGED_END), 1, "exactly one managed end marker");
     assert.equal(count(out, SCHEMA2_BEGIN), 0, "schema=2 begin marker removed");
-    assert.doesNotMatch(out, /stale schema 2 managed content/);
+    assert.doesNotMatch(out, /schema 2 fixture content/);
     assert.ok(out.includes(INIT_BLOCK), "canonical schema=5 block present");
     assert.ok(out.includes("Trailing text."), "surrounding content preserved");
   });
 });
 
-test("existing schema=3 managed block migrates to exactly one schema=5 block", () => {
+test("schema=3 managed block normalizes to exactly one schema=5 block", () => {
   const content = `# Project\n\nIntro text.\n\n${SCHEMA3_BLOCK}\n\nTrailing text.\n`;
   withTempFile(content, (file) => {
     const result = upsertInitBlock(file);
@@ -148,7 +158,7 @@ test("existing schema=3 managed block migrates to exactly one schema=5 block", (
     assert.equal(result.changed, true);
     const out = readFileSync(file, "utf8");
 
-    assert.equal(count(out, SCHEMA5_BEGIN), 1, "exactly one schema=5 begin marker");
+    assert.equal(count(out, CANONICAL_BEGIN), 1, "exactly one canonical begin marker");
     assert.equal(count(out, MANAGED_END), 1, "exactly one managed end marker");
     assert.equal(count(out, SCHEMA3_BEGIN), 0, "schema=3 begin marker removed");
     assert.doesNotMatch(out, /long-horizon task/);
@@ -157,7 +167,7 @@ test("existing schema=3 managed block migrates to exactly one schema=5 block", (
   });
 });
 
-test("existing schema=4 managed block migrates to exactly one schema=5 block", () => {
+test("schema=4 managed block normalizes to exactly one schema=5 block", () => {
   const content = `# Project\n\nIntro text.\n\n${SCHEMA4_BLOCK}\n\nTrailing text.\n`;
   withTempFile(content, (file) => {
     const result = upsertInitBlock(file);
@@ -166,7 +176,7 @@ test("existing schema=4 managed block migrates to exactly one schema=5 block", (
     const out = readFileSync(file, "utf8");
 
     // exactly one canonical schema=5 block; the schema=4 marker is gone
-    assert.equal(count(out, SCHEMA5_BEGIN), 1, "exactly one schema=5 begin marker");
+    assert.equal(count(out, CANONICAL_BEGIN), 1, "exactly one canonical begin marker");
     assert.equal(count(out, MANAGED_END), 1, "exactly one managed end marker");
     assert.equal(count(out, SCHEMA4_BEGIN), 0, "schema=4 begin marker removed");
     assert.ok(out.includes(INIT_BLOCK), "canonical schema=5 block present");
@@ -175,47 +185,49 @@ test("existing schema=4 managed block migrates to exactly one schema=5 block", (
     assert.ok(out.includes("Intro text."), "leading content preserved");
     assert.ok(out.includes("Trailing text."), "trailing content preserved");
 
-    // schema=5 adds the sole-channel-BOTH-STATES directive (ON and OFF)
+    // The canonical block includes the sole-channel-BOTH-STATES directive.
     assert.ok(
       out.includes("SOLE CHANNEL — BOTH ORCHESTRATION STATES"),
-      "schema=5 adds the both-states sole-channel directive",
+      "schema=5 includes the both-states sole-channel directive",
     );
     assert.match(out, /whether orchestration is ON or OFF/,
       "sole channel applies in BOTH orchestration states");
 
-    // schema=5 adds the smart/automatic model-selection default
+    // The canonical block includes the smart/automatic model-selection default.
     assert.ok(
       out.includes("MODEL SELECTION: defaults to smart/automatic"),
       "schema=5 states the smart/automatic model-selection default",
     );
 
-    // schema=5 adds the applicable-skill read carve-out
+    // The canonical block includes the applicable-skill read carve-out.
     assert.match(out, /read the SKILL\.md of a skill that serves the user's current request/,
       "schema=5 carries the skill-read carve-out");
 
-    // the stale schema=4 disable polarity is purged
+    // Forbidden disable polarity is absent.
     assert.doesNotMatch(out, /resumes ON/,
-      "stale 'resumes ON next new session' polarity removed");
+      "'resumes ON next new session' polarity absent");
     assert.doesNotMatch(out, /no mid-session re-enable/,
-      "stale 'no mid-session re-enable' polarity removed");
+      "'no mid-session re-enable' polarity absent");
+
+    assertNoWarnSurface(out, "schema=4 normalization");
   });
 });
 
 test("two managed blocks collapse to exactly one schema=5 block", () => {
-  const content = `# Project\n\n${LEGACY_BLOCK}\n\nmiddle\n\n${INIT_BLOCK}\n\nend\n`;
+  const content = `# Project\n\n${UNVERSIONED_BLOCK}\n\nmiddle\n\n${INIT_BLOCK}\n\nend\n`;
   withTempFile(content, (file) => {
     const result = upsertInitBlock(file);
     assert.equal(result.status, "updated");
     const out = readFileSync(file, "utf8");
 
-    assert.equal(count(out, SCHEMA5_BEGIN), 1, "collapsed to one schema=5 begin");
+    assert.equal(count(out, CANONICAL_BEGIN), 1, "collapsed to one schema=5 begin");
     assert.equal(count(out, MANAGED_END), 1, "collapsed to one managed end");
-    assert.equal(count(out, LEGACY_BEGIN), 0, "legacy begin marker removed");
-    assert.equal(count(out, LEGACY_END), 0, "legacy end marker removed");
+    assert.equal(count(out, UNVERSIONED_BEGIN), 0, "unversioned begin marker absent");
+    assert.equal(count(out, UNVERSIONED_END), 0, "unversioned end marker absent");
   });
 });
 
-test("existing schema=5 block is idempotent across repeated runs", () => {
+test("schema=5 block is idempotent across repeated runs", () => {
   const content = `# Project\n\n${INIT_BLOCK}\n\nbody\n`;
   withTempFile(content, (file) => {
     const first = upsertInitBlock(file);
@@ -228,7 +240,8 @@ test("existing schema=5 block is idempotent across repeated runs", () => {
     const afterSecond = readFileSync(file, "utf8");
 
     assert.equal(afterFirst, afterSecond, "content unchanged on re-run");
-    assert.equal(count(afterSecond, SCHEMA5_BEGIN), 1, "exactly one block remains");
+    assert.equal(count(afterSecond, CANONICAL_BEGIN), 1, "exactly one block remains");
     assert.equal(count(afterSecond, MANAGED_END), 1);
+    assertNoWarnSurface(afterSecond, "idempotent canonical block");
   });
 });

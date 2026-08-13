@@ -18,12 +18,9 @@ import {
   DEFAULT_CHECK_FOR_UPDATES,
   DEFAULT_CONTEXT_COACHING,
   DEFAULT_ESCALATION,
-  DEFAULT_HANDOFF_WARN_THRESHOLD,
   DEFAULT_PERMISSIONS_CEILING,
   DEFAULT_SANDBOX_NETWORK,
   DEFAULT_STRICT_READ_PARITY,
-  MAX_HANDOFF_WARN_THRESHOLD,
-  MIN_HANDOFF_WARN_THRESHOLD,
   USER_SETTINGS_FILENAME,
   USER_SETTINGS_LOCAL_FILENAME,
   applyContextCoachingSettings,
@@ -189,7 +186,6 @@ const CONFIG_KEYS: Record<string, KeyMeta> = {
   "global.strictReadParity": { scope: "global", type: "enum", settable: false, restart: false, def: DEFAULT_STRICT_READ_PARITY, valid: "warn, off" },
   "global.sandboxNetwork": { scope: "global", type: "boolean", settable: false, restart: false, def: DEFAULT_SANDBOX_NETWORK, valid: "true, false (parser fallback is true when missing/invalid; the shipped scaffold writes false)" },
   "user.contextCoaching": { scope: "user", type: "boolean", settable: true, restart: false, def: DEFAULT_CONTEXT_COACHING, valid: "true, false" },
-  "user.handoffWarnThreshold": { scope: "user", type: "integer", settable: true, restart: false, def: DEFAULT_HANDOFF_WARN_THRESHOLD, valid: `whole integer ${MIN_HANDOFF_WARN_THRESHOLD}..${MAX_HANDOFF_WARN_THRESHOLD}` },
   "update.autoUpdate": { scope: "update", type: "boolean", settable: false, restart: true, def: false, valid: "true, false" },
   "mode.orchestration": { scope: "mode", type: "state", settable: false, restart: false, def: null, valid: "ON, disabled-this-session (plus session_scope); set via the orchestration-mode tool" },
   "mode.modelSelection": { scope: "mode", type: "state", settable: false, restart: false, def: "smart", valid: "smart, user-approved-overrides (plus window metadata); set via the model-selection-mode tool" },
@@ -291,14 +287,12 @@ function readStatic(key: string): Resolved {
       return { value: text === null ? DEFAULT_STRICT_READ_PARITY : parseStrictReadParityConfig(text), path: gPath, source: gSource };
     case "global.sandboxNetwork":
       return { value: text === null ? DEFAULT_SANDBOX_NETWORK : parseSandboxNetworkConfig(text), path: gPath, source: gSource };
-    case "user.contextCoaching":
-    case "user.handoffWarnThreshold": {
-      const prop = key === "user.contextCoaching" ? "contextCoaching" : "handoffWarnThreshold";
+    case "user.contextCoaching": {
       const merged = readContextCoachingSettings();
       return {
-        value: merged[prop as "contextCoaching" | "handoffWarnThreshold"],
+        value: merged.contextCoaching,
         path: settingsFile(),
-        source: settingsLocalHas(prop) ? settingsLocalFile() : undefined,
+        source: settingsLocalHas("contextCoaching") ? settingsLocalFile() : undefined,
       };
     }
     case "update.autoUpdate":
@@ -528,20 +522,10 @@ function coached(key: string, message: string, path: string | null) {
 // ---------------------------------------------------------------------------
 
 function setUserSetting(key: string, raw: string) {
-  const prop = key === "user.contextCoaching" ? "contextCoaching" : "handoffWarnThreshold";
   const merged = readContextCoachingSettings();
   const next = { ...merged };
-  if (prop === "contextCoaching") {
-    if (raw !== "true" && raw !== "false") return fail("set", key, `invalid value for ${key}; expected exactly "true" or "false"`);
-    next.contextCoaching = raw === "true";
-  } else {
-    if (!/^-?\d+$/.test(raw)) return fail("set", key, `invalid value for ${key}; expected a whole integer ${MIN_HANDOFF_WARN_THRESHOLD}..${MAX_HANDOFF_WARN_THRESHOLD}`);
-    const n = Number(raw);
-    if (!Number.isSafeInteger(n) || n < MIN_HANDOFF_WARN_THRESHOLD || n > MAX_HANDOFF_WARN_THRESHOLD) {
-      return fail("set", key, `invalid value for ${key}; expected a whole integer ${MIN_HANDOFF_WARN_THRESHOLD}..${MAX_HANDOFF_WARN_THRESHOLD}`);
-    }
-    next.handoffWarnThreshold = n;
-  }
+  if (raw !== "true" && raw !== "false") return fail("set", key, `invalid value for ${key}; expected exactly "true" or "false"`);
+  next.contextCoaching = raw === "true";
 
   const target = settingsFile();
   const existing = readIfExists(target);
@@ -554,7 +538,7 @@ function setUserSetting(key: string, raw: string) {
     return fail("set", key, `could not update ${target}: ${sanitizeMessage(e)}`);
   }
   if (existing !== null && text === existing) {
-    return ok({ ok: true, action: "set", key, value: next[prop], status: "unchanged", path: target, backup: null, restart_required: false });
+    return ok({ ok: true, action: "set", key, value: next.contextCoaching, status: "unchanged", path: target, backup: null, restart_required: false });
   }
   let backup: string | null;
   try {
@@ -562,8 +546,8 @@ function setUserSetting(key: string, raw: string) {
   } catch (e) {
     return fail("set", key, `could not write ${target}: ${sanitizeMessage(e)}`);
   }
-  const effective = readContextCoachingSettings()[prop];
-  const overridden = settingsLocalHas(prop) && effective !== next[prop];
+  const effective = readContextCoachingSettings().contextCoaching;
+  const overridden = settingsLocalHas("contextCoaching") && effective !== next.contextCoaching;
   return ok({
     ok: true, action: "set", key, value: effective, status: "updated", path: target, backup, restart_required: false,
     ...(overridden ? { message: `written to ${target}, but ${settingsLocalFile()} overrides this key; the effective value is unchanged.`, source: settingsLocalFile() } : {}),

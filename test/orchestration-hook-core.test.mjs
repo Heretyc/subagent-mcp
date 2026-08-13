@@ -4,7 +4,7 @@
  *
  * Covers the cadence + gating contract that the whole feature rests on:
  *   - OFF (no marker) -> per-prompt reminder cadence: LONG OFF-variant block on
- *     every REMINDER_PERIOD-th prompt, one-line rule carrier between (the hook now
+ *     every REMINDER_PERIOD-th prompt, one-line rule carrier between (the hook
  *     emits in BOTH marker states).
  *   - unclaimed marker -> FULL + ON reminder block AND baseline written; the
  *     reminder counter re-baselines so the claim turn is a LONG turn.
@@ -44,6 +44,7 @@ import {
   runHook,
   REMINDER_PERIOD,
   sessionKey,
+  SESSION_HANDOFF_REQUIRED_DIRECTIVE_FILE,
   SUB_ORCHESTRATOR_DIRECTIVE_FILE,
 } from "../dist/orchestration/hook-core.js";
 import {
@@ -66,11 +67,11 @@ import {
   reminderPath,
 } from "../dist/orchestration/reminder.js";
 import { clearLatch } from "../dist/orchestration/latch.js";
-import * as meteringModule from "../dist/orchestration/metering.js";
 import { readMetering } from "../dist/orchestration/metering.js";
 import {
   clearHandoff,
   markRead,
+  readHandoff,
   writeHandoff,
 } from "../dist/orchestration/handoff.js";
 import {
@@ -112,8 +113,9 @@ const CARRYOVER_TEXT = "CARRYOVER-NOTICE-BODY";
 const REM_ON_TEXT = "REMINDER-ON-BLOCK";
 const REM_OFF_TEXT = "REMINDER-OFF-BLOCK";
 const LATCH_TEXT = "LATCH-COACH-BODY";
-const HANDOFF_TEXT = "HANDOFF-WINDDOWN-BODY";
+const HANDOFF_DIRECTIVE_TEXT = "HANDOFF-DIRECTIVE-BODY";
 const SUB_ORCH_TEXT = "SUB-ORCHESTRATOR-ON-BODY";
+const LIFECYCLE_TEXT = "SESSION-HANDOFF-READ-BODY";
 
 // Build a temp directives dir and an env that points the resolver at it.
 function makeDirectivesEnv({
@@ -126,6 +128,7 @@ function makeDirectivesEnv({
   withLatch = true,
   withHandoff = true,
   withSubOrch = true,
+  withSessionHandoff = true,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "orch-root-"));
   const dir = join(root, "directives");
@@ -137,11 +140,17 @@ function makeDirectivesEnv({
   if (withReminderOn) writeFileSync(join(dir, "rem-on.md"), REM_ON_TEXT, "utf8");
   if (withReminderOff) writeFileSync(join(dir, "rem-off.md"), REM_OFF_TEXT, "utf8");
   if (withLatch) writeFileSync(join(dir, "latch-test.md"), LATCH_TEXT, "utf8");
-  if (withHandoff) writeFileSync(join(dir, "handoff-test.md"), HANDOFF_TEXT, "utf8");
-  // The sub-orchestrator asset name is fixed in production (provider-neutral),
-  // so the fixture writes it under the real name rather than an adapter field.
+  if (withHandoff) {
+    writeFileSync(join(dir, "handoff-test.md"), HANDOFF_DIRECTIVE_TEXT, "utf8");
+  }
+  // The sub-orchestrator and session-handoff-required asset names are fixed in
+  // production (provider-neutral), so the fixture writes them under their real
+  // names rather than adapter fields.
   if (withSubOrch) {
     writeFileSync(join(dir, SUB_ORCHESTRATOR_DIRECTIVE_FILE), SUB_ORCH_TEXT, "utf8");
+  }
+  if (withSessionHandoff) {
+    writeFileSync(join(dir, SESSION_HANDOFF_REQUIRED_DIRECTIVE_FILE), LIFECYCLE_TEXT, "utf8");
   }
   // Mark the temp plugin root trusted by pointing the install-prefix allowlist
   // (npm_config_prefix) at it; the resolver's trust gate then accepts it.
@@ -151,13 +160,7 @@ function makeDirectivesEnv({
 // ---------------------------------------------------------------------------
 // Coaching-setting seam.
 //
-// The locked design stores contextCoaching / handoffWarnThreshold in the USER
-// settings file under the config home (~/.subagent-mcp/settings.json). To keep
-// these tests hermetic they redirect the config home at a temp dir via
-// SUBAGENT_CONFIG_HOME, which the production resolver MUST honour (see
-// src/config-home.ts getConfigHome(), which today reads homedir() with no
-// override). Both process.env and the env object handed to runHook are set so
-// the seam works whichever channel the resolver reads.
+// Tests that set contextCoaching redirect the config home to a temp directory.
 // ---------------------------------------------------------------------------
 const coachingHomes = [];
 let savedConfigHome;
@@ -1015,39 +1018,25 @@ test("plan latch persists but the one-time latch coaching body does not re-fire"
 });
 
 // ---------------------------------------------------------------------------
-// LOCKED (context-coaching) threshold semantics exercised below:
-//   - handoff phase / handoff-tool unlock at a hard-coded 20% (was 40%);
-//   - the wind-down warning fires at a USER-CONFIGURABLE threshold
-//     (default 60, valid 40-90) instead of the retired hard-coded 50%;
-//   - contextCoaching=false mutes ONLY the wind-down warn body — the 15% latch
-//     coaching and the 20% unlock are unaffected.
-// The warn threshold is read from the production surface so these tests stay
-// correct whichever in-band default the settings resolve to.
+// Context thresholds: voluntary handoff unlock at 20%; mandatory write at 80%.
 // ---------------------------------------------------------------------------
-function warnThresholdPct() {
-  const resolver =
-    meteringModule.resolveWarnThresholdPct ??
-    meteringModule.warnThresholdPct ??
-    meteringModule.resolveHandoffWarnThreshold;
-  if (typeof resolver === "function") return resolver();
-  const constant =
-    meteringModule.HANDOFF_WARNING_THRESHOLD_PCT ??
-    meteringModule.DEFAULT_HANDOFF_WARN_THRESHOLD_PCT;
-  return typeof constant === "number" ? constant : 60;
-}
 
 // claude-sonnet-4-5 -> 200000-token window, so used_percentage === input / 2000.
-function usageAtPct(pct) {
+// The optional `generation` supplies the provider proof fingerprint; omitted, it
+// persists as null so no compaction is ever detected (the default for the
+// utilization/coaching cases that do not exercise the detector).
+function usageAtPct(pct, generation) {
   return () => ({
     harness: "claude",
     model: "claude-sonnet-4-5",
     source_ref: "synthetic-transcript",
     usage: { input: pct * 2000, output: 0, cache_creation: 0, cache_read: 0 },
     harnessPercentage: null,
+    compaction_generation: generation ?? null,
   });
 }
 
-test("20% up to threshold-1 unlocks the handoff phase without a wind-down warning", () => {
+test("the 20% unlock reports the handoff phase without the mandatory directive", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
   const session = `s-meter-handoff-unlocked:${cwd}`;
@@ -1062,7 +1051,7 @@ test("20% up to threshold-1 unlocks the handoff phase without a wind-down warnin
       body: `${FULL_TEXT}\n${REM_ON_TEXT}`,
       remaining: 80,
     });
-    assert.ok(!claim.includes(HANDOFF_TEXT), "20% claim turn must not include wind-down body");
+    assert.ok(!claim.includes(HANDOFF_DIRECTIVE_TEXT));
     const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
     assertTagged(short, {
       state: "on",
@@ -1072,125 +1061,99 @@ test("20% up to threshold-1 unlocks the handoff phase without a wind-down warnin
       body: SHORT_ON_TEXT,
       remaining: 80,
     });
-    assert.ok(!short.includes(HANDOFF_TEXT), "sub-threshold carrier turns must not include wind-down body");
+    assert.ok(!short.includes(HANDOFF_DIRECTIVE_TEXT));
   } finally {
     clearLatch(session);
     cleanup(cwd, root);
   }
 });
 
-test("threshold-1 is still quiet: the retired 50% point no longer warns by default", () => {
-  const warn = warnThresholdPct();
-  const cwd = makeCwd();
-  const { root, env } = makeDirectivesEnv();
-  const session = `s-meter-handoff-below-warn:${cwd}`;
-  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn - 1) });
-  try {
-    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
-    assert.ok(!claim.includes(HANDOFF_TEXT),
-      `threshold-1 (${warn - 1}%) must not include the wind-down body`);
-    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
-    assertTagged(short, {
-      state: "on",
-      kind: "carrier",
-      phase: "handoff",
-      utilization: `${warn - 1}%`,
-      body: SHORT_ON_TEXT,
-      remaining: 100 - (warn - 1),
-    });
-  } finally {
-    clearLatch(session);
-    cleanup(cwd, root);
-  }
-});
-
-test("warn threshold appends handoff body on both short and long cadence turns", () => {
-  const warn = warnThresholdPct();
-  const cwd = makeCwd();
-  const { root, env } = makeDirectivesEnv();
-  const session = `s-meter-handoff:${cwd}`;
-  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn) });
-  try {
-    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
-    assert.ok(claim.includes(HANDOFF_TEXT), "handoff claim turn includes wind-down body");
-    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
-    assertTagged(short, {
-      state: "on",
-      kind: "carrier",
-      phase: "handoff",
-      utilization: `${warn}%`,
-      body: `${SHORT_ON_TEXT}\n${HANDOFF_TEXT}`,
-      remaining: 100 - warn,
-    });
-    for (let i = 0; i < 3; i++) {
-      runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+test("utilization below 80 never emits the mandatory handoff-write directive", () => {
+  for (const pct of [20, 50, 60, 79]) {
+    const cwd = makeCwd();
+    const { root, env } = makeDirectivesEnv();
+    const session = `s-no-winddown-${pct}:${cwd}`;
+    const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(Math.min(pct, 100)) });
+    try {
+      // Exercise a full cadence cycle so both carrier and LONG reminder turns are covered.
+      for (let i = 0; i < REMINDER_PERIOD + 1; i++) {
+        const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
+        assert.ok(!out.includes(HANDOFF_DIRECTIVE_TEXT),
+          `utilization ${pct}% must not require a handoff write`);
+      }
+    } finally {
+      clearLatch(session);
+      cleanup(cwd, root);
     }
-    const long = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
-    assertTagged(long, {
-      state: "on",
-      kind: "reminder",
-      phase: "handoff",
-      utilization: `${warn}%`,
-      body: `${REM_ON_TEXT}\n${HANDOFF_TEXT}`,
-      remaining: 100 - warn,
-    });
-  } finally {
-    clearLatch(session);
-    cleanup(cwd, root);
   }
 });
 
-test("threshold+1 keeps warning", () => {
-  const warn = warnThresholdPct();
+test("runHook derives write_required at 80 and a prepared handoff ends the injection", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
-  const session = `s-meter-handoff-above-warn:${cwd}`;
-  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn + 1) });
+  const session = `s-write-required-boundary:${cwd}`;
+  let pct = 79;
+  const adapter = makeAdapter({ turn: 2, liftUsage: () => usageAtPct(pct)() });
+  const payload = { cwd, session_id: session, transcript_path: "synthetic" };
   try {
-    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
-    assert.ok(claim.includes(HANDOFF_TEXT),
-      `threshold+1 (${warn + 1}%) must include the wind-down body`);
+    assert.ok(!runHook(payload, env, adapter).includes(HANDOFF_DIRECTIVE_TEXT));
+
+    pct = 80;
+    assertTagged(runHook(payload, env, adapter), {
+      state: "on",
+      kind: "lifecycle",
+      phase: "handoff",
+      utilization: "80%",
+      body: `Handoff lifecycle: \`write_required\`.\n${HANDOFF_DIRECTIVE_TEXT}`,
+      remaining: 20,
+    });
+
+    const prepared = writeHandoff(cwd, {
+      content: "PREPARED-HANDOFF",
+      createdBySession: session,
+      usedPercentage: 80,
+    });
+    assert.equal(prepared.record.lifecycle, "prepared");
+    assert.ok(!runHook(payload, env, adapter).includes(HANDOFF_DIRECTIVE_TEXT));
   } finally {
     clearLatch(session);
+    clearHandoff(cwd);
     cleanup(cwd, root);
   }
 });
 
-// ---------------------------------------------------------------------------
-// contextCoaching = false: mutes ONLY the wind-down warn/steering path.
-// It must NOT gate the 15% latch coaching body (hook-core.ts:806-813) and must
-// NOT gate the 20% handoff unlock / handoff phase.
-// ---------------------------------------------------------------------------
-test("coaching OFF suppresses the wind-down warn body at and above the threshold", () => {
-  const warn = warnThresholdPct();
+test("write_required injection remains active with contextCoaching:false", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
-  const session = `s-coach-off-warn:${cwd}`;
-  const adapter = makeAdapter({ turn: 2, liftUsage: usageAtPct(warn) });
+  const session = `s-write-required-coaching-off:${cwd}`;
   const offEnv = withCoachingOff(env);
   try {
-    const claim = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
-    assert.ok(!claim.includes(HANDOFF_TEXT),
-      "coaching OFF must suppress the wind-down body on the claim turn");
-    const short = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, offEnv, adapter);
-    assert.ok(!short.includes(HANDOFF_TEXT),
-      "coaching OFF must suppress the wind-down body on carrier turns");
-    // The phase itself is NOT muted - only the warning prose is.
-    assertTagged(short, {
+    const out = runHook(
+      { cwd, session_id: session, transcript_path: "synthetic" },
+      offEnv,
+      makeAdapter({ turn: 2, liftUsage: usageAtPct(80) })
+    );
+    assertTagged(out, {
       state: "on",
-      kind: "carrier",
+      kind: "lifecycle",
       phase: "handoff",
-      utilization: `${warn}%`,
-      body: SHORT_ON_TEXT,
-      remaining: 100 - warn,
+      utilization: "80%",
+      body: `Handoff lifecycle: \`write_required\`.\n${HANDOFF_DIRECTIVE_TEXT}`,
+      remaining: 20,
     });
   } finally {
     clearLatch(session);
+    clearHandoff(cwd);
     cleanup(cwd, root);
     restoreCoaching();
   }
 });
 
+// ---------------------------------------------------------------------------
+// contextCoaching = false: mutes ONLY coaching prose. It must NOT gate the 15%
+// latch coaching body, the 20% handoff unlock / handoff phase, or (per the
+// mandatory-lifecycle isolation rule) any mandatory lifecycle injection.
+// ---------------------------------------------------------------------------
 test("coaching OFF still fires the 15% latch coaching and still force-enables orchestration", () => {
   const cwd = makeCwd();
   const { root, env } = makeDirectivesEnv();
@@ -1285,10 +1248,10 @@ test("metering contradiction writes clamped numeric record", () => {
     const out = runHook({ cwd, session_id: session, transcript_path: "synthetic" }, env, adapter);
     assertTagged(out, {
       state: "on",
-      kind: "directive",
+      kind: "lifecycle",
       phase: "handoff",
       utilization: "100%",
-      body: `${FULL_TEXT}\n${REM_ON_TEXT}\n${HANDOFF_TEXT}`,
+      body: `Handoff lifecycle: \`write_required\`.\n${HANDOFF_DIRECTIVE_TEXT}`,
       remaining: 0,
     });
     const record = readMetering(session);
@@ -1414,6 +1377,135 @@ test("carryover + just-tripped latch: notice emits AND carryover_ack burns toget
     clearLatch(session);
     cleanup(cwd, root);
   }
+});
+
+// ---------------------------------------------------------------------------
+// End-to-end mandatory lifecycle read injection.
+//
+// Two adjacent metering samples through runHook (85% -> 40%) with a prepared
+// handoff record present prove the full path: the detected compaction moves the
+// writer's prepared record to session_handoff_required, the next turn injects the
+// mandatory read directive tagged kind="lifecycle" for EXACTLY one turn, claims it
+// (-> resuming), and does not re-inject. It is directive-only (no tool gate) and
+// coaching-independent. The pre-compaction sample omits generation; turn B
+// carries the fresh proof, and turn C repeats it so nothing re-fires.
+// ---------------------------------------------------------------------------
+function driveCompactionLifecycle(cwd, env, session) {
+  const payload = { cwd, session_id: session, transcript_path: "synthetic" };
+  // Turn A: establish a >= 80% baseline sample with no compaction generation.
+  runHook(payload, env, makeAdapter({ turn: 2, liftUsage: usageAtPct(85) }));
+  // A prepared handoff authored by THIS session (>= H), the only record a
+  // detected compaction may transition.
+  const prepared = writeHandoff(cwd, {
+    content: "PREPARED-HANDOFF",
+    createdBySession: session,
+    usedPercentage: 85,
+  });
+  assert.equal(prepared.record.lifecycle, "prepared", "precondition: prepared record exists");
+  // Turn B: a >= 10-point drop across the adjacent sample AND a NEW generation
+  // fingerprint (g1 != g0) -> detected compaction.
+  const out = runHook(payload, env, makeAdapter({ turn: 3, liftUsage: usageAtPct(40, "gen-1") }));
+  // Turn C: identical follow-up (same generation g1); the mandated read must NOT
+  // re-inject and no new compaction is detected.
+  const out3 = runHook(payload, env, makeAdapter({ turn: 4, liftUsage: usageAtPct(40, "gen-1") }));
+  return { out, out3 };
+}
+
+test("end-to-end: a detected compaction injects the mandatory read once, then transitions to resuming", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-compaction-e2e:${cwd}`;
+  try {
+    const { out, out3 } = driveCompactionLifecycle(cwd, env, session);
+    assertTagged(out, {
+      state: "on",
+      kind: "lifecycle",
+      phase: "handoff",
+      utilization: "40%",
+      body: LIFECYCLE_TEXT,
+      remaining: 60,
+    });
+    assert.equal(readHandoff(cwd)?.lifecycle, "resuming",
+      "claiming the mandated read moves the prepared record to resuming");
+    assert.ok(!out3.includes(LIFECYCLE_TEXT),
+      "the mandated read injects for EXACTLY one turn (claimed once per generation)");
+    assert.equal(readHandoff(cwd)?.lifecycle, "resuming",
+      "no re-transition after the single claim");
+  } finally {
+    clearLatch(session);
+    clearHandoff(cwd);
+    cleanup(cwd, root);
+  }
+});
+
+test("end-to-end compaction read injection fires even with contextCoaching:false", () => {
+  const cwd = makeCwd();
+  const { root, env } = makeDirectivesEnv();
+  const session = `s-compaction-coach-off:${cwd}`;
+  const offEnv = withCoachingOff(env);
+  try {
+    const { out, out3 } = driveCompactionLifecycle(cwd, offEnv, session);
+    assertTagged(out, {
+      state: "on",
+      kind: "lifecycle",
+      phase: "handoff",
+      utilization: "40%",
+      body: LIFECYCLE_TEXT,
+      remaining: 60,
+    });
+    assert.ok(!out3.includes(LIFECYCLE_TEXT),
+      "the mandatory lifecycle injection is coaching-independent AND still exactly-once");
+    assert.equal(readHandoff(cwd)?.lifecycle, "resuming");
+  } finally {
+    clearLatch(session);
+    clearHandoff(cwd);
+    cleanup(cwd, root);
+    restoreCoaching();
+  }
+});
+
+// A >= 10-point drop from >= 80% that carries NO new generation proof (the
+// resume/clear-shaped case: same or absent fingerprint) must NOT be treated as a
+// compaction — the mandated read never injects and the prepared handoff stays
+// prepared. This is the practical-proof gate exercised end-to-end through runHook.
+test("a qualifying drop WITHOUT a new generation proof never injects the mandated read", () => {
+  for (const [label, genA, genB] of [
+    ["absent proof", undefined, undefined],
+    ["null proof", null, null],
+    ["unchanged proof", "gen-same", "gen-same"],
+  ]) {
+    const cwd = makeCwd();
+    const { root, env } = makeDirectivesEnv();
+    const session = `s-no-proof-${label.replace(/\s+/g, "-")}:${cwd}`;
+    try {
+      const payload = { cwd, session_id: session, transcript_path: "synthetic" };
+      runHook(payload, env, makeAdapter({ turn: 2, liftUsage: usageAtPct(85, genA) }));
+      const prepared = writeHandoff(cwd, {
+        content: "PREPARED-HANDOFF",
+        createdBySession: session,
+        usedPercentage: 85,
+      });
+      assert.equal(prepared.record.lifecycle, "prepared", `${label}: precondition prepared record`);
+      const out = runHook(payload, env, makeAdapter({ turn: 3, liftUsage: usageAtPct(40, genB) }));
+      assert.ok(!out.includes(LIFECYCLE_TEXT),
+        `${label}: a drop without a new generation proof must not inject the mandated read`);
+      assert.equal(readHandoff(cwd)?.lifecycle, "prepared",
+        `${label}: the prepared handoff is not transitioned without proof`);
+    } finally {
+      clearLatch(session);
+      clearHandoff(cwd);
+      cleanup(cwd, root);
+    }
+  }
+});
+
+test("the shipped repo directives dir carries the session-handoff-required asset", () => {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  assert.equal(
+    existsSync(join(repoRoot, "directives", SESSION_HANDOFF_REQUIRED_DIRECTIVE_FILE)),
+    true,
+    "an installed layout must resolve the mandatory-read asset the hook reads"
+  );
 });
 
 // ---------------------------------------------------------------------------

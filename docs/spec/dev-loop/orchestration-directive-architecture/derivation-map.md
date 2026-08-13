@@ -3,8 +3,8 @@
 ## section 14 : R-ID Derivation Map (D21)
 
 Each canonical rule fragment has an **R-ID** defined once here; every derived
-artifact renders one or more R-IDs. This table is the traceability mechanism (no
-fragment `.txt` files; convention + the mirror test enforce it).
+artifact renders one or more R-IDs. Convention and the mirror test enforce this
+mapping without fragment `.txt` files.
 
 ### 14.1 Canonical fragment definitions
 
@@ -20,12 +20,12 @@ fragment `.txt` files; convention + the mirror test enforce it).
 | **R-EXEMPT** | section 6 first-line `<this is a request from a parent process>` skips the regime; launch_agent upsert |
 | **R-DROPOUT** | section 7 HALT-until-restored; only exit = explicit task abandonment |
 | **R-MARKERS** | section 8 schema=5 markers + union MIGRATE_RE + duplicate collapse |
-| **R-NO5CALL** | section 4 5-call rule DELETED everywhere; permanent grep gate |
+| **R-NO5CALL** | section 4 requires the permanent grep gate to find no 5-call rule |
 | **R-START-OFF** | section 4 keyed sessions default OFF without setup-time state writes; keyless/undetectable metering fails safe ON |
 | **R-LATCH-15** | section 4/10 15% latch + a planning stop of AT LEAST 4 open questions asked with the structured question tool (or natural prose where none exists), turned into the session's goal context; explicit session-keyed enabled:false (2h TTL) beats latch/fail-safe; explicit enabled:true may re-enable mid-session; unaffected by `contextCoaching` |
 | **R-MODEL-SMART** | model selection unset defaults smart; server auto-picks and rejects selectors outside an explicitly user-approved override window |
-| **R-HANDOFF-40** | section 10/13 goal-context unlock at **20%** utilization (ID retained for traceability; the number moved 40 -> 20): unlock handoff-write/read/clear; write gated >=20% with readable metering; the 20% constant is FIXED and never configurable; 4000/8000-char limits; 10-question pre-write and EXACTLY-4-question pre-read coaching |
-| **R-HANDOFF-WARN-50** | section 10/13 wind-down warning (ID retained; the threshold is no longer the literal 50): at or above `handoffWarnThreshold` (user-level setting, default **60**, valid 40-90) warn every turn to wind down and append the handoff steer (no big-work exemption); `contextCoaching: false` (default `true`) mutes ONLY this warn/steer and `near_limit`, never the latch or the unlock; missing keys silently default to `true` / `60` |
+| **R-HANDOFF-20** | section 10/13 goal-context unlock at **20%** utilization: unlock handoff-write/read/clear; write gated >=20% with readable metering; the 20% constant is FIXED and never configurable; 4000/8000-char limits; 10-question pre-write and EXACTLY-4-question pre-read coaching (voluntary) |
+| **R-HANDOFF-80** | section 4/10 MANDATORY handoff threshold at **HANDOFF_REQUIRED_THRESHOLD_PCT** (80%): derive `write_required` when `used_percentage >= 80` and no automatically eligible record exists; eligibility requires `version = 2`, `lifecycle = "prepared"`, non-empty `generation`, and `created_by_session` matching the current session; inject the mandatory handoff-write directive (directive-only, no tool gate), regardless of `contextCoaching`; `CODEX_AUTOCOMPACT_PCT=90` and `H=CODEX_AUTOCOMPACT_PCT-10=80` are fixed code constants; compaction requires an adjacent-sample >= `COMPACTION_DROP_THRESHOLD_PCT` (10) drop from a previous sample >= 80 plus fresh proof from an implemented adapter (Claude: newest main-chain system `compact_boundary`, valid only when that exact boundary is auto-triggered with a canonical top-level UUID, so newer manual/invalid boundaries mask older valid ones; Codex: fresh compacted window id/number, with no auto/manual cause exposed); unchanged proof is rejected as replay; detection injects the one-turn mandatory `handoff-read`, followed after a successful read by exactly four structured confirmation questions; `markRead` advances any readable version-2 record to `working`, while other readable versions retain their schema |
 | **R-TAG-TEMPLATE** | section 1 templated tag `<subagent-mcp state kind phase utilization>` + `Remaining Context=NN%` footer; any template/metering error => inject nothing |
 | **R-HOOK-COACH-DOCTRINE** | contextual hook coaching preferred over frontmatter/system-prompt bulk; frontmatter only states that hook injections coach correct subagent-mcp use (prevents data corruption, hallucination, resource contention) |
 
@@ -42,22 +42,20 @@ fragment `.txt` files; convention + the mirror test enforce it).
 | `short-on.md` | R-EXEMPT, R-ON-STRICT (one-line) | : |
 | `short-off.md` | R-EXEMPT, R-START-OFF (one-line) | : |
 | `latch-{claude,codex}.md` | R-LATCH-15 | the latch coaching line is ONE verbatim harness-neutral string, byte-identical in both files |
-| `handoff-{claude,codex}.md` | R-HANDOFF-40 / R-HANDOFF-WARN-50 | : |
-| `~/.subagent-mcp/settings*.json` + `src/concurrency.ts` (`contextCoaching`, `handoffWarnThreshold`) | R-HANDOFF-WARN-50 (config surface; user level only) | : |
-| `setup` context-coaching prompts (`src/setup.ts`) | R-HANDOFF-WARN-50 (first-run capture of both keys) | : |
+| `handoff-{claude,codex}.md` | R-HANDOFF-20 / R-HANDOFF-80 (write_required mandatory inject + session_handoff_required one-turn read inject) | : |
+| `~/.subagent-mcp/settings*.json` + `src/concurrency.ts` (`contextCoaching`) | R-HANDOFF-80 (coaching-off isolation: coaching off does NOT mute mandatory injections) | : |
+| `setup` context-coaching + auto-compact reconciliation (`src/setup.ts`) | R-HANDOFF-80 (write Claude Code `settings.json` `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"`; read-back verify; restart messaging; report a present non-object `env` as unsupported) | : |
 | `tag-template.md` | R-TAG-TEMPLATE | : |
 | `hook-core.ts` (tag/footer + phase/latch) | R-START-OFF, R-TAG-TEMPLATE | : |
-| three handoff tool descriptions (`src/index.ts`) | R-HANDOFF-40 / R-HANDOFF-WARN-50 | : |
+| three handoff tool descriptions (`src/index.ts`) | R-HANDOFF-20 / R-HANDOFF-80 | : |
 | `src/init.ts` migration | R-MARKERS | : |
 | `launch_agent` (`ensureParentMarker`) | R-EXEMPT (enforcement) | : |
 | Both tool descriptions | R-NO5CALL (absence) | : |
 
-### 14.3 5-call deletion sweep (D24) : COMPLETED
+### 14.3 5-call absence gate (D24)
 
-**Completed : verified by `test/no-five-call.test.mjs`; historical checklist
-removed.** The permanent grep gate (section 11.1) asserts `/5[ -]?call/i` matches zero
-files under `src/` and `directives/`; a green run is the standing proof the
-sweep landed, superseding the per-item checklist.
+`test/no-five-call.test.mjs` asserts `/5[ -]?call/i` matches zero files under
+`src/` and `directives/`.
 
 ---
 

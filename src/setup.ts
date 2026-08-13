@@ -28,10 +28,11 @@ import {
   statSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname, resolve } from "node:path";
+import { join, dirname, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync, execSync } from "node:child_process";
 import { stateDir } from "./orchestration/marker.js";
+import { CODEX_AUTOCOMPACT_PCT } from "./orchestration/metering.js";
 import { STATUSLINE_TTL_MS } from "./orchestration/statusline-state.js";
 import { askLine, type PromptOptions } from "./prompt.js";
 import {
@@ -290,6 +291,59 @@ export function reconcileClaudeStatusLine(
   return { changed: true, status: "repaired" };
 }
 
+export const CLAUDE_AUTOCOMPACT_OVERRIDE_ENV = "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE";
+
+/**
+ * Resolve the user-scope Claude Code settings.json, honoring CLAUDE_CONFIG_DIR
+ * (an absolute value is used as-is; a relative value resolves under home),
+ * matching how Claude Code itself locates the file.
+ */
+export function claudeUserSettingsPath(
+  home: string = homedir(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const raw = env.CLAUDE_CONFIG_DIR;
+  const base =
+    typeof raw === "string" && raw.trim()
+      ? isAbsolute(raw)
+        ? raw
+        : join(home, raw)
+      : join(home, ".claude");
+  return join(base, "settings.json");
+}
+
+/**
+ * Reconcile Claude Code's documented auto-compact override
+ * (env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE) to CODEX_AUTOCOMPACT_PCT so host
+ * compaction fires at the same utilization as Codex. Mutates `s` in place and
+ * touches only that one env key; every other setting and env key is preserved.
+ * A present-but-non-object `env` is a capability we cannot safely satisfy: it
+ * is left untouched and reported so the caller never clobbers user data.
+ */
+export function reconcileClaudeAutocompact(
+  s: JsonObj,
+  pct: number = CODEX_AUTOCOMPACT_PCT
+): { changed: boolean; status: WireStatus; unsupported: string | null } {
+  const desired = String(pct);
+  const env = s.env;
+  if (env !== undefined && (env === null || typeof env !== "object" || Array.isArray(env))) {
+    return {
+      changed: false,
+      status: "ok",
+      unsupported:
+        `Claude settings.json "env" is not an object, so ${CLAUDE_AUTOCOMPACT_OVERRIDE_ENV} ` +
+        `cannot be set automatically. Back up the file, make "env" a JSON object, and add ` +
+        `"${CLAUDE_AUTOCOMPACT_OVERRIDE_ENV}": "${desired}".`,
+    };
+  }
+  const envObj = (env ?? {}) as JsonObj;
+  s.env = envObj;
+  const current = envObj[CLAUDE_AUTOCOMPACT_OVERRIDE_ENV];
+  if (current === desired) return { changed: false, status: "ok", unsupported: null };
+  envObj[CLAUDE_AUTOCOMPACT_OVERRIDE_ENV] = desired;
+  return { changed: true, status: current === undefined ? "added" : "repaired", unsupported: null };
+}
+
 /**
  * Reconcile the user-scope MCP server entry in a parsed ~/.claude.json.
  * Mutates `cj` in place. Same ok/repaired/added semantics; other servers are
@@ -443,6 +497,7 @@ export function verifyInstall(root: string = INSTALL_ROOT): string[] {
     "directives/reminder-on.md",
     "directives/reminder-off-claude.md",
     "directives/reminder-off-codex.md",
+    "directives/session-handoff-required.md",
   ];
   return required.filter((f) => !existsSync(join(root, ...f.split("/"))));
 }
@@ -452,6 +507,22 @@ function readJson(file: string, fallback: JsonObj): JsonObj {
     return JSON.parse(readFileSync(file, "utf8")) as JsonObj;
   } catch {
     return { ...fallback };
+  }
+}
+
+/**
+ * Strict read for files we must never blindly overwrite: an absent file yields
+ * an empty object, but a malformed or non-object file yields ok:false so the
+ * caller can refuse to clobber user content.
+ */
+function readJsonStrict(file: string): { ok: true; value: JsonObj } | { ok: false } {
+  if (!existsSync(file)) return { ok: true, value: {} };
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { ok: false };
+    return { ok: true, value: parsed as JsonObj };
+  } catch {
+    return { ok: false };
   }
 }
 
@@ -473,8 +544,8 @@ function runCmd(cmd: string, cmdArgs: string[]): boolean {
 
 /**
  * Parse an npm cmd-shim (.cmd) for its dp0-relative node script.
- * Matches both modern `"%dp0%\node_modules\...\cli.js"` and legacy
- * `"%~dp0\..."` forms. Returns the absolute JS path or null.
+ * Matches common `"%dp0%\node_modules\...\cli.js"` and `"%~dp0\..."`
+ * forms. Returns the absolute JS path or null.
  */
 export function resolveCmdShimNodeScript(cmdPath: string): string | null {
   try {
@@ -670,7 +741,7 @@ function copyPackagePath(source: string, target: string, write = false): boolean
   return changed;
 }
 
-function removeLegacyHandoffResumeSkill(home: string): { removed: boolean; warning: string | null } {
+function removeIncompatibleHandoffResumeSkill(home: string): { removed: boolean; warning: string | null } {
   const oldTarget = join(home, ".claude", "skills", "handoff-resume");
   if (!existsSync(oldTarget) || DRY_RUN) return { removed: false, warning: null };
   try {
@@ -679,7 +750,7 @@ function removeLegacyHandoffResumeSkill(home: string): { removed: boolean; warni
   } catch (e) {
     return {
       removed: false,
-      warning: `could not remove legacy handoff-resume skill at ${oldTarget}: ${(e as Error).message}`,
+      warning: `could not remove incompatible handoff-resume skill at ${oldTarget}: ${(e as Error).message}`,
     };
   }
 }
@@ -708,11 +779,11 @@ export function deploySmcpSkillsAndCommands(
   if (!DRY_RUN) {
     for (const p of changedPaths) copyPackagePath(p.source, p.target, true);
   }
-  const legacy = host === "claude" ? removeLegacyHandoffResumeSkill(home) : { removed: false, warning: null };
+  const cleanup = host === "claude" ? removeIncompatibleHandoffResumeSkill(home) : { removed: false, warning: null };
   return {
-    changed: changedPaths.length > 0 || legacy.removed,
+    changed: changedPaths.length > 0 || cleanup.removed,
     status,
-    detail: `${status === "repaired" ? "restored" : "deployed"}${legacy.warning ? `; WARN ${legacy.warning}` : ""}`,
+    detail: `${status === "repaired" ? "restored" : "deployed"}${cleanup.warning ? `; WARN ${cleanup.warning}` : ""}`,
     missingSources: [],
   };
 }
@@ -864,7 +935,9 @@ function wireClaude(): void {
   // 2) UserPromptSubmit + PreToolUse hooks and static native-agent deny.
   try {
     const sfile = join(homedir(), ".claude", "settings.json");
-    const s = readJson(sfile, {});
+    const read = readJsonStrict(sfile);
+    if (!read.ok) throw new Error(`${sfile} is not valid JSON; repair it before running setup`);
+    const s = read.value;
     const hooks = reconcileClaudeSettings(s, p.claudeHook);
     const deny = reconcileClaudeNativeAgentDeny(s);
     if ((hooks.changed || deny.changed) && !DRY_RUN) writeJsonWithBackup(sfile, s);
@@ -873,6 +946,43 @@ function wireClaude(): void {
     if ((hooks.changed || deny.changed) && DRY_RUN) console.log("    (dry-run: not written)");
   } catch (e) {
     fail("claude", `could not write the settings.json hook: ${(e as Error).message}`);
+  }
+
+  // 2b) Auto-compact override: match Claude Code's host compaction to Codex.
+  try {
+    const cfile = claudeUserSettingsPath();
+    const read = readJsonStrict(cfile);
+    if (!read.ok) {
+      fail(
+        "claude",
+        `${cfile} is not valid JSON, so ${CLAUDE_AUTOCOMPACT_OVERRIDE_ENV} was not set. ` +
+          `Repair the file, then add "env": { "${CLAUDE_AUTOCOMPACT_OVERRIDE_ENV}": "${String(CODEX_AUTOCOMPACT_PCT)}" }.`
+      );
+    } else {
+      const r = reconcileClaudeAutocompact(read.value);
+      if (r.unsupported) {
+        fail("claude", r.unsupported);
+      } else {
+        if (r.changed && !DRY_RUN) {
+          writeJsonWithBackup(cfile, read.value);
+          const back = readJsonStrict(cfile);
+          const env = back.ok ? back.value.env : undefined;
+          const verified =
+            !!env && typeof env === "object" && !Array.isArray(env) &&
+            (env as JsonObj)[CLAUDE_AUTOCOMPACT_OVERRIDE_ENV] === String(CODEX_AUTOCOMPACT_PCT);
+          if (!verified) {
+            fail(
+              "claude",
+              `wrote ${cfile} but could not verify ${CLAUDE_AUTOCOMPACT_OVERRIDE_ENV}=${String(CODEX_AUTOCOMPACT_PCT)} on read-back.`
+            );
+          }
+        }
+        describe(r.status, `auto-compact override (env.${CLAUDE_AUTOCOMPACT_OVERRIDE_ENV})`);
+        if (r.changed && DRY_RUN) console.log("    (dry-run: not written)");
+      }
+    }
+  } catch (e) {
+    fail("claude", `could not reconcile the Claude auto-compact override: ${(e as Error).message}`);
   }
 
   // 3) Claude /smcp:* Agent Skills and slash-commands.
@@ -1083,6 +1193,27 @@ function checkCliRegistration(
   return { registered, attemptedRepair };
 }
 
+function claudeAutocompactCheck(home: string): CheckResult {
+  const label = "claude: auto-compact override";
+  const file = claudeUserSettingsPath(home);
+  const read = readJsonStrict(file);
+  if (!read.ok) {
+    return { label, ok: false, detail: `${file} is not valid JSON - run: subagent-mcp setup` };
+  }
+  const r = reconcileClaudeAutocompact(read.value);
+  if (r.unsupported) {
+    return { label, ok: false, detail: `"env" is not an object - run: subagent-mcp setup` };
+  }
+  return {
+    label,
+    ok: r.status === "ok",
+    detail:
+      r.status === "ok"
+        ? `env.${CLAUDE_AUTOCOMPACT_OVERRIDE_ENV}=${CODEX_AUTOCOMPACT_PCT}`
+        : `not set to ${CODEX_AUTOCOMPACT_PCT} - run: subagent-mcp setup`,
+  };
+}
+
 export function verifyWiring(
   root: string = INSTALL_ROOT,
   repair: boolean = false,
@@ -1130,6 +1261,7 @@ export function verifyWiring(
           : "wired; waiting for Claude statusLine signal"
         : `${sl.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
+    results.push(claudeAutocompactCheck(home));
     results.push(verifySmcpSkillsAndCommands(root, home));
   } else if (hasClaudeConfig) {
     const cj = readJson(join(home, ".claude.json"), {});
@@ -1162,6 +1294,7 @@ export function verifyWiring(
           : "wired; waiting for Claude statusLine signal"
         : `${sl.status === "repaired" ? "stale path" : "not wired"} - run: subagent-mcp setup`,
     });
+    results.push(claudeAutocompactCheck(home));
     results.push(verifySmcpSkillsAndCommands(root, home));
   }
 

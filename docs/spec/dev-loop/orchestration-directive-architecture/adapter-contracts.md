@@ -7,11 +7,12 @@ document exists so a future implementer has a normative, non-ambiguous
 contract to build against, without re-deriving window/usage source fields
 from scratch.
 
-The shared metering record shape, window-resolution ladder, and
-`used_percentage` / `near_limit` / `phase` formulas defined in
-context-metering.md apply unchanged to any future adapter for these four
-harnesses. This leaf only pins down, per harness, WHERE the window size and
-usage numbers come from.
+The shared metering record shape, window-resolution ladder, `used_percentage`,
+and `phase` formulas apply to adapters for these four harnesses. This leaf only
+pins down where their window size and usage numbers come from. Structural
+compaction proof and the automatic handoff lifecycle are implemented contracts
+of the Claude and Codex adapters; they are not requirements for these spec-only
+adapters.
 
 ## Odysseus (llama.cpp)
 

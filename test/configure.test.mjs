@@ -90,7 +90,7 @@ test("configure coaches global and mode sets without config-home writes", () => 
   assert.match(json(configure({ action: "set", key: "mode.modelSelection" })).message, /model-selection-mode tool/);
 }));
 
-test("configure writes user setting once, backs up old bytes, then reports unchanged", () => withConfigHome((root) => {
+test("configure writes user setting once, backs up input bytes, then reports unchanged", () => withConfigHome((root) => {
   const file = join(root, "settings.json");
   writeFileSync(file, '{\n  "contextCoaching": true\n}\n', "utf8");
   const first = json(configure({ action: "set", key: "user.contextCoaching", value: "false" }));
@@ -103,6 +103,41 @@ test("configure writes user setting once, backs up old bytes, then reports uncha
   assert.equal(second.status, "unchanged");
   assert.equal(second.backup, null);
   assert.equal(backups(root, "settings.json").length, 1);
+}));
+
+test("configure rejects handoffWarnThreshold: get/set rejected, absent from list", () => withConfigHome((root) => {
+  // The wind-down warning and its user knob are unsupported. The key is no
+  // longer settable, gettable, or advertised; a rejected set writes nothing.
+  const set = configure({ action: "set", key: "user.handoffWarnThreshold", value: "70" });
+  assert.equal(set.isError, true, "set user.handoffWarnThreshold must be rejected");
+  assert.equal(json(set).ok, false);
+
+  const get = configure({ action: "get", key: "user.handoffWarnThreshold" });
+  assert.equal(get.isError, true, "get user.handoffWarnThreshold must be rejected");
+  assert.equal(json(get).ok, false);
+
+  const listed = json(configure({ action: "list" }));
+  const keys = (listed.keys ?? []).map((k) => k.key);
+  assert.ok(!keys.includes("user.handoffWarnThreshold"), "the unsupported knob must not be advertised in list");
+  assert.ok(keys.includes("user.contextCoaching"), "the contextCoaching knob remains advertised");
+
+  assert.deepEqual(readdirSync(root), [], "a rejected set must not scaffold any config-home file");
+}));
+
+test("configure keeps contextCoaching settable with no restart, unrelated user settings preserved", () => withConfigHome((root) => {
+  const file = join(root, "settings.json");
+  // An unrelated user setting must survive a contextCoaching write untouched.
+  writeFileSync(file, '{\n  "permissions": {\n    "allow": [\n      "*"\n    ]\n  }\n}\n', "utf8");
+
+  const set = json(configure({ action: "set", key: "user.contextCoaching", value: "false" }));
+  assert.equal(set.status, "updated");
+  assert.equal(set.restart_required, false, "coaching changes never require a restart");
+  assert.equal(set.backup !== null && existsSync(set.backup), true, "input bytes are backed up");
+
+  const onDisk = JSON.parse(readFileSync(file, "utf8"));
+  assert.equal(onDisk.contextCoaching, false);
+  assert.deepEqual(onDisk.permissions, { allow: ["*"] }, "unrelated user settings must be preserved");
+  assert.equal(onDisk.handoffWarnThreshold, undefined, "no unsupported threshold key is written back");
 }));
 
 test("configure rejects invalid provider updates without changing the file", () => withConfigHome((root) => {

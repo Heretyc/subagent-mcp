@@ -25,7 +25,7 @@ for the full technical specification.
 - register / wire / add / connect the server -> the per-host leaf for that vendor
 - install / setup / bootstrap -> `prerequisites-and-install.md`
 - plugin / hook / injection / `UserPromptSubmit` / per-turn directive -> `docs/install/_INDEX.md`
-- global config / user settings / context coaching / update check / concurrency cap -> `prerequisites-and-install.md` (Settings)
+- global config / user settings / context coaching / auto-compact reconciliation / update check / concurrency cap -> `prerequisites-and-install.md` (Settings)
 - `init --global` / global user-config / managed block -> `prerequisites-and-install.md`
 
 ## Task -> doc
@@ -33,7 +33,7 @@ for the full technical specification.
 | Task | Load |
 |---|---|
 | Install from npmjs or GitHub Packages and auto-wire both CLIs | `prerequisites-and-install.md` |
-| Tune `globalConcurrentSubagents` / `checkForUpdates` / `contextCoaching` / `handoffWarnThreshold` | `prerequisites-and-install.md` |
+| Tune `globalConcurrentSubagents` / `checkForUpdates` / `contextCoaching` | `prerequisites-and-install.md` |
 | Upsert managed blocks into provider global user-config | `prerequisites-and-install.md` (`init --global`) |
 | Add the server to Claude Code (user or project scope) | `claude-code.md` |
 | Add the server to Codex | `codex.md` |

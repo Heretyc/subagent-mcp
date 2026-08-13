@@ -18,6 +18,15 @@ are not real provider model evidence. From the selected line it reads
 and `model` from the corresponding `message.usage.*` and `message.model`
 fields.
 
+The Claude adapter selects the newest main-chain transcript record whose exact
+shape is `type === "system"` and `subtype === "compact_boundary"`. That newest
+boundary alone decides proof: it surfaces `claude:<uuid>` only when
+`compactMetadata.trigger === "auto"` and the top-level `uuid` is canonical
+8-4-4-4-12 hexadecimal form. A newer manual boundary, missing metadata, or
+invalid UUID yields `null` and masks every older valid auto boundary. With no
+main-chain boundary in the bounded tail, the optional field is omitted. See
+handoff.md Compaction Detection.
+
 The adapter also reads a Claude long-context tier hint from, in order:
 `ANTHROPIC_MODEL`, `<cwd>/.claude/settings.local.json`,
 `<cwd>/.claude/settings.json`, then
@@ -46,6 +55,11 @@ absurd fallback whose `total_tokens` exceeds `model_context_window` by more than
 `input_tokens` includes cached input. The adapter stores non-cached input,
 output, zero cache creation, and cached input separately so `used_tokens`
 matches `total_tokens` instead of double-counting cache.
+
+The Codex adapter also surfaces the rollout's compacted context-window identity
+(`window_id` / `window_number`) as the structural compaction-generation proof
+persisted in `compaction_generation`. Codex reports no auto-versus-manual
+compaction cause, the accepted residual noted in handoff.md Compaction Detection.
 
 When `model_context_window` is valid (finite and positive) the adapter forwards
 it as `harnessContextWindow`, so shared metering resolves

@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import { CONCURRENCY_SCAFFOLD } from "./config-scaffold.js";
 import { getConfigHome } from "./config-home.js";
 import {
-  askIntegerInRange,
   askLine,
   askYesNoStrict,
   openPromptSession,
@@ -38,12 +37,6 @@ export const DEFAULT_ESCALATION = "irreversible-only" as const;
 export const DEFAULT_STRICT_READ_PARITY = "warn" as const;
 export const DEFAULT_SANDBOX_NETWORK: boolean = true;
 export const DEFAULT_CONTEXT_COACHING: boolean = true;
-export const DEFAULT_HANDOFF_WARN_THRESHOLD: number = 60;
-export const MIN_HANDOFF_WARN_THRESHOLD: number = 40;
-export const MAX_HANDOFF_WARN_THRESHOLD: number = 90;
-export const DEFAULT_HANDOFF_WARN_THRESHOLD_PCT = DEFAULT_HANDOFF_WARN_THRESHOLD;
-export const WARN_THRESHOLD_MIN = MIN_HANDOFF_WARN_THRESHOLD;
-export const WARN_THRESHOLD_MAX = MAX_HANDOFF_WARN_THRESHOLD;
 export const CONFIG_FILENAME: string = "global-subagent-mcp-config.jsonc";
 export const LEGACY_CONFIG_FILENAME: string = "global-concurrency.jsonc";
 export const USER_SETTINGS_FILENAME: string = "settings.json";
@@ -85,7 +78,6 @@ export interface MergedPermissionConfig extends PermissionRulesConfig {
 
 export interface ContextCoachingSettings {
   contextCoaching: boolean;
-  handoffWarnThreshold: number;
 }
 
 export interface GlobalConfig {
@@ -157,19 +149,6 @@ export function clampCap(raw: unknown): number {
   const v = raw as number;
   if (v <= 0) return DEFAULT_CAP;
   if (v < MIN_CAP) return MIN_CAP;
-  return v;
-}
-
-/**
- * LOCKED context-coaching contract: any malformed threshold resolves to 60.
- * Only whole numbers in the inclusive 40-90 band survive unchanged.
- */
-export function clampHandoffWarnThreshold(raw: unknown): number {
-  if (!Number.isInteger(raw)) return DEFAULT_HANDOFF_WARN_THRESHOLD;
-  const v = raw as number;
-  if (v < MIN_HANDOFF_WARN_THRESHOLD || v > MAX_HANDOFF_WARN_THRESHOLD) {
-    return DEFAULT_HANDOFF_WARN_THRESHOLD;
-  }
   return v;
 }
 
@@ -290,18 +269,14 @@ export function sanitizeCoachingSettings(raw: unknown): ContextCoachingSettings 
       typeof obj.contextCoaching === "boolean"
         ? obj.contextCoaching
         : DEFAULT_CONTEXT_COACHING,
-    handoffWarnThreshold: clampHandoffWarnThreshold(obj.handoffWarnThreshold),
   };
 }
 
-/** True when either coaching key is physically present, however malformed. */
+/** True when the coaching key is physically present, however malformed. */
 export function hasContextCoachingSettings(text: string): boolean {
   try {
     const parsed = parseJsonObject(text);
-    return (
-      Object.prototype.hasOwnProperty.call(parsed, "contextCoaching") ||
-      Object.prototype.hasOwnProperty.call(parsed, "handoffWarnThreshold")
-    );
+    return Object.prototype.hasOwnProperty.call(parsed, "contextCoaching");
   } catch {
     return false;
   }
@@ -422,16 +397,11 @@ function upsertJsoncScalar(text: string, key: string, literal: string): string {
 
 export function applyContextCoachingSettings(text: string, settings: ContextCoachingSettings): string {
   const clean = sanitizeCoachingSettings(settings);
-  const coaching = upsertJsoncScalar(text, "contextCoaching", String(clean.contextCoaching));
-  return upsertJsoncScalar(
-    coaching,
-    "handoffWarnThreshold",
-    String(clean.handoffWarnThreshold)
-  );
+  return upsertJsoncScalar(text, "contextCoaching", String(clean.contextCoaching));
 }
 
 /**
- * Persists both coaching keys, preserving every other key and comment already in
+ * Persists the coaching key, preserving every other key and comment already in
  * the file. A missing or blank file is seeded from the shipped scaffold so the
  * written file stays self-documenting.
  */
@@ -447,11 +417,10 @@ export function writeContextCoachingSettings(
 }
 
 /**
- * First-run behavior for the two user-level coaching settings.
- *   - config present (keys or not) -> silent load, no prompt, no write
- *   - config missing or blank      -> prompt for BOTH, re-asking on bad input
- *   - non-TTY or --unattended      -> coaching on, threshold 60, recorded
- * Prompting never half-applies: an answered pair is written together.
+ * First-run behavior for the user-level context-coaching setting.
+ *   - config present (key or not) -> silent load, no prompt, no write
+ *   - config missing or blank     -> prompt, re-asking on bad input
+ *   - non-TTY or --unattended     -> coaching on, recorded
  */
 export async function ensureFirstRunUserSettings(
   opts: FirstRunUserSettingsOptions = {}
@@ -462,34 +431,20 @@ export async function ensureFirstRunUserSettings(
 
   const settings: ContextCoachingSettings = {
     contextCoaching: DEFAULT_CONTEXT_COACHING,
-    handoffWarnThreshold: DEFAULT_HANDOFF_WARN_THRESHOLD,
   };
   const tty = opts.isTTY ?? process.stdin.isTTY;
   if (opts.unattended) {
-    opts.log?.(
-      `Context coaching: unattended setup, defaulting to on at ${DEFAULT_HANDOFF_WARN_THRESHOLD}% handoff warning.`
-    );
+    opts.log?.("Context coaching: unattended setup, defaulting to on.");
   } else if (!tty) {
-    opts.log?.(
-      `Context coaching: non-TTY setup, defaulting to on at ${DEFAULT_HANDOFF_WARN_THRESHOLD}% handoff warning.`
-    );
+    opts.log?.("Context coaching: non-TTY setup, defaulting to on.");
   } else {
-    opts.log?.("Context coaching keeps a session planning-aware and warns before the context window runs out.");
-    // Both questions (and every re-prompt) share ONE readline: a fresh
-    // interface per question drops whatever readline already buffered.
+    opts.log?.("Context coaching keeps a session planning-aware.");
     const session = opts.session ?? openPromptSession(opts);
     try {
       settings.contextCoaching = await askYesNoStrict(
         { ...opts, session },
         "Enable context coaching? [Y/n] ",
         DEFAULT_CONTEXT_COACHING
-      );
-      settings.handoffWarnThreshold = await askIntegerInRange(
-        { ...opts, session },
-        `Handoff warning threshold, percent of context used [${MIN_HANDOFF_WARN_THRESHOLD}-${MAX_HANDOFF_WARN_THRESHOLD}, default ${DEFAULT_HANDOFF_WARN_THRESHOLD}]: `,
-        MIN_HANDOFF_WARN_THRESHOLD,
-        MAX_HANDOFF_WARN_THRESHOLD,
-        DEFAULT_HANDOFF_WARN_THRESHOLD
       );
     } finally {
       if (!opts.session) session.close();
@@ -565,15 +520,11 @@ export function readContextCoaching(path: UserSettingsPathInput = undefined): bo
   return readContextCoachingSettings(path).contextCoaching;
 }
 
-export function readHandoffWarnThreshold(path: UserSettingsPathInput = undefined): number {
-  return readContextCoachingSettings(path).handoffWarnThreshold;
-}
-
 /**
- * Both coaching settings in one read. Absent keys, an unparseable file, and an
- * absent file all resolve SILENTLY to the built-in defaults: no prompt, no
- * warning, no write. Only a missing/blank file at first-run time prompts, and
- * that decision belongs to ensureFirstRunUserSettings.
+ * The coaching setting in one read. An absent key, an unparseable file, and an
+ * absent file all resolve SILENTLY to the built-in default: no prompt, no
+ * write. Only a missing/blank file at first-run time prompts, and that decision
+ * belongs to ensureFirstRunUserSettings.
  */
 export function readContextCoachingSettings(
   path: UserSettingsPathInput = undefined
@@ -585,9 +536,6 @@ export function readContextCoachingSettings(
       const parsed = parseJsonObject(readFileSync(file, "utf8"));
       if (Object.prototype.hasOwnProperty.call(parsed, "contextCoaching")) {
         settings.contextCoaching = sanitizeCoachingSettings(parsed).contextCoaching;
-      }
-      if (Object.prototype.hasOwnProperty.call(parsed, "handoffWarnThreshold")) {
-        settings.handoffWarnThreshold = sanitizeCoachingSettings(parsed).handoffWarnThreshold;
       }
     } catch {
       // Broken or blank user settings must not crash metering.

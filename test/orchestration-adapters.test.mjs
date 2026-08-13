@@ -22,7 +22,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { MARKER, hasParentMarker } from "../dist/launch-prompt.js";
-import { claudeAdapter } from "../dist/hooks/orchestration-claude.js";
+import { claudeAdapter, runClaudeHook } from "../dist/hooks/orchestration-claude.js";
 import { codexAdapter, runCodexHook } from "../dist/hooks/orchestration-codex.js";
 import {
   markerPath,
@@ -33,10 +33,15 @@ import {
   anonKey,
   writeMarker,
 } from "../dist/orchestration/marker.js";
-import { sessionKey } from "../dist/orchestration/hook-core.js";
+import {
+  SESSION_HANDOFF_REQUIRED_DIRECTIVE_FILE,
+  SUB_ORCHESTRATOR_DIRECTIVE_FILE,
+  sessionKey,
+} from "../dist/orchestration/hook-core.js";
 import {
   buildMeteringRecord,
   meteringPath,
+  readMetering,
   writeMetering,
 } from "../dist/orchestration/metering.js";
 import {
@@ -44,7 +49,12 @@ import {
   writeStatuslineRecord,
 } from "../dist/orchestration/statusline-state.js";
 import { readReminder, reminderPath } from "../dist/orchestration/reminder.js";
-import { SUB_ORCHESTRATOR_DIRECTIVE_FILE } from "../dist/orchestration/hook-core.js";
+import { clearLatch } from "../dist/orchestration/latch.js";
+import {
+  clearHandoff,
+  readHandoff,
+  writeHandoff,
+} from "../dist/orchestration/handoff.js";
 
 let passed = 0;
 let failed = 0;
@@ -77,6 +87,25 @@ function writeFreshMarker(cwd) {
     provenance: "user-enabled",
     carryover_ack: false,
   });
+}
+
+function lifecycleDirectives(provider) {
+  const root = mkdtempSync(join(tmpdir(), "orch-lifecycle-root-"));
+  const dir = join(root, "directives");
+  mkdirSync(dir, { recursive: true });
+  for (const [file, body] of [
+    [`orchestration-${provider}.md`, "FULL"],
+    ["short-on.md", "SHORT-ON"],
+    ["short-off.md", "SHORT-OFF"],
+    [`carryover-${provider}.md`, "CARRYOVER"],
+    ["reminder-on.md", "REMINDER-ON"],
+    [`reminder-off-${provider}.md`, "REMINDER-OFF"],
+    [`handoff-${provider}.md`, "HANDOFF-WRITE"],
+    [SESSION_HANDOFF_REQUIRED_DIRECTIVE_FILE, "HANDOFF-READ"],
+  ]) {
+    writeFileSync(join(dir, file), body, "utf8");
+  }
+  return { root, env: { PLUGIN_ROOT: root, npm_config_prefix: root } };
 }
 
 // ---------------------------------------------------------------------------
@@ -389,6 +418,265 @@ test("claude liftUsage: skips synthetic or missing model rows", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Claude adapter: compaction_generation provenance
+// ---------------------------------------------------------------------------
+const CLAUDE_UUID_A = "0193f8a2-1c3d-4e5f-8a9b-0c1d2e3f4a5b";
+const CLAUDE_UUID_B = "0195aa11-2b33-4c55-8d77-0e1f2a3b4c5d";
+
+function claudeAssistantRow(model = "claude-sonnet-4-5") {
+  return {
+    type: "assistant",
+    message: {
+      model,
+      usage: {
+        input_tokens: 100,
+        output_tokens: 20,
+        cache_creation_input_tokens: 7,
+        cache_read_input_tokens: 13,
+      },
+    },
+  };
+}
+
+test("claude liftUsage: auto compact_boundary with valid uuid -> claude:<uuid>", () => {
+  const { dir, file } = writeJsonl([
+    claudeAssistantRow(),
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: CLAUDE_UUID_A,
+      compactMetadata: { trigger: "auto", preTokens: 12345 },
+    },
+  ]);
+  try {
+    assert.deepEqual(claudeAdapter.liftUsage({}, {}, file), {
+      harness: "claude",
+      model: "claude-sonnet-4-5",
+      source_ref: file,
+      usage: { input: 100, output: 20, cache_creation: 7, cache_read: 13 },
+      harnessPercentage: null,
+      harnessContextWindow: null,
+      longContextHint: null,
+      compaction_generation: `claude:${CLAUDE_UUID_A}`,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: manual compact_boundary -> null generation (no inference)", () => {
+  const { dir, file } = writeJsonl([
+    claudeAssistantRow(),
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: CLAUDE_UUID_A,
+      compactMetadata: { trigger: "manual" },
+    },
+  ]);
+  try {
+    assert.deepEqual(claudeAdapter.liftUsage({}, {}, file), {
+      harness: "claude",
+      model: "claude-sonnet-4-5",
+      source_ref: file,
+      usage: { input: 100, output: 20, cache_creation: 7, cache_read: 13 },
+      harnessPercentage: null,
+      harnessContextWindow: null,
+      longContextHint: null,
+      compaction_generation: null,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: newest auto compact_boundary wins over older auto", () => {
+  const { dir, file } = writeJsonl([
+    claudeAssistantRow(),
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: CLAUDE_UUID_A,
+      compactMetadata: { trigger: "auto" },
+    },
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: CLAUDE_UUID_B,
+      compactMetadata: { trigger: "auto" },
+    },
+  ]);
+  try {
+    const lifted = claudeAdapter.liftUsage({}, {}, file);
+    assert.equal(lifted.compaction_generation, `claude:${CLAUDE_UUID_B}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: newest manual boundary over older auto -> null", () => {
+  const { dir, file } = writeJsonl([
+    claudeAssistantRow(),
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: CLAUDE_UUID_A,
+      compactMetadata: { trigger: "auto" },
+    },
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      compactMetadata: { trigger: "manual" },
+    },
+  ]);
+  try {
+    assert.equal(claudeAdapter.liftUsage({}, {}, file).compaction_generation, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: malformed proof (invalid or missing uuid, no metadata) -> null", () => {
+  // Auto trigger but a non-UUID top-level uuid string is not a valid proof.
+  const invalid = writeJsonl([
+    claudeAssistantRow(),
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: "not-a-real-uuid",
+      compactMetadata: { trigger: "auto" },
+    },
+  ]);
+  // compactMetadata entirely absent -> no trigger -> null.
+  const missing = writeJsonl([
+    claudeAssistantRow(),
+    { type: "system", subtype: "compact_boundary", uuid: CLAUDE_UUID_A },
+  ]);
+  try {
+    assert.equal(
+      claudeAdapter.liftUsage({}, {}, invalid.file).compaction_generation,
+      null,
+      "auto trigger with a non-UUID uuid yields null"
+    );
+    assert.equal(
+      claudeAdapter.liftUsage({}, {}, missing.file).compaction_generation,
+      null,
+      "missing compactMetadata yields null"
+    );
+  } finally {
+    rmSync(invalid.dir, { recursive: true, force: true });
+    rmSync(missing.dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: no compaction boundary -> compaction_generation key omitted", () => {
+  const { dir, file } = writeJsonl([claudeAssistantRow()]);
+  try {
+    const lifted = claudeAdapter.liftUsage({}, {}, file);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(lifted, "compaction_generation"),
+      false,
+      "absent boundary must not add the optional field"
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: sidechain assistant skipped, main compact_boundary still resolves", () => {
+  const { dir, file } = writeJsonl([
+    claudeAssistantRow("claude-opus-4-8"),
+    {
+      type: "assistant",
+      isSidechain: true,
+      message: {
+        model: "gpt-5.5",
+        usage: {
+          input_tokens: 900000,
+          output_tokens: 1,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    },
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: CLAUDE_UUID_A,
+      compactMetadata: { trigger: "auto" },
+    },
+  ]);
+  try {
+    assert.deepEqual(claudeAdapter.liftUsage({}, {}, file), {
+      harness: "claude",
+      model: "claude-opus-4-8",
+      source_ref: file,
+      usage: { input: 100, output: 20, cache_creation: 7, cache_read: 13 },
+      harnessPercentage: null,
+      harnessContextWindow: null,
+      longContextHint: null,
+      compaction_generation: `claude:${CLAUDE_UUID_A}`,
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: newest sidechain auto boundary ignored, newest eligible parent boundary wins", () => {
+  const { dir, file } = writeJsonl([
+    claudeAssistantRow(),
+    // Eligible parent auto boundary — this is the newest NON-sidechain proof.
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: CLAUDE_UUID_A,
+      compactMetadata: { trigger: "auto" },
+    },
+    // Newer, but sidechain: a subagent's own auto boundary must never become
+    // the parent's compaction proof, so it is skipped and A still wins.
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      isSidechain: true,
+      uuid: CLAUDE_UUID_B,
+      compactMetadata: { trigger: "auto" },
+    },
+  ]);
+  try {
+    assert.equal(
+      claudeAdapter.liftUsage({}, {}, file).compaction_generation,
+      `claude:${CLAUDE_UUID_A}`,
+      "sidechain boundary is skipped; newest eligible parent boundary wins"
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claude liftUsage: only a sidechain compact_boundary exists -> key omitted (no proof)", () => {
+  const { dir, file } = writeJsonl([
+    claudeAssistantRow(),
+    {
+      type: "system",
+      subtype: "compact_boundary",
+      isSidechain: true,
+      uuid: CLAUDE_UUID_A,
+      compactMetadata: { trigger: "auto" },
+    },
+  ]);
+  try {
+    const lifted = claudeAdapter.liftUsage({}, {}, file);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(lifted, "compaction_generation"),
+      false,
+      "a sidechain-only boundary yields no eligible proof; the optional field is omitted"
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Claude adapter: isSubagent signals
 // ---------------------------------------------------------------------------
 test("claude isSubagent: truthy agent_id -> true", () => {
@@ -516,9 +804,10 @@ test("codex liftUsage: uses last_token_usage for current context occupancy", () 
       },
       harnessPercentage: (66000 / 258400) * 100,
       harnessContextWindow: 258400,
+      cumulative: false,
     });
     const pct = codexAdapter.liftUsage({ cwd: dir }, {}, file)?.harnessPercentage ?? 0;
-    assert.ok(pct > 25 && pct < 26, "regression must meter about 26%, not clamp to 100%");
+    assert.ok(pct > 25 && pct < 26, "usage must meter about 26%, not clamp to 100%");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -616,6 +905,7 @@ test("codex liftUsage: returns static-map-computable usage without harness perce
       },
       harnessPercentage: null,
       harnessContextWindow: null,
+      cumulative: true,
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -677,6 +967,262 @@ test("codex liftUsage: ignores absurd total_token_usage fallback when last usage
     assert.equal(codexAdapter.liftUsage({ cwd: dir }, {}, file), null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Codex adapter: compaction_generation provenance
+// ---------------------------------------------------------------------------
+function codexTokenCountRow() {
+  return {
+    type: "token_count",
+    info: {
+      model_context_window: 258400,
+      last_token_usage: {
+        input_tokens: 62000,
+        output_tokens: 4000,
+        cached_input_tokens: 0,
+        total_tokens: 66000,
+      },
+    },
+  };
+}
+
+function codexUsageExpectation(file, extra) {
+  return {
+    harness: "codex",
+    model: "gpt-5",
+    source_ref: file,
+    usage: { input: 62000, output: 4000, cache_creation: 0, cache_read: 0 },
+    harnessPercentage: (66000 / 258400) * 100,
+    harnessContextWindow: 258400,
+    cumulative: false,
+    ...extra,
+  };
+}
+
+test("codex liftUsage: compacted window_id -> codex:<id> (prefers id over number)", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    codexTokenCountRow(),
+    // Envelope form: payload.type==='compacted'. window_id wins over number.
+    { payload: { type: "compacted", window_id: "ctx-42", window_number: 9 } },
+  ]);
+  try {
+    assert.deepEqual(
+      codexAdapter.liftUsage({ cwd: dir }, {}, file),
+      codexUsageExpectation(file, { compaction_generation: "codex:ctx-42" })
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex liftUsage: compacted window_number fallback -> codex-window:<n>", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    codexTokenCountRow(),
+    // Top-level form, no window_id -> nonnegative integer window_number.
+    { type: "compacted", window_number: 7 },
+  ]);
+  try {
+    assert.deepEqual(
+      codexAdapter.liftUsage({ cwd: dir }, {}, file),
+      codexUsageExpectation(file, { compaction_generation: "codex-window:7" })
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex liftUsage: newest compacted wins across interleaved token_count ordering", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    { payload: { type: "compacted", window_id: "earlier" } },
+    codexTokenCountRow(),
+    { payload: { type: "compacted", window_id: "new" } },
+  ]);
+  try {
+    const lifted = codexAdapter.liftUsage({ cwd: dir }, {}, file);
+    assert.equal(lifted.compaction_generation, "codex:new");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex liftUsage: malformed compacted proof (empty id, non-integer number) -> null", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    codexTokenCountRow(),
+    { type: "compacted", window_id: "   ", window_number: 2.5 },
+  ]);
+  try {
+    assert.equal(codexAdapter.liftUsage({ cwd: dir }, {}, file).compaction_generation, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex liftUsage: negative window_number is not a valid proof -> null", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    codexTokenCountRow(),
+    { type: "compacted", window_number: -1 },
+  ]);
+  try {
+    assert.equal(codexAdapter.liftUsage({ cwd: dir }, {}, file).compaction_generation, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("codex liftUsage: non-'compacted' type is ignored -> key omitted", () => {
+  const { dir, file } = writeJsonl([
+    { type: "turn_context", model: "gpt-5" },
+    codexTokenCountRow(),
+    // A similarly-named but non-exact type must never yield a generation.
+    { type: "context_compacted", window_id: "nope" },
+  ]);
+  try {
+    const lifted = codexAdapter.liftUsage({ cwd: dir }, {}, file);
+    assert.deepEqual(lifted, codexUsageExpectation(file));
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(lifted, "compaction_generation"),
+      false,
+      "a non-'compacted' type must not add the optional field"
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Adapter-to-hook lifecycle ordering
+// ---------------------------------------------------------------------------
+test("Claude transcript ordering triggers one prepared-handoff read from an exact auto UUID", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "orch-claude-lifecycle-"));
+  const session = `claude-lifecycle-${Date.now()}-${Math.random()}`;
+  const { root, env } = lifecycleDirectives("claude");
+  const rows = [
+    { type: "user", text: "first" },
+    claudeAssistantRow(),
+    { type: "user", text: "second" },
+  ];
+  const { dir, file } = writeJsonl(rows);
+  const payload = { cwd, session_id: session, transcript_path: file };
+  const statusPath = statuslinePathForSession(session);
+  try {
+    writeStatuslineRecord(payload, {
+      session_id: session,
+      used_percentage: 85,
+      context_window_size: 200000,
+      usage: { input: 170000, output: 0, cache_creation: 0, cache_read: 0 },
+      updated_at: Date.now(),
+      source: "statusline",
+    });
+    assert.match(runClaudeHook(payload, env), /Handoff lifecycle: `write_required`\./);
+    assert.equal(readMetering(session).compaction_generation, null,
+      "the pre-compaction adapter sample has no generation field");
+    writeHandoff(cwd, {
+      content: "PREPARED",
+      createdBySession: session,
+      usedPercentage: 85,
+    });
+
+    rows.push(
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        uuid: CLAUDE_UUID_A,
+        compactMetadata: { trigger: "auto" },
+      },
+      claudeAssistantRow(),
+      { type: "user", text: "after compaction" },
+    );
+    writeFileSync(file, rows.map((row) => JSON.stringify(row)).join("\n") + "\n", "utf8");
+    writeStatuslineRecord(payload, {
+      session_id: session,
+      used_percentage: 40,
+      context_window_size: 200000,
+      usage: { input: 80000, output: 0, cache_creation: 0, cache_read: 0 },
+      updated_at: Date.now(),
+      source: "statusline",
+    });
+
+    assert.match(runClaudeHook(payload, env), /\nHANDOFF-READ\n/);
+    assert.equal(readHandoff(cwd).lifecycle, "resuming");
+    assert.doesNotMatch(runClaudeHook(payload, env), /\nHANDOFF-READ\n/,
+      "replaying the same UUID proof cannot inject twice");
+  } finally {
+    clearLatch(session);
+    clearHandoff(cwd);
+    rmSync(meteringPath(session), { force: true });
+    rmSync(statusPath, { force: true });
+    rmSync(markerPath(cwd), { force: true });
+    rmSync(reminderPath(cwd), { force: true });
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Codex rollout ordering triggers one prepared-handoff read from Practical proof", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "orch-codex-lifecycle-"));
+  const session = `codex-lifecycle-${Date.now()}-${Math.random()}`;
+  const { root, env } = lifecycleDirectives("codex");
+  const tokenCount = (pct) => ({
+    type: "token_count",
+    info: {
+      model_context_window: 258400,
+      last_token_usage: {
+        input_tokens: 258400 * pct / 100,
+        output_tokens: 0,
+        cached_input_tokens: 0,
+        total_tokens: 258400 * pct / 100,
+      },
+    },
+  });
+  const rows = [
+    { type: "turn_context", model: "gpt-5" },
+    tokenCount(85),
+    tokenCount(85),
+  ];
+  const { dir, file } = writeJsonl(rows);
+  const payload = {
+    hook_event_name: "UserPromptSubmit",
+    cwd,
+    session_id: session,
+    transcript_path: file,
+  };
+  try {
+    assert.match(runCodexHook(payload, env), /Handoff lifecycle: `write_required`\./);
+    assert.equal(readMetering(session).compaction_generation, null,
+      "the pre-compaction adapter sample has no generation field");
+    writeHandoff(cwd, {
+      content: "PREPARED",
+      createdBySession: session,
+      usedPercentage: 85,
+    });
+
+    rows.push(
+      { payload: { type: "compacted", window_number: 7 } },
+      tokenCount(40),
+    );
+    writeFileSync(file, rows.map((row) => JSON.stringify(row)).join("\n") + "\n", "utf8");
+
+    assert.match(runCodexHook(payload, env), /\nHANDOFF-READ\n/);
+    assert.equal(readHandoff(cwd).lifecycle, "resuming");
+    assert.doesNotMatch(runCodexHook(payload, env), /\nHANDOFF-READ\n/,
+      "replaying the same compacted generation cannot inject twice");
+  } finally {
+    clearLatch(session);
+    clearHandoff(cwd);
+    rmSync(meteringPath(session), { force: true });
+    rmSync(markerPath(cwd), { force: true });
+    rmSync(reminderPath(cwd), { force: true });
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -793,7 +1339,7 @@ test("codex SessionStart: renders persisted USED utilization when a fresh meteri
       })
     );
     const out = runCodexHook({ hook_event_name: "SessionStart", cwd }, env);
-    // used_percentage ~60% -> utilization="60%", phase="handoff" (>=40),
+    // used_percentage ~60% -> utilization="60%", phase="handoff" (>=20),
     // footer Remaining Context=40%. Utilization is USED, footer is REMAINING.
     assert.match(
       out,

@@ -41,8 +41,8 @@ cannot be measured.
 
 The first-line exemption and `SUBAGENT_MCP_SUBAGENT=1` spawn-env carve-out are
 unchanged by the context-metered redesign. Metering, the 15% latch, the 20%
-handoff unlock, and the configurable wind-down warning threshold (default 60%)
-do not alter these carve-outs.
+handoff unlock, and the 80% mandatory handoff threshold do not alter these
+carve-outs.
 
 ### 6.1 The exemption (D19)
 
@@ -182,7 +182,7 @@ The context-metered redesign adds two session-keyed state files under
 | Record | File | Shape | Semantics |
 |---|---|---|---|
 | Enable | `orch-enable-<hashKey(sessionKey)>.json` | `{ enabled_at: number }` | explicit opt-in that raises a default-OFF hook-covered session to ON; same 2h TTL and lazy-GC pattern as disable; disable still wins |
-| Latch | `latch-<hashKey(sessionKey)>.json` | `{ latched: true, latched_at: number, session_id: string }` | written once at the first 15% plan-phase crossing; does not expire by time while the record exists; persists through the 20% handoff phase and the wind-down warning threshold for that session, and is unaffected by `contextCoaching` |
+| Latch | `latch-<hashKey(sessionKey)>.json` | `{ latched: true, latched_at: number, session_id: string }` | written once at the first 15% plan-phase crossing; does not expire by time while the record exists; persists through the 20% handoff phase and the 80% mandatory handoff threshold for that session, and is unaffected by `contextCoaching` |
 
 A brand-new session with a new `sessionKey` starts latch-free.
 

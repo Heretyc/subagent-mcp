@@ -88,31 +88,36 @@
   once and force-enables orchestration for the remainder of that session. Records
   without the current `LATCH_REV` are treated inactive and best-effort unlinked on
   read; this lazily drops bug-era latches derived from stale context-window
-  arithmetic. The latch PERSISTS through the 20% handoff phase and the
-  configurable wind-down warning threshold and does not
-  re-trigger its own coaching once tripped (no per-turn re-ask, unlike the
-  retired OFF-mode upgrade-ask). It never silently expires mid-session (no
+  arithmetic. The latch PERSISTS through the 20% handoff phase and the 80%
+  mandatory handoff threshold and does not re-trigger its own coaching once tripped
+  (no per-turn re-ask). It never silently expires mid-session (no
   `ORCH_DISABLE_TTL_MS` expiry applies to it); only a brand-new session (new
   owner key) starts latch-free, per default-OFF-per-session semantics. An explicit
   user `orchestration-mode enabled:false` disable-record (2h TTL, session-keyed)
   is STILL honored after the latch trips and wins over the latch, so the
   disable-check precedes the latch OR in the effective-active computation. The
-  `contextCoaching` setting does NOT gate the latch: with coaching off the latch
-  still trips, still force-enables, and still coaches at 15%; only the
-  at-or-above-threshold wind-down warn/steer is muted. See
-  `context-metering.md` and `sections-00-04.md` (phase thresholds).
+  `contextCoaching` setting does NOT gate the latch and does NOT gate mandatory
+  lifecycle injections: with coaching off the latch still trips, still
+  force-enables, and still coaches at 15%; mandatory lifecycle injections at 80%
+  and on compaction detection also fire regardless of `contextCoaching`
+  (coaching-off isolation). See `context-metering.md` and `sections-00-04.md`.
 - **Handoff persistence (project-keyed, cross-session cycle).** A handoff record
   (`handoff-<projectKey>.json`) uses the same git common-dir key as
   model-selection mode when cwd is inside a repo, else normalized cwd hash. It is
   not session-keyed, so a successor session working in the same repo/cwd identity
   can read what its predecessor wrote via handoff-write. The write/read/clear
-  cycle repeats for EACH successor session: the next session crosses its own
-  20% unlock, may write a fresh handoff from then on, and winds down when it
-  reaches its configured warning threshold. A fresh write
-  resets any prior reader binding (`read_by_session`,
-  `read_at`) and replaces the prior record. Only the session that ran
-  handoff-read (`read_by_session === current`) re-appends the saved content
-  verbatim to its LONG reminders. See `handoff.md`.
+  cycle repeats for EACH successor session: the next session crosses its own 20%
+  unlock (voluntary goal-context capture) and its own 80% mandatory threshold.
+  A fresh write sets `read_by_session` and `read_at` to null and becomes the
+  stored record. Automatic transition eligibility requires
+  `version = HANDOFF_RECORD_VERSION` (2), `lifecycle = "prepared"`, a non-empty
+  string `generation`, and `created_by_session` matching the current session;
+  other records remain readable but ineligible for that transition. On
+  `handoff-read`, `markRead` stamps the reader and advances any version-2 record
+  to `working`, even when its lifecycle or generation is incomplete; other
+  readable versions retain their schema.
+  Only the session that ran handoff-read (`read_by_session === current`)
+  re-appends the saved content verbatim to its LONG reminders. See `handoff.md`.
 - **Atomic state writes.** Every marker/state file (`orch-<cwdHash>.flag`, the
   session-keyed enable/disable and latch records, reminder counters, and both
   session pointers)
@@ -180,18 +185,24 @@ ProviderAdapter filenames are unchanged (hook-core contract preserved).
 ### 13.1 Coaching structured-question map (metered lifecycle)
 
 The metered latch/handoff coaching mandates exact question counts and call
-splits per harness. These three rows are binding.
+splits per harness. These rows are binding.
 
 | Coaching trigger | Questions | Claude call shape | Codex call shape |
 |---|---|---|---|
 | 15% latch (plan phase) | AT LEAST 4 | structured question tool (`AskUserQuestion`), or natural prose if unavailable | structured question tool (`request-user-input`), or natural prose if unavailable |
-| handoff-write pre-write (>=20%) | 10 | three `AskUserQuestion` calls (4+4+2; each call takes at most 4 questions) | one `request-user-input` call carrying all 10 |
-| handoff-read pre-act | 4 | one call | one call |
+| handoff-write pre-write (>=20% voluntary OR >=80% mandatory) | 10 | three `AskUserQuestion` calls (4+4+2; each call takes at most 4 questions) | one `request-user-input` call carrying all 10 |
+| handoff-read pre-act (voluntary) | 4 | one call | one call |
+| mandatory handoff-read (`session_handoff_required`) | EXACTLY 4 after a successful read | one `AskUserQuestion` call | one `request-user-input` call |
 
 The latch row is deliberately harness-NEUTRAL and count-OPEN: one verbatim
 string ships in both latch directives, it names the structured question tool
 generically, and it permits natural prose where no such tool exists. The
-handoff-read row is a SEPARATE policy and stays at EXACTLY 4.
+voluntary and mandatory handoff-read rows both require EXACTLY 4 confirmation
+questions after a successful read. The one-turn
+`session_handoff_required` directive supplies the instruction; the
+`handoff-read` tool returns the same contract, and the caller performs the
+structured-question call before acting. This behavior is not muted by
+`contextCoaching`.
 
 Latch coaching bodies live in `directives/latch-claude.md` / `latch-codex.md`;
 handoff coaching bodies in `directives/handoff-claude.md` / `handoff-codex.md`.

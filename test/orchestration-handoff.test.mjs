@@ -12,8 +12,14 @@ import {
   HANDOFF_CONTENT_LIMIT,
   HANDOFF_OVERFLOW_LIMIT,
   HANDOFF_THRESHOLD_PCT,
+  HANDOFF_RECORD_VERSION,
   UNAVAILABLE_NO_METERING,
   checkHandoffWriteAvailable,
+  claimSessionHandoffRead,
+  isEligiblePrepared,
+  isSessionHandoffRequired,
+  isWriteRequired,
+  markSessionHandoffRequired,
   OVERSIZE_CONTENT,
   OVERSIZE_OVERFLOW,
   clearHandoff,
@@ -78,9 +84,10 @@ test("write/read/clear round-trip stores and removes the handoff record", () => 
   });
 });
 
-// LOCKED (context-coaching): the handoff-write unlock is a hard-coded 20% and is
-// never configurable. Boundaries under test are 19 / 20 / 21, and the gate stays
-// open well past the (now user-configurable, default 60) wind-down warn point.
+// LOCKED (voluntary write gate): the handoff-write unlock is a hard-coded 20% and
+// is never configurable. Boundaries under test are 19 / 20 / 21, and the gate
+// stays open at every higher utilization (including the mandatory 80% and 90%
+// points), because the voluntary write availability is never re-gated upward.
 test("write gate is locked at 19%, unlocked at 20%, and stays unlocked above it", () => {
   // No metering at all stays a DISTINCT error from "below the unlock".
   assert.deepEqual(checkHandoffWriteAvailable(null), {
@@ -99,6 +106,7 @@ test("write gate is locked at 19%, unlocked at 20%, and stays unlocked above it"
   assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 21 }), { ok: true });
   assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 40 }), { ok: true });
   assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 60 }), { ok: true });
+  assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 80 }), { ok: true });
   assert.deepEqual(checkHandoffWriteAvailable({ used_percentage: 90 }), { ok: true });
 });
 
@@ -288,6 +296,202 @@ test("Claude-write -> Codex-read uses repo identity and cross-harness clear", ()
   } finally {
     clearHandoff(claudeCwd);
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Versioned (v2) handoff records + lifecycle/generation.
+//
+// A fresh handoff-write stamps HANDOFF_RECORD_VERSION; a write at/above the
+// mandatory H=80 line additionally mints lifecycle="prepared" and a random UUID
+// generation authored by the writing session. Below-80 (or no-utilization)
+// writes are v2 but generation-INELIGIBLE. Detected compaction moves only the
+// writer's OWN prepared record to session_handoff_required, whose one mandated
+// read is claimed exactly once (-> resuming); a completed markRead advances a v2
+// record to working. Legacy (v1) records stay readable, ineligible, and are
+// never promoted on read or markRead.
+// ---------------------------------------------------------------------------
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// A fresh write at/above H stamps prepared + a UUID generation for `session`.
+function prepareFor(cwd, session, pct = 85) {
+  const result = writeHandoff(cwd, {
+    content: "prepared handoff body",
+    createdBySession: session,
+    usedPercentage: pct,
+  });
+  assert.equal(result.ok, true);
+  return result.record;
+}
+
+test("a fresh write at/above H=80 mints a v2 prepared record with a UUID generation", () => {
+  withCwd((cwd) => {
+    const record = prepareFor(cwd, "writer-at-80", 80);
+    assert.equal(record.version, HANDOFF_RECORD_VERSION);
+    assert.equal(record.lifecycle, "prepared");
+    assert.match(record.generation, UUID_RE);
+    assert.equal(isEligiblePrepared(record), true);
+    assert.equal(isEligiblePrepared(record, "writer-at-80"), true,
+      "eligible for its authoring session");
+    assert.equal(isEligiblePrepared(record, "someone-else"), false,
+      "a foreign session never owns the prepared record");
+    assert.deepEqual(readHandoff(cwd), record,
+      "the persisted v2 prepared record round-trips unchanged");
+  });
+});
+
+test("a successful write only PREPARES; it returns no session-boundary flag", () => {
+  withCwd((cwd) => {
+    const result = writeHandoff(cwd, {
+      content: "prepared, not yet resuming",
+      createdBySession: "writer-no-boundary",
+      usedPercentage: 82,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.record.lifecycle, "prepared");
+    // The result is exactly {ok, record}: the session boundary is driven later by
+    // detected compaction, never demanded by the successful write.
+    assert.deepEqual(Object.keys(result).sort(), ["ok", "record"]);
+    for (const flag of ["require_new_session", "session_boundary", "new_session_required", "resume_required"]) {
+      assert.equal(flag in result, false, `write result must not raise ${flag}`);
+      assert.equal(flag in result.record, false, `prepared record must not raise ${flag}`);
+    }
+  });
+});
+
+test("a below-80 write is v2 but generation-INELIGIBLE (readable, no lifecycle/generation)", () => {
+  withCwd((cwd) => {
+    const result = writeHandoff(cwd, {
+      content: "voluntary early goal-capture write",
+      createdBySession: "writer-early",
+      usedPercentage: 79,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.record.version, HANDOFF_RECORD_VERSION);
+    assert.equal(result.record.lifecycle, null, "below-H writes carry no prepared lifecycle");
+    assert.equal(result.record.generation, null, "below-H writes mint no generation");
+    assert.equal(isEligiblePrepared(result.record), false);
+    assert.equal(isEligiblePrepared(result.record, "writer-early"), false);
+    assert.deepEqual(readHandoff(cwd), result.record, "an early write is still fully readable");
+  });
+});
+
+test("a write with no utilization is v2 but ineligible", () => {
+  withCwd((cwd) => {
+    const record = writeHandoff(cwd, {
+      content: "no-utilization write",
+      createdBySession: "writer-null-util",
+    }).record;
+    assert.equal(record.version, HANDOFF_RECORD_VERSION);
+    assert.equal(record.lifecycle, null);
+    assert.equal(record.generation, null);
+    assert.equal(isEligiblePrepared(record, "writer-null-util"), false);
+  });
+});
+
+test("isWriteRequired is owed at/above H with no eligible prepared, and cleared by a prepared write", () => {
+  withCwd((cwd) => {
+    // No record yet: at/above H a fresh write is owed; below H (or unknown) it is not.
+    assert.equal(isWriteRequired(cwd, "sess", 80), true);
+    assert.equal(isWriteRequired(cwd, "sess", 79), false);
+    assert.equal(isWriteRequired(cwd, "sess", null), false);
+    // After a prepared write for this session the debt clears...
+    prepareFor(cwd, "sess", 85);
+    assert.equal(isWriteRequired(cwd, "sess", 90), false);
+    // ...but a DIFFERENT session does not own it, so it still owes a write.
+    assert.equal(isWriteRequired(cwd, "other", 90), true);
+  });
+});
+
+test("markSessionHandoffRequired only transitions an OWN prepared record", () => {
+  withCwd((cwd) => {
+    const prepared = prepareFor(cwd, "owner", 85);
+    assert.equal(isSessionHandoffRequired(prepared, "owner"), false,
+      "a prepared record is not yet awaiting the mandated read");
+
+    // Foreign session cannot transition it.
+    assert.equal(markSessionHandoffRequired(cwd, "intruder"), null);
+    assert.equal(readHandoff(cwd).lifecycle, "prepared", "a foreign attempt leaves it prepared");
+
+    // The authoring session moves prepared -> session_handoff_required.
+    const required = markSessionHandoffRequired(cwd, "owner");
+    assert.equal(required?.lifecycle, "session_handoff_required");
+    assert.equal(isSessionHandoffRequired(required, "owner"), true);
+    assert.equal(isSessionHandoffRequired(required, "someone-else"), false);
+
+    // Only a prepared record may transition: a second attempt is a no-op.
+    assert.equal(markSessionHandoffRequired(cwd, "owner"), null,
+      "only a prepared record transitions on compaction");
+  });
+});
+
+test("claimSessionHandoffRead fires exactly once: session_handoff_required -> resuming", () => {
+  withCwd((cwd) => {
+    prepareFor(cwd, "owner", 85);
+    // A prepared (not-yet-required) record cannot be claimed.
+    assert.equal(claimSessionHandoffRead(cwd, "owner"), null);
+
+    markSessionHandoffRequired(cwd, "owner");
+    // Foreign session cannot claim.
+    assert.equal(claimSessionHandoffRead(cwd, "intruder"), null);
+
+    const first = claimSessionHandoffRead(cwd, "owner");
+    assert.equal(first?.lifecycle, "resuming", "the single claim moves it to resuming");
+    assert.equal(readHandoff(cwd).lifecycle, "resuming");
+
+    // The mandated read is claimed ONCE per generation.
+    assert.equal(claimSessionHandoffRead(cwd, "owner"), null,
+      "a second claim returns null (exactly-once)");
+    assert.equal(readHandoff(cwd).lifecycle, "resuming");
+  });
+});
+
+test("markRead advances a v2 record to working", () => {
+  withCwd((cwd) => {
+    prepareFor(cwd, "owner", 85);
+    markSessionHandoffRequired(cwd, "owner");
+    claimSessionHandoffRead(cwd, "owner"); // -> resuming
+    const read = markRead(cwd, "reader");
+    assert.equal(read?.read_by_session, "reader");
+    assert.equal(read?.lifecycle, "working", "a completed read moves a v2 record to working");
+    assert.equal(readHandoff(cwd).lifecycle, "working");
+  });
+});
+
+test("a legacy v1 record is readable, ineligible, and NOT promoted on read or markRead", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "handoff-v1-noPromote-"));
+  try {
+    clearHandoff(cwd);
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    // A pre-lifecycle record: only the v1 fields, no version/lifecycle/generation.
+    const legacy = {
+      content: "legacy v1 handoff body",
+      overflow_path: null,
+      created_at: 1,
+      created_by_session: "legacy-writer",
+      read_by_session: null,
+      read_at: null,
+    };
+    writeFileSync(handoffPath(cwd), JSON.stringify(legacy), "utf8");
+
+    const read = readHandoff(cwd);
+    assert.deepEqual(read, legacy, "a legacy record reads back byte-semantically unchanged");
+    assert.equal("version" in read, false, "reading a v1 record adds no version");
+    assert.equal("lifecycle" in read, false, "reading a v1 record adds no lifecycle");
+    assert.equal("generation" in read, false, "reading a v1 record mints no generation");
+    assert.equal(isEligiblePrepared(read, "legacy-writer"), false,
+      "a legacy record is never an eligible prepared generation");
+    assert.equal(markSessionHandoffRequired(cwd, "legacy-writer"), null,
+      "a legacy record never transitions on compaction");
+
+    // markRead stamps the reader but must NOT promote the schema (no lifecycle).
+    const afterRead = markRead(cwd, "legacy-reader");
+    assert.equal(afterRead?.read_by_session, "legacy-reader");
+    assert.equal("lifecycle" in afterRead, false,
+      "markRead must not promote a legacy record's schema");
+  } finally {
+    clearHandoff(cwd);
+    rmSync(cwd, { recursive: true, force: true });
   }
 });
 

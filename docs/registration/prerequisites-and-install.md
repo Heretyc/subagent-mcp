@@ -70,12 +70,16 @@ notice. `SUBAGENT_UPDATE_CHECK=0` or `SUBAGENT_UPDATE_CHECK=false`
 ## User settings
 
 `setup` asks first-run user settings only when `~/.subagent-mcp/settings.json`
-is missing or blank. Existing files that lack the keys use silent defaults.
+is missing or blank. Existing files that lack the key use a silent default.
 
-- `contextCoaching`: default `true`; `false` mutes only the wind-down warning
-  and handoff steer, not the 15% latch or 20% handoff unlock.
-- `handoffWarnThreshold`: default `60`; valid whole numbers are `40`-`90`.
-  Blank, malformed, or out-of-range values resolve to `60`.
+- `contextCoaching`: default `true`; `false` does NOT mute mandatory lifecycle
+  injections (write_required at 80% and session_handoff_required on compaction);
+  those fire regardless. The 15% orchestration latch and 20% handoff-write unlock
+  are also unaffected by this setting.
+- Claude auto-compaction: `setup` writes user-scope `settings.json`
+  `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"`. If an existing `env` is not a
+  JSON object, setup leaves it untouched and reports the required repair; it
+  does not detect host-version support.
 
 ## `init --global` (provider global user-config)
 

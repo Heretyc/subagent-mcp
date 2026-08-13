@@ -24,6 +24,8 @@ import {
   reconcileClaudeJson,
   reconcileCodexToml,
   reconcileCodexHooks,
+  reconcileClaudeAutocompact,
+  CLAUDE_AUTOCOMPACT_OVERRIDE_ENV,
   claudeAddArgs,
   codexAddArgs,
   deploySmcpSkillsAndCommands,
@@ -465,6 +467,84 @@ test("verifyWiring reports codex hook and installed skills", () => {
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// reconcileClaudeAutocompact — pure host-conformance reconcile helper.
+//
+// Setup pins Claude Code's auto-compact override env var to
+// CODEX_AUTOCOMPACT_PCT (=90) so Claude and Codex compact at the same
+// context-exhaustion point. The real export mutates the parsed settings object
+// in place and writes exactly one env key —
+// settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90" — returning
+// { changed, status, unsupported }: absent => added, wrong value => repaired,
+// exact => ok, unrelated settings/env keys never touched, non-object env =>
+// unsupported (left untouched, reported, never clobbered).
+//
+// Bound directly to the real named exports (no namespace candidate probing);
+// the override value is asserted as the exact string "90" (no regex probes).
+// ---------------------------------------------------------------------------
+test("claude auto-compact: exported override env key is the documented CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", () => {
+  assert.equal(CLAUDE_AUTOCOMPACT_OVERRIDE_ENV, "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE");
+});
+
+test("claude auto-compact: absent -> added, sets override to '90', idempotent no-op on re-run", () => {
+  const s = {};
+  const first = reconcileClaudeAutocompact(s, 90);
+  assert.equal(first.status, "added");
+  assert.equal(first.changed, true);
+  assert.equal(first.unsupported, null);
+  assert.equal(s.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, "90");
+  assert.equal(s.env[CLAUDE_AUTOCOMPACT_OVERRIDE_ENV], "90");
+
+  const afterFirst = JSON.stringify(s);
+  const second = reconcileClaudeAutocompact(s, 90);
+  assert.equal(second.status, "ok");
+  assert.equal(second.changed, false);
+  assert.equal(second.unsupported, null);
+  assert.equal(JSON.stringify(s), afterFirst, "exact target must be a byte-identical no-op");
+});
+
+test("claude auto-compact: wrong value -> repaired in place to '90'", () => {
+  const s = { env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: "85" } };
+  const r = reconcileClaudeAutocompact(s, 90);
+  assert.equal(r.status, "repaired");
+  assert.equal(r.changed, true);
+  assert.equal(r.unsupported, null);
+  assert.equal(s.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, "90");
+});
+
+test("claude auto-compact: unrelated settings and env keys are never touched", () => {
+  const s = {
+    permissions: { allow: ["*"] },
+    statusLine: { type: "command", command: "starship prompt" },
+    hooks: { UserPromptSubmit: [{ hooks: [{ command: "x" }] }] },
+    model: "some-model[1m]",
+    env: { KEEP_ME: "1" },
+  };
+  const r = reconcileClaudeAutocompact(s, 90);
+  assert.equal(r.status, "added");
+  assert.equal(s.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, "90");
+  assert.equal(s.env.KEEP_ME, "1", "unrelated env entries preserved");
+  assert.deepEqual(s.permissions, { allow: ["*"] }, "user permissions untouched");
+  assert.deepEqual(s.statusLine, { type: "command", command: "starship prompt" }, "statusLine untouched");
+  assert.deepEqual(s.hooks, { UserPromptSubmit: [{ hooks: [{ command: "x" }] }] }, "hooks untouched");
+  assert.equal(s.model, "some-model[1m]", "model untouched");
+});
+
+test("claude auto-compact: non-object env -> unsupported, env left untouched, never clobbered", () => {
+  const sString = { env: "not-an-object" };
+  const rs = reconcileClaudeAutocompact(sString, 90);
+  assert.equal(rs.changed, false);
+  assert.equal(typeof rs.unsupported, "string");
+  assert.ok(rs.unsupported.includes(CLAUDE_AUTOCOMPACT_OVERRIDE_ENV), "reports the env key it could not set");
+  assert.equal(sString.env, "not-an-object", "non-object env must be preserved verbatim");
+
+  const sArray = { env: ["nope"] };
+  const ra = reconcileClaudeAutocompact(sArray, 90);
+  assert.equal(ra.changed, false);
+  assert.equal(typeof ra.unsupported, "string");
+  assert.deepEqual(sArray.env, ["nope"], "array env must be preserved verbatim");
 });
 
 // ---------------------------------------------------------------------------

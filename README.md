@@ -86,8 +86,9 @@ its own. `subagent-mcp setup` finds your Claude Code, Codex, or Gemini install
 and registers the supported server, hook, and native-agent suppression config
 for that host. For Claude Code it also registers or wraps `statusLine` so the
 hook can read Claude's authoritative context percentage without replacing your
-custom statusline, and deploys the `smcp-handoff` Agent Skill to your Claude
-user scope.
+custom statusline, writes
+`settings.json` `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"`, and deploys the
+`smcp-handoff` Agent Skill to your Claude user scope.
 Preview first with `subagent-mcp setup --dry-run`.
 
 For provider config, run `subagent-mcp config init`, edit the generated `.env`
@@ -122,13 +123,53 @@ global concurrency cap, update checks, permission ceiling, escalation behavior,
 strict read-parity logging, and Codex sandbox networking.
 
 Context-coaching preferences live only in `~/.subagent-mcp/settings.json` (or
-`settings.local.json`): `contextCoaching` defaults to `true`, and
-`handoffWarnThreshold` defaults to `60` with valid values `40`-`90`. Invalid,
-blank, or out-of-range thresholds resolve to `60`.
+`settings.local.json`): `contextCoaching` defaults to `true`. When enabled,
+the hook delivers optional per-turn planning and goal-capture coaching.
+Disabling it suppresses that coaching only; mandatory lifecycle injections
+(handoff preparation at 80%, compaction detection, and the one-turn read
+mandate) fire regardless.
 
 User and repo permission files can only tighten or add scoped permissions on top
 of the global ceiling. See [README/configuration.md](README/configuration.md)
 for the full key table, precedence rules, and mode summary.
+
+## Context and Handoff Lifecycle
+
+The implemented Claude and Codex hooks track context utilization each turn. At
+**80%** they mandate a fresh handoff write: a record with `version = 2`,
+`lifecycle = "prepared"`, and a random generation ID. This sits 10 points before
+the 90% auto-compaction boundary, ensuring a current snapshot exists before
+compaction clears context.
+
+Compaction detection runs on the same per-turn path as all other metering. A
+drop of **10 or more percentage points** from a prior sample at or above 80%,
+within the same session, is necessary but not sufficient: the current sample
+must ALSO carry a fresh structural compaction-generation proof. For Claude that
+proof comes only from the newest main-chain system `compact_boundary`: that
+exact boundary must have `compactMetadata.trigger = "auto"` and a canonical
+top-level UUID. A newer manual or invalid boundary masks every older valid auto
+boundary. For Codex it is a freshly compacted context-window identity
+(`window_id` / `window_number`). Codex exposes no auto-versus-manual cause, so a
+manual `/compact` at or above 80% with a qualifying drop is indistinguishable
+and does trigger. The last-seen generation persists in the metering record, so
+an unchanged proof is rejected as a replay and each compaction fires the
+lifecycle at most once. Pairs that fail session, harness, source, model,
+context-window, sample-sequence, freshness, current-sample, or sub-agent checks
+are rebaselined, not flagged.
+
+On confirmed compaction the record enters `session_handoff_required`. The hook
+then injects a **one-turn handoff-read mandate** exactly once and moves the
+record to `resuming`. Automatic transition eligibility requires all four runtime
+predicates: `version = 2`, `lifecycle = "prepared"`, a non-empty `generation`,
+and `created_by_session` matching the current session. Other readable records
+are ineligible for that automatic transition. After a successful `handoff-read`,
+the caller must ask exactly four structured confirmation questions before
+acting. With a current session key, the read stamps the reader fields and moves
+any version-2 record to `working`; readable records with another or no version
+retain their lifecycle schema.
+
+Enforcement is **directive-only**: no tool-level gates are added in any
+lifecycle state.
 
 ## Permissions
 

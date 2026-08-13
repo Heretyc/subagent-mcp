@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   mkdirSync,
   readFileSync,
@@ -7,12 +8,38 @@ import {
 import { isAbsolute, join } from "node:path";
 import { atomicWriteJson } from "./atomic-write.js";
 import { cwdHash, stateDir } from "./marker.js";
-import { HANDOFF_UNLOCK_THRESHOLD_PCT } from "./metering.js";
+import {
+  HANDOFF_REQUIRED_THRESHOLD_PCT,
+  HANDOFF_UNLOCK_THRESHOLD_PCT,
+} from "./metering.js";
 import { modelModeKey } from "./model-mode.js";
 
 export const HANDOFF_THRESHOLD_PCT = HANDOFF_UNLOCK_THRESHOLD_PCT;
 export const HANDOFF_CONTENT_LIMIT = 4000;
 export const HANDOFF_OVERFLOW_LIMIT = 8000;
+
+/**
+ * Current handoff record format version. A fresh handoff-write stamps this and,
+ * when written at or above the mandatory-write line, the eligible
+ * lifecycle/generation fields. Unversioned records remain readable but are not
+ * lifecycle-eligible and are not promoted on read.
+ */
+export const HANDOFF_RECORD_VERSION = 2;
+
+/**
+ * Versioned handoff lifecycle. A fresh write at/above the mandatory-write line
+ * is `prepared`; detected auto-compaction moves the writer's own prepared
+ * record to `session_handoff_required`, which mandates exactly one hook-injected
+ * read; that claim moves it to `resuming`; a completed read moves it to
+ * `working`. Only `prepared` may transition on compaction, and only
+ * `session_handoff_required` may be claimed, so the read injection fires exactly
+ * once per generation.
+ */
+export type HandoffLifecycle =
+  | "prepared"
+  | "session_handoff_required"
+  | "resuming"
+  | "working";
 
 export const UNAVAILABLE_NO_METERING =
   "handoff-write is not available due to missing context size data. It will become available once context usage can be measured for this session.";
@@ -29,8 +56,7 @@ export const UNAVAILABLE_BELOW_UNLOCK: UnlockUnavailableWording =
   "handoff-write is not available until this session reaches 20% context utilization (currently below threshold).";
 
 /**
- * @deprecated Threshold-bearing name kept only for import compatibility with
- * existing consumers; the unlock is now 20% (see UNAVAILABLE_BELOW_UNLOCK).
+ * Compatibility export for consumers of the threshold-bearing name.
  */
 export const UNAVAILABLE_BELOW_40 = UNAVAILABLE_BELOW_UNLOCK;
 export const OVERSIZE_CONTENT =
@@ -41,7 +67,7 @@ export const NO_HANDOFF_FOUND =
   "No handoff found for this directory. Resume the previous session and ask it to write one via handoff-write.";
 
 export const HANDOFF_WRITE_SUCCESS =
-  "We are ready to start a new session, to avoid wasting tokens, use the structured question tool to confirm that the user is ready to use the `smcp-handoff skill` in the next new session to resume work and has cleared the current /goal (if present) - or you will be compelled to keep working on a potential /goal that needs to be halted for a new session.";
+  "Handoff saved. Keep working in the current session. If the handoff is prepared, automatic compaction will require `handoff-read` for one turn before work resumes.";
 
 export interface HandoffRecord {
   content: string;
@@ -50,6 +76,13 @@ export interface HandoffRecord {
   created_by_session: string;
   read_by_session: string | null;
   read_at: number | null;
+  /**
+   * Version 2 fields. Unversioned records stay byte-semantically readable and
+   * generation-ineligible; fresh writes stamp all three fields.
+   */
+  version?: number;
+  lifecycle?: HandoffLifecycle | null;
+  generation?: string | null;
 }
 
 export interface HandoffMetering {
@@ -60,6 +93,12 @@ export interface WriteHandoffInput {
   content: string;
   overflowContent?: string | null;
   createdBySession: string;
+  /**
+   * The writing session's current utilization. A fresh write at/above the
+   * mandatory-write line produces an eligible `prepared` record with a fresh
+   * generation UUID; anything lower is readable but generation-ineligible.
+   */
+  usedPercentage?: number | null;
 }
 
 export type HandoffError =
@@ -96,7 +135,26 @@ export function checkHandoffWriteAvailable(metering: HandoffMetering | null | un
 }
 
 export function readHandoff(cwd: string): HandoffRecord | null {
-  return readHandoffAt(handoffPath(cwd)) ?? readHandoffAt(legacyHandoffPath(cwd));
+  return readHandoffWithPath(cwd)?.record ?? null;
+}
+
+/**
+ * Read the handoff along with the path it came from, preferring the current
+ * path over the cwd-hash compatibility path. Lifecycle transitions and markRead
+ * write back to the source path, so reads never relocate records.
+ */
+function readHandoffWithPath(
+  cwd: string,
+): { record: HandoffRecord; path: string } | null {
+  const primary = handoffPath(cwd);
+  const current = readHandoffAt(primary);
+  if (current !== null) return { record: current, path: primary };
+  const compatibilityPath = cwdHashHandoffPath(cwd);
+  const compatibilityRecord = readHandoffAt(compatibilityPath);
+  if (compatibilityRecord !== null) {
+    return { record: compatibilityRecord, path: compatibilityPath };
+  }
+  return null;
 }
 
 function readHandoffAt(path: string): HandoffRecord | null {
@@ -106,6 +164,57 @@ function readHandoffAt(path: string): HandoffRecord | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * A record is an eligible prepared handoff for `sessionKey` when a fresh write
+ * stamped it: current version, `prepared` lifecycle, a real generation UUID,
+ * and (when a session is given) authorship by that session. Unversioned records
+ * never qualify.
+ */
+export function isEligiblePrepared(
+  record: HandoffRecord | null | undefined,
+  sessionKey?: string,
+): boolean {
+  if (!record) return false;
+  if (record.version !== HANDOFF_RECORD_VERSION) return false;
+  if (record.lifecycle !== "prepared") return false;
+  if (typeof record.generation !== "string" || record.generation.length === 0) return false;
+  if (sessionKey !== undefined && record.created_by_session !== sessionKey) return false;
+  return true;
+}
+
+/**
+ * Whether `sessionKey`'s own record is awaiting the one mandated post-compaction
+ * read injection.
+ */
+export function isSessionHandoffRequired(
+  record: HandoffRecord | null | undefined,
+  sessionKey: string,
+): boolean {
+  return (
+    !!record &&
+    record.version === HANDOFF_RECORD_VERSION &&
+    record.lifecycle === "session_handoff_required" &&
+    record.created_by_session === sessionKey
+  );
+}
+
+/**
+ * Derive `write_required`: at/above the mandatory-write line with no eligible
+ * prepared record for this session, a fresh handoff write is owed. Pure read;
+ * no state file of its own.
+ */
+export function isWriteRequired(
+  cwd: string,
+  sessionKey: string,
+  usedPercentage: number | null | undefined,
+): boolean {
+  if (typeof usedPercentage !== "number" || !Number.isFinite(usedPercentage)) {
+    return false;
+  }
+  if (usedPercentage < HANDOFF_REQUIRED_THRESHOLD_PCT) return false;
+  return !isEligiblePrepared(readHandoff(cwd), sessionKey);
 }
 
 export function writeHandoff(cwd: string, input: WriteHandoffInput): HandoffResult {
@@ -124,6 +233,14 @@ export function writeHandoff(cwd: string, input: WriteHandoffInput): HandoffResu
     writeFileSync(overflowPath, overflowContent, { encoding: "utf8", mode: 0o600 });
   }
 
+  // A fresh write at/above the mandatory-write line is the ONLY producer of an
+  // eligible prepared record (lifecycle + generation). Lower writes are versioned but
+  // carry no lifecycle/generation, so they stay readable yet ineligible.
+  const used = input.usedPercentage;
+  const eligible =
+    typeof used === "number" &&
+    Number.isFinite(used) &&
+    used >= HANDOFF_REQUIRED_THRESHOLD_PCT;
   const record: HandoffRecord = {
     content: input.content,
     overflow_path: overflowPath,
@@ -131,6 +248,9 @@ export function writeHandoff(cwd: string, input: WriteHandoffInput): HandoffResu
     created_by_session: input.createdBySession,
     read_by_session: null,
     read_at: null,
+    version: HANDOFF_RECORD_VERSION,
+    lifecycle: eligible ? "prepared" : null,
+    generation: eligible ? randomUUID() : null,
   };
   atomicWriteJson(handoffPath(cwd), record, { encoding: "utf8", mode: 0o600 });
   return { ok: true, record };
@@ -143,21 +263,74 @@ export function writeHandoffIfAvailable(
 ): HandoffResult {
   const gate = checkHandoffWriteAvailable(metering);
   if (!gate.ok) return gate;
-  return writeHandoff(cwd, input);
+  return writeHandoff(cwd, {
+    ...input,
+    usedPercentage: input.usedPercentage ?? metering?.used_percentage ?? null,
+  });
 }
 
 export function markRead(cwd: string, sessionKey: string): HandoffRecord | null {
-  const record = readHandoff(cwd);
-  if (record === null) return null;
+  const found = readHandoffWithPath(cwd);
+  if (found === null) return null;
 
   const next: HandoffRecord = {
-    ...record,
+    ...found.record,
     read_by_session: sessionKey,
     read_at: Date.now(),
   };
+  // Only a current-version record advances lifecycle. Other readable records
+  // retain their schema and source path.
+  if (found.record.version === HANDOFF_RECORD_VERSION) {
+    next.lifecycle = "working";
+  }
   try {
     mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-    atomicWriteJson(handoffPath(cwd), next, { encoding: "utf8", mode: 0o600 });
+    atomicWriteJson(found.path, next, { encoding: "utf8", mode: 0o600 });
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * On detected auto-compaction, move the writer's OWN prepared record to
+ * `session_handoff_required`. Only a prepared current-version record authored
+ * by this session may transition; every other record is left untouched.
+ */
+export function markSessionHandoffRequired(
+  cwd: string,
+  sessionKey: string,
+): HandoffRecord | null {
+  const found = readHandoffWithPath(cwd);
+  if (found === null) return null;
+  if (!isEligiblePrepared(found.record, sessionKey)) return null;
+  const next: HandoffRecord = { ...found.record, lifecycle: "session_handoff_required" };
+  try {
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    atomicWriteJson(found.path, next, { encoding: "utf8", mode: 0o600 });
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Claim the one mandated post-compaction read for this generation, moving
+ * `session_handoff_required` -> `resuming`. Returns the transitioned record on
+ * the single claiming turn and null thereafter, so the read injection fires
+ * exactly once per record UUID.
+ */
+export function claimSessionHandoffRead(
+  cwd: string,
+  sessionKey: string,
+): HandoffRecord | null {
+  const found = readHandoffWithPath(cwd);
+  if (found === null) return null;
+  if (!isSessionHandoffRequired(found.record, sessionKey)) return null;
+  const next: HandoffRecord = { ...found.record, lifecycle: "resuming" };
+  try {
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    atomicWriteJson(found.path, next, { encoding: "utf8", mode: 0o600 });
     return next;
   } catch {
     return null;
@@ -165,9 +338,9 @@ export function markRead(cwd: string, sessionKey: string): HandoffRecord | null 
 }
 
 export function clearHandoff(cwd: string): void {
-  const records = [handoffPath(cwd), legacyHandoffPath(cwd)].map(readHandoffAt);
+  const records = [handoffPath(cwd), cwdHashHandoffPath(cwd)].map(readHandoffAt);
   unlinkIfPresent(handoffPath(cwd));
-  unlinkIfPresent(legacyHandoffPath(cwd));
+  unlinkIfPresent(cwdHashHandoffPath(cwd));
   for (const record of records) {
     if (record?.overflow_path) {
       unlinkIfPresent(record.overflow_path);
@@ -175,7 +348,7 @@ export function clearHandoff(cwd: string): void {
   }
 }
 
-function legacyHandoffPath(cwd: string): string {
+function cwdHashHandoffPath(cwd: string): string {
   return join(stateDir, "handoff-" + cwdHash(cwd) + ".json");
 }
 
@@ -207,7 +380,24 @@ function validateHandoffRecord(value: unknown): HandoffRecord | null {
   if (readBySession !== null && typeof readBySession !== "string") return null;
   if (readAt !== null && !isFiniteNumber(readAt)) return null;
 
-  return {
+  // Version fields are optional so unversioned records remain readable. When
+  // present they must be well-formed.
+  const version = record.version;
+  if (version !== undefined && !isFiniteNumber(version)) return null;
+  const lifecycle = record.lifecycle;
+  if (
+    lifecycle !== undefined &&
+    lifecycle !== null &&
+    !isHandoffLifecycle(lifecycle)
+  ) {
+    return null;
+  }
+  const generation = record.generation;
+  if (generation !== undefined && generation !== null && typeof generation !== "string") {
+    return null;
+  }
+
+  const result: HandoffRecord = {
     content,
     overflow_path: overflowPath,
     created_at: createdAt,
@@ -215,6 +405,21 @@ function validateHandoffRecord(value: unknown): HandoffRecord | null {
     read_by_session: readBySession,
     read_at: readAt,
   };
+  // Attach only present version keys so compatibility records retain their
+  // schema when serialized.
+  if (version !== undefined) result.version = version;
+  if (lifecycle !== undefined) result.lifecycle = lifecycle;
+  if (generation !== undefined) result.generation = generation;
+  return result;
+}
+
+function isHandoffLifecycle(value: unknown): value is HandoffLifecycle {
+  return (
+    value === "prepared" ||
+    value === "session_handoff_required" ||
+    value === "resuming" ||
+    value === "working"
+  );
 }
 
 function isValidOverflowPath(path: unknown): path is string | null {

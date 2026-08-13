@@ -39,6 +39,10 @@ const repoRoot = join(__dirname, "..");
 
 const initSrc = readFileSync(join(repoRoot, "src", "init.ts"), "utf8");
 const indexSrc = readFileSync(join(repoRoot, "src", "index.ts"), "utf8");
+const handoffSrc = readFileSync(
+  join(repoRoot, "src", "orchestration", "handoff.ts"),
+  "utf8"
+);
 const repoAgents = readFileSync(join(repoRoot, "AGENTS.md"), "utf8");
 const repoClaude = readFileSync(join(repoRoot, "CLAUDE.md"), "utf8");
 const repoGemini = readFileSync(join(repoRoot, "GEMINI.md"), "utf8");
@@ -249,10 +253,18 @@ test("A3 MCP instructions string is byte-identical in index.ts and appendix-a1-a
   assert.equal(mirror, live);
 });
 
-test("handoff-write success message is byte-identical in index.ts and handoff.md", () => {
+test("handoff-write success message is byte-identical in handoff.ts, index.ts and handoff.md", () => {
+  // Direct exact extraction of each authoritative surface (no candidate probes):
+  //   - runtime/source constant handoff.HANDOFF_WRITE_SUCCESS (src/orchestration/handoff.ts)
+  //   - MCP response constant HANDOFF_WRITE_SUCCESS_MESSAGE (src/index.ts)
+  //   - documented exact fence in handoff.md
+  // All three must be byte-for-byte identical.
+  const runtimeMessage = extractStringConstant(handoffSrc, "HANDOFF_WRITE_SUCCESS");
   const sourceMessage = extractStringConstant(indexSrc, "HANDOFF_WRITE_SUCCESS_MESSAGE");
   const specMessage = extractPostWriteResponse(handoffSpec);
   assert.equal(sourceMessage, specMessage);
+  assert.equal(runtimeMessage, specMessage);
+  assert.equal(runtimeMessage, sourceMessage);
 });
 
 // --- Schema-5 canonical/mirror invariants ----------------------------------
@@ -309,7 +321,7 @@ test("MODEL SELECTION smart/automatic default is present in canonical + MCP inst
     "MCP instructions must state the smart auto-selection default");
 });
 
-test("stale disable polarity wording is absent from canonical + mirrors + MCP instructions", () => {
+test("forbidden disable polarity wording is absent from canonical + mirrors + MCP instructions", () => {
   const instructions = extractStringConstant(indexSrc, "ORCHESTRATION_INSTRUCTIONS");
   const surfaces = [
     ["INIT_BLOCK", INIT_BLOCK],
@@ -320,17 +332,17 @@ test("stale disable polarity wording is absent from canonical + mirrors + MCP in
   ];
   for (const [name, body] of surfaces) {
     assert.ok(!/resumes ON/.test(body),
-      `${name} must not keep the stale "resumes ON next new session" polarity`);
+      `${name} must not keep the forbidden "resumes ON next new session" polarity`);
     assert.ok(!/no mid-session re-enable/.test(body),
-      `${name} must not keep the stale "no mid-session re-enable" polarity`);
+      `${name} must not keep the forbidden "no mid-session re-enable" polarity`);
   }
 });
 
-// Stale carryover polarity must also be rejected in the SHIPPED/EMITTED carryover
+// Forbidden carryover polarity must also be rejected in the SHIPPED/EMITTED carryover
 // directive bodies AND their A5 spec mirror — not only the managed blocks / MCP
 // instructions covered above. The carryover carrier describes a current-session
 // state/latch event; it must not claim cross-session persistence.
-test("stale carryover polarity is absent from carryover directives + A5 mirror", () => {
+test("forbidden carryover polarity is absent from carryover directives + A5 mirror", () => {
   const directivesDir = join(repoRoot, "directives");
   const carryoverClaude = readFileSync(join(directivesDir, "carryover-claude.md"), "utf8");
   const carryoverCodex = readFileSync(join(directivesDir, "carryover-codex.md"), "utf8");
@@ -338,7 +350,7 @@ test("stale carryover polarity is absent from carryover directives + A5 mirror",
     join(repoRoot, "docs", "spec", "dev-loop", "orchestration-directive-architecture", "appendix-a5-directives.md"),
     "utf8"
   );
-  const STALE = [
+  const FORBIDDEN_POLARITY = [
     [/resumes ON/, "resumes ON next new session"],
     [/no mid-session re-enable/i, "no mid-session re-enable"],
     [/carried over from a PRIOR session/i, "carried over from a PRIOR session"],
@@ -349,17 +361,57 @@ test("stale carryover polarity is absent from carryover directives + A5 mirror",
     ["appendix-a5-directives.md", appendixA5],
   ];
   for (const [name, body] of carryoverSurfaces) {
-    for (const [re, label] of STALE) {
+    for (const [re, label] of FORBIDDEN_POLARITY) {
       assert.ok(!re.test(body),
-        `${name} must not keep the stale "${label}" carryover polarity`);
+        `${name} must not keep the forbidden "${label}" carryover polarity`);
     }
   }
-  // New schema=5 model must be stated in the carryover bodies (A5 mirrors them):
+  // The schema=5 model must be stated in the carryover bodies (A5 mirrors them):
   // THIS-session-only disable + user-approved mid-session re-enable.
   for (const [name, body] of carryoverSurfaces.slice(0, 2)) {
     assert.match(body, /THIS session only/i,
       `${name} must scope the disable to THIS session only`);
     assert.match(body, /re-enable mid-session/i,
       `${name} must allow user-approved enabled:true mid-session re-enable`);
+  }
+});
+
+// --- Forbidden wind-down warning / handoffWarnThreshold knob ----------------
+// No wind-down cadence or user knob exists. They must be absent from INIT_BLOCK, the
+// MCP `instructions`, and every repo managed-block mirror.
+test("wind-down warning + handoffWarnThreshold are absent from canonical + mirrors + MCP instructions", () => {
+  const instructions = extractStringConstant(indexSrc, "ORCHESTRATION_INSTRUCTIONS");
+  const surfaces = [
+    ["INIT_BLOCK", INIT_BLOCK],
+    ["ORCHESTRATION_INSTRUCTIONS", instructions],
+    ["AGENTS.md managed block", extractManagedBlock(repoAgents) ?? ""],
+    ["CLAUDE.md managed block", extractManagedBlock(repoClaude) ?? ""],
+    ["GEMINI.md managed block", extractManagedBlock(repoGemini) ?? ""],
+  ];
+  const forbidden = [
+    [/handoffWarnThreshold/, "handoffWarnThreshold knob"],
+    [/wind[- ]?down/i, "wind-down wording"],
+    [/warns every turn/i, "'warns every turn' cadence"],
+    [/warn(?:ing)? threshold/i, "warn-threshold wording"],
+  ];
+  for (const [name, body] of surfaces) {
+    for (const [re, label] of forbidden) {
+      assert.ok(!re.test(body), `${name} must not keep the forbidden ${label} (${re})`);
+    }
+  }
+});
+
+// The 20% voluntary handoff-availability unlock and H=80 mandatory fresh-write
+// lifecycle transition are independent.
+test("20% voluntary handoff-availability unlock survives in canonical + mirrors", () => {
+  for (const [name, body] of [
+    ["INIT_BLOCK", INIT_BLOCK],
+    ["AGENTS.md", repoAgents],
+    ["CLAUDE.md", repoClaude],
+    ["GEMINI.md", repoGemini],
+  ]) {
+    assert.match(body, /20%/, `${name} must keep the 20% handoff-availability unlock`);
+    assert.match(body, /handoff-write/, `${name} must keep the voluntary handoff-write availability`);
+    assert.match(body, /unlock/i, `${name} must describe the 20% availability unlock`);
   }
 });

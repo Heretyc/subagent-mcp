@@ -34,8 +34,7 @@ unioned, so they only tighten. Full precedence:
 
 | Key | Values | Default |
 |---|---|---|
-| `contextCoaching` | `true` or `false`; `false` mutes only the wind-down warning/steer | `true` |
-| `handoffWarnThreshold` | integer `40`-`90`; anything malformed or out of range resolves to `60` | `60` |
+| `contextCoaching` | `true` or `false`; `false` mutes optional coaching only; the mandatory lifecycle remains active | `true` |
 
 ## Updating Settings Via MCP
 
