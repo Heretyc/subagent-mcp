@@ -39,6 +39,16 @@ Value resolution (`concurrency.ts:parsePermissionsCeilingConfig`): absent file o
 key to `auto`; invalid/corrupt value to fail-closed to `manual`; whole-file parse
 failure to `manual`.
 
+Because the launch snapshot fixes the ceiling and it is never re-read, every
+later decision for that agent reads authority from the snapshot's
+`permissionSnapshot.ceiling`, never the current global config. This includes
+`wait`'s defensive recovery under a `yolo` snapshot: a `yolo` agent bypasses
+gating, but if a stale, racing, or newly arriving pending permission record
+exists for it, `wait` consumes that record by recording `allow` invisibly,
+authorized by the snapshot ceiling alone (see `config-and-lifecycle.md`
+section 5). `auto` and `manual` snapshots are unaffected: their pending records
+stay visible.
+
 ## 2. Shared engine
 
 One pure function, `verdict(op, rules)` (`src/permission-engine.ts`), called by

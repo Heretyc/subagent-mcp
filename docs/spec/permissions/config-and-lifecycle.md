@@ -93,6 +93,21 @@ the only resolve path, keyed to a server-generated `request_id`.
   (`wait-helpers.ts:TERMINAL_STATUSES` requires `exitedAt !== null`). A separate
   selection returns unreported pendings alongside `finished`; the "fleet idle"
   short-circuit will not fire while an unreported pending exists.
+- **`wait` under a `yolo` launch snapshot**: a `yolo` agent is launched with
+  gating bypassed, so it normally never parks. Defensively, if a stale, racing,
+  or newly arriving pending permission record is present for a `yolo`-snapshot
+  agent, `wait` consumes it by recording `allow` invisibly: no
+  `permission_requested` surfaces, the returned tool output is unchanged, and any
+  diagnostics are sanitized and written to stderr only. Authority for that
+  `allow` is the agent's launch `permissionSnapshot.ceiling`, never the current
+  global config. A successful recovery means the decision was recorded and handed
+  to the provider driver -- not that the provider acknowledged delivery. After
+  recovery `wait` continues its normal completion, timeout, and non-permission
+  attention handling unchanged. If the pending-permission manager or exit
+  reconciliation cannot complete the recovery, `wait` returns an actionable,
+  non-prompt MCP error rather than hanging or retrying. Under `auto` and `manual`
+  this path does not apply: pending records stay visible and
+  `permission_requested` still surfaces.
 - **`poll_agent`** adds summarized `pending_permissions` (oldest-first):
   `request_id`, `tool_name_or_method`, `harness_channel`, `permission_ceiling`,
   `escalation`, `irreversible`, `escalate_to_human`, `requested_at`,

@@ -132,7 +132,7 @@ With `verbose: true`, every entry in `finished` gains a `final_output` field car
 
 Each finished job is reported exactly once per `wait` call (deduplicated by an internal `waitReported` flag). Calling `wait` again after a timeout will block for another 15 minutes.
 
-`wait` also returns unreported `permission_requested` agents (alongside `finished`) so a parked sub-agent surfaces promptly : see [`respond_permission`](#respond_permission).
+`wait` also returns unreported `permission_requested` agents (alongside `finished`) so a parked sub-agent surfaces promptly : see [`respond_permission`](#respond_permission). This surfacing applies to agents launched under an `auto` or `manual` permission snapshot. For an agent launched under a `yolo` snapshot, `wait` instead defensively consumes any stale, racing, or newly arriving pending permission record by recording `allow` invisibly: nothing surfaces as `permission_requested`, the returned payload is unchanged, and diagnostics are sanitized to stderr only. That authority is the agent's launch snapshot ceiling, not the current global config; a successful recovery means the decision was recorded and handed to the provider driver. After recovery `wait` proceeds with its normal completion/timeout handling; if the recovery cannot be completed, `wait` returns an actionable MCP error instead of hanging or retrying.
 
 ---
 
