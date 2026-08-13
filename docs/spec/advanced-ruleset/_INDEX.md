@@ -55,7 +55,7 @@ after the fix succeeds without a server restart.
 
 ## AGENTS.md load trigger (applied in place)
 
-`AGENTS.md` stays exactly 100 lines: the existing auto-mode trigger line
+`AGENTS.md` stays within the 210-line cap: the existing auto-mode trigger line
 (AGENTS.md line 56) was EXTENDED in place (net 0 lines) instead of adding a
 new bullet. Exact current text of that line:
 

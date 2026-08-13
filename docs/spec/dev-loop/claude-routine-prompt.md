@@ -16,8 +16,8 @@ Task:
    exists, preserve the report in the Claude session.
 
 Required checks:
-- Line limits: AGENTS.md, CLAUDE.md, and GEMINI.md must be <=100 lines; every
-  other Markdown/RAG file must be <=200 lines.
+- Line limits: CLAUDE.md and GEMINI.md must be <=100 lines; AGENTS.md must be
+  <=210 lines; every other Markdown/RAG file must be <=200 lines.
 - JSON syntax: every JSON file must parse.
 - Python syntax: repository Python files used by CI or policy must compile
   without repo-local pycache.

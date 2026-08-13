@@ -41,7 +41,8 @@ front of that path.
 | `param-contract.md` | New `launch_agent` param schema; required/optional rules; selection modes; `sub-orchestrator?` row. | Changing the tool's input schema or param semantics. |
 | `resolution-matrix.md` | Full presence-to-behavior matrix; validation-order note including `ERR_SUBORCH_DEPTH` at step 6b. | Implementing/validating param validation and candidate-list construction. |
 | `resolution-errors.md` | Exact auto-mode error text, shared hint blocks, anti-examples, and `ERR_SUBORCH_DEPTH` verbatim text. | Implementing/validating hard-error response text. |
-| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window + swarm pin subsection), pairing schema ref, model->provider map, effort normalization, ordering, attempt + silent fallback, empty-table behavior; amended sanctioned-exposures list. | Implementing the loader/resolver against the table. |
+| `routing-table-contract.md` | Loader contract: path, branch selection (`cost_efficiency` default + `performance` deadlock window + swarm pin subsection), pairing schema ref, model->provider map, effort normalization, ordering; links to `routing-attempt-loop.md` for the attempt loop. | Implementing the loader/resolver against the table. |
+| `routing-attempt-loop.md` | Attempt loop with SILENT fallback: candidate iteration, `failure_type` classification, transient retry, `ERR_ALL_FAILED`, empty/missing table behavior summary. | Implementing or testing the candidate attempt loop and fallback logic. |
 | `tool-description.md` | Verbatim rewritten tool description + 15 caveman `task_category` glosses; sub-orchestrator sentence + param gloss; swarm tool description + stage param gloss; byte accounting. | Rewriting the MCP tool metadata strings. |
 | `build-and-test.md` | B2 file partition (non-overlapping ownership) + the fixture-based test plan. | Splitting build work or writing tests. |
 
@@ -58,7 +59,7 @@ launch-time-only clause (`routing-table-contract.md`). Read
 
 - Fail loud: every rejected input returns a clear MCP error, never a silent
   default or a crash. Silent fallback applies ONLY to launch-time candidate
-  failures (see `routing-table-contract.md section Attempt loop`).
+  failures (see `routing-attempt-loop.md`).
 - The 14 categories (directly benchmarked parents + 4 composite-inferred) +
   `fallback_default` are the fixed taxonomy
   (`docs/spec/task-taxonomy/_INDEX.md`); auto-mode consumes them, never
@@ -85,7 +86,7 @@ B2 should add a load trigger to `AGENTS.md` "Load Triggers":
 > tool's param contract, the routing-table loader/resolver, or auto-mode
 > candidate-selection / silent-fallback behavior.
 
-Keep `AGENTS.md` <=100 lines when adding it; `src/routing-table.json` is the
+Keep `AGENTS.md` <=210 lines when adding it; `src/routing-table.json` is the
 routing artifact; the fixed taxonomy lives in `.spec/references/work-categories.md`.
 That trigger line has since been EXTENDED in place (net 0 lines) to also route
 advanced-ruleset work to `docs/spec/advanced-ruleset/_INDEX.md`; the exact

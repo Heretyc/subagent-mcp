@@ -37,14 +37,17 @@ decisions : those run through the shared engine in `src/drivers.ts`.)
 
 | Leaf | Covers | Load when | Do NOT load when |
 |---|---|---|---|
-| `orchestration-directive-architecture/sections-00-04.md` | section 0 layering/redundancy, section 1 single tag schema, section 2 precedence/joint-binding, section 3 ON model, section 4 OFF model | you need the tag schema, ON/OFF operating model, or precedence rules | you only need marker/persistence or test mechanics |
-| `.../sections-05-09.md` | section 5 no-hook fail-safe ON + opt-out, section 6 first-line exemption + launch_agent upsert, section 7 dropout/HALT, section 8 markers/MIGRATE_RE/collapse, section 9 cross-provider matrix | debugging hookless hosts, sub-agent fork-bomb prevention, dropout, or block migration | you need the ON/OFF model or appendices |
+| `orchestration-directive-architecture/sections-00-04.md` | section 0 layering/redundancy, section 1 single tag schema, section 2 precedence/joint-binding, section 3 ON model; links to `sections-04.md` for section 4 OFF model | you need the tag schema, ON/OFF operating model, or precedence rules | you only need marker/persistence or test mechanics |
+| `.../sections-04.md` | section 4 OFF model: default-OFF, metering fail-safe, phase definitions, plan/handoff/wind-down thresholds, 5-call rule deletion | implementing or testing the OFF-mode phase thresholds and metering-driven enforcement | you need the ON model or tag schema (load `sections-00-04.md`) |
+| `.../sections-05-09.md` | section 5 no-hook fail-safe ON + opt-out, section 6 first-line exemption + launch_agent upsert, section 7 dropout/HALT, section 8 markers/MIGRATE_RE/collapse; links to `sections-09.md` for section 9 cross-provider matrix | debugging hookless hosts, sub-agent fork-bomb prevention, dropout, or block migration | you need the ON/OFF model or appendices |
+| `.../sections-09.md` | section 9 cross-provider behavior matrix (Claude Code CLI, Codex, Gemini, Desktop) | checking per-host hook/state/tool behavior | you need marker or test specs |
 | `.../sections-10-13.md` | section 10 persistence/carryover/disable, section 11 tests, section 12 failure matrix, section 13 structured-question tool map | reasoning about marker persistence, carryover, disable, or the test gates | you need tag/ON/OFF semantics |
 | `.../derivation-map.md` | section 14 R-ID definitions, artifact×R-ID rendering, 5-call tombstone | tracing which artifact renders which canonical rule | authoring runtime behavior |
 | `.../appendix-a1-a4.md` | A1 INIT_BLOCK (verbatim), A2 read-ladder, A3 MCP `instructions`, A4 supremacy clause | you must COPY a canonical artifact byte-for-byte | you only need prose explanation |
 | `.../appendix-a5-directives.md` | A5 : the 9 `directives/*.md` files, verbatim | editing/regenerating a directive file | you need marker or test specs |
 | `.../appendix-a6-a7.md` | A6 marker spec/MIGRATE_RE/collapse algorithm, A7 `ensureParentMarker` + 7 test cases | implementing init migration or the parent-marker upsert | you need the ON/OFF prose model |
 | `.../statusline-signal.md` | Claude statusLine shim, `sl-*` records, harness percentage/window lift, setup wrapping, sweep | documenting or debugging Claude statusline context metering | you need ON/OFF prose semantics |
+| `.../context-metering-usage-lift.md` | sections 6-10: Claude and Codex usage-lift adapters, state/latch migration, display consumers, one-turn lag | implementing or debugging usage lift, metering state, or display surfaces | you need the phase/window contract (load `context-metering.md` instead) |
 
 ## Swarm and sub-orchestrator retrieval
 
@@ -62,8 +65,9 @@ These entries are MAP ONLY. All normative content for swarm and sub-orchestrator
 - single tag `<subagent-mcp state kind>`, no dead values → `sections-00-04.md` (section 1)
 - joint binding, escalate-to-user, tag > user request → `sections-00-04.md` (section 2); verbatim clause → `appendix-a1-a4.md` (A4)
 - ON allowed-tools, sole channel, read-ladder → `sections-00-04.md` (section 3); ladder verbatim → `appendix-a1-a4.md` (A2)
-- OFF metering fail-safe + phase thresholds → `sections-00-04.md` (section 4), `context-metering.md`, `statusline-signal.md`, `handoff.md`
+- OFF metering fail-safe + phase thresholds → `sections-04.md`, `context-metering.md`, `statusline-signal.md`, `handoff.md`
 - `contextCoaching` / `handoffWarnThreshold` user settings (what they mute, what they never mute) → `context-metering.md` (section 3.1), `handoff.md`; install-time prompts → `docs/spec/dev-loop/init-registry-and-update.md`
+- Claude/Codex usage lift, state migration, display → `context-metering-usage-lift.md` (sections 6-10)
 - fail-safe ON / UNKNOWN / one-time opt-out → `sections-05-09.md` (section 5)
 - first-line `<this is a request from a parent process>` skip + upsert → `sections-05-09.md` (section 6), `appendix-a6-a7.md` (A7)
 - schema=3 markers, MIGRATE_RE, duplicate collapse → `sections-05-09.md` (section 8), `appendix-a6-a7.md` (A6)

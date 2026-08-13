@@ -15,7 +15,7 @@ Each file is owned by exactly one work-unit; no two units edit the same file.
 | `test/fixtures/routing-table.fixture.json` (NEW) | Hand-authored minimal table; profiler-independent. |
 | `package.json` | Add `node test/routing.test.mjs` to the `test` script chain (after the existing entries, before `validate_provider.mjs`). No other change. |
 | `README.md` / `docs/tools.md` / `docs/usage.md` | Document auto mode + `task_category`; link this spec dir. Markdown <=200 lines each. |
-| `AGENTS.md` | Add the auto-mode load trigger (see `_INDEX.md`); keep <=100 lines. |
+| `AGENTS.md` | Add the auto-mode load trigger (see `_INDEX.md`); keep <=210 lines. |
 
 Build note: `src/routing.ts` compiles to `dist/routing.js`; `scripts/copy-provider.mjs`
 copies `src/routing-table.json` to `dist/routing-table.json` and hard-fails the

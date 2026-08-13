@@ -107,7 +107,7 @@ first-candidate success.
 | `failover_note` | string | same |
 
 - `failure_type` is `"transient_provider"` or `"permanent"`
-  (`classifyFailureReason`; see `routing-table-contract.md` attempt loop).
+  (`classifyFailureReason`; see `routing-attempt-loop.md`).
 - `failover_from` lists the skipped candidates in attempt order (rank-1 first).
 - `failover_note` is a human-readable line naming the rank-1 candidate that
   failed and the winner that launched, e.g.
