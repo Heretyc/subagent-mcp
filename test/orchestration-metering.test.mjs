@@ -214,7 +214,7 @@ test("the mandatory-handoff threshold sits strictly above the voluntary 20% unlo
 // ---------------------------------------------------------------------------
 // Compaction detection — ONE adjacent previous/current sample comparison against
 // the exact CompactionSample shape (sample_seq / sample_kind /
-// compaction_generation / sub_agent). Every call passes an explicit options.now
+// compaction_generation). Every call passes an explicit options.now
 // so freshness is deterministic, and every assertion reads result.detected /
 // result.reason / result.drop_pct directly. NOW is well past the max sample age
 // so the canonical pair is fresh; each rejection row breaks exactly ONE
@@ -226,7 +226,7 @@ const NOW = 10_000_000;
 // The canonical accepted pair: same session/harness/model/source/window,
 // monotonic adjacent sample_seq, monotonic fresh timestamps, both percentages
 // known, previous >= 80, current dropped 45 points, current per-turn sample, a
-// fresh provider generation fingerprint on the current sample, not a sub-agent.
+// fresh provider generation fingerprint on the current sample.
 function basePair() {
   const previous = {
     session_id: "s-compaction",
@@ -237,7 +237,6 @@ function basePair() {
     used_percentage: 85,
     sample_seq: 10,
     sample_kind: "current",
-    sub_agent: false,
     updated_at: NOW - 60_000,
   };
   const current = {
@@ -262,8 +261,6 @@ test("a fresh proof detects an adjacent >= 10-point drop from >= 80%", () => {
 // Each mutation makes the TARGET guard the FIRST one to fail, so the reason
 // asserted is the one that guard produces.
 const REJECTIONS = [
-  ["sub-agent current sample", "sub-agent", null, (p, c) => { c.sub_agent = true; }],
-  ["sub-agent previous sample", "sub-agent", null, (p, c) => { p.sub_agent = true; }],
   ["session mismatch", "session-mismatch", null, (p, c) => { c.session_id = "other-session"; }],
   ["harness mismatch", "harness-mismatch", null, (p, c) => { c.harness = "codex"; }],
   ["model change", "model-change", null, (p, c) => { c.model = "claude-haiku-4-5"; }],

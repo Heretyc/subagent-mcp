@@ -38,7 +38,6 @@ where usage itself is unavailable.
   sample_seq: number,
   sample_kind: "current" | "cumulative",
   compaction_generation?: string | null,
-  sub_agent: boolean,
   event: string,
   updated_at: number
 }
@@ -56,8 +55,6 @@ this existing record; no new config key, state file, or dependency is added.
 `sample_seq` is the monotonic per-session sample counter and must advance by
 exactly one for adjacent-pair detection. `sample_kind` distinguishes current
 per-turn usage from cumulative accounting; only `"current"` pairs qualify.
-`sub_agent` is `true` for sub-agent samples, which never qualify for compaction
-detection.
 
 `used_tokens` is the usage-field sum, or `null` when usage is absent.
 `prompt_side_tokens` is non-persisted input + cache creation + cache read;

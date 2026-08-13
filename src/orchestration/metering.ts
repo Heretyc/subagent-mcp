@@ -106,8 +106,6 @@ export interface MeteringRecord {
    * proof this turn, and a string is the fingerprint.
    */
   compaction_generation?: string | null;
-  /** True when this sample belongs to a sub-agent session (never compacts). */
-  sub_agent: boolean;
   event: string;
   updated_at: number;
 }
@@ -131,8 +129,6 @@ export interface BuildMeteringRecordInput {
   sampleKind?: MeteringSampleKind | null;
   /** Provider-derived generation fingerprint proof; defaults to null. */
   compactionGeneration?: string | null;
-  /** Whether this sample belongs to a sub-agent session; defaults to false. */
-  subAgent?: boolean | null;
 }
 
 export interface UsedPercentageInput {
@@ -462,7 +458,6 @@ export interface CompactionSample {
   sample_seq: number;
   sample_kind: MeteringSampleKind;
   compaction_generation?: string | null;
-  sub_agent: boolean;
   updated_at: number;
 }
 
@@ -473,7 +468,6 @@ export interface CompactionSample {
  */
 export type CompactionRejectionReason =
   | "no-previous"
-  | "sub-agent"
   | "session-mismatch"
   | "harness-mismatch"
   | "model-change"
@@ -525,7 +519,6 @@ export function detectCompaction(
     drop_pct: null,
   });
   if (!previous) return reject("no-previous");
-  if (current.sub_agent || previous.sub_agent) return reject("sub-agent");
   if (current.session_id !== previous.session_id) return reject("session-mismatch");
   if (current.harness !== previous.harness) return reject("harness-mismatch");
   const curModel = normalizeModelId(current.model)?.base ?? null;
@@ -624,7 +617,6 @@ export function buildMeteringRecord(input: BuildMeteringRecordInput): MeteringRe
     sample_seq: priorSeq === null ? 0 : priorSeq + 1,
     sample_kind: input.sampleKind === "cumulative" ? "cumulative" : "current",
     compaction_generation: input.compactionGeneration ?? null,
-    sub_agent: input.subAgent === true,
     event: input.event,
     updated_at: Date.now(),
   };

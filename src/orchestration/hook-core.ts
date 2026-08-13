@@ -682,7 +682,6 @@ function updateMeteringForTurn(
     priorSampleSeq: prior?.sample_seq ?? null,
     sampleKind: lifted.cumulative === true ? "cumulative" : "current",
     compactionGeneration: lifted.compaction_generation ?? null,
-    subAgent: false,
   });
   // Detect BEFORE overwriting the prior metering proof on disk: the detector
   // compares the prior persisted generation against the current one, so the
