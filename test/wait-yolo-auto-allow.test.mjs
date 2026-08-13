@@ -1,28 +1,26 @@
 /**
  * wait-yolo-auto-allow.test.mjs — behavioral coverage for Issue #372.
  *
- * FEATURE UNDER TEST: `settleYoloPermissions` + the wait attention-selection
- * filters in src/index.ts (compiled to dist/index.js ~:1878-1968). A launch-
+ * FEATURE UNDER TEST: the REAL exported `settleYoloPermissions` from
+ * src/index.ts (dist/index.js) + the wait attention-selection filters. A launch-
  * snapshot yolo agent must never block `wait` on its own parked permission
  * request: pending/new requests are auto-answered "allow" ONLY when the agent's
  * LAUNCH snapshot (agent.permissionSnapshot.ceiling) === "yolo", and wait's own
  * attention selection excludes yolo-snapshot permission requests.
  *
- * SEAM NOTE: `settleYoloPermissions` and the wait handler are an inline closure
- * over the module-private `agents` map and the `pendingPermissionManager`
- * singleton; they are not exported, and the driver spawns a real CLI, so there
- * is no deterministic public seam to invoke the real closure in isolation.
- * These tests therefore drive the REAL collaborators — `PendingPermissionManager`
- * (dist/pending-permissions.js) and the REAL `selectUnreported` /
- * `selectUnreportedPermissionRequested` selectors (dist/wait-helpers.js) —
- * through a byte-faithful PORT of the settle loop + attention selection copied
- * verbatim from dist/index.js. The companion test file
- * `wait-yolo-source-guard.test.mjs` pins this port to the shipped source so any
- * drift in src/index.ts fails loudly.
+ * SEAM NOTE: `settleYoloPermissions(agents, pm, phase)` is now a top-level
+ * export, so these tests invoke the SHIPPED function directly against the REAL
+ * `PendingPermissionManager` (dist/pending-permissions.js) and the REAL
+ * `selectUnreported` / `selectUnreportedPermissionRequested` selectors
+ * (dist/wait-helpers.js). The wait handler itself is not exported (it closes
+ * over module-private state and spawns a real CLI); `runWait` below is a thin
+ * test harness that wires the real settle + real selectors into the wait loop
+ * to exercise the end-to-end return shapes without a live driver.
  *
  * Windows-safe: no POSIX-only paths, shells, or fs assumptions.
  */
 import assert from "node:assert/strict";
+import { settleYoloPermissions } from "../dist/index.js";
 import { PendingPermissionManager } from "../dist/pending-permissions.js";
 import {
   selectUnreported,
@@ -46,82 +44,15 @@ async function test(name, fn) {
 }
 
 // ---------------------------------------------------------------------------
-// PORT of dist/index.js wait internals (verbatim; cited line ranges).
-// Parameterized by (agents, pm) only — the shipped code closes over the
-// module-private `agents` map and the `pendingPermissionManager` singleton.
+// Test harness for the wait loop. `settleYoloPermissions` is the REAL shipped
+// export (imported above); the builders + `runWait` below reconstruct only the
+// wait handler's non-exported payload assembly so the end-to-end return shapes
+// can be asserted without a live driver. Parameterized by (agents, pm) — the
+// shipped handler closes over the module-private `agents` map and the
+// `pendingPermissionManager` singleton.
 // ---------------------------------------------------------------------------
 
-const YOLO_AUTO_ALLOW_REASON =
-  "yolo launch ceiling: orchestrator auto-allowed parked permission during wait";
-
-// dist/index.js:1863-1874
-const yoloAutoAllowError = (agentId, requestId, detail) => ({
-  content: [
-    {
-      type: "text",
-      text:
-        `Error: could not record auto-allow for yolo agent ${agentId} ` +
-        `request ${requestId} (${detail}). Inspect it with poll_agent, then ` +
-        `kill and relaunch the agent. Do not respond_permission — a yolo ` +
-        `agent must not be prompted for permission.`,
-    },
-  ],
-  isError: true,
-});
-
-// dist/index.js:1878-1917 (settleYoloPermissions). Uses console.error exactly
-// as shipped so diagnostics assertions observe real formatting.
-async function settleYoloPermissions(agents, pm, phase) {
-  for (const agent of agents.values()) {
-    if (agent.permissionSnapshot.ceiling !== "yolo") continue;
-    for (const request of pm.pendingForAgent(agent.id)) {
-      let answered;
-      try {
-        answered = await pm.respond(
-          agent.id,
-          request.request_id,
-          "allow",
-          YOLO_AUTO_ALLOW_REASON
-        );
-      } catch {
-        const stillPending = pm
-          .pendingForAgent(agent.id)
-          .some((r) => r.request_id === request.request_id);
-        if (!stillPending) {
-          console.error(
-            `[wait][yolo] benign race: request already settled ` +
-              `agent_id=${agent.id} request_id=${request.request_id} phase=${phase}`
-          );
-          continue;
-        }
-        return yoloAutoAllowError(
-          agent.id,
-          request.request_id,
-          "manager rejected the decision"
-        );
-      }
-      if (answered.state !== "answered" || answered.answer !== "allow") {
-        return yoloAutoAllowError(
-          agent.id,
-          request.request_id,
-          `manager state ${answered.state}`
-        );
-      }
-      console.error(
-        `[wait][yolo] decision recorded and handed to driver ` +
-          `agent_id=${agent.id} request_id=${answered.request_id} ` +
-          `harness_channel=${request.harness_channel} ` +
-          `tool_or_method=${request.tool_name_or_method} ` +
-          `rule=${answered.auto_answer_rule ?? "none"} ` +
-          `launch_ceiling=${agent.permissionSnapshot.ceiling} phase=${phase} ` +
-          `age_ms=${Date.now() - request.requested_at} outcome=${answered.answer}`
-      );
-    }
-  }
-  return null;
-}
-
-// dist/index.js:2256-2299 — minimal builders with the SHIPPED key sets.
+// Minimal builders with the SHIPPED key sets (wait handler inline closures).
 function buildFinishedEntry(a) {
   return {
     id: a.id,
@@ -653,15 +584,37 @@ await test("9. wait result JSON shape unchanged (finished + permission_requested
 });
 
 // ---------------------------------------------------------------------------
-// Coverage item 10 — Windows-safe: assert no POSIX-only assumptions in this file.
-// (Structural: this suite uses only in-memory objects + node:assert; no shell,
-//  no fork, no absolute POSIX paths. This assertion documents that contract.)
+// Coverage item 10 — Windows-safe: win32-style paths in request metadata are
+// never echoed into diagnostics or error text (no path content leaks, and no
+// backslash/drive-letter handling breaks the sanitized settle round).
 // ---------------------------------------------------------------------------
-await test("10. windows-safe: purely in-memory, no shell/fs/path dependence", () => {
-  assert.equal(typeof process.platform, "string");
-  // No child_process / fs imports are used above; the test would have failed to
-  // import otherwise. This is a documentation guard for the invariant.
-  assert.ok(true);
+await test("10. windows-safe: win32 paths in request metadata never leak into diagnostic/error output", async () => {
+  const pm = new PendingPermissionManager();
+  const agents = new Map();
+  const agent = makeAgent("yolo-win32", { ceiling: "yolo" });
+  agents.set(agent.id, agent);
+  const WIN_PATH = "C:\\Users\\svc\\AppData\\secret\\vault.txt";
+  const UNC_PATH = "\\\\host\\share\\secret$";
+  park(pm, agent.id, {
+    tool: "Write",
+    action: { path: WIN_PATH, cwd: "D:\\repos\\app", uncPath: UNC_PATH },
+  });
+
+  const cap = captureStderr();
+  let settle;
+  try {
+    settle = await settleYoloPermissions(agents, pm, "pre_wait");
+  } finally {
+    cap.restore();
+  }
+
+  assert.equal(settle, null, "win32-path request settled without error");
+  assert.equal(pm.pendingCount(agent.id), 0, "auto-allowed regardless of path style");
+  const line = cap.lines.find((l) => l.includes("[wait][yolo]"));
+  assert.ok(line, "a diagnostic line was emitted");
+  for (const leak of [WIN_PATH, UNC_PATH, "C:\\Users", "D:\\repos", "\\\\host", "vault.txt", "path="]) {
+    assert.ok(!line.includes(leak), `diagnostic must NOT leak ${JSON.stringify(leak)}`);
+  }
 });
 
 console.log(`\nwait-yolo-auto-allow results: ${passed} passed, ${failed} failed`);

@@ -118,6 +118,7 @@ import { applyRegistryAfterUpdate, prepareRegistryForUpdate } from "./init-regis
 import { ensureParentMarker } from "./launch-prompt.js";
 import {
   pendingPermissionManager,
+  type PendingPermissionManager,
   type PendingPermissionRecord,
 } from "./pending-permissions.js";
 import type { PermissionSnapshot } from "./permission-engine.js";
@@ -2240,6 +2241,94 @@ server.tool(
   }, { includeZombieReport: true })
 );
 
+// Issue #372: a launch-snapshot yolo agent must never block waiting on its
+// own parked permission request. Authority is the LAUNCH snapshot only
+// (agent.permissionSnapshot.ceiling) — never current global config, never
+// record.permission_ceiling. We record an 'allow' with the manager, which
+// hands the decision to the driver; a manager success proves recorded/
+// handed-to-driver, NOT provider delivery/apply. A later resolve throw surfaces
+// here as an errored manager state, which yields an isError short-circuit (see
+// the 'manager state' branch below); it is not deferred to a normal terminal/
+// stall/timeout attention. auto/manual agents are left byte-for-byte untouched.
+const YOLO_AUTO_ALLOW_REASON =
+  "yolo launch ceiling: orchestrator auto-allowed parked permission during wait";
+const yoloAutoAllowError = (agentId: string, requestId: string, detail: string) => ({
+  content: [
+    {
+      type: "text",
+      text:
+        `Error: could not record auto-allow for yolo agent ${agentId} ` +
+        `request ${requestId} (${detail}). Inspect it with poll_agent, then ` +
+        `kill and relaunch the agent. Do not respond_permission — a yolo ` +
+        `agent must not be prompted for permission.`,
+    },
+  ],
+  isError: true as const,
+});
+
+// Returns an error tool-result to short-circuit wait, or null to continue the
+// normal completion/timeout flow. Never sets waitReported, never returns a
+// success/empty payload. Exported so tests can drive the real settle logic.
+export async function settleYoloPermissions(
+  agents: Map<string, AgentState>,
+  pendingPermissionManager: PendingPermissionManager,
+  phase: "pre_wait" | "in_loop"
+) {
+  for (const agent of agents.values()) {
+    if (agent.permissionSnapshot.ceiling !== "yolo") continue;
+    for (const request of pendingPermissionManager.pendingForAgent(agent.id)) {
+      let answered: PendingPermissionRecord;
+      try {
+        answered = await pendingPermissionManager.respond(
+          agent.id,
+          request.request_id,
+          "allow",
+          YOLO_AUTO_ALLOW_REASON
+        );
+      } catch {
+        // respond threw: re-check the SAME request. Gone → benign scan race
+        // (another path settled it); present → real failure, surface it.
+        const stillPending = pendingPermissionManager
+          .pendingForAgent(agent.id)
+          .some((r) => r.request_id === request.request_id);
+        if (!stillPending) {
+          console.error(
+            `[wait][yolo] benign race: request already settled ` +
+              `agent_id=${agent.id} request_id=${request.request_id} phase=${phase}`
+          );
+          continue;
+        }
+        return yoloAutoAllowError(
+          agent.id,
+          request.request_id,
+          "manager rejected the decision"
+        );
+      }
+      // Verify returned manager state: only 'answered'/'allow' proves the
+      // decision was recorded and handed to the driver.
+      if (answered.state !== "answered" || answered.answer !== "allow") {
+        return yoloAutoAllowError(
+          agent.id,
+          request.request_id,
+          `manager state ${answered.state}`
+        );
+      }
+      // Sanitized diagnostics: existing record metadata only. Never log
+      // action/input/command/path/payload/raw exception/secrets.
+      console.error(
+        `[wait][yolo] decision recorded and handed to driver ` +
+          `agent_id=${agent.id} request_id=${answered.request_id} ` +
+          `harness_channel=${request.harness_channel} ` +
+          `tool_or_method=${request.tool_name_or_method} ` +
+          `rule=${answered.auto_answer_rule ?? "none"} ` +
+          `launch_ceiling=${agent.permissionSnapshot.ceiling} phase=${phase} ` +
+          `age_ms=${Date.now() - request.requested_at} outcome=${answered.answer}`
+      );
+    }
+  }
+  return null;
+}
+
 // Tool 7: wait
 server.tool(
   "wait",
@@ -2299,90 +2388,12 @@ server.tool(
         .map((p) => pendingPermissionSummary(p, now)),
     });
 
-    // Issue #372: a launch-snapshot yolo agent must never block waiting on its
-    // own parked permission request. Authority is the LAUNCH snapshot only
-    // (agent.permissionSnapshot.ceiling) — never current global config, never
-    // record.permission_ceiling. We record an 'allow' with the manager, which
-    // hands the decision to the driver; a manager success proves recorded/
-    // handed-to-driver, NOT provider delivery/apply (a later driver failure
-    // stays a normal terminal/stall/timeout attention). auto/manual agents are
-    // left byte-for-byte untouched.
-    const YOLO_AUTO_ALLOW_REASON =
-      "yolo launch ceiling: orchestrator auto-allowed parked permission during wait";
-    const yoloAutoAllowError = (agentId: string, requestId: string, detail: string) => ({
-      content: [
-        {
-          type: "text",
-          text:
-            `Error: could not record auto-allow for yolo agent ${agentId} ` +
-            `request ${requestId} (${detail}). Inspect it with poll_agent, then ` +
-            `kill and relaunch the agent. Do not respond_permission — a yolo ` +
-            `agent must not be prompted for permission.`,
-        },
-      ],
-      isError: true as const,
-    });
-    // Returns an error tool-result to short-circuit wait, or null to continue the
-    // normal completion/timeout flow. Never sets waitReported, never returns a
-    // success/empty payload.
-    const settleYoloPermissions = async (phase: "pre_wait" | "in_loop") => {
-      for (const agent of agents.values()) {
-        if (agent.permissionSnapshot.ceiling !== "yolo") continue;
-        for (const request of pendingPermissionManager.pendingForAgent(agent.id)) {
-          let answered: PendingPermissionRecord;
-          try {
-            answered = await pendingPermissionManager.respond(
-              agent.id,
-              request.request_id,
-              "allow",
-              YOLO_AUTO_ALLOW_REASON
-            );
-          } catch {
-            // respond threw: re-check the SAME request. Gone → benign scan race
-            // (another path settled it); present → real failure, surface it.
-            const stillPending = pendingPermissionManager
-              .pendingForAgent(agent.id)
-              .some((r) => r.request_id === request.request_id);
-            if (!stillPending) {
-              console.error(
-                `[wait][yolo] benign race: request already settled ` +
-                  `agent_id=${agent.id} request_id=${request.request_id} phase=${phase}`
-              );
-              continue;
-            }
-            return yoloAutoAllowError(
-              agent.id,
-              request.request_id,
-              "manager rejected the decision"
-            );
-          }
-          // Verify returned manager state: only 'answered'/'allow' proves the
-          // decision was recorded and handed to the driver.
-          if (answered.state !== "answered" || answered.answer !== "allow") {
-            return yoloAutoAllowError(
-              agent.id,
-              request.request_id,
-              `manager state ${answered.state}`
-            );
-          }
-          // Sanitized diagnostics: existing record metadata only. Never log
-          // action/input/command/path/payload/raw exception/secrets.
-          console.error(
-            `[wait][yolo] decision recorded and handed to driver ` +
-              `agent_id=${agent.id} request_id=${answered.request_id} ` +
-              `harness_channel=${request.harness_channel} ` +
-              `tool_or_method=${request.tool_name_or_method} ` +
-              `rule=${answered.auto_answer_rule ?? "none"} ` +
-              `launch_ceiling=${agent.permissionSnapshot.ceiling} phase=${phase} ` +
-              `age_ms=${Date.now() - request.requested_at} outcome=${answered.answer}`
-          );
-        }
-      }
-      return null;
-    };
-
     // Step 1: collect already-terminal unreported agents
-    const preWaitError = await settleYoloPermissions("pre_wait");
+    const preWaitError = await settleYoloPermissions(
+      agents,
+      pendingPermissionManager,
+      "pre_wait"
+    );
     if (preWaitError) return preWaitError;
     const allAgents = Array.from(agents.values());
     let unreported = selectUnreported(allAgents);
@@ -2432,7 +2443,11 @@ server.tool(
     while (Date.now() < deadline) {
       await sleep(250);
       zombieRecords.push(...runToolMaintenance());
-      const loopError = await settleYoloPermissions("in_loop");
+      const loopError = await settleYoloPermissions(
+        agents,
+        pendingPermissionManager,
+        "in_loop"
+      );
       if (loopError) return loopError;
       const loopAgents = Array.from(agents.values());
       unreported = selectUnreported(loopAgents);
