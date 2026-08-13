@@ -132,7 +132,7 @@ With `verbose: true`, every entry in `finished` gains a `final_output` field car
 
 Each finished job is reported exactly once per `wait` call (deduplicated by an internal `waitReported` flag). Calling `wait` again after a timeout will block for another 15 minutes.
 
-`wait` also returns unreported `permission_requested` agents (alongside `finished`) so a parked sub-agent surfaces promptly : see [`respond_permission`](#respond_permission).
+`wait` also returns unreported `permission_requested` agents (alongside `finished`) so a parked sub-agent surfaces promptly : see [`respond_permission`](#respond_permission). Agents launched under a `yolo` snapshot never surface as `permission_requested` : `wait` auto-allows their parked requests, with the decision recorded and handed to the provider driver, per [docs/spec/permissions/config-and-lifecycle.md](spec/permissions/config-and-lifecycle.md) section 5.
 
 ---
 

@@ -65,3 +65,10 @@ visible-stream parser. A provider turn-completion marker sets status
 `kill_agent` closes the provider driver immediately. Closed drivers report
 terminal `stopped`, `errored`, or process-finished status through the existing
 poll/list/wait paths.
+
+A permission decision -- including `wait`'s defensive `allow` recovery for an
+agent launched under a `yolo` snapshot -- is considered successful once it is
+recorded and handed to the provider driver, not once the provider acknowledges
+delivery. If the driver or exit reconciliation cannot accept the decision, the
+originating MCP call returns an actionable, non-prompt error rather than hanging
+or retrying.

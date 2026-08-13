@@ -37,7 +37,12 @@ alive agent can accept `send_message`, which moves it back to `processing` for t
 next turn (`send_message` is rejected while any permission request is pending).
 `stopped`/`errored`/`zombie_killed` are closed terminal states. See
 [permissions.md](../spec/permissions.md) for the gating that drives
-`permission_requested`.
+`permission_requested`. Under `auto` and `manual` snapshots `permission_requested`
+stays visible through `poll_agent`, `list_agents`, and `wait`. An agent launched
+under a `yolo` snapshot is not gated and does not park here; if a stale or racing
+pending record appears for one, `wait` recovers it by recording `allow` invisibly
+(authorized by the launch snapshot ceiling), so the agent stays on its normal
+`processing`/`finished` path with no `permission_requested` surfaced.
 
 Concurrency admission is one machine-global, provider-agnostic cap (see
 [SPEC.md](../SPEC.md#concurrency-model) and
