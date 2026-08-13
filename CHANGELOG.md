@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.2.2
+
+### Added
+
+- For `used_percentage >= H`, where `H` is fixed at 80%, the directive requires `handoff-write` when no eligible
+  prepared record exists. The write creates a fresh version-2 prepared handoff,
+  then work continues.
+- Compaction detection requires a qualifying adjacent sample pair and fresh
+  structural proof. Claude requires the exact UUID of the newest auto
+  `compact_boundary` on the main chain; Codex requires a fresh context-window
+  identity and cannot distinguish qualifying manual compaction.
+- Detected compaction sets `session_handoff_required` for one turn. A successful
+  `handoff-read` resumes only after exactly four structured confirmations.
+- Claude setup safely backs up configuration before writing
+  `env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` as `"90"`, and refuses an unsafe update.
+
+### Changed
+
+- `contextCoaching: false` suppresses optional coaching only; mandatory handoff
+  lifecycle directives remain active.
+
 ## 3.2.0
 
 ### Added
