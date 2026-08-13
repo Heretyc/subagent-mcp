@@ -28,14 +28,14 @@ everything else.
 | Interactive driver model | `docs/spec/interactive-drivers.md` |
 | Global concurrency cap | `docs/spec/global-concurrency/_INDEX.md`, `docs/spec/global-concurrency/cap-contract.md` (retrieval map over `cap-contract/` leaves) |
 | Global concurrency cap leaves | `docs/spec/global-concurrency/cap-contract/state-and-lifecycle.md`, `docs/spec/global-concurrency/cap-contract/zombie-culling.md`, `docs/spec/global-concurrency/cap-contract/config-and-build.md`, `docs/spec/global-concurrency/cap-contract/enforcement-fail-open-tests.md` |
-| Auto-mode / routing | `docs/spec/auto-mode/_INDEX.md`, `docs/spec/auto-mode/param-contract.md`, `docs/spec/auto-mode/resolution-matrix.md`, `docs/spec/auto-mode/resolution-errors.md`, `docs/spec/auto-mode/routing-table-contract.md`, `docs/spec/auto-mode/routing-table-model-effort.md`, `docs/spec/auto-mode/tool-description.md`, `docs/spec/auto-mode/build-and-test.md` |
+| Auto-mode / routing | `docs/spec/auto-mode/_INDEX.md`, `docs/spec/auto-mode/param-contract.md`, `docs/spec/auto-mode/resolution-matrix.md`, `docs/spec/auto-mode/resolution-errors.md`, `docs/spec/auto-mode/routing-table-contract.md`, `docs/spec/auto-mode/routing-attempt-loop.md`, `docs/spec/auto-mode/routing-table-model-effort.md`, `docs/spec/auto-mode/tool-description.md`, `docs/spec/auto-mode/build-and-test.md` |
 | Routing table artifact | `src/routing-table.json` (canonical profiler-emitted artifact; copied to `dist/`) + `.spec/references/assets/routing-table.json` (non-authoritative structural mirror) |
 | Task taxonomy (14 categories) | `docs/spec/task-taxonomy/_INDEX.md` (+ `category-rationale.md`, `composite-inferred-tiles.md`, `derivation-methodology.md`, `determination-rationale.md`) |
 | Work categories (fixed taxonomy) | `.spec/references/work-categories.md` |
 | Advanced ruleset override | `docs/spec/advanced-ruleset/_INDEX.md` (+ `execution-contract.md`, `io-contract.md`, `visibility-and-failover.md`, `build-and-test.md`, `scaffold-and-deployment.md`) |
 | Orchestration mode semantics | `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` (section 10) |
 | Orchestration directive architecture | `docs/spec/dev-loop/orchestration-directive-architecture.md` (retrieval map over its subdir leaves) |
-| : arch subdir leaves | `docs/spec/dev-loop/orchestration-directive-architecture/{sections-00-04,sections-05-09,sections-10-13,derivation-map,appendix-a1-a4,appendix-a5-directives,appendix-a6-a7}.md` |
+| : arch subdir leaves | `docs/spec/dev-loop/orchestration-directive-architecture/{sections-00-04,sections-04,sections-05-09,sections-09,sections-10-13,derivation-map,appendix-a1-a4,appendix-a5-directives,appendix-a6-a7,context-metering-usage-lift}.md` |
 | Model-selection mode | `docs/spec/model-selection-mode/_INDEX.md` |
 | Safety scope / clarifying cascade | `docs/spec/safety-scope.md` (+ `safety-scope/00-scope-and-cascade.md`, `01-question-flow.md`, `02-debug-and-credentials.md`, `03-subagents-platforms.md`) |
 | Worktree enforcement | `docs/spec/dev-loop/worktree-enforcement/_INDEX.md` (+ `enforcement.md`, `naming.md`, `claude.md`, `codex.md`) |
@@ -171,11 +171,11 @@ everything else.
 - `docs/reference/effort-resolution.md` : effort level seems wrong.
 - `docs/spec/global-concurrency/*` : anything about the cap.
 - `docs/spec/global-concurrency/cap-contract/*` : cap state, zombie culling, config/build, or enforcement/test details.
-- `docs/spec/auto-mode/*` : routing, param contract, resolution.
+- `docs/spec/auto-mode/*` : routing, param contract, resolution; `routing-attempt-loop.md` for attempt loop and empty-table behavior.
 - `docs/spec/task-taxonomy/*` + `.spec/references/work-categories.md` : classifying work.
 - `docs/spec/advanced-ruleset/*` : the python override hook / failover window.
 - `docs/spec/dev-loop/orchestration-directive-architecture/sections-10-13.md` (section 10) + `directives/*` : orchestration semantics/source.
-- `docs/spec/dev-loop/orchestration-directive-architecture(.md|/*)` : directive architecture; the `.md` is a map over the subdir leaves.
+- `docs/spec/dev-loop/orchestration-directive-architecture(.md|/*)` : directive architecture; the `.md` is a map over the subdir leaves; `context-metering-usage-lift.md` for usage lift, state, and display.
 - `docs/spec/model-selection-mode/*` : smart vs user-approved-overrides.
 - `docs/spec/safety-scope*` : clarify/consent/refuse/credentials/irreversible.
 - `docs/spec/dev-loop/worktree-enforcement/*` : before ANY mutating action.
