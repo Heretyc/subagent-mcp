@@ -20,7 +20,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - run: npm ci
@@ -41,7 +41,7 @@ jobs:
       # source and script, not just the packed inputs. Default checkout ref for
       # a release event is the tagged commit, which is exactly what we publish.
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           # Trusted Publishing (OIDC) requires Node >= 22.14 and npm >= 11.5.1.
           node-version: '22'
@@ -70,7 +70,7 @@ jobs:
     steps:
       # Full source needed so the npm lifecycle can build/test before publish.
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           registry-url: 'https://npm.pkg.github.com'
