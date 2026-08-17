@@ -2493,6 +2493,47 @@ server.tool(
   })
 );
 
+if (
+  process.env.SUBAGENT_MCP_ENABLE_TEST_SEAMS === "1" &&
+  process.env.SUBAGENT_MCP_LIVE_YOLO_SMOKE === "1"
+) {
+  server.tool(
+    "__test_park_yolo_wait_permission",
+    "Test-only yolo wait pending-permission fixture.",
+    {
+      agent_id: z.string().uuid(),
+    },
+    withMaintenance(async (params: any) => {
+      const agent = agents.get(params.agent_id);
+      if (!agent) return errorResult(`agent ${params.agent_id} not found`);
+      if (agent.permissionSnapshot.ceiling !== "yolo") {
+        return errorResult(`agent ${params.agent_id} was not launched with yolo authority`);
+      }
+      if (pendingPermissionManager.pendingCount(agent.id) !== 0) {
+        return errorResult(`agent ${params.agent_id} already has a pending permission`);
+      }
+      const record = pendingPermissionManager.create({
+        agent_id: agent.id,
+        harness_channel: "test",
+        tool_name_or_method: "test/yolo-wait",
+        action: { command: "echo yolo-wait-live-smoke" },
+        permission_ceiling: "manual",
+        escalation: "off",
+        irreversible: false,
+        correlation_id: "yolo-wait-live-smoke",
+        resolve: () => {},
+      });
+      return textResult(
+        JSON.stringify({
+          agent_id: agent.id,
+          request_id: record.request_id,
+          pending_count: pendingPermissionManager.pendingCount(agent.id),
+        })
+      );
+    })
+  );
+}
+
 // Tool 8: orchestration-mode
 server.tool(
   "orchestration-mode",
