@@ -227,7 +227,7 @@ function ceilingRank(ceiling: "manual" | "auto" | "yolo"): number {
 // exported PermissionSnapshot surface is unchanged; both extra fields come from the
 // SAME single merged read below so no downstream re-read can diverge from it.
 type LaunchPermissionSnapshot = PermissionSnapshot &
-  Pick<MergedPermissionConfig, "strictReadParity" | "sandboxNetwork">;
+  Pick<MergedPermissionConfig, "strictReadParity" | "sandboxNetwork" | "ceilingCap">;
 
 function buildPermissionSnapshot(cwd: string): LaunchPermissionSnapshot {
   const merged = readMergedPermissionConfig(cwd);
@@ -243,6 +243,7 @@ function buildPermissionSnapshot(cwd: string): LaunchPermissionSnapshot {
     repoConfigChangedSinceFirstSeen: merged.repoConfigChangedSinceFirstSeen,
     strictReadParity: merged.strictReadParity,
     sandboxNetwork: merged.sandboxNetwork,
+    ...(merged.ceilingCap ? { ceilingCap: merged.ceilingCap } : {}),
   };
 }
 
@@ -1777,6 +1778,14 @@ server.tool(
                       permissionSnapshot.additionalDirectories?.length ?? 0,
                     repo_config_changed_since_first_seen:
                       permissionSnapshot.repoConfigChangedSinceFirstSeen ?? false,
+                    ...(permissionSnapshot.ceilingCap
+                      ? {
+                          ceiling_cap: {
+                            reason: permissionSnapshot.ceilingCap.reason,
+                            source_paths: permissionSnapshot.ceilingCap.source_paths,
+                          },
+                        }
+                      : {}),
                   },
                   ...(rulesetApplied
                     ? {

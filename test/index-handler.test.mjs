@@ -1162,6 +1162,61 @@ await test("pure-auto launch: cost_efficiency selection, routing_tier is poll-on
   }
 });
 
+await test("launch_agent surfaces permissions_applied.ceiling_cap only when the ceiling is capped", async () => {
+  // Uncapped: a clean config home and no repo .codex leaves permissions_applied
+  // without a ceiling_cap key.
+  const clean = makeTempEnv();
+  const cleanConfigHome = join(clean.tempRoot, "config-home");
+  mkdirSync(cleanConfigHome, { recursive: true });
+  const cleanSession = createMcpSession(distIndex, {
+    cwd: clean.workDir,
+    env: { ...clean.env, SUBAGENT_CONFIG_HOME: cleanConfigHome },
+  });
+  try {
+    await cleanSession.initialize();
+    const resp = await cleanSession.request("tools/call", {
+      name: "launch_agent",
+      arguments: { task_category: "coding", prompt: "uncapped launch" },
+    });
+    const payload = JSON.parse(resp.result.content[0].text);
+    assert.ok(payload.permissions_applied, "launch response carries permissions_applied");
+    assert.equal(payload.permissions_applied.ceiling_cap, undefined, "uncapped launch omits ceiling_cap");
+    await killAgent(cleanSession, payload.agent_id);
+  } finally {
+    await cleanSession.close();
+    rmTempRoot(clean.tempRoot);
+  }
+
+  // Capped: a malformed repo .codex/config.toml fails closed and stamps the
+  // exact cap shape onto permissions_applied.
+  const capped = makeTempEnv();
+  const cappedConfigHome = join(capped.tempRoot, "config-home");
+  mkdirSync(cappedConfigHome, { recursive: true });
+  const codexPath = join(capped.workDir, ".codex", "config.toml");
+  mkdirSync(dirname(codexPath), { recursive: true });
+  writeFileSync(codexPath, 'sandbox_mode = "read-only\n');
+  const cappedSession = createMcpSession(distIndex, {
+    cwd: capped.workDir,
+    env: { ...capped.env, SUBAGENT_CONFIG_HOME: cappedConfigHome },
+  });
+  try {
+    await cappedSession.initialize();
+    const resp = await cappedSession.request("tools/call", {
+      name: "launch_agent",
+      arguments: { task_category: "coding", prompt: "capped launch" },
+    });
+    const payload = JSON.parse(resp.result.content[0].text);
+    const cap = payload.permissions_applied.ceiling_cap;
+    assert.equal(cap.reason, "config_parse_failure", "capped launch reports the parse-failure reason");
+    assert.equal(cap.source_paths.length, 1, "cap source_paths are deduplicated");
+    assert.match(cap.source_paths[0], /[\\/]\.codex[\\/]config\.toml$/, "cap source_paths name the failing config file");
+    await killAgent(cappedSession, payload.agent_id);
+  } finally {
+    await cappedSession.close();
+    rmTempRoot(capped.tempRoot);
+  }
+});
+
 await test("completed interactive turn that later exits is finished but not alive", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   const session = createMcpSession(distIndex, {
