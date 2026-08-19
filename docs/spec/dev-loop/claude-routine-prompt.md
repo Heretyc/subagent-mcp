@@ -9,7 +9,8 @@ rules are relevant.
 Task:
 1. Identify the triggering event, ref, head SHA, branch, and PR if present.
 2. Resolve target SHA from dispatch payload: PR head SHA, merge-group head SHA,
-   else workflow SHA. Fetch and checkout that exact target before validation.
+   else workflow SHA. For a PR, verify its base and head SHAs against GitHub
+   before using them. Fetch and checkout that exact target before validation.
    If checkout fails or HEAD differs, set Status to blocked.
 3. Validate the checked-out branch or PR against repository policy.
 4. Post a concise pass/fail/blocked report to the PR when a PR exists. If no PR
@@ -18,6 +19,11 @@ Task:
 Required checks:
 - Line limits: CLAUDE.md and GEMINI.md must be <=100 lines; AGENTS.md must be
   <=210 lines; every other Markdown/RAG file must be <=200 lines.
+- Line-limit scope: for pull request events, derive the changed-file set from
+  the verified PR base and head SHAs. Evaluate pass/fail only for added, modified,
+  or renamed files present at the head SHA. Untouched violations must remain
+  informational and must not change the check result. Deleted files are not
+  evaluated. For every other event, evaluate the full repository.
 - JSON syntax: every JSON file must parse.
 - Python syntax: repository Python files used by CI or policy must compile
   without repo-local pycache.
