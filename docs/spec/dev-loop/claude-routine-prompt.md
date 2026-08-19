@@ -10,8 +10,9 @@ Task:
 1. Identify the triggering event, ref, head SHA, branch, and PR if present.
 2. Resolve target SHA from dispatch payload: PR head SHA, merge-group head SHA,
    else workflow SHA. For a PR, verify its base and head SHAs against GitHub
-   before using them. Fetch and checkout that exact target before validation.
-   If checkout fails or HEAD differs, set Status to blocked.
+   before using them. If they differ from the dispatch payload, set Status to
+   blocked and report the mismatch. Fetch and checkout that exact target before
+   validation. If checkout fails or HEAD differs, set Status to blocked.
 3. Validate the checked-out branch or PR against repository policy.
 4. Post a concise pass/fail/blocked report to the PR when a PR exists. If no PR
    exists, preserve the report in the Claude session.
