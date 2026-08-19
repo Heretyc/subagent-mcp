@@ -42,6 +42,9 @@ settings; top-level `sandboxNetwork` is read from the global config.
 `permissions.defaultMode` is parsed-and-discarded everywhere (never votes, never
 selects a mode). deny/ask are **unioned** (tightening is safe); allow /
 additionalDirectories are honored as-is (accepted risk, see `threat-model.md`).
+Explicitly selected external `additionalDirectories` remain allowed; a ceiling
+cap tightens the posture (see `ceiling-modes.md`) but does not drop the selected
+directories.
 
 ### Codex to Claude mapping
 
@@ -141,9 +144,9 @@ answered | auto_answered | errored`: code adds `errored`.
 |---|---|---|---|
 | `permissionsCeiling` | `yolo`\|`auto`\|`manual` | `auto` | section 1 in `ceiling-modes.md` |
 | `escalation` | `irreversible-only`\|`off` | `irreversible-only` | Auto mode only. `irreversible-only` sets `escalate_to_human: true` on irreversible NEUTRAL residue so the orchestrator must route it to the human. `off` leaves NEUTRAL residue to orchestrator judgment. In `manual`, all residue already routes to the human, so the key is informational; in `yolo`, no gating occurs. |
-| `strictReadParity` | `warn`\|`off` | `warn` | Logging only; unparseable Codex approvals and malformed repo Codex TOML fail-closed to `ask`, but valid `#` inside strings and multiline strings parse normally. |
+| `strictReadParity` | `warn`\|`off` | `warn` | Logging only; unparseable Codex approvals and malformed repo Codex TOML fail-closed to `ask`, but valid `#` inside strings and multiline strings parse normally. Valid array-of-table headers such as `[[hooks.session_start]]` also parse normally; only genuine malformation fails closed. |
 | `sandboxNetwork` | boolean | `true` | Codex only: workspace-write **always** launches with `sandbox_workspace_write.network_access=true` (an unconditional `-c` flag), so this key no longer gates network: approved Codex processes can always reach the network inside workspace-write regardless of its value or the effective allow rules. Retained for compatibility; approvals still gate actions. |
-| `disableBypassPermissionsMode` | `disable` | : | User-scope only (`~/.subagent-mcp/`), tighten-only: caps the effective ceiling at `auto`. Repo scope has no effect. |
+| `disableBypassPermissionsMode` | `disable` | : | User-scope only (`~/.subagent-mcp/`), tighten-only: caps the effective ceiling at `auto`. Repo scope has no effect. See `ceiling-modes.md` ceiling caps (a parse-failure `manual` cap wins over this cap). |
 
 Every key in this table is read once per `launch_agent` and merged into the
 launch snapshot described in section 3, so `permissionsCeiling`, `escalation`,

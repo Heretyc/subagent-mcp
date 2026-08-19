@@ -59,6 +59,13 @@ export interface ConfigParseFailure {
   error: string;
 }
 
+export type CeilingCapReason = "config_parse_failure" | "disableBypassPermissionsMode=disable";
+
+export interface CeilingCap {
+  reason: CeilingCapReason;
+  source_paths: string[];
+}
+
 export interface PermissionRulesConfig {
   allow: string[];
   deny: string[];
@@ -74,6 +81,7 @@ export interface MergedPermissionConfig extends PermissionRulesConfig {
   configParseFailure: ConfigParseFailure[];
   repoConfigChangedSinceFirstSeen: boolean;
   selfProtectionDeny: string[];
+  ceilingCap?: CeilingCap;
 }
 
 export interface ContextCoachingSettings {
@@ -796,7 +804,7 @@ function assertBasicTomlParsable(text: string): string {
   for (const line of sanitized.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    if (/^\[[^\]]+\]$/.test(trimmed)) continue;
+    if (/^\[[^\[\]]+\]$/.test(trimmed) || /^\[\[[^\[\]]+\]\]$/.test(trimmed)) continue;
     if (!trimmed.includes("=") && arrayDepth === 0) throw new Error(`malformed TOML line: ${trimmed}`);
     const { opens, closes } = countTomlBrackets(trimmed);
     arrayDepth += opens - closes;
@@ -903,6 +911,7 @@ export function readMergedPermissionConfig(
     mergeRules(merged, blanketMutatingAskRules());
   }
   let disableBypass = false;
+  const disableBypassPaths: string[] = [];
   const configHome = getConfigHome();
   const sources: Array<[ConfigSourceKind, string, boolean]> = [
     ["user-settings", join(configHome, "settings.json"), true],
@@ -914,7 +923,10 @@ export function readMergedPermissionConfig(
     if (!existsSync(file)) continue;
     const read = readClaudePermissions(source, file, userScoped);
     mergeRules(merged, read.rules);
-    if (read.disableBypass) disableBypass = true;
+    if (read.disableBypass) {
+      disableBypass = true;
+      disableBypassPaths.push(file);
+    }
     if (read.failure) {
       failures.push(read.failure);
       ceiling = "manual";
@@ -928,7 +940,14 @@ export function readMergedPermissionConfig(
       ceiling = "manual";
     }
   }
-  if (disableBypass && ceiling === "yolo") ceiling = "auto";
+  let ceilingCap: CeilingCap | undefined;
+  if (failures.length > 0) {
+    ceiling = "manual";
+    ceilingCap = { reason: "config_parse_failure", source_paths: unique(failures.map((f) => f.path)) };
+  } else if (disableBypass && ceiling === "yolo") {
+    ceiling = "auto";
+    ceilingCap = { reason: "disableBypassPermissionsMode=disable", source_paths: unique(disableBypassPaths) };
+  }
   const digest = repoConfigDigest(cwd);
   const first = firstRepoDigests.get(cwd);
   const repoConfigChangedSinceFirstSeen = first !== undefined && first !== digest;
@@ -948,6 +967,7 @@ export function readMergedPermissionConfig(
     configParseFailure: failures,
     repoConfigChangedSinceFirstSeen,
     selfProtectionDeny,
+    ...(ceilingCap ? { ceilingCap } : {}),
   };
 }
 

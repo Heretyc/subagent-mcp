@@ -39,6 +39,35 @@ Value resolution (`concurrency.ts:parsePermissionsCeilingConfig`): absent file o
 key to `auto`; invalid/corrupt value to fail-closed to `manual`; whole-file parse
 failure to `manual`.
 
+### Ceiling caps (tighten-only)
+
+A configured global `yolo` resolves to and stays `yolo` unless a documented cap
+applies. Caps only tighten; none raises a ceiling.
+
+- `disableBypassPermissionsMode = disable` (user scope only, `~/.subagent-mcp/`;
+  see `config-and-lifecycle.md` section 6) caps `yolo` to `auto`
+  (`concurrency.ts:readMergedPermissionConfig`).
+- A genuine config parse failure from any merged source caps the ceiling to
+  `manual` (same function; the global file also fails closed to `manual` via
+  `parsePermissionsCeilingConfig`).
+
+`manual` wins over the bypass cap: the bypass cap only rewrites a still-`yolo`
+ceiling, so a ceiling already forced to `manual` by a parse failure is not
+raised back to `auto`. `auto` and `manual` inputs pass through unchanged.
+
+When a cap applies, the `launch_agent` response field `permissions_applied` may
+expose a `ceiling_cap` object with exactly `reason` and `source_paths`; it never
+carries parse text or config contents. An uncapped ceiling has no `ceiling_cap`
+(see `../../tools.md`).
+
+### yolo and protected paths
+
+`yolo` does not consult the engine, so an authorized `yolo` ceiling permits an
+otherwise protected path -- including a protected `SKILL.md` case -- through the
+same allow-everything ceiling behavior, with no special casing. Under `auto` the
+DANGER floor is unchanged: a write touching `.codex` stays denied
+(`permission-classes.json` `dangerousPathSegments`).
+
 Because the launch snapshot fixes the ceiling and it is never re-read, every
 later decision for that agent reads authority from the snapshot's
 `permissionSnapshot.ceiling`, never the current global config. This includes

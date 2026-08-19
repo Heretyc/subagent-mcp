@@ -612,6 +612,8 @@ await test("config precedence, unions, repo allow, legacy read, and parse fail-c
     });
     const { first, legacy, notice, failed } = JSON.parse(out);
     assert.equal(first.permissionsCeiling, "auto", "user disableBypass caps yolo to auto");
+    assert.equal(first.ceilingCap.reason, "disableBypassPermissionsMode=disable", "yolo->auto records the disableBypass cap reason");
+    assert.ok(first.ceilingCap.source_paths.some((p) => p.endsWith("settings.json")), "cap source_paths name the settings file");
     assert.ok(first.allow.includes("Bash(node build.js)"), "repo allow is honored");
     assert.ok(first.ask.includes("Bash(node *)") && first.ask.includes("Edit(src/*)"));
     assert.ok(first.deny.includes("Write(secret)") && first.deny.includes("WebFetch(domain:bad.test)"));
@@ -619,10 +621,13 @@ await test("config precedence, unions, repo allow, legacy read, and parse fail-c
     assert.equal(first.sandboxNetwork, true);
     assert.ok(first.deny.includes("Edit") && first.deny.includes("Write"));
     assert.equal(legacy.permissionsCeiling, "manual");
+    assert.equal(legacy.ceilingCap, undefined, "a configured manual ceiling is not a cap");
     assert.match(notice, /deprecated/);
     assert.equal(failed.permissionsCeiling, "manual");
     assert.ok(failed.ask.includes("Bash") && failed.ask.includes("Edit"));
     assert.ok(failed.configParseFailure.some((f) => f.source === "builtin"));
+    assert.equal(failed.ceilingCap.reason, "config_parse_failure", "builtin parse failure caps to manual with the parse-failure reason");
+    assert.ok(failed.ceilingCap.source_paths.includes(globalPath), "cap source_paths name the unparseable global config");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -705,6 +710,100 @@ await test("malformed Codex TOML still fails closed", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+await test("Codex TOML array-of-tables header parses and preserves uncapped yolo", () => {
+  const root = mkdtempSync(join(process.cwd(), ".tmp-subagent-codex-aot-"));
+  const cwd = join(root, "repo");
+  const home = join(root, "home");
+  const globalPath = join(root, "global-subagent-mcp-config.jsonc");
+  try {
+    mkdirSync(join(cwd, ".codex"), { recursive: true });
+    mkdirSync(join(home, ".subagent-mcp"), { recursive: true });
+    writeFileSync(globalPath, '{"permissionsCeiling":"yolo"}');
+    writeFileSync(join(cwd, ".codex", "config.toml"), [
+      'sandbox_mode = "workspace-write"',
+      "[[hooks.session_start]]",
+      'command = "echo hi"',
+      "[hooks.config]",
+      'enabled = "true"',
+      "",
+    ].join("\n"));
+
+    const code = `
+      import { readMergedPermissionConfig } from "./dist/concurrency.js";
+      const result = readMergedPermissionConfig(${JSON.stringify(cwd)}, ${JSON.stringify(globalPath)});
+      console.log(JSON.stringify(result));
+    `;
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", code], {
+      cwd: fileURLToPath(new URL("..", import.meta.url)),
+      env: { ...process.env, HOME: home, USERPROFILE: home, SUBAGENT_CONFIG_HOME: join(home, ".subagent-mcp") },
+      encoding: "utf8",
+    });
+    const result = JSON.parse(out);
+    assert.deepEqual(result.configParseFailure, [], "[[array.of.tables]] must not read as a parse failure");
+    assert.equal(result.ask.includes("Bash"), false, "valid TOML must not inject blanket mutating ask rules");
+    assert.equal(result.permissionsCeiling, "yolo", "configured global yolo is preserved when uncapped");
+    assert.equal(result.ceilingCap, undefined, "an uncapped merge omits ceilingCap");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("ceiling cap: genuine parse failure outranks disableBypass (manual wins)", () => {
+  const root = mkdtempSync(join(process.cwd(), ".tmp-subagent-cap-precedence-"));
+  const cwd = join(root, "repo");
+  const home = join(root, "home");
+  const globalPath = join(root, "global-subagent-mcp-config.jsonc");
+  try {
+    mkdirSync(join(cwd, ".codex"), { recursive: true });
+    mkdirSync(join(home, ".subagent-mcp"), { recursive: true });
+    writeFileSync(globalPath, '{"permissionsCeiling":"yolo"}');
+    writeFileSync(join(home, ".subagent-mcp", "settings.json"), JSON.stringify({ disableBypassPermissionsMode: "disable" }));
+    writeFileSync(join(cwd, ".codex", "config.toml"), 'sandbox_mode = "read-only\n');
+
+    const code = `
+      import { readMergedPermissionConfig } from "./dist/concurrency.js";
+      const result = readMergedPermissionConfig(${JSON.stringify(cwd)}, ${JSON.stringify(globalPath)});
+      console.log(JSON.stringify(result));
+    `;
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", code], {
+      cwd: fileURLToPath(new URL("..", import.meta.url)),
+      env: { ...process.env, HOME: home, USERPROFILE: home, SUBAGENT_CONFIG_HOME: join(home, ".subagent-mcp") },
+      encoding: "utf8",
+    });
+    const result = JSON.parse(out);
+    assert.equal(result.permissionsCeiling, "manual", "parse failure caps to manual even alongside disableBypass");
+    assert.equal(result.ceilingCap.reason, "config_parse_failure", "manual cap reason wins over disableBypass");
+    assert.ok(result.ceilingCap.source_paths.some((p) => p.endsWith("config.toml")), "cap source_paths name the failing config");
+    assert.equal(result.ceilingCap.source_paths.includes("disableBypassPermissionsMode=disable"), false, "cap never surfaces reason text as a path");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("SKILL.md verdict matrix: .codex skills deny under auto, allow under yolo; ordinary and external skills allow", () => {
+  const cwd = process.cwd();
+  const codexSkillPaths = [
+    ".codex/skills/repo-skill/SKILL.md",
+    "~/.codex/skills/user-skill/SKILL.md",
+    "vendor/plugin-cache/.codex/skills/plugin-skill/SKILL.md",
+  ];
+  for (const p of codexSkillPaths) {
+    const engine = verdict({ tool: "Read", paths: [p], cwd }, {}).verdict;
+    assert.equal(engine, "deny", `${p}: engine denies a .codex skill read`);
+    assert.equal(applyPermissionCeiling(engine, "auto"), "deny", `${p}: auto keeps the .codex deny`);
+    assert.equal(applyPermissionCeiling(engine, "yolo"), "allow", `${p}: yolo ceiling overrides to allow`);
+  }
+
+  const inCwd = verdict({ tool: "Read", paths: ["skills/ordinary/SKILL.md"], cwd }, {});
+  assert.equal(inCwd.verdict, "allow", "an ordinary in-cwd skill read is allowed");
+
+  const external = verdict(
+    { tool: "Read", paths: ["../external-skills/foo/SKILL.md"], cwd, additionalDirectories: ["../external-skills"] },
+    {}
+  );
+  assert.equal(external.verdict, "allow", "a selected external skill via additionalDirectories is allowed");
 });
 
 await test("settings isolation canary and temp permissions", async () => {
