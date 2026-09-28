@@ -66,8 +66,9 @@ await test("validateRulesetOutput: accepts all legal triples; strips rank/extra 
     { provider: "codex", model: "gpt-5.5", effort: "xhigh", rank: 2 },
     { provider: "claude", model: "haiku", effort: "none" },
     { provider: "claude", model: "fable", effort: "max" },
-    { provider: "claude", model: "opus", effort: "ultracode" },
-    { provider: "claude", model: "opus-4-8", effort: "max" },
+    { provider: "claude", model: "opus", effort: "max" },
+    { provider: "claude", model: "opus-4-8", effort: "ultracode" },
+    { provider: "codex", model: "gpt-6-astra", effort: "max" },
     { provider: "api", model: "api-model", effort: "medium" },
   ], [
     { provider: "api", model: "api-model", effort: "medium", rank: 1 },
@@ -78,10 +79,32 @@ await test("validateRulesetOutput: accepts all legal triples; strips rank/extra 
     { provider: "codex", model: "gpt-5.5", effort: "xhigh" },
     { provider: "claude", model: "haiku", effort: "none" },
     { provider: "claude", model: "fable", effort: "max" },
-    { provider: "claude", model: "opus", effort: "ultracode" },
-    { provider: "claude", model: "opus-4-8", effort: "max" },
+    // generic opus is GA Opus 5.5: accepts max, NOT ultracode.
+    { provider: "claude", model: "opus", effort: "max" },
+    // opus-4-8 is the sole ultracode-capable model.
+    { provider: "claude", model: "opus-4-8", effort: "ultracode" },
+    // gpt-6-astra is the sole Codex model carrying a max tier.
+    { provider: "codex", model: "gpt-6-astra", effort: "max" },
     { provider: "api", model: "api-model", effort: "medium" },
   ], "candidates must carry exactly provider/model/effort — rank and extra keys stripped");
+});
+
+await test("validateRulesetOutput: accepts every pinned/GA launch alias with a valid effort", () => {
+  // The ruleset/table layer supports the full launch roster — including fable-5,
+  // which is a table pin (claude-fable-5) not offered in the user zod enum.
+  const result = validateRulesetOutput([
+    { provider: "claude", model: "opus-5-5", effort: "max" },
+    { provider: "claude", model: "fable-5", effort: "xhigh" },
+    { provider: "claude", model: "fable-5-1", effort: "high" },
+    { provider: "codex", model: "gpt-6-astra", effort: "xhigh" },
+  ]);
+  assert.equal(result.ok, true, "pinned/GA aliases with valid efforts must all validate");
+  assert.deepEqual(result.candidates, [
+    { provider: "claude", model: "opus-5-5", effort: "max" },
+    { provider: "claude", model: "fable-5", effort: "xhigh" },
+    { provider: "claude", model: "fable-5-1", effort: "high" },
+    { provider: "codex", model: "gpt-6-astra", effort: "xhigh" },
+  ]);
 });
 
 await test("validateRulesetOutput: API candidates must come from ruleset input", () => {
@@ -115,11 +138,17 @@ await test("validateRulesetOutput: duplicates are allowed (attempt loop just tri
 // ---------------------------------------------------------------------------
 await test("validateRulesetOutput: rejection matrix (per-model effort legality, provider↔model, shape)", () => {
   const bad = [
-    [{ provider: "codex", model: "gpt-5.5", effort: "max" }, "codex max is unlaunchable (resolveEffort throws)"],
-    [{ provider: "codex", model: "gpt-5.5", effort: "ultracode" }, "ultracode is opus-only"],
-    [{ provider: "claude", model: "sonnet", effort: "ultracode" }, "ultracode is opus-only, sonnet must reject"],
+    [{ provider: "codex", model: "gpt-5.5", effort: "max" }, "codex gpt-5.5 has no max tier (only gpt-6-astra)"],
+    [{ provider: "codex", model: "gpt-5.6", effort: "max" }, "codex gpt-5.6 has no max tier (only gpt-6-astra)"],
+    [{ provider: "codex", model: "gpt-5.5", effort: "ultracode" }, "ultracode is Opus-4-8-only"],
+    [{ provider: "codex", model: "gpt-6-astra", effort: "ultracode" }, "gpt-6-astra has max but NOT ultracode"],
+    [{ provider: "claude", model: "sonnet", effort: "ultracode" }, "ultracode is Opus-4-8-only, sonnet must reject"],
+    [{ provider: "claude", model: "opus", effort: "ultracode" }, "generic opus is GA Opus 5.5, NOT ultracode-capable"],
+    [{ provider: "claude", model: "opus-5-5", effort: "ultracode" }, "pinned opus-5-5 is not ultracode-capable"],
     [{ provider: "claude", model: "sonnet", effort: "low" }, "low effort is banned policy-wide"],
-    [{ provider: "claude", model: "fable", effort: "ultracode" }, "ultracode is opus-only, fable must reject"],
+    [{ provider: "claude", model: "fable", effort: "ultracode" }, "ultracode is Opus-4-8-only, fable must reject"],
+    [{ provider: "claude", model: "fable-5-1", effort: "ultracode" }, "ultracode is Opus-4-8-only, fable-5-1 must reject"],
+    [{ provider: "claude", model: "gpt-6-astra", effort: "high" }, "claude cannot run the Codex gpt-6-astra model"],
     [{ provider: "claude", model: "haiku", effort: "high" }, "haiku effort must be exactly \"none\""],
     [{ provider: "claude", model: "sonnet", effort: "banana" }, "junk effort that effort.ts's lenient default would have coerced to high"],
     [{ provider: "claude", model: "banana", effort: "high" }, "unknown model"],

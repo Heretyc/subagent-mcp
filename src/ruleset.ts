@@ -228,23 +228,31 @@ function parseEnvCheck(stdout: string): { ready: boolean; loadRules: boolean } |
   return { ready, loadRules };
 }
 
-// Per-model effort legality, derived from the exported launch enums. Own
-// membership checks on purpose: resolveEffort (effort.ts) has a lenient default
-// that silently coerces unknown efforts to "high", so buildCommand throwing can
-// NOT be relied on to reject bad ruleset output.
-const SONNET_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter((e) => e !== "ultracode");
-const CODEX_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter(
+// Per-model effort legality, derived from the exported launch enums and kept in
+// lockstep with effort.ts's resolveEffort. Own membership checks on purpose:
+// resolveEffort has no lenient default anymore (it throws on unsupported combos),
+// but the validator must reject bad ruleset output BEFORE it reaches the attempt
+// loop, so it never depends on a downstream throw.
+//
+// FLAG_EFFORTS_WITH_MAX: medium/high/xhigh/max (every flag tier except the
+// settings-file-injected ultracode). CODEX_BASE_EFFORTS drops `max` too.
+const FLAG_EFFORTS_WITH_MAX: readonly string[] = LAUNCH_EFFORTS.filter((e) => e !== "ultracode");
+const CODEX_BASE_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter(
   (e) => e !== "ultracode" && e !== "max"
 );
 
+/** Codex-family launch models (the rest of LAUNCH_MODELS are Claude-family). */
+const CODEX_LAUNCH_MODELS: readonly string[] = ["gpt-5.5", "gpt-5.6", "gpt-6-astra"];
+
 function effortAllowed(model: string, effort: string): boolean {
   if (model === "haiku") return effort === HAIKU_EFFORT;
-  if (model === "sonnet" || model === "fable") return SONNET_EFFORTS.includes(effort);
-  if (model === "opus" || model === "opus-4-8") {
-    return (LAUNCH_EFFORTS as readonly string[]).includes(effort);
-  }
-  // Codex launch models.
-  return CODEX_EFFORTS.includes(effort);
+  // Opus 4.8 is the sole ultracode-capable model (CLI settings-file injection).
+  if (model === "opus-4-8") return (LAUNCH_EFFORTS as readonly string[]).includes(effort);
+  // Codex gpt-5.5/gpt-5.6 have no `max` tier; gpt-6-astra (below) does.
+  if (model === "gpt-5.5" || model === "gpt-5.6") return CODEX_BASE_EFFORTS.includes(effort);
+  // Every other launch model — generic `opus` (GA Opus 5.5), sonnet, the fable
+  // family, and gpt-6-astra — accepts medium/high/xhigh/max but NOT ultracode.
+  return FLAG_EFFORTS_WITH_MAX.includes(effort);
 }
 
 /**
@@ -255,7 +263,9 @@ function effortAllowed(model: string, effort: string): boolean {
  *
  * Per element: string provider/model/effort; provider ∈ {claude, codex};
  * model ∈ launch enum; provider↔model legality (claude↔{haiku,sonnet,opus,
- * opus-4-8,fable}, codex↔{gpt-5.5,gpt-5.6}); per-model effort legality incl. haiku→"none".
+ * opus-4-8,opus-5-5,fable,fable-5,fable-5-1}, codex↔{gpt-5.5,gpt-5.6,gpt-6-astra});
+ * per-model effort legality incl. haiku→"none", ultracode→opus-4-8 only,
+ * max→gpt-6-astra only within Codex.
  * API candidates must match the input list (including multiplicity), because
  * only input API candidates have attached providers.jsonc dispatch metadata.
  * Extra keys (incl. rank) are ignored on output; duplicates are allowed (the
@@ -313,11 +323,11 @@ export function validateRulesetOutput(
     if (!(LAUNCH_MODELS as readonly string[]).includes(model)) {
       return { ok: false, error: `candidate ${i}: unknown model ${model}` };
     }
-    if (provider === "claude" && ["gpt-5.5", "gpt-5.6"].includes(model)) {
+    if (provider === "claude" && (CODEX_LAUNCH_MODELS as readonly string[]).includes(model)) {
       return { ok: false, error: `candidate ${i}: claude does not support ${model}` };
     }
-    if (provider === "codex" && !["gpt-5.5", "gpt-5.6"].includes(model)) {
-      return { ok: false, error: `candidate ${i}: codex only supports gpt-5.5 or gpt-5.6, got ${model}` };
+    if (provider === "codex" && !(CODEX_LAUNCH_MODELS as readonly string[]).includes(model)) {
+      return { ok: false, error: `candidate ${i}: codex only supports gpt-5.5, gpt-5.6, or gpt-6-astra, got ${model}` };
     }
     if (!effortAllowed(model, effort)) {
       return { ok: false, error: `candidate ${i}: effort ${effort} is not valid for ${provider}/${model}` };

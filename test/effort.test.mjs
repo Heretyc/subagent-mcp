@@ -17,15 +17,24 @@ function test(name, fn) {
   }
 }
 
-// 1. mapModel: opus and opus-4-8 both -> "claude-opus-4-8"
-test("mapModel opus -> claude-opus-4-8", () => {
-  assert.equal(mapModel("claude", "opus"), "claude-opus-4-8");
+// 1. mapModel: generic opus tracks Opus 5.5; explicit version aliases pinned
+test("mapModel opus -> claude-opus-5-5", () => {
+  assert.equal(mapModel("claude", "opus"), "claude-opus-5-5");
+});
+test("mapModel opus-5-5 -> claude-opus-5-5", () => {
+  assert.equal(mapModel("claude", "opus-5-5"), "claude-opus-5-5");
 });
 test("mapModel opus-4-8 -> claude-opus-4-8", () => {
   assert.equal(mapModel("claude", "opus-4-8"), "claude-opus-4-8");
 });
-test("mapModel fable -> claude-fable-5", () => {
-  assert.equal(mapModel("claude", "fable"), "claude-fable-5");
+test("mapModel fable -> claude-fable-5-1", () => {
+  assert.equal(mapModel("claude", "fable"), "claude-fable-5-1");
+});
+test("mapModel fable-5-1 -> claude-fable-5-1", () => {
+  assert.equal(mapModel("claude", "fable-5-1"), "claude-fable-5-1");
+});
+test("mapModel fable-5 -> claude-fable-5", () => {
+  assert.equal(mapModel("claude", "fable-5"), "claude-fable-5");
 });
 test("mapModel sonnet -> claude-sonnet-4-6", () => {
   assert.equal(mapModel("claude", "sonnet"), "claude-sonnet-4-6");
@@ -36,19 +45,18 @@ test("mapModel haiku -> claude-haiku-4-5", () => {
 test("mapModel codex gpt-5.6 -> gpt-5.6-sol", () => {
   assert.equal(mapModel("codex", "gpt-5.6"), "gpt-5.6-sol");
 });
+test("mapModel codex gpt-6-astra -> gpt-6-astra", () => {
+  assert.equal(mapModel("codex", "gpt-6-astra"), "gpt-6-astra");
+});
 
-// 2. (claude, opus, ultracode) buildCommand: args include "--settings"; file exists with {"ultracode":true}; no "--effort"
-test("(claude,opus,ultracode) buildCommand has --settings, no --effort, file contains ultracode:true", () => {
-  const result = buildCommand("claude", "opus", "ultracode", "test", process.cwd());
-  assert.ok(result.ucSettingsPath, "ucSettingsPath should be set");
-  const settingsIdx = result.args.indexOf("--settings");
-  assert.ok(settingsIdx !== -1, "args should include --settings");
-  assert.equal(result.args[settingsIdx + 1], result.ucSettingsPath, "--settings arg should be the ucSettingsPath");
-  assert.ok(existsSync(result.ucSettingsPath), "temp settings file should exist");
-  const contents = JSON.parse(readFileSync(result.ucSettingsPath, "utf-8"));
-  assert.deepEqual(contents, { ultracode: true }, "file should contain {ultracode:true}");
-  assert.ok(!result.args.includes("--effort"), "args should NOT include --effort");
-  unlinkSync(result.ucSettingsPath);
+// 2. generic opus resolves to Opus 5.5, which is not verified for ultracode -> throws
+test("(claude,opus,ultracode) throws because generic opus is not the ultracode-verified model", () => {
+  assert.throws(() => buildCommand("claude", "opus", "ultracode", "test", process.cwd()));
+});
+
+// 2b. opus-5-5 explicit: ultracode not enabled without CLI verification -> throws
+test("(claude,opus-5-5,ultracode) throws", () => {
+  assert.throws(() => buildCommand("claude", "opus-5-5", "ultracode", "test", process.cwd()));
 });
 
 // 3. (claude, opus-4-8, ultracode): same as #2
@@ -64,12 +72,12 @@ test("(claude,opus-4-8,ultracode) buildCommand has --settings, no --effort, file
   unlinkSync(result.ucSettingsPath);
 });
 
-// 4. (codex, gpt-5.5, ultracode): throws, message contains "Opus 4.8+"
-test("(codex,gpt-5.5,ultracode) throws with 'Opus 4.8+' in message", () => {
+// 4. (codex, gpt-5.5, ultracode): throws, message contains "Opus 4.8"
+test("(codex,gpt-5.5,ultracode) throws with 'Opus 4.8' in message", () => {
   assert.throws(
     () => buildCommand("codex", "gpt-5.5", "ultracode", "test", process.cwd()),
     (err) => {
-      assert.ok(err.message.includes("Opus 4.8+"), `Expected 'Opus 4.8+' in: ${err.message}`);
+      assert.ok(err.message.includes("Opus 4.8"), `Expected 'Opus 4.8' in: ${err.message}`);
       return true;
     }
   );
@@ -97,12 +105,35 @@ test("(claude,opus,max) args include --effort max", () => {
   assert.equal(result.args[effortIdx + 1], "max", "--effort value should be max");
 });
 
+// 7b. Generic `opus` --model resolves to the latest verified GA Opus (5.5),
+// while the pinned `opus-4-8` alias stays on Opus 4.8. This guards the normal
+// (non-ultracode) launch path from silently drifting back to an older id.
+test("(claude,opus,high) --model is claude-opus-5-5 (generic tracks latest GA)", () => {
+  const result = buildCommand("claude", "opus", "high", "test", process.cwd());
+  const modelIdx = result.args.indexOf("--model");
+  assert.equal(result.args[modelIdx + 1], "claude-opus-5-5", "--model should be claude-opus-5-5");
+  const effortIdx = result.args.indexOf("--effort");
+  assert.equal(result.args[effortIdx + 1], "high", "--effort value should be high");
+});
+
 // 8. (codex, gpt-5.5, max): throws, message contains "not valid for gpt-5.5"
 test("(codex,gpt-5.5,max) throws with 'not valid for gpt-5.5' in message", () => {
   assert.throws(
     () => buildCommand("codex", "gpt-5.5", "max", "test", process.cwd()),
     (err) => {
       assert.ok(err.message.includes("not valid for gpt-5.5"), `Expected 'not valid for gpt-5.5' in: ${err.message}`);
+      return true;
+    }
+  );
+});
+
+// 8b. (codex, gpt-5.6, max): only gpt-6-astra supports max on Codex; gpt-5.6
+// must be rejected loudly with no silent downgrade to a supported effort.
+test("(codex,gpt-5.6,max) throws (max is Astra-only on Codex)", () => {
+  assert.throws(
+    () => buildCommand("codex", "gpt-5.6", "max", "test", process.cwd()),
+    (err) => {
+      assert.ok(err.message.includes("max effort is not valid"), `Expected max-effort rejection in: ${err.message}`);
       return true;
     }
   );
@@ -128,14 +159,63 @@ test("(claude,fable,max) maps model and args include --effort max", () => {
   const result = buildCommand("claude", "fable", "max", "test", process.cwd());
   const modelIdx = result.args.indexOf("--model");
   const effortIdx = result.args.indexOf("--effort");
-  assert.equal(result.args[modelIdx + 1], "claude-fable-5", "--model should be claude-fable-5");
+  assert.equal(result.args[modelIdx + 1], "claude-fable-5-1", "--model should be claude-fable-5-1");
   assert.equal(result.args[effortIdx + 1], "max", "--effort value should be max");
+});
+
+test("(claude,fable-5-1,xhigh) maps model and args include --effort xhigh", () => {
+  const result = buildCommand("claude", "fable-5-1", "xhigh", "test", process.cwd());
+  const modelIdx = result.args.indexOf("--model");
+  const effortIdx = result.args.indexOf("--effort");
+  assert.equal(result.args[modelIdx + 1], "claude-fable-5-1", "--model should be claude-fable-5-1");
+  assert.equal(result.args[effortIdx + 1], "xhigh", "--effort value should be xhigh");
+});
+
+test("(claude,opus-5-5,max) maps model and args include --effort max", () => {
+  const result = buildCommand("claude", "opus-5-5", "max", "test", process.cwd());
+  const modelIdx = result.args.indexOf("--model");
+  const effortIdx = result.args.indexOf("--effort");
+  assert.equal(result.args[modelIdx + 1], "claude-opus-5-5", "--model should be claude-opus-5-5");
+  assert.equal(result.args[effortIdx + 1], "max", "--effort value should be max");
+});
+
+// GPT-6 Astra (Codex) supports medium/high/xhigh/max; low is banned.
+test("(codex,gpt-6-astra,max) resolveEffort returns flag max (max is valid for Astra)", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-6-astra", "max"), { kind: "flag", value: "max" });
+});
+test("(codex,gpt-6-astra,xhigh) resolveEffort returns flag xhigh", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-6-astra", "xhigh"), { kind: "flag", value: "xhigh" });
+});
+test("(codex,gpt-6-astra,max) buildCommand uses app-server stdio and does not throw", () => {
+  const result = buildCommand("codex", "gpt-6-astra", "max", "test", process.cwd());
+  assert.deepEqual(result.args, ["app-server", "--stdio"]);
+});
+test("(codex,gpt-6-astra,low) throws (low banned)", () => {
+  assert.throws(() => buildCommand("codex", "gpt-6-astra", "low", "test", process.cwd()));
+});
+test("(codex,gpt-6-astra,ultracode) throws (ultracode not on Astra)", () => {
+  assert.throws(() => buildCommand("codex", "gpt-6-astra", "ultracode", "test", process.cwd()));
 });
 
 // 11. (claude, haiku, high): args do NOT include "--effort"
 test("(claude,haiku,high) args do NOT include --effort", () => {
   const result = buildCommand("claude", "haiku", "high", "test", process.cwd());
   assert.ok(!result.args.includes("--effort"), "args should NOT include --effort for haiku");
+});
+
+// 11b. Unknown/unsupported model/effort pair fails loudly, never silently
+// falls back to a default effort. Guards the final no-silent-fallback throw.
+test("(claude,unknown-model,high) throws unsupported combination", () => {
+  assert.throws(
+    () => resolveEffort("claude", "unknown-model", "high"),
+    (err) => {
+      assert.ok(
+        err.message.includes("unsupported model/effort combination"),
+        `Expected unsupported-combination throw in: ${err.message}`
+      );
+      return true;
+    }
+  );
 });
 
 // --- Interactive-only launch args ---
@@ -159,9 +239,9 @@ test("(claude,sonnet,high) uses interactive SDK-compatible args", () => {
   assertInteractiveClaudeArgs(result.args, "normal");
 });
 
-// 13. (claude, opus, ultracode): ultracode path is also not print mode
-test("(claude,opus,ultracode) uses interactive SDK-compatible args", () => {
-  const result = buildCommand("claude", "opus", "ultracode", "test", process.cwd());
+// 13. (claude, opus-4-8, ultracode): ultracode path is also not print mode
+test("(claude,opus-4-8,ultracode) uses interactive SDK-compatible args", () => {
+  const result = buildCommand("claude", "opus-4-8", "ultracode", "test", process.cwd());
   assertInteractiveClaudeArgs(result.args, "ultracode");
   unlinkSync(result.ucSettingsPath);
 });

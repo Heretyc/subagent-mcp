@@ -7,10 +7,14 @@ export type Provider = "claude" | "codex" | "api";
 
 export function mapModel(provider: Provider, model: string): string {
   if (provider === "claude") {
-    if (model === "opus" || model === "opus-4-8") return "claude-opus-4-8";
+    // Generic `opus`/`fable` track the latest verified GA model; explicit
+    // version aliases are pinned to their exact CLI model IDs.
+    if (model === "opus" || model === "opus-5-5") return "claude-opus-5-5";
+    if (model === "opus-4-8") return "claude-opus-4-8";
     if (model === "sonnet") return "claude-sonnet-4-6";
     if (model === "haiku") return "claude-haiku-4-5";
-    if (model === "fable") return "claude-fable-5";
+    if (model === "fable" || model === "fable-5-1") return "claude-fable-5-1";
+    if (model === "fable-5") return "claude-fable-5";
     return model;
   }
   if (provider === "codex") {
@@ -25,7 +29,10 @@ export function resolveEffort(
   model: string,
   effort: string
 ): { kind: "flag"; value: string } | { kind: "settings" } | { kind: "none" } {
-  const isOpus48 = provider === "claude" && (model === "opus" || model === "opus-4-8");
+  // ultracode is CLI-only settings-file injection, verified solely on Opus 4.8.
+  // Other GA models (including generic `opus`, which resolves to Opus 5.5) are
+  // not enabled for ultracode without independent CLI verification.
+  const isOpus48 = provider === "claude" && model === "opus-4-8";
 
   if (effort === "low") {
     throw new Error(
@@ -36,7 +43,7 @@ export function resolveEffort(
   if (effort === "ultracode") {
     if (!isOpus48) {
       throw new Error(
-        `ultracode effort is only available on Opus 4.8+ (got ${provider}/${model}). Use xhigh for other models.`
+        `ultracode effort is only available on Opus 4.8 (got ${provider}/${model}). Use xhigh for other models.`
       );
     }
     return { kind: "settings" };
@@ -46,19 +53,24 @@ export function resolveEffort(
     return { kind: "none" };
   }
 
-  if (provider === "claude" && ["sonnet", "opus", "opus-4-8", "fable"].includes(model)) {
+  if (
+    provider === "claude" &&
+    ["sonnet", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5", "fable-5-1"].includes(model)
+  ) {
     if (["medium", "high", "xhigh", "max"].includes(effort)) {
       return { kind: "flag", value: effort };
     }
   }
 
   if (provider === "codex") {
-    if (effort === "max") {
+    // gpt-6-astra supports max; gpt-5.5/gpt-5.6 do not.
+    const isAstra = model === "gpt-6-astra";
+    if (effort === "max" && !isAstra) {
       throw new Error(
         `max effort is not valid for gpt-5.5/gpt-5.6 (Codex). Valid: medium, high, xhigh.`
       );
     }
-    if (["medium", "high", "xhigh"].includes(effort)) {
+    if (["medium", "high", "xhigh", "max"].includes(effort)) {
       return { kind: "flag", value: effort };
     }
   }
@@ -67,7 +79,10 @@ export function resolveEffort(
     throw new Error("api provider dispatch not implemented");
   }
 
-  return { kind: "flag", value: "high" };
+  // No silent high fallback: an unrecognized model/effort pair fails loudly.
+  throw new Error(
+    `unsupported model/effort combination: ${provider}/${model} @ ${effort}.`
+  );
 }
 
 export function buildCommand(

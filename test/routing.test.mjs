@@ -20,6 +20,7 @@ import {
   buildCandidates,
   mapModelToProvider,
   normalizeEffort,
+  validatePresence,
 } from "../dist/routing.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -116,40 +117,65 @@ test("provider_model filter: claude+sonnet returns only sonnet pairings", () => 
 
 // ---------------------------------------------------------------------------
 // 4. effort normalization
-//    WHY: un-normalized efforts would cause buildCommand/resolveEffort to throw,
-//    which must never reach the spawn path for auto/partial modes.
+//    WHY: an unsupported (model, effort) pairing must be REJECTED (null=skip),
+//    never clamped or silently substituted. The attempt loop then advances to
+//    the next ranked pairing; if none remain the handler emits ERR_NO_CANDIDATES.
+//    Clamping would launch a different effort than the table ranked (and the
+//    payload would misreport it), so it is banned.
 //
-//    a) gpt-5.5@max in "coding" fixture -> must normalize to "xhigh"
-//       (codex has no max; passing max to resolveEffort throws)
-//    b) sonnet@ultracode in "coding" fixture -> must normalize to "xhigh"
-//       (ultracode is opus-only; passing ultracode to resolveEffort for sonnet throws)
-//    c) opus-4-8@ultracode -> stays "ultracode" (valid on opus); tested directly
-//       via normalizeEffort (the fixture has no opus-4-8@ultracode pairing).
-//    d) haiku@none -> effort is ignored; resolver reports "none" as placeholder
+//    a) gpt-5.5@max -> null (codex gpt-5.5 has no max; gpt-6-astra alone does)
+//    b) sonnet@ultracode -> null (ultracode is Opus 4.8 only)
+//    c) opus-4-8@ultracode -> stays "ultracode" (the one ultracode-capable model)
+//    d) generic opus@ultracode -> null (generic opus is GA Opus 5.5, NOT ultracode)
+//    e) gpt-6-astra@max -> stays "max" (astra is the sole Codex model with max)
+//    f) haiku@none -> effort is ignored; resolver reports "none" as placeholder
 // ---------------------------------------------------------------------------
-test("effort normalization: gpt-5.5@max clamps to xhigh (codex has no max)", () => {
-  // Codex max is invalid — normalizing prevents a resolveEffort throw at spawn time
+test("effort normalization: gpt-5.5@max is REJECTED (codex gpt-5.5 has no max; never clamped)", () => {
   const result = normalizeEffort("codex", "gpt-5.5", "max");
-  assert.equal(result, "xhigh",
-    "gpt-5.5@max must be clamped to xhigh so buildCommand does not throw");
+  assert.equal(result, null,
+    "gpt-5.5@max must be rejected (null=skip), never silently clamped to xhigh");
 });
 
-test("effort normalization: sonnet@ultracode clamps to xhigh (ultracode is opus-only)", () => {
+test("effort normalization: sonnet@ultracode is REJECTED (ultracode is Opus 4.8 only)", () => {
   const result = normalizeEffort("claude", "sonnet", "ultracode");
-  assert.equal(result, "xhigh",
-    "sonnet@ultracode must clamp to xhigh; only opus-4-8 accepts ultracode");
+  assert.equal(result, null,
+    "sonnet@ultracode must be rejected (null=skip); only opus-4-8 accepts ultracode — no clamp to xhigh");
 });
 
-test("effort normalization: fable@ultracode clamps to xhigh (ultracode is opus-only)", () => {
+test("effort normalization: fable@ultracode is REJECTED (ultracode is Opus 4.8 only)", () => {
   const result = normalizeEffort("claude", "fable", "ultracode");
-  assert.equal(result, "xhigh",
-    "fable@ultracode must clamp to xhigh; ultracode stays Opus-only");
+  assert.equal(result, null,
+    "fable@ultracode must be rejected (null=skip); ultracode stays Opus-4-8-only, never clamped");
 });
 
 test("effort normalization: opus-4-8@ultracode stays ultracode", () => {
   const result = normalizeEffort("claude", "opus-4-8", "ultracode");
   assert.equal(result, "ultracode",
     "opus-4-8 is the one model that accepts ultracode; must pass through unchanged");
+});
+
+test("effort normalization: generic opus@ultracode is REJECTED (generic opus is GA Opus 5.5, not ultracode-capable)", () => {
+  const result = normalizeEffort("claude", "opus", "ultracode");
+  assert.equal(result, null,
+    "generic opus resolves to Opus 5.5 and must NOT be deemed ultracode-capable; reject, never clamp");
+});
+
+test("effort normalization: opus-5-5@ultracode is REJECTED (only opus-4-8 accepts ultracode)", () => {
+  const result = normalizeEffort("claude", "opus-5-5", "ultracode");
+  assert.equal(result, null,
+    "pinned opus-5-5 is not ultracode-capable; only opus-4-8 is");
+});
+
+test("effort normalization: gpt-6-astra@max stays max (astra is the sole Codex model with max)", () => {
+  const result = normalizeEffort("codex", "gpt-6-astra", "max");
+  assert.equal(result, "max",
+    "gpt-6-astra keeps its max tier unchanged; it must NOT be clamped or rejected");
+});
+
+test("effort normalization: opus-5-5@max stays max (Claude flag models accept max)", () => {
+  const result = normalizeEffort("claude", "opus-5-5", "max");
+  assert.equal(result, "max",
+    "opus-5-5 accepts the max flag tier like the other Claude flag models");
 });
 
 test("effort normalization: haiku@none returns 'none' sentinel (effort ignored by buildCommand)", () => {
@@ -164,10 +190,10 @@ test("effort normalization: haiku@none returns 'none' sentinel (effort ignored b
     "haiku@none must normalize to 'none' sentinel so the success payload reports it accurately");
 });
 
-test("effort normalization: codex@ultracode clamps to xhigh", () => {
+test("effort normalization: codex@ultracode is REJECTED (codex has no ultracode; never clamped)", () => {
   const result = normalizeEffort("codex", "gpt-5.5", "ultracode");
-  assert.equal(result, "xhigh",
-    "codex has no ultracode; must clamp to xhigh");
+  assert.equal(result, null,
+    "codex has no ultracode tier; the pairing must be rejected (null=skip), never clamped to xhigh");
 });
 
 test("effort normalization: unknown effort tier returns null (skip candidate)", () => {
@@ -186,17 +212,26 @@ test("effort normalization: unknown effort tier returns null (skip candidate)", 
 // ---------------------------------------------------------------------------
 test("mapModelToProvider: full claude ids -> 'claude'", () => {
   assert.equal(mapModelToProvider("claude-opus-4-8"), "claude");
+  assert.equal(mapModelToProvider("claude-opus-5-5"), "claude");
   assert.equal(mapModelToProvider("claude-sonnet-4-6"), "claude");
   assert.equal(mapModelToProvider("claude-haiku-4-5"), "claude");
   assert.equal(mapModelToProvider("claude-fable-5"), "claude");
+  assert.equal(mapModelToProvider("claude-fable-5-1"), "claude");
 });
 
-test("mapModelToProvider: fable short id -> 'claude'", () => {
-  assert.equal(mapModelToProvider("fable"), "claude");
+test("mapModelToProvider: claude short-id passthroughs (incl. pinned aliases) -> 'claude'", () => {
+  for (const m of ["fable", "fable-5", "fable-5-1", "opus", "opus-4-8", "opus-5-5"]) {
+    assert.equal(mapModelToProvider(m), "claude", `${m} must map to claude for the provider filter`);
+  }
 });
 
 test("mapModelToProvider: gpt-5.5 -> 'codex'", () => {
   assert.equal(mapModelToProvider("gpt-5.5"), "codex");
+});
+
+test("mapModelToProvider: gpt-6-astra -> 'codex'", () => {
+  assert.equal(mapModelToProvider("gpt-6-astra"), "codex",
+    "gpt-6-astra is a Codex-family model and must map to the codex provider");
 });
 
 test("mapModelToProvider: gpt-5.6-sol -> 'codex'", () => {
@@ -408,16 +443,52 @@ test("full model id claude-haiku-4-5 maps to short launch id haiku", () => {
     "claude-haiku-4-5 in table must map to short id haiku for buildCommand");
 });
 
-test("full model id claude-fable-5 maps to short launch id fable from generated routing table", () => {
-  const table = loadRoutingTable();
-  assert.ok(table, "dist routing-table.json must load after build");
-  const result = buildCandidates(table, "debugging", { provider: "claude" }, "performance");
-  const fableCandidate = result.candidates.find((c) => c.model === "fable");
-  assert.ok(fableCandidate,
-    "claude-fable-5 rows in the routing table must map to launch id fable instead of being skipped");
-  assert.equal(fableCandidate.provider, "claude");
-  assert.ok(["high", "xhigh", "max"].includes(fableCandidate.effort),
-    "fable routing-table efforts must remain selectable Claude efforts");
+test("fable family: full ids pin — claude-fable-5-1 -> 'fable-5-1'; claude-fable-5 -> 'fable-5' (no silent advance)", () => {
+  // A routing-table row pinned to an explicit full id must launch as its PINNED
+  // short id: claude-fable-5-1 -> 'fable-5-1' (NOT generic 'fable', which tracks
+  // GA and could advance if the alias moves) and claude-fable-5 -> 'fable-5'.
+  const result = buildCandidates(fixtureTable, "fable_family", { provider: "claude" }, "performance");
+  assert.deepEqual(
+    result.candidates.map((c) => `${c.provider}/${c.model}@${c.effort}`),
+    ["claude/fable-5-1@high", "claude/fable-5@xhigh"],
+    "explicit full ids stay version-pinned: claude-fable-5-1 -> 'fable-5-1', claude-fable-5 -> 'fable-5' — neither follows the generic 'fable' alias forward"
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 14b. full-id pinning roundtrip (the review fix): an explicit full Claude id in
+//      a table row must decode to its PINNED short id in auto/provider mode, so a
+//      later move of the generic 'opus'/'fable' alias can never silently advance
+//      a row that was pinned to a specific version. A user model-filter of the
+//      generic alias still reports the generic (tracks current GA).
+// ---------------------------------------------------------------------------
+test("full-id pinning: claude-opus-5-5 row decodes to pinned 'opus-5-5' (auto/provider, no user filter)", () => {
+  const result = buildCandidates(fixtureTable, "opus_family", { provider: "claude" }, "performance");
+  const opus55 = result.candidates[0];
+  assert.equal(opus55.model, "opus-5-5",
+    "claude-opus-5-5 must decode to the pinned 'opus-5-5', never generic 'opus' which could silently advance");
+});
+
+test("full-id pinning: claude-fable-5-1 row decodes to pinned 'fable-5-1' (auto/provider, no user filter)", () => {
+  const result = buildCandidates(fixtureTable, "fable_family", { provider: "claude" }, "performance");
+  const fable51 = result.candidates.find((c) => c.effort === "high");
+  assert.ok(fable51, "claude-fable-5-1@high pairing must be present");
+  assert.equal(fable51.model, "fable-5-1",
+    "claude-fable-5-1 must decode to the pinned 'fable-5-1', never generic 'fable' which could silently advance");
+});
+
+test("generic user filter still tracks GA: model:'fable' matches the claude-fable-5-1 row and reports 'fable'", () => {
+  // Counterpart to the pinning tests: when the USER explicitly asks for the
+  // generic alias, the candidate reports that generic alias (resolves to current
+  // GA at launch), NOT the pinned id — so user inputs keep tracking verified GA.
+  const result = buildCandidates(fixtureTable, "fable_family", {
+    provider: "claude",
+    model: "fable",
+  }, "performance");
+  assert.equal(result.candidates.length, 1,
+    "model:'fable' must match ONLY the claude-fable-5-1 row (claude-fable-5 pins to 'fable-5')");
+  assert.equal(result.candidates[0].model, "fable",
+    "a generic user filter reports the generic alias so it tracks current GA, unlike the pinned full-id decode");
 });
 
 // ---------------------------------------------------------------------------
@@ -449,8 +520,8 @@ test("broken Claude routing row is skipped and next usable Claude model is retai
   assert.equal(result.noCandidates, undefined);
   assert.deepEqual(
     result.candidates.map((c) => `${c.provider}/${c.model}@${c.effort}`),
-    ["claude/fable@high"],
-    "claude-sonnet-4-6@none is invalid routing data and must not block fallback"
+    ["claude/fable-5@high"],
+    "claude-sonnet-4-6@none is invalid routing data and must not block fallback; claude-fable-5 maps to the pinned fable-5 (never the generic fable/5.1)"
   );
 });
 
@@ -468,28 +539,34 @@ test("broken Codex routing row is skipped and gpt-5.6-sol maps to public gpt-5.6
 });
 
 // ---------------------------------------------------------------------------
-// 16. bug_005: model:"opus" must match claude-opus-4-8 pairings
-//     WHY: "opus" is a documented alias for claude-opus-4-8. Filtering by
-//     provider:"claude",model:"opus" must return the Opus candidates, not
-//     noCandidates. Explicit mode already handles this via mapModel.
+// 16. opus alias taxonomy: generic model:"opus" tracks GA Opus 5.5, the pinned
+//     model:"opus-4-8" tracks only claude-opus-4-8.
+//     WHY: generic `opus` now resolves to claude-opus-5-5; it must NOT match the
+//     pinned claude-opus-4-8 row (that would misroute a launch), and the pinned
+//     opus-4-8 filter must NOT bleed into the 5.5 row.
 // ---------------------------------------------------------------------------
-test("provider_model filter: claude+opus returns opus-4-8 pairings (opus alias)", () => {
-  // architecture fixture has claude-opus-4-8@high as rank-1 entry.
-  // Filtering by model:"opus" must match the "claude-opus-4-8" table entry.
-  const result = buildCandidates(fixtureTable, "architecture", {
+test("provider_model filter: claude+opus matches claude-opus-5-5 (generic tracks GA Opus 5.5), not opus-4-8", () => {
+  // opus_family fixture: claude-opus-5-5@high (rank1), claude-opus-4-8@high (rank2).
+  const result = buildCandidates(fixtureTable, "opus_family", {
     provider: "claude",
     model: "opus",
   }, "performance");
-  assert.ok(result.candidates.length > 0,
-    "provider_model filter with model:'opus' must return candidates (opus is a valid alias)");
   assert.equal(result.mode, "provider_model", "mode must be 'provider_model'");
-  for (const c of result.candidates) {
-    // The returned model should be the canonical short id (opus-4-8), not the user's input.
-    assert.ok(["opus", "opus-4-8"].includes(c.model),
-      "returned model must be opus or opus-4-8 (canonical alias)");
-    assert.equal(c.provider, "claude",
-      "every returned candidate must have provider=claude");
-  }
+  assert.equal(result.candidates.length, 1,
+    "model:'opus' must match ONLY the claude-opus-5-5 row, never the pinned claude-opus-4-8 row");
+  assert.equal(result.candidates[0].model, "opus",
+    "generic opus canonical short id is 'opus' (resolves to claude-opus-5-5 at launch)");
+  assert.equal(result.candidates[0].provider, "claude");
+});
+
+test("provider_model filter: claude+opus-4-8 matches only the pinned claude-opus-4-8 row", () => {
+  const result = buildCandidates(fixtureTable, "opus_family", {
+    provider: "claude",
+    model: "opus-4-8",
+  }, "performance");
+  assert.equal(result.candidates.length, 1,
+    "model:'opus-4-8' must match ONLY the pinned claude-opus-4-8 row, not the generic 5.5 row");
+  assert.equal(result.candidates[0].model, "opus-4-8");
 });
 
 // ---------------------------------------------------------------------------
@@ -600,6 +677,71 @@ test("strict table shape: object with pairings wrapper signals no-candidates", (
     "category values must be direct arrays; a { pairings: [...] } wrapper must not be silently unwrapped");
   assert.equal(result.candidates.length, 0,
     "malformed wrapped categories must lead to ERR_NO_CANDIDATES at the handler layer");
+});
+
+// ---------------------------------------------------------------------------
+// 19. new-model auto-mode routing: gpt-6-astra keeps its max tier; an unsupported
+//     gpt-5.5@max sibling is rejected (skipped), never clamped to xhigh.
+// ---------------------------------------------------------------------------
+test("auto mode: gpt-6-astra@max retained at max; gpt-5.5@max rejected (never clamped)", () => {
+  const result = buildCandidates(fixtureTable, "astra_family", {}, "performance");
+  assert.deepEqual(
+    result.candidates.map((c) => `${c.provider}/${c.model}@${c.effort}`),
+    ["codex/gpt-6-astra@max"],
+    "gpt-6-astra keeps max; gpt-5.5@max is unsupported and dropped, not clamped to xhigh"
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 20. validatePresence: exact allow-lists synced to the launch_agent zod enum,
+//     unsupported effort/model combinations rejected EARLY (no clamp, no defer).
+//     WHY: a pinned launch must fail loudly at the validation boundary — before
+//     any candidate/launch/failover — with a clear message, per the refresh.
+// ---------------------------------------------------------------------------
+test("validatePresence: claude accepts the pinned aliases opus-5-5 and fable-5-1", () => {
+  assert.equal(
+    validatePresence({ task_category: "coding", provider: "claude", model: "opus-5-5", effort: "high" }),
+    null, "claude+opus-5-5 is a valid explicit override");
+  assert.equal(
+    validatePresence({ task_category: "coding", provider: "claude", model: "fable-5-1", effort: "high" }),
+    null, "claude+fable-5-1 is a valid explicit override");
+});
+
+test("validatePresence: codex accepts gpt-6-astra, and gpt-6-astra@max is NOT rejected (astra has max)", () => {
+  assert.equal(
+    validatePresence({ task_category: "coding", provider: "codex", model: "gpt-6-astra", effort: "high" }),
+    null, "codex+gpt-6-astra is a valid explicit override");
+  assert.equal(
+    validatePresence({ task_category: "coding", provider: "codex", model: "gpt-6-astra", effort: "max" }),
+    null, "gpt-6-astra@max must pass early validation — astra is the Codex model that carries max");
+});
+
+test("validatePresence: unknown same-family aliases are rejected (exact allow-list, not prefix)", () => {
+  const claudeMsg = validatePresence({ task_category: "coding", provider: "claude", model: "opus-9-9", effort: "high" });
+  assert.ok(claudeMsg && claudeMsg.startsWith("Error: Claude provider only supports"),
+    "an unlisted claude alias (opus-9-9) must be rejected, never accepted by family prefix");
+  const codexMsg = validatePresence({ task_category: "coding", provider: "codex", model: "gpt-7-nova", effort: "high" });
+  assert.ok(codexMsg && codexMsg.startsWith("Error: Codex provider only supports"),
+    "an unlisted codex alias (gpt-7-nova) must be rejected, never accepted by family prefix");
+});
+
+test("validatePresence: ultracode is rejected for every model except opus-4-8", () => {
+  assert.equal(
+    validatePresence({ task_category: "coding", provider: "claude", model: "opus-4-8", effort: "ultracode" }),
+    null, "opus-4-8 is the sole ultracode-capable model");
+  for (const model of ["opus", "opus-5-5", "sonnet", "fable", "fable-5-1"]) {
+    const msg = validatePresence({ task_category: "coding", provider: "claude", model, effort: "ultracode" });
+    assert.ok(msg && msg.startsWith("Error: ultracode effort is only available on Opus 4.8"),
+      `generic/other claude model ${model}@ultracode must be rejected early — generic opus is GA Opus 5.5, not ultracode-capable`);
+  }
+});
+
+test("validatePresence: codex gpt-5.5/gpt-5.6 @max are rejected early (no max tier)", () => {
+  for (const model of ["gpt-5.5", "gpt-5.6"]) {
+    const msg = validatePresence({ task_category: "coding", provider: "codex", model, effort: "max" });
+    assert.ok(msg && msg.startsWith("Error: max effort is not valid for"),
+      `${model}@max must be rejected early; only gpt-6-astra carries max within Codex`);
+  }
 });
 
 // ---------------------------------------------------------------------------

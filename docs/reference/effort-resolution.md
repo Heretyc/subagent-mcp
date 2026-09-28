@@ -12,41 +12,50 @@ mechanism. Part of the
 ```
 function resolveEffort(provider, model, effort):
 
+  if effort == "low":
+    THROW: "low effort is not supported. Valid efforts: medium, high, xhigh, max, ultracode."
+
+  # ultracode is verified solely on Opus 4.8 (pinned opus-4-8). Generic `opus`
+  # resolves to GA Opus 5.5 and is NOT ultracode-capable.
   if effort == "ultracode":
-    if NOT (provider == "claude" AND model IN ["opus", "opus-4-8"]):
-      THROW: "ultracode effort is only available on Opus 4.8+ (got <provider>/<model>). Use xhigh for other models."
-    RETURN { kind: "settings" }   # --> write temp JSON file, pass settings
+    if NOT (provider == "claude" AND model == "opus-4-8"):
+      THROW: "ultracode effort is only available on Opus 4.8 (got <provider>/<model>). Use xhigh for other models."
+    RETURN { kind: "settings" }   # --> write temp settings.json, pass --settings
 
   if provider == "claude" AND model == "haiku":
     RETURN { kind: "none" }       # --> no effort option
 
-  if provider == "claude" AND model IN ["sonnet", "opus", "opus-4-8", "fable"]:
+  if provider == "claude" AND model IN ["sonnet", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5", "fable-5-1"]:
     if effort IN ["medium", "high", "xhigh", "max"]:
       RETURN { kind: "flag", value: effort }
 
   if provider == "codex":
-    if effort == "max":
-      THROW: "max effort is not valid for gpt-5.5 (Codex). Valid: medium, high, xhigh."
-    if effort IN ["medium", "high", "xhigh"]:
+    # gpt-6-astra uniquely carries a max tier; gpt-5.5/gpt-5.6 do not.
+    if effort == "max" AND model != "gpt-6-astra":
+      THROW: "max effort is not valid for gpt-5.5/gpt-5.6 (Codex). Valid: medium, high, xhigh."
+    if effort IN ["medium", "high", "xhigh", "max"]:
       RETURN { kind: "flag", value: effort }
 
-  # Fallback (should not reach in practice given zod validation)
-  RETURN { kind: "flag", value: "high" }
+  # No silent high fallback: an unrecognized model/effort pair fails loudly.
+  THROW: "unsupported model/effort combination: <provider>/<model> @ <effort>."
 ```
 
 Decision table:
 
 | provider | model | effort | Result |
 |----------|-------|--------|--------|
+| any | any | low | THROW error -- low is banned |
 | claude | haiku | any | `{ kind: "none" }` -- no effort option |
 | claude | sonnet | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
-| claude | opus / opus-4-8 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
-| claude | opus / opus-4-8 | ultracode | `{ kind: "settings" }` -- temp file path |
-| claude | fable | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
-| claude | any | ultracode (non-4.8) | THROW error |
-| codex | gpt-5.5 | medium/high/xhigh | `{ kind: "flag", value: effort }` |
-| codex | gpt-5.5 | max | THROW error |
-| codex | gpt-5.5 | ultracode | THROW error (Opus-4.8+ only) |
+| claude | opus (GA 5.5) / opus-5-5 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
+| claude | opus-4-8 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
+| claude | opus-4-8 | ultracode | `{ kind: "settings" }` -- temp file path |
+| claude | fable (GA 5.1) / fable-5 / fable-5-1 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
+| claude | any non-opus-4-8 | ultracode | THROW error (Opus 4.8 only) |
+| codex | gpt-5.5 / gpt-5.6 | medium/high/xhigh | `{ kind: "flag", value: effort }` |
+| codex | gpt-5.5 / gpt-5.6 | max | THROW error |
+| codex | gpt-6-astra | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
+| codex | any | ultracode | THROW error (Opus 4.8 only) |
 
 ---
 
@@ -62,8 +71,8 @@ The Claude CLI validates the `--effort` argument against a known enum. `ultracod
 
 ### How the server activates it headlessly
 
-1. Write `{"ultracode":true}` to a temp file: `<os.tmpdir()>/subagent-uc-<uuid>.json`
-2. Pass the settings path through the Claude Agent SDK driver instead of an effort option
+1. Write `{"ultracode":true}` to a per-agent temp settings file: `<os.tmpdir()>/subagent-mcp/perm-<agentId>/settings.json` (dir mode `0700`, file mode `0600` on POSIX; Windows applies fs defaults)
+2. Pass `--settings <path>` to the Claude CLI instead of an effort flag
 3. The Claude session reads the settings file and activates ultracode mode
 4. On agent exit (any path: `close` event, `kill_agent`, spawn error), delete the temp file
 

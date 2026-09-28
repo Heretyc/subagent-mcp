@@ -829,7 +829,7 @@ await test("settings isolation canary and temp permissions", async () => {
   assert.deepEqual(sdkOptions.settingSources, []);
   driver.kill();
 
-  const built = buildCommand("claude", "opus", "ultracode", process.cwd(), "perm-test");
+  const built = buildCommand("claude", "opus-4-8", "ultracode", process.cwd(), "perm-test");
   assert.ok(built.ucSettingsPath && built.ucSettingsDir);
   if (platform() === "win32") {
     skip("POSIX temp mode assertion", "Windows uses platform ACL defaults");

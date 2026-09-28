@@ -16,11 +16,13 @@ the server auto-selects): see [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_IN
 |----------|-------|---------------|-------|
 | claude | haiku | (any value accepted, effort ignored) | SDK session takes no effort for Haiku |
 | claude | sonnet | medium, high, xhigh, max | Passed to the Claude Agent SDK where supported |
-| claude | opus / opus-4-8 | medium, high, xhigh, max, **ultracode** | `opus` and `opus-4-8` both map to `claude-opus-4-8` |
-| claude | fable | medium, high, xhigh, max | Maps to `claude-fable-5` |
+| claude | opus / opus-5-5 | medium, high, xhigh, max | `opus` and `opus-5-5` map to `claude-opus-5-5`; API default effort is `medium` |
+| claude | opus-4-8 | medium, high, xhigh, max, **ultracode** | Maps to `claude-opus-4-8`; ultracode CLI-verified on this explicit pin |
+| claude | fable / fable-5-1 | medium, high, xhigh, max | `fable` and `fable-5-1` map to `claude-fable-5-1` |
 | codex | gpt-5.5, gpt-5.6 | medium, high, xhigh | Passed in the app-server `turn/start` request; public `gpt-5.6` maps to wire model `gpt-5.6-sol` |
+| codex | gpt-6-astra | medium, high, xhigh | Passed as-is to the Codex app-server |
 
-**Ultracode mechanism:** The Claude CLI rejects `--effort ultracode` with an error. Ultracode is the Claude Code interactive reasoning mode (sets reasoning effort to xhigh AND grants standing dynamic-workflow permission). To activate it headlessly, the server writes a temporary JSON file `{"ultracode":true}` to the OS temp directory and passes `--settings <file>` to the CLI instead of an `--effort` flag. The temp file is deleted on agent exit. Requesting `ultracode` on any non-Opus-4.8 model (including `fable` and `gpt-5.5`) returns an error.
+**Ultracode mechanism:** The Claude CLI rejects `--effort ultracode` with an error. Ultracode is the Claude Code interactive reasoning mode (sets reasoning effort to xhigh AND grants standing dynamic-workflow permission). To activate it headlessly, the server writes a temporary JSON file `{"ultracode":true}` to the OS temp directory and passes `--settings <file>` to the CLI instead of an `--effort` flag. The temp file is deleted on agent exit. Requesting `ultracode` on any model other than `opus-4-8` (including `opus-5-5`, `fable`, `fable-5-1`, `gpt-5.5`, and `gpt-6-astra`) returns an error; the server throws rather than silently substituting a different effort level. The `low` effort level is never accepted; the server throws on any `low` request regardless of model or provider.
 
 ---
 
