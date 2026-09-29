@@ -18,7 +18,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { Provider } from "./effort.js";
-import { type Candidate, LAUNCH_MODELS, LAUNCH_EFFORTS, HAIKU_EFFORT } from "./routing.js";
+import { type Candidate, LAUNCH_MODELS, CODEX_LAUNCH_MODELS, LAUNCH_EFFORTS, HAIKU_EFFORT } from "./routing.js";
 import { RULESET_SCAFFOLD } from "./ruleset-scaffold.js";
 
 /** Hardcoded per-execution timeout (2 minutes per the owner spec). Tests assert the value. */
@@ -240,15 +240,6 @@ const FLAG_EFFORTS_WITH_MAX: readonly string[] = LAUNCH_EFFORTS.filter((e) => e 
 const CODEX_BASE_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter(
   (e) => e !== "ultracode" && e !== "max"
 );
-
-/** Codex-family launch models (the rest of LAUNCH_MODELS are Claude-family). */
-const CODEX_LAUNCH_MODELS: readonly string[] = [
-  "gpt-5.5",
-  "gpt-5.6",
-  "gpt-6-astra",
-  "gpt-6-sol",
-  "gpt-6-luna",
-];
 
 function effortAllowed(model: string, effort: string): boolean {
   if (model === "haiku") return effort === HAIKU_EFFORT;

@@ -47,6 +47,38 @@ export const LAUNCH_MODELS = [
 ] as const;
 type LaunchModel = (typeof LAUNCH_MODELS)[number];
 
+/**
+ * Claude-family models selectable in the PUBLIC launch schema and explicit
+ * allow-list. Deliberately excludes the compatibility-only `fable-5`, which
+ * stays in LAUNCH_MODELS (still routable/mappable) but is not publicly
+ * selectable. This is the single source for the launch_agent `model` enum's
+ * Claude half and the claude provider override allow-list.
+ */
+export const CLAUDE_LAUNCH_MODELS = [
+  "haiku",
+  "sonnet",
+  "sonnet-5-5",
+  "sonnet-4-6",
+  "opus",
+  "opus-4-8",
+  "opus-5-5",
+  "fable",
+  "fable-5-1",
+] as const;
+
+/**
+ * Codex-family launch models (gpt-5.5/gpt-5.6 plus the `max`-tier gpt-6 family).
+ * Single source for the launch_agent enum's Codex half, the codex provider
+ * override allow-list, and ruleset candidate validation.
+ */
+export const CODEX_LAUNCH_MODELS = [
+  "gpt-5.5",
+  "gpt-5.6",
+  "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-luna",
+] as const;
+
 /** Launch effort enum accepted by buildCommand/resolveEffort. */
 export const LAUNCH_EFFORTS = ["medium", "high", "xhigh", "max", "ultracode"] as const;
 type LaunchEffort = (typeof LAUNCH_EFFORTS)[number];
@@ -440,11 +472,11 @@ export function validatePresence(p: {
   if (provider && model) {
     if (
       provider === "claude" &&
-      !["haiku", "sonnet", "sonnet-5-5", "sonnet-4-6", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5-1"].includes(model)
+      !(CLAUDE_LAUNCH_MODELS as readonly string[]).includes(model)
     ) {
       return `Error: Claude provider only supports haiku, sonnet, sonnet-5-5, sonnet-4-6, opus, opus-4-8, opus-5-5, fable, or fable-5-1. Got: ${model}`;
     }
-    if (provider === "codex" && !["gpt-5.5", "gpt-5.6", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna"].includes(model)) {
+    if (provider === "codex" && !(CODEX_LAUNCH_MODELS as readonly string[]).includes(model)) {
       return `Error: Codex provider only supports gpt-5.5, gpt-5.6, gpt-6-astra, gpt-6-sol, or gpt-6-luna. Got: ${model}`;
     }
   }
