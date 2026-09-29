@@ -107,6 +107,27 @@ await test("validateRulesetOutput: accepts every pinned/GA launch alias with a v
   ]);
 });
 
+await test("validateRulesetOutput: accepts the gpt-5.6 trio @max plus the generic gpt-5.6 alias @max", () => {
+  // codex-cli 0.158.0 model/list lists max for gpt-5.6-sol/terra/luna; the
+  // generic gpt-5.6 alias inherits max from its explicit pin to gpt-5.6-sol.
+  const result = validateRulesetOutput([
+    { provider: "codex", model: "gpt-5.6-sol", effort: "max" },
+    { provider: "codex", model: "gpt-5.6-terra", effort: "max" },
+    { provider: "codex", model: "gpt-5.6-luna", effort: "max" },
+    { provider: "codex", model: "gpt-5.6-sol", effort: "xhigh" },
+    // generic gpt-5.6 alias inherits max from its pin to gpt-5.6-sol.
+    { provider: "codex", model: "gpt-5.6", effort: "max" },
+  ]);
+  assert.equal(result.ok, true, "the pinned gpt-5.6 trio and the generic alias all carry max and must validate");
+  assert.deepEqual(result.candidates, [
+    { provider: "codex", model: "gpt-5.6-sol", effort: "max" },
+    { provider: "codex", model: "gpt-5.6-terra", effort: "max" },
+    { provider: "codex", model: "gpt-5.6-luna", effort: "max" },
+    { provider: "codex", model: "gpt-5.6-sol", effort: "xhigh" },
+    { provider: "codex", model: "gpt-5.6", effort: "max" },
+  ]);
+});
+
 await test("validateRulesetOutput: API candidates must come from ruleset input", () => {
   const candidate = { provider: "api", model: "api-model", effort: "medium" };
   assert.equal(validateRulesetOutput([candidate]).ok, false,
@@ -138,8 +159,7 @@ await test("validateRulesetOutput: duplicates are allowed (attempt loop just tri
 // ---------------------------------------------------------------------------
 await test("validateRulesetOutput: rejection matrix (per-model effort legality, provider↔model, shape)", () => {
   const bad = [
-    [{ provider: "codex", model: "gpt-5.5", effort: "max" }, "codex gpt-5.5 has no max tier (only gpt-6-astra)"],
-    [{ provider: "codex", model: "gpt-5.6", effort: "max" }, "codex gpt-5.6 has no max tier (only gpt-6-astra)"],
+    [{ provider: "codex", model: "gpt-5.5", effort: "max" }, "codex gpt-5.5 has no max tier (lone xhigh ceiling)"],
     [{ provider: "codex", model: "gpt-5.5", effort: "ultracode" }, "ultracode is Opus-4-8-only"],
     [{ provider: "codex", model: "gpt-6-astra", effort: "ultracode" }, "gpt-6-astra has max but NOT ultracode"],
     [{ provider: "claude", model: "sonnet", effort: "ultracode" }, "ultracode is Opus-4-8-only, sonnet must reject"],
@@ -155,7 +175,7 @@ await test("validateRulesetOutput: rejection matrix (per-model effort legality, 
     [{ provider: "gemini", model: "sonnet", effort: "high" }, "unknown provider"],
     [{ provider: "claude", model: "gpt-5.5", effort: "high" }, "provider↔model mismatch (claude cannot run gpt-5.5)"],
     [{ provider: "claude", model: "gpt-5.6", effort: "high" }, "provider↔model mismatch (claude cannot run gpt-5.6)"],
-    [{ provider: "codex", model: "sonnet", effort: "high" }, "provider↔model mismatch (codex only runs gpt-5.5 or gpt-5.6)"],
+    [{ provider: "codex", model: "sonnet", effort: "high" }, "provider↔model mismatch (codex runs no Claude models)"],
     [{ provider: "api", model: "api-model", effort: "high" }, "api efforts are fixed to medium"],
     [{ provider: "api", model: "", effort: "medium" }, "api model must be non-empty"],
     [{ provider: "claude", model: "sonnet" }, "missing effort key (non-string)"],
@@ -429,6 +449,37 @@ await test("gate: applyRules classifies bad JSON / invalid model as failure, emp
   slot.behavior = () => ({ kind: "ok", stdout: "[]" });
   assert.deepEqual(await gate.applyRules(PAYLOAD), { ok: true, candidates: [] },
     "the empty list is VALID — the veto decision belongs to the handler, not the gate");
+});
+
+// ---------------------------------------------------------------------------
+// 10. Full-GA refresh: validateRulesetOutput enforces the per-model effort
+//     ladders (shared SSOT with effort.ts) for the pinned GA selectors, so a
+//     ruleset can never emit a candidate the launcher would silently downgrade.
+// ---------------------------------------------------------------------------
+await test("validateRulesetOutput: pinned GA selectors validate at supported efforts", () => {
+  const result = validateRulesetOutput([
+    { provider: "claude", model: "opus-5", effort: "xhigh" },
+    { provider: "claude", model: "sonnet-5", effort: "max" },
+    { provider: "claude", model: "opus-4-7", effort: "xhigh" },
+    { provider: "claude", model: "opus-4-6", effort: "max" },
+    { provider: "claude", model: "opus-4-5", effort: "high" },
+    { provider: "claude", model: "sonnet-4-5", effort: "none" },
+  ]);
+  assert.equal(result.ok, true, "supported (model, effort) pairs must all validate");
+  assert.equal(result.candidates.length, 6);
+});
+
+await test("validateRulesetOutput: rejects tiers outside each new selector's ladder", () => {
+  const bad = [
+    [{ provider: "claude", model: "sonnet-4-6", effort: "xhigh" }, "Sonnet 4.6 has no xhigh (silent-downgrade fix)"],
+    [{ provider: "claude", model: "opus-4-6", effort: "xhigh" }, "Opus 4.6 has no xhigh"],
+    [{ provider: "claude", model: "opus-4-5", effort: "xhigh" }, "Opus 4.5 has no xhigh"],
+    [{ provider: "claude", model: "opus-4-5", effort: "max" }, "Opus 4.5 has no max"],
+    [{ provider: "claude", model: "sonnet-4-5", effort: "high" }, "Sonnet 4.5 takes no effort — only the 'none' sentinel"],
+  ];
+  for (const [el, why] of bad) {
+    assert.equal(validateRulesetOutput([el]).ok, false, `must reject: ${why}`);
+  }
 });
 
 rmSync(stubDir, { recursive: true, force: true });

@@ -166,10 +166,28 @@ test("effort normalization: opus-5-5@ultracode is REJECTED (only opus-4-8 accept
     "pinned opus-5-5 is not ultracode-capable; only opus-4-8 is");
 });
 
-test("effort normalization: gpt-6-astra@max stays max (astra is the sole Codex model with max)", () => {
+test("effort normalization: gpt-6-astra@max stays max (astra carries a max tier)", () => {
   const result = normalizeEffort("codex", "gpt-6-astra", "max");
   assert.equal(result, "max",
     "gpt-6-astra keeps its max tier unchanged; it must NOT be clamped or rejected");
+});
+
+// The account-verified gpt-5.6 trio (sol/terra/luna) carry max; a routing-table
+// row for the exact id keeps max (never collapsed/clamped). The generic gpt-5.6
+// alias and gpt-5.5 still have no max — rejected, never downgraded.
+test("effort normalization: gpt-5.6-sol/terra/luna @max stay max (account-verified pins)", () => {
+  for (const model of ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]) {
+    assert.equal(normalizeEffort("codex", model, "max"), "max",
+      `${model} carries a verified max tier and must pass through unchanged`);
+  }
+});
+test("effort normalization: generic gpt-5.6@max stays max (alias inherits its pin's max tier)", () => {
+  assert.equal(normalizeEffort("codex", "gpt-5.6", "max"), "max",
+    "generic gpt-5.6 is pinned to gpt-5.6-sol (which carries max); the alias inherits it and must pass through, like generic opus -> Opus 5.5");
+});
+test("effort normalization: gpt-5.5@max is still REJECTED (lone xhigh-ceiling Codex model)", () => {
+  assert.equal(normalizeEffort("codex", "gpt-5.5", "max"), null,
+    "gpt-5.5 is the only Codex model without a max tier; reject (null=skip), never clamp");
 });
 
 test("effort normalization: opus-5-5@max stays max (Claude flag models accept max)", () => {
@@ -236,6 +254,11 @@ test("mapModelToProvider: gpt-6-astra -> 'codex'", () => {
 
 test("mapModelToProvider: gpt-5.6-sol -> 'codex'", () => {
   assert.equal(mapModelToProvider("gpt-5.6-sol"), "codex");
+});
+
+test("mapModelToProvider: gpt-5.6-terra / gpt-5.6-luna -> 'codex'", () => {
+  assert.equal(mapModelToProvider("gpt-5.6-terra"), "codex");
+  assert.equal(mapModelToProvider("gpt-5.6-luna"), "codex");
 });
 
 test("mapModelToProvider: gpt-5.5-pro -> 'codex' (but non-launchable; not in launch enum)", () => {
@@ -525,16 +548,16 @@ test("broken Claude routing row is skipped and next usable Claude model is retai
   );
 });
 
-test("broken Codex routing row is skipped and gpt-5.6-sol maps to public gpt-5.6", () => {
+test("broken Codex routing row is skipped and gpt-5.6-sol pins to its own exact id", () => {
   const result = buildCandidates(fixtureTable, "broken_codex", {
     provider: "codex",
-    model: "gpt-5.6",
+    model: "gpt-5.6-sol",
   }, "performance");
   assert.equal(result.noCandidates, undefined);
   assert.deepEqual(
     result.candidates.map((c) => `${c.provider}/${c.model}@${c.effort}`),
-    ["codex/gpt-5.6@high"],
-    "gpt-5.5@none is invalid and gpt-5.6-sol must resolve to the gpt-5.6 launch alias"
+    ["codex/gpt-5.6-sol@high"],
+    "gpt-5.5@none is invalid; gpt-5.6-sol is an account-verified pinned exact id and must NOT collapse into the generic gpt-5.6 alias"
   );
 });
 
@@ -736,12 +759,89 @@ test("validatePresence: ultracode is rejected for every model except opus-4-8", 
   }
 });
 
-test("validatePresence: codex gpt-5.5/gpt-5.6 @max are rejected early (no max tier)", () => {
-  for (const model of ["gpt-5.5", "gpt-5.6"]) {
-    const msg = validatePresence({ task_category: "coding", provider: "codex", model, effort: "max" });
-    assert.ok(msg && msg.startsWith("Error: max effort is not valid for"),
-      `${model}@max must be rejected early; only gpt-6-astra carries max within Codex`);
+test("validatePresence: codex gpt-5.5@max is rejected early (lone xhigh-ceiling model)", () => {
+  const msg = validatePresence({ task_category: "coding", provider: "codex", model: "gpt-5.5", effort: "max" });
+  assert.ok(msg && msg.startsWith("Error: max effort is not valid for"),
+    "gpt-5.5@max must be rejected early; it is the only Codex model without a max tier");
+});
+
+test("validatePresence: codex generic gpt-5.6@max is ACCEPTED (alias inherits its pin's max)", () => {
+  assert.equal(
+    validatePresence({ task_category: "coding", provider: "codex", model: "gpt-5.6", effort: "max" }),
+    null,
+    "generic gpt-5.6 is pinned to gpt-5.6-sol (which carries max), so the alias@max is a supported end-to-end launch and must pass early validation");
+});
+
+test("validatePresence: codex accepts the gpt-5.6 trio, incl. @max (account-verified pins)", () => {
+  for (const model of ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]) {
+    assert.equal(
+      validatePresence({ task_category: "coding", provider: "codex", model, effort: "high" }),
+      null, `codex+${model} is a valid explicit override`);
+    assert.equal(
+      validatePresence({ task_category: "coding", provider: "codex", model, effort: "max" }),
+      null, `${model}@max must pass early validation — the trio carries a verified max tier`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// 21. Full-GA refresh — per-model effort ladders in normalizeEffort. An
+//     unsupported tier is REJECTED (null=skip), NEVER remapped to a neighbour.
+// ---------------------------------------------------------------------------
+test("normalizeEffort: sonnet-4-6@xhigh REJECTED (Sonnet 4.6 has no xhigh; never remapped)", () => {
+  assert.equal(normalizeEffort("claude", "sonnet-4-6", "xhigh"), null,
+    "Sonnet 4.6 @ xhigh must be rejected (null=skip), never silently downgraded to high");
+});
+test("normalizeEffort: sonnet-4-6@max stays max", () => {
+  assert.equal(normalizeEffort("claude", "sonnet-4-6", "max"), "max");
+});
+test("normalizeEffort: opus-4-6@xhigh REJECTED; opus-4-6@max stays max", () => {
+  assert.equal(normalizeEffort("claude", "opus-4-6", "xhigh"), null);
+  assert.equal(normalizeEffort("claude", "opus-4-6", "max"), "max");
+});
+test("normalizeEffort: opus-4-5 ladder is medium/high only (xhigh & max rejected)", () => {
+  assert.equal(normalizeEffort("claude", "opus-4-5", "high"), "high");
+  assert.equal(normalizeEffort("claude", "opus-4-5", "xhigh"), null);
+  assert.equal(normalizeEffort("claude", "opus-4-5", "max"), null);
+});
+test("normalizeEffort: sonnet-4-5 has no effort -> 'none' sentinel (like haiku)", () => {
+  assert.equal(normalizeEffort("claude", "sonnet-4-5", "high"), "none");
+});
+test("normalizeEffort: opus-5 / sonnet-5 / opus-4-7 keep the full xhigh+max ladder", () => {
+  assert.equal(normalizeEffort("claude", "opus-5", "xhigh"), "xhigh");
+  assert.equal(normalizeEffort("claude", "sonnet-5", "max"), "max");
+  assert.equal(normalizeEffort("claude", "opus-4-7", "xhigh"), "xhigh");
+});
+
+// ---------------------------------------------------------------------------
+// 22. Full-GA refresh — validatePresence accepts the pinned selectors and
+//     rejects unsupported (model, effort) pairs EARLY with the exact ladder.
+// ---------------------------------------------------------------------------
+test("validatePresence: pinned GA selectors are accepted at supported efforts", () => {
+  for (const [model, effort] of [
+    ["opus-5", "xhigh"], ["sonnet-5", "max"], ["opus-4-7", "xhigh"],
+    ["opus-4-6", "max"], ["opus-4-5", "high"], ["sonnet-4-5", "high"],
+  ]) {
+    assert.equal(
+      validatePresence({ task_category: "coding", provider: "claude", model, effort }),
+      null, `claude/${model}@${effort} must pass presence validation`);
+  }
+});
+test("validatePresence: sonnet-4-6@xhigh rejected early with the exact ladder (no downgrade)", () => {
+  const msg = validatePresence({ task_category: "coding", provider: "claude", model: "sonnet-4-6", effort: "xhigh" });
+  assert.ok(msg && msg.startsWith("Error: xhigh effort is not supported by claude/sonnet-4-6"),
+    `expected loud early rejection, got: ${msg}`);
+  assert.ok(msg.includes("medium, high, max") && msg.includes("No silent downgrade"), msg);
+});
+test("validatePresence: opus-4-6@xhigh and opus-4-5@max are rejected early", () => {
+  assert.ok(validatePresence({ task_category: "coding", provider: "claude", model: "opus-4-6", effort: "xhigh" })
+    ?.startsWith("Error: xhigh effort is not supported by claude/opus-4-6"));
+  assert.ok(validatePresence({ task_category: "coding", provider: "claude", model: "opus-4-5", effort: "max" })
+    ?.startsWith("Error: max effort is not supported by claude/opus-4-5"));
+});
+test("validatePresence: sonnet-4-5 ignores effort (no-effort model, like haiku) -> null", () => {
+  assert.equal(
+    validatePresence({ task_category: "coding", provider: "claude", model: "sonnet-4-5", effort: "xhigh" }),
+    null, "Sonnet 4.5 takes no effort flag; the value is ignored, not rejected");
 });
 
 // ---------------------------------------------------------------------------

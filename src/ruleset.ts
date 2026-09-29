@@ -18,6 +18,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { Provider } from "./effort.js";
+import { CODEX_MAX_MODELS, CLAUDE_EFFORT_LADDERS, CLAUDE_NO_EFFORT_MODELS } from "./effort.js";
 import { type Candidate, LAUNCH_MODELS, CODEX_LAUNCH_MODELS, LAUNCH_EFFORTS, HAIKU_EFFORT } from "./routing.js";
 import { RULESET_SCAFFOLD } from "./ruleset-scaffold.js";
 
@@ -242,15 +243,22 @@ const CODEX_BASE_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter(
 );
 
 function effortAllowed(model: string, effort: string): boolean {
-  if (model === "haiku") return effort === HAIKU_EFFORT;
-  // Opus 4.8 is the sole ultracode-capable model (CLI settings-file injection).
+  // Haiku 4.5 / Sonnet 4.5 take no --effort flag; only the sentinel is legal.
+  if (CLAUDE_NO_EFFORT_MODELS.has(model)) return effort === HAIKU_EFFORT;
+  // Opus 4.8 is the sole ultracode-capable model (CLI settings-file injection);
+  // it also accepts every flag tier.
   if (model === "opus-4-8") return (LAUNCH_EFFORTS as readonly string[]).includes(effort);
-  // Codex gpt-5.5/gpt-5.6 have no `max` tier; the gpt-6 family (below) does.
-  if (model === "gpt-5.5" || model === "gpt-5.6") return CODEX_BASE_EFFORTS.includes(effort);
-  // Every other launch model — generic `opus` (GA Opus 5.5), the sonnet and
-  // fable families, and the gpt-6 family (astra/sol/luna) — accepts
-  // medium/high/xhigh/max but NOT ultracode.
-  return FLAG_EFFORTS_WITH_MAX.includes(effort);
+  // Codex gpt-5.5 is the lone model without a `max` tier (xhigh ceiling).
+  if (model === "gpt-5.5") return CODEX_BASE_EFFORTS.includes(effort);
+  // CODEX_MAX_MODELS carries max: gpt-6 family, the gpt-5.6 trio sol/terra/luna,
+  // AND the generic gpt-5.6 alias (inherits max from its pin to gpt-5.6-sol).
+  if (CODEX_MAX_MODELS.has(model)) return FLAG_EFFORTS_WITH_MAX.includes(effort);
+  // Every other Claude launch model is gated by its per-model ladder (shared
+  // SSOT) so the ruleset validator rejects exactly what resolveEffort throws on
+  // — e.g. sonnet-4-6/opus-4-6 @ xhigh, opus-4-5 @ xhigh|max. An unknown model
+  // has no ladder -> reject (no permissive default).
+  const ladder = CLAUDE_EFFORT_LADDERS[model];
+  return ladder ? ladder.has(effort) : false;
 }
 
 /**
@@ -262,8 +270,10 @@ function effortAllowed(model: string, effort: string): boolean {
  * Per element: string provider/model/effort; provider ∈ {claude, codex};
  * model ∈ launch enum; provider↔model legality (claude↔{haiku,sonnet,sonnet-5-5,
  * sonnet-4-6,opus,opus-4-8,opus-5-5,fable,fable-5,fable-5-1}, codex↔{gpt-5.5,
- * gpt-5.6,gpt-6-astra,gpt-6-sol,gpt-6-luna}); per-model effort legality incl.
- * haiku→"none", ultracode→opus-4-8 only, max→gpt-6 family only within Codex.
+ * gpt-5.6,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-6-astra,gpt-6-sol,
+ * gpt-6-luna}); per-model effort legality incl. haiku→"none", ultracode→opus-4-8
+ * only, max→CODEX_MAX_MODELS (gpt-6 family + gpt-5.6 sol/terra/luna + the generic
+ * gpt-5.6 alias via its pin) within Codex.
  * API candidates must match the input list (including multiplicity), because
  * only input API candidates have attached providers.jsonc dispatch metadata.
  * Extra keys (incl. rank) are ignored on output; duplicates are allowed (the
@@ -325,7 +335,7 @@ export function validateRulesetOutput(
       return { ok: false, error: `candidate ${i}: claude does not support ${model}` };
     }
     if (provider === "codex" && !(CODEX_LAUNCH_MODELS as readonly string[]).includes(model)) {
-      return { ok: false, error: `candidate ${i}: codex only supports gpt-5.5, gpt-5.6, gpt-6-astra, gpt-6-sol, or gpt-6-luna, got ${model}` };
+      return { ok: false, error: `candidate ${i}: codex only supports ${(CODEX_LAUNCH_MODELS as readonly string[]).join(", ")}, got ${model}` };
     }
     if (!effortAllowed(model, effort)) {
       return { ok: false, error: `candidate ${i}: effort ${effort} is not valid for ${provider}/${model}` };

@@ -84,7 +84,7 @@ generic GA alias).
 | Top level | Bare JSON array. An object wrapper (e.g. `{"candidates": [...]}`) is INVALID. `[]` is VALID : see Veto below. |
 | Element | Object with string `provider`, `model`, `effort`. All other keys : including `rank` : are IGNORED on output. |
 | `provider` | `claude`, `codex`, or `api`. |
-| `model` | `haiku`, `sonnet`, `sonnet-5-5`, `sonnet-4-6`, `opus`, `opus-4-8`, `opus-5-5`, `fable`, `fable-5`, `fable-5-1` (claude); `gpt-5.5`, `gpt-5.6`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna` (codex); or an `api` model present in the input candidates. CLI provider/model pairs must be legal. |
+| `model` | `haiku`, `sonnet`, `sonnet-5-5`, `sonnet-5`, `sonnet-4-6`, `sonnet-4-5`, `opus`, `opus-4-8`, `opus-5-5`, `opus-5`, `opus-4-7`, `opus-4-6`, `opus-4-5`, `fable`, `fable-5`, `fable-5-1` (claude); `gpt-5.5`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna` (codex); or an `api` model present in the input candidates. CLI provider/model pairs must be legal. |
 | `effort` | Per-model table below; the validator does its OWN membership checks. |
 | Duplicates | Allowed for CLI candidates. API candidates cannot exceed their input multiplicity because each requires attached dispatch metadata. |
 | Anything else | Ruleset failure -> hard fail. |
@@ -93,12 +93,16 @@ Per-model effort legality:
 
 | model | legal `effort` values |
 |---|---|
-| `haiku` | exactly `"none"` |
-| `sonnet`, `sonnet-5-5`, `sonnet-4-6` | `medium`, `high`, `xhigh`, `max` |
+| `haiku`, `sonnet-4-5` | exactly `"none"` |
+| `sonnet`, `sonnet-5-5`, `sonnet-5` | `medium`, `high`, `xhigh`, `max` |
+| `sonnet-4-6` | `medium`, `high`, `max` (NO `xhigh`) |
 | `fable`, `fable-5`, `fable-5-1` | `medium`, `high`, `xhigh`, `max` |
-| `opus`, `opus-5-5` | `medium`, `high`, `xhigh`, `max` (NO `ultracode`) |
+| `opus`, `opus-5-5`, `opus-5`, `opus-4-7` | `medium`, `high`, `xhigh`, `max` (NO `ultracode`) |
+| `opus-4-6` | `medium`, `high`, `max` (NO `xhigh`) |
+| `opus-4-5` | `medium`, `high` (NO `xhigh`, NO `max`) |
 | `opus-4-8` | `medium`, `high`, `xhigh`, `max`, `ultracode` |
-| `gpt-5.5`, `gpt-5.6` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
+| `gpt-5.5` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
+| `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `medium`, `high`, `xhigh`, `max` (NO `ultracode`) |
 | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna` | `medium`, `high`, `xhigh`, `max` (NO `ultracode`) |
 | `api` provider candidates | configured slot effort (currently `medium`) |
 

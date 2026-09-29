@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { Provider } from "./effort.js";
-import { CODEX_MAX_MODELS } from "./effort.js";
+import { CODEX_MAX_MODELS, CLAUDE_EFFORT_LADDERS, CLAUDE_NO_EFFORT_MODELS } from "./effort.js";
 import type { ApiProvider } from "./providers/types.js";
 export { slotInsert } from "./providers/slot-router.js";
 
@@ -26,21 +26,33 @@ export { slotInsert } from "./providers/slot-router.js";
  * CLI model IDs: `opus-4-8` (the sole ultracode-capable model), `opus-5-5`,
  * `sonnet-5-5`, `sonnet-4-6` (the pinned prior Sonnet — never silently swapped
  * to 5.5), `fable-5-1`, and `fable-5`. Codex adds the gpt-6 family
- * `gpt-6-astra`/`gpt-6-sol`/`gpt-6-luna` (the Codex models with a `max` tier).
+ * `gpt-6-astra`/`gpt-6-sol`/`gpt-6-luna` and the pinned gpt-5.6 trio
+ * `gpt-5.6-sol`/`gpt-5.6-terra`/`gpt-5.6-luna` (the Codex models with a `max`
+ * tier); the generic `gpt-5.6` alias also carries `max`, inherited from its
+ * explicit pin to gpt-5.6-sol. Only gpt-5.5 tops out below `max` (at `xhigh`).
  */
 export const LAUNCH_MODELS = [
   "haiku",
   "sonnet",
   "sonnet-5-5",
+  "sonnet-5",
   "sonnet-4-6",
+  "sonnet-4-5",
   "opus",
   "opus-4-8",
   "opus-5-5",
+  "opus-5",
+  "opus-4-7",
+  "opus-4-6",
+  "opus-4-5",
   "fable",
   "fable-5",
   "fable-5-1",
   "gpt-5.5",
   "gpt-5.6",
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
   "gpt-6-astra",
   "gpt-6-sol",
   "gpt-6-luna",
@@ -53,27 +65,45 @@ type LaunchModel = (typeof LAUNCH_MODELS)[number];
  * stays in LAUNCH_MODELS (still routable/mappable) but is not publicly
  * selectable. This is the single source for the launch_agent `model` enum's
  * Claude half and the claude provider override allow-list.
+ *
+ * Full-GA refresh: the pinned Active-GA selectors opus-5, sonnet-5, opus-4-7,
+ * opus-4-6, opus-4-5, and sonnet-4-5 are publicly selectable as EXPLICIT
+ * overrides. They are deliberately NOT in FULL_TO_SHORT (below): they carry no
+ * benchmark rows in the shipped routing table, so they are launchable only via
+ * an explicit provider+model+effort triple, never auto-routed. Their per-model
+ * effort ladders live in CLAUDE_EFFORT_LADDERS / CLAUDE_NO_EFFORT_MODELS.
  */
 export const CLAUDE_LAUNCH_MODELS = [
   "haiku",
   "sonnet",
   "sonnet-5-5",
+  "sonnet-5",
   "sonnet-4-6",
+  "sonnet-4-5",
   "opus",
   "opus-4-8",
   "opus-5-5",
+  "opus-5",
+  "opus-4-7",
+  "opus-4-6",
+  "opus-4-5",
   "fable",
   "fable-5-1",
 ] as const;
 
 /**
- * Codex-family launch models (gpt-5.5/gpt-5.6 plus the `max`-tier gpt-6 family).
- * Single source for the launch_agent enum's Codex half, the codex provider
- * override allow-list, and ruleset candidate validation.
+ * Codex-family launch models: gpt-5.5 (the lone xhigh-ceiling model) plus every
+ * `max`-tier entry — the gpt-6 family (astra/sol/luna), the account-verified
+ * gpt-5.6 trio (sol/terra/luna), and the generic `gpt-5.6` alias (inherits max
+ * from its pin to gpt-5.6-sol). Single source for the launch_agent enum's Codex
+ * half, the codex provider override allow-list, and ruleset candidate validation.
  */
 export const CODEX_LAUNCH_MODELS = [
   "gpt-5.5",
   "gpt-5.6",
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
   "gpt-6-astra",
   "gpt-6-sol",
   "gpt-6-luna",
@@ -114,7 +144,12 @@ const FULL_TO_SHORT: Record<string, LaunchModel | Set<LaunchModel>> = {
   "claude-fable-5-1": new Set(["fable-5-1", "fable"]),
   "claude-fable-5": "fable-5",
   "gpt-5.5": "gpt-5.5",
-  "gpt-5.6-sol": "gpt-5.6",
+  // The gpt-5.6 trio are account-verified pinned exact ids: each maps to ITSELF
+  // (like the gpt-6 family) so a table row keeps its verified `max` tier instead
+  // of collapsing into the generic `gpt-5.6` alias, which has no max.
+  "gpt-5.6-sol": "gpt-5.6-sol",
+  "gpt-5.6-terra": "gpt-5.6-terra",
+  "gpt-5.6-luna": "gpt-5.6-luna",
   "gpt-5.6": "gpt-5.6",
   "gpt-6-astra": "gpt-6-astra",
   "gpt-6-sol": "gpt-6-sol",
@@ -212,10 +247,16 @@ export function mapModelToProvider(model: string): Provider | null {
     model === "haiku" ||
     model === "sonnet" ||
     model === "sonnet-5-5" ||
+    model === "sonnet-5" ||
     model === "sonnet-4-6" ||
+    model === "sonnet-4-5" ||
     model === "opus" ||
     model === "opus-4-8" ||
     model === "opus-5-5" ||
+    model === "opus-5" ||
+    model === "opus-4-7" ||
+    model === "opus-4-6" ||
+    model === "opus-4-5" ||
     model === "fable" ||
     model === "fable-5" ||
     model === "fable-5-1" ||
@@ -242,8 +283,9 @@ export function mapModelToProvider(model: string): Provider | null {
  * - ultracode is Opus 4.8 only (CLI settings-file injection verified there);
  *   generic `opus` is GA Opus 5.5 and is NOT ultracode-capable -> null on any
  *   model other than opus-4-8 (no downgrade to xhigh).
- * - Codex `max` is valid only on the gpt-6 family (astra/sol/luna);
- *   gpt-5.5/gpt-5.6 -> null (no downgrade to xhigh).
+ * - Codex `max` is valid only on the CODEX_MAX_MODELS set (the gpt-6 family
+ *   astra/sol/luna, the gpt-5.6 trio sol/terra/luna, and the generic gpt-5.6
+ *   alias via its pin); gpt-5.5 -> null (no downgrade to xhigh).
  *
  * `model` here is the SHORT launch id.
  */
@@ -252,8 +294,9 @@ export function normalizeEffort(
   model: string,
   effort: string | null
 ): string | null {
-  // haiku ignores effort entirely; report the sentinel.
-  if (provider === "claude" && model === "haiku") {
+  // haiku / sonnet-4-5 ignore effort entirely (no --effort flag); report the
+  // sentinel so the success payload states it accurately.
+  if (provider === "claude" && CLAUDE_NO_EFFORT_MODELS.has(model)) {
     return HAIKU_EFFORT;
   }
 
@@ -270,14 +313,25 @@ export function normalizeEffort(
   }
 
   if (provider === "codex") {
-    // The gpt-6 family (astra/sol/luna) carries a `max` tier; gpt-5.5/gpt-5.6 do not.
+    // CODEX_MAX_MODELS carries a `max` tier (gpt-6 family + gpt-5.6 sol/terra/
+    // luna + the generic gpt-5.6 alias via its pin); only gpt-5.5 does not.
     if (effort === "max" && !CODEX_MAX_MODELS.has(model)) {
       return null;
     }
     return effort;
   }
 
-  // claude (non-haiku) and api models accept medium/high/xhigh/max as-is.
+  if (provider === "claude") {
+    // Per-model ladder (CLAUDE_EFFORT_LADDERS is the shared SSOT). A tier not in
+    // this model's ladder is REJECTED (skip candidate), never remapped — e.g.
+    // sonnet-4-6 / opus-4-6 @ xhigh -> null, opus-4-5 @ xhigh|max -> null. An
+    // unknown claude model has no ladder -> null (never guessed).
+    const ladder = CLAUDE_EFFORT_LADDERS[model];
+    if (!ladder) return null;
+    return ladder.has(effort) ? effort : null;
+  }
+
+  // api models accept medium/high/xhigh/max as-is.
   return effort;
 }
 
@@ -474,10 +528,10 @@ export function validatePresence(p: {
       provider === "claude" &&
       !(CLAUDE_LAUNCH_MODELS as readonly string[]).includes(model)
     ) {
-      return `Error: Claude provider only supports haiku, sonnet, sonnet-5-5, sonnet-4-6, opus, opus-4-8, opus-5-5, fable, or fable-5-1. Got: ${model}`;
+      return `Error: Claude provider only supports ${(CLAUDE_LAUNCH_MODELS as readonly string[]).join(", ")}. Got: ${model}`;
     }
     if (provider === "codex" && !(CODEX_LAUNCH_MODELS as readonly string[]).includes(model)) {
-      return `Error: Codex provider only supports gpt-5.5, gpt-5.6, gpt-6-astra, gpt-6-sol, or gpt-6-luna. Got: ${model}`;
+      return `Error: Codex provider only supports ${(CODEX_LAUNCH_MODELS as readonly string[]).join(", ")}. Got: ${model}`;
     }
   }
 
@@ -490,10 +544,27 @@ export function validatePresence(p: {
     if (effort === "ultracode" && !(provider === "claude" && model === "opus-4-8")) {
       return `Error: ultracode effort is only available on Opus 4.8 (provider claude, model opus-4-8). Got: ${provider}/${model}. Use xhigh for other models.\n${AUTO_HINT}`;
     }
-    // Codex `max` is valid only on the gpt-6 family (astra/sol/luna);
-    // gpt-5.5/gpt-5.6 have no max tier.
+    // Codex `max` is valid only on CODEX_MAX_MODELS (the gpt-6 family astra/sol/
+    // luna, the gpt-5.6 trio sol/terra/luna, and the generic gpt-5.6 alias via
+    // its pin); only gpt-5.5 has no max tier.
     if (provider === "codex" && effort === "max" && !CODEX_MAX_MODELS.has(model)) {
       return `Error: max effort is not valid for ${model} (Codex). Valid Codex efforts: medium, high, xhigh.\n${AUTO_HINT}`;
+    }
+    // Claude per-model effort ladder (shared SSOT). Reject a tier outside the
+    // model's ladder EARLY — e.g. claude/sonnet-4-6 @ xhigh, claude/opus-4-6 @
+    // xhigh, claude/opus-4-5 @ xhigh|max — so a pinned launch fails loudly here
+    // instead of silently downgrading at the CLI. ultracode was already gated
+    // above; no-effort models (haiku, sonnet-4-5) ignore the value like haiku.
+    if (
+      provider === "claude" &&
+      effort !== "ultracode" &&
+      !CLAUDE_NO_EFFORT_MODELS.has(model)
+    ) {
+      const ladder = CLAUDE_EFFORT_LADDERS[model];
+      if (ladder && !ladder.has(effort)) {
+        const supported = [...ladder].join(", ") + (model === "opus-4-8" ? ", ultracode" : "");
+        return `Error: ${effort} effort is not supported by claude/${model}. Supported: ${supported}. No silent downgrade.\n${AUTO_HINT}`;
+      }
     }
   }
 

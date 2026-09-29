@@ -14,12 +14,16 @@
     ]
     Valid providers: claude, codex (plus pass-through "api" candidates already present
     in the input, whose configured model string is kept and whose effort must be medium).
-    Valid claude models: haiku, sonnet, sonnet-5-5, sonnet-4-6, opus, opus-4-8, opus-5-5,
-    fable, fable-5, fable-5-1. Valid codex models: gpt-5.5, gpt-5.6, gpt-6-astra, gpt-6-sol,
-    gpt-6-luna. Valid efforts: haiku -> "none" only; opus-4-8 -> medium|high|xhigh|max plus
-    ultracode (opus-4-8 is the ONLY ultracode-capable model; generic opus is GA Opus 5.5 and
-    is NOT); sonnet, sonnet-5-5, sonnet-4-6, opus, opus-5-5, fable, fable-5, fable-5-1,
-    gpt-6-astra, gpt-6-sol, and gpt-6-luna -> medium|high|xhigh|max; gpt-5.5/gpt-5.6 ->
+    Valid claude models: haiku, sonnet, sonnet-5-5, sonnet-5, sonnet-4-6, sonnet-4-5,
+    opus, opus-4-8, opus-5-5, opus-5, opus-4-7, opus-4-6, opus-4-5, fable, fable-5,
+    fable-5-1. Valid codex models: gpt-5.5, gpt-5.6, gpt-5.6-sol, gpt-5.6-terra,
+    gpt-5.6-luna, gpt-6-astra, gpt-6-sol, gpt-6-luna.
+    Valid efforts: haiku and sonnet-4-5 -> "none" only; opus-4-8 -> medium|high|xhigh|max
+    plus ultracode (opus-4-8 is the ONLY ultracode-capable model; generic opus is GA Opus
+    5.5 and is NOT); sonnet, sonnet-5-5, sonnet-5, opus, opus-5-5, opus-5, opus-4-7, fable,
+    fable-5, fable-5-1, gpt-5.6, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-6-astra,
+    gpt-6-sol, and gpt-6-luna -> medium|high|xhigh|max; sonnet-4-6 and opus-4-6 ->
+    medium|high|max (NO xhigh); opus-4-5 -> medium|high (NO xhigh, NO max); gpt-5.5 ->
     medium|high|xhigh.
     "rank" on output is ignored. An EMPTY array vetoes the launch. Anything else
     invalid fails the launch hard — the server validates strictly.

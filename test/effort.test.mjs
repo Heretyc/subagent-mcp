@@ -139,16 +139,49 @@ test("(codex,gpt-5.5,max) throws with 'not valid for gpt-5.5' in message", () =>
   );
 });
 
-// 8b. (codex, gpt-5.6, max): only gpt-6-astra supports max on Codex; gpt-5.6
-// must be rejected loudly with no silent downgrade to a supported effort.
-test("(codex,gpt-5.6,max) throws (max is Astra-only on Codex)", () => {
-  assert.throws(
-    () => buildCommand("codex", "gpt-5.6", "max", "test", process.cwd()),
-    (err) => {
-      assert.ok(err.message.includes("max effort is not valid"), `Expected max-effort rejection in: ${err.message}`);
-      return true;
-    }
-  );
+// 8b. (codex, gpt-5.6, max): the generic gpt-5.6 alias is EXPLICITLY pinned by
+// mapModel to gpt-5.6-sol, and the driver sends that resolved canonical id, so
+// gpt-5.6@max runs end-to-end as the catalogue-supported gpt-5.6-sol@max. The
+// alias therefore inherits its target's max tier (like generic opus -> Opus 5.5)
+// and must be ACCEPTED — only gpt-5.5 (test 8) tops out at xhigh.
+test("(codex,gpt-5.6,max) resolveEffort returns flag max (alias inherits its pin's max)", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-5.6", "max"), { kind: "flag", value: "max" });
+});
+test("(codex,gpt-5.6,max) buildCommand uses app-server stdio and does not throw", () => {
+  const result = buildCommand("codex", "gpt-5.6", "max", "test", process.cwd());
+  assert.deepEqual(result.args, ["app-server", "--stdio"]);
+});
+
+// 8c. The account-verified gpt-5.6 trio (sol/terra/luna) DO carry max (codex-cli
+// 0.158.0 model/list). resolveEffort returns the max flag; buildCommand launches
+// via app-server stdio without throwing. xhigh still works; low/ultracode throw.
+test("(codex,gpt-5.6-sol,max) resolveEffort returns flag max", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-5.6-sol", "max"), { kind: "flag", value: "max" });
+});
+test("(codex,gpt-5.6-terra,max) resolveEffort returns flag max", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-5.6-terra", "max"), { kind: "flag", value: "max" });
+});
+test("(codex,gpt-5.6-luna,max) resolveEffort returns flag max", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-5.6-luna", "max"), { kind: "flag", value: "max" });
+});
+test("(codex,gpt-5.6-sol,xhigh) resolveEffort returns flag xhigh", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-5.6-sol", "xhigh"), { kind: "flag", value: "xhigh" });
+});
+test("(codex,gpt-5.6-sol,max) buildCommand uses app-server stdio and does not throw", () => {
+  const result = buildCommand("codex", "gpt-5.6-sol", "max", "test", process.cwd());
+  assert.deepEqual(result.args, ["app-server", "--stdio"]);
+});
+test("(codex,gpt-5.6-terra,low) throws (low banned)", () => {
+  assert.throws(() => buildCommand("codex", "gpt-5.6-terra", "low", "test", process.cwd()));
+});
+test("(codex,gpt-5.6-luna,ultracode) throws (ultracode is Opus-4-8-only, not on Codex)", () => {
+  assert.throws(() => buildCommand("codex", "gpt-5.6-luna", "ultracode", "test", process.cwd()));
+});
+// Pinned exact ids pass through mapModel unchanged (no guessed remap).
+test("mapModel codex gpt-5.6-sol/terra/luna -> themselves (exact id passthrough)", () => {
+  assert.equal(mapModel("codex", "gpt-5.6-sol"), "gpt-5.6-sol");
+  assert.equal(mapModel("codex", "gpt-5.6-terra"), "gpt-5.6-terra");
+  assert.equal(mapModel("codex", "gpt-5.6-luna"), "gpt-5.6-luna");
 });
 
 // 9. (codex, gpt-5.5, xhigh): app-server launch validates effort but carries it later in turn/start
@@ -290,6 +323,96 @@ test("(claude,opus-4-8,ultracode) uses interactive SDK-compatible args", () => {
   const result = buildCommand("claude", "opus-4-8", "ultracode", "test", process.cwd());
   assertInteractiveClaudeArgs(result.args, "ultracode");
   unlinkSync(result.ucSettingsPath);
+});
+
+// ---------------------------------------------------------------------------
+// Full-GA refresh: pinned Active-GA selectors map to their EXACT canonical CLI
+// ids. opus-4-5 / sonnet-4-5 stay pinned to their DATED snapshot ids (verified
+// via the claude-api models reference). A generic alias must never advance one.
+// ---------------------------------------------------------------------------
+test("mapModel opus-5 -> claude-opus-5", () => {
+  assert.equal(mapModel("claude", "opus-5"), "claude-opus-5");
+});
+test("mapModel sonnet-5 -> claude-sonnet-5", () => {
+  assert.equal(mapModel("claude", "sonnet-5"), "claude-sonnet-5");
+});
+test("mapModel opus-4-7 -> claude-opus-4-7", () => {
+  assert.equal(mapModel("claude", "opus-4-7"), "claude-opus-4-7");
+});
+test("mapModel opus-4-6 -> claude-opus-4-6", () => {
+  assert.equal(mapModel("claude", "opus-4-6"), "claude-opus-4-6");
+});
+test("mapModel opus-4-5 -> claude-opus-4-5-20251101 (dated pin stays pinned)", () => {
+  assert.equal(mapModel("claude", "opus-4-5"), "claude-opus-4-5-20251101");
+});
+test("mapModel sonnet-4-5 -> claude-sonnet-4-5-20250929 (dated pin stays pinned)", () => {
+  assert.equal(mapModel("claude", "sonnet-4-5"), "claude-sonnet-4-5-20250929");
+});
+
+// The silent-downgrade fix: Sonnet 4.6 has NO xhigh (has max). Requesting xhigh
+// must THROW with the supported tiers — never emit `--effort xhigh` (which the
+// CLI silently downgrades to `high`, below the supported `max`).
+test("(claude,sonnet-4-6,xhigh) THROWS — no silent downgrade (Sonnet 4.6 has no xhigh)", () => {
+  assert.throws(
+    () => resolveEffort("claude", "sonnet-4-6", "xhigh"),
+    (err) => {
+      assert.ok(/not supported by claude\/sonnet-4-6/.test(err.message), err.message);
+      const supported = err.message.split("Supported:")[1] ?? "";
+      assert.ok(supported.includes("medium, high, max"), `must list ladder: ${err.message}`);
+      assert.ok(!supported.includes("xhigh"), `supported list must not offer xhigh: ${err.message}`);
+      assert.ok(err.message.includes("No silent downgrade"), err.message);
+      return true;
+    }
+  );
+});
+test("(claude,sonnet-4-6,max) resolveEffort returns flag max (its top tier)", () => {
+  assert.deepEqual(resolveEffort("claude", "sonnet-4-6", "max"), { kind: "flag", value: "max" });
+});
+
+// Opus 4.6: same ladder as Sonnet 4.6 — no xhigh, has max.
+test("(claude,opus-4-6,xhigh) THROWS (Opus 4.6 has no xhigh)", () => {
+  assert.throws(() => resolveEffort("claude", "opus-4-6", "xhigh"));
+});
+test("(claude,opus-4-6,max) returns flag max", () => {
+  assert.deepEqual(resolveEffort("claude", "opus-4-6", "max"), { kind: "flag", value: "max" });
+});
+
+// Opus 4.5: extended-thinking pin — medium/high ONLY (no xhigh, no max).
+test("(claude,opus-4-5,high) returns flag high", () => {
+  assert.deepEqual(resolveEffort("claude", "opus-4-5", "high"), { kind: "flag", value: "high" });
+});
+test("(claude,opus-4-5,xhigh) THROWS (Opus 4.5 has no xhigh)", () => {
+  assert.throws(() => resolveEffort("claude", "opus-4-5", "xhigh"));
+});
+test("(claude,opus-4-5,max) THROWS (Opus 4.5 has no max)", () => {
+  assert.throws(() => resolveEffort("claude", "opus-4-5", "max"));
+});
+
+// Sonnet 4.5: NO selectable effort — resolves to kind:none, buildCommand emits
+// no --effort (any effort value is ignored, exactly like Haiku).
+test("(claude,sonnet-4-5,high) resolveEffort returns kind:none", () => {
+  assert.deepEqual(resolveEffort("claude", "sonnet-4-5", "high"), { kind: "none" });
+});
+test("(claude,sonnet-4-5,high) buildCommand emits dated --model and NO --effort", () => {
+  const result = buildCommand("claude", "sonnet-4-5", "high", "test", process.cwd());
+  const modelIdx = result.args.indexOf("--model");
+  assert.equal(result.args[modelIdx + 1], "claude-sonnet-4-5-20250929");
+  assert.ok(!result.args.includes("--effort"), "Sonnet 4.5 must not carry an --effort flag");
+});
+
+// Opus 4.7 / Opus 5 / Sonnet 5: full xhigh+max ladder.
+test("(claude,opus-4-7,xhigh) returns flag xhigh", () => {
+  assert.deepEqual(resolveEffort("claude", "opus-4-7", "xhigh"), { kind: "flag", value: "xhigh" });
+});
+test("(claude,opus-5,max) returns flag max", () => {
+  assert.deepEqual(resolveEffort("claude", "opus-5", "max"), { kind: "flag", value: "max" });
+});
+test("(claude,sonnet-5,xhigh) returns flag xhigh", () => {
+  assert.deepEqual(resolveEffort("claude", "sonnet-5", "xhigh"), { kind: "flag", value: "xhigh" });
+});
+// The new pinned selectors are NOT ultracode-capable (Opus 4.8 only).
+test("(claude,opus-5,ultracode) THROWS (ultracode is Opus 4.8 only)", () => {
+  assert.throws(() => buildCommand("claude", "opus-5", "ultracode", "test", process.cwd()));
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

@@ -16,6 +16,7 @@
     "claude-sonnet-4-5": { "default": 200000, "long": 1000000 },
     "claude-sonnet-4-0": { "default": 200000, "long": 1000000 },
     "claude-opus-5-5": { "default": 200000, "long": 1000000 },
+    "claude-opus-5": { "default": 200000, "long": 1000000 },
     "claude-opus-4-8": { "default": 200000, "long": 1000000 },
     "claude-opus-4-7": { "default": 200000, "long": 1000000 },
     "claude-opus-4-6": { "default": 200000, "long": 1000000 },
