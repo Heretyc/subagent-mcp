@@ -476,7 +476,7 @@ await test("bare PATH executable is not rejected before spawn", async () => {
       arguments: {
         task_category: "coding",
         provider: "claude",
-        model: "sonnet",
+        model: "sonnet-4-6",
         prompt: "return compact JSON only",
       },
     });
@@ -487,7 +487,7 @@ await test("bare PATH executable is not rejected before spawn", async () => {
     assert.doesNotMatch(text, /CLI executable not found: claude/);
     const payload = JSON.parse(text);
     assert.equal(payload.provider, "claude");
-    assert.equal(payload.model, "sonnet");
+    assert.equal(payload.model, "sonnet-4-6");
     assert.equal(
       payload.candidates_skipped,
       undefined,
@@ -1313,10 +1313,10 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       task_category: "architecture",
       prompt: "override mid-window",
       provider: "claude",
-      model: "sonnet",
+      model: "sonnet-4-6",
     });
     assert.equal(r3.launchPayload.provider, "claude", "override launch provider");
-    assert.equal(r3.launchPayload.model, "sonnet", "override launch model");
+    assert.equal(r3.launchPayload.model, "sonnet-4-6", "override launch model");
     await killAgent(session, r3.agentId);
 
     // 4. pure-auto → consume(→0). Performance (3rd and final consume).

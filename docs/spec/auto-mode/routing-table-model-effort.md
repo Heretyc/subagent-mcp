@@ -11,16 +11,17 @@ Derive provider from the pairing's `model`:
 
 | `model` value(s) | provider |
 |---|---|
-| `haiku`, `sonnet`, `opus`, `opus-4-8`, `opus-5-5`, `fable`, `fable-5`, `fable-5-1` | `claude` |
-| `gpt-5.5`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-6-astra` | `codex` |
+| `haiku`, `sonnet`, `sonnet-5-5`, `sonnet-4-6`, `opus`, `opus-4-8`, `opus-5-5`, `fable`, `fable-5`, `fable-5-1` | `claude` |
+| `gpt-5.5`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna` | `codex` |
 
 Rule: Claude model ids map to `claude`; any GPT/codex-family id maps to
 `codex`. An unknown model id that maps to neither → skip that pairing (treat as
 a launch-time failure for that candidate; advance). Note: the launch model enum
 is currently
-`["haiku","sonnet","opus","opus-4-8","opus-5-5","fable","fable-5","fable-5-1","gpt-5.5","gpt-5.6","gpt-6-astra"]`.
-Generic `opus`/`fable` track GA (Opus 5.5 / Fable 5.1); `opus-4-8`, `opus-5-5`,
-`fable-5-1`, and the pinned `fable-5` stay on their exact CLI ids. The committed
+`["haiku","sonnet","sonnet-5-5","sonnet-4-6","opus","opus-4-8","opus-5-5","fable","fable-5","fable-5-1","gpt-5.5","gpt-5.6","gpt-6-astra","gpt-6-sol","gpt-6-luna"]`.
+Generic `opus`/`sonnet`/`fable` track GA (Opus 5.5 / Sonnet 5.5 / Fable 5.1);
+`opus-4-8`, `opus-5-5`, `sonnet-5-5`, `sonnet-4-6`, `fable-5-1`, and the pinned
+`fable-5` stay on their exact CLI ids. The committed
 runtime table is launchable-only; its backend id for the public `gpt-5.6`
 selector is `gpt-5.6-sol`. Benchmarked codex sibling ids that cannot be launched
 are retained only in the audit artifact and filtered out before comparing the
@@ -39,8 +40,8 @@ REJECTED (→ skip candidate), NEVER clamped or silently substituted:
 3. `ultracode` is valid ONLY on `opus-4-8` (CLI settings-file injection verified
    there). Generic `opus` is GA Opus 5.5 and is NOT ultracode-capable → any other
    model is skipped, never downgraded to `xhigh`.
-4. Codex `max` is valid only on `gpt-6-astra`; `gpt-5.5`/`gpt-5.6` → skipped,
-   never downgraded.
+4. Codex `max` is valid only on the gpt-6 family (`gpt-6-astra`/`gpt-6-sol`/
+   `gpt-6-luna`); `gpt-5.5`/`gpt-5.6` → skipped, never downgraded.
 5. claude (non-haiku) and api models accept `medium`/`high`/`xhigh`/`max` as-is.
 
 A rejected pairing is skipped so the attempt loop advances to the next ranked

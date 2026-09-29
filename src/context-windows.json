@@ -10,6 +10,7 @@
     "claude-fable-5-1": { "default": 200000, "long": 1000000 },
     "claude-fable-5": { "default": 200000, "long": 1000000 },
     "claude-mythos-5": { "default": 200000, "long": 1000000 },
+    "claude-sonnet-5-5": { "default": 200000, "long": 1000000 },
     "claude-sonnet-5": { "default": 200000, "long": 1000000 },
     "claude-sonnet-4-6": { "default": 200000, "long": 1000000 },
     "claude-sonnet-4-5": { "default": 200000, "long": 1000000 },
@@ -25,6 +26,8 @@
   },
   "codex": {
     "gpt-6-astra": { "default": 258400, "long": 997500 },
+    "gpt-6-sol": { "default": 258400, "long": 997500 },
+    "gpt-6-luna": { "default": 258400, "long": 997500 },
     "gpt-5.5": { "default": 258400, "long": null },
     "gpt-5.6-sol": { "default": 258400, "long": 997500 },
     "gpt-5.6": { "default": 258400, "long": 997500 },

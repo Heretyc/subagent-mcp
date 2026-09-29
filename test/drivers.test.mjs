@@ -341,7 +341,9 @@ await test("Claude SDK driver maps Opus launch ids to the full SDK model id", as
   assert.equal(await openWith("opus"), "claude-opus-5-5");
   assert.equal(await openWith("opus-4-8"), "claude-opus-4-8");
   assert.equal(await openWith("fable"), "claude-fable-5-1");
-  assert.equal(await openWith("sonnet"), "claude-sonnet-4-6");
+  assert.equal(await openWith("sonnet"), "claude-sonnet-5-5");
+  assert.equal(await openWith("sonnet-5-5"), "claude-sonnet-5-5");
+  assert.equal(await openWith("sonnet-4-6"), "claude-sonnet-4-6");
   assert.equal(await openWith("haiku"), "claude-haiku-4-5");
 });
 

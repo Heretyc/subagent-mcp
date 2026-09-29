@@ -14,21 +14,25 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { Provider } from "./effort.js";
+import { CODEX_MAX_MODELS } from "./effort.js";
 import type { ApiProvider } from "./providers/types.js";
 export { slotInsert } from "./providers/slot-router.js";
 
 /**
  * Launch model enum accepted by buildCommand (via mapModel in effort.ts).
  *
- * Generic aliases `opus`/`fable` track the current GA model (Opus 5.5 / Fable
- * 5.1); explicit version aliases stay pinned to their exact CLI model IDs:
- * `opus-4-8` (the sole ultracode-capable model), `opus-5-5`, `fable-5-1`, and
- * `fable-5` (the pinned prior Fable — never silently swapped to 5.1). Codex adds
- * `gpt-6-astra` (the only Codex model with a `max` tier).
+ * Generic aliases `opus`/`sonnet`/`fable` track the current GA model (Opus 5.5 /
+ * Sonnet 5.5 / Fable 5.1); explicit version aliases stay pinned to their exact
+ * CLI model IDs: `opus-4-8` (the sole ultracode-capable model), `opus-5-5`,
+ * `sonnet-5-5`, `sonnet-4-6` (the pinned prior Sonnet — never silently swapped
+ * to 5.5), `fable-5-1`, and `fable-5`. Codex adds the gpt-6 family
+ * `gpt-6-astra`/`gpt-6-sol`/`gpt-6-luna` (the Codex models with a `max` tier).
  */
 export const LAUNCH_MODELS = [
   "haiku",
   "sonnet",
+  "sonnet-5-5",
+  "sonnet-4-6",
   "opus",
   "opus-4-8",
   "opus-5-5",
@@ -38,6 +42,8 @@ export const LAUNCH_MODELS = [
   "gpt-5.5",
   "gpt-5.6",
   "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-luna",
 ] as const;
 type LaunchModel = (typeof LAUNCH_MODELS)[number];
 
@@ -57,30 +63,35 @@ export const HAIKU_EFFORT = "none";
  * map to a Set of valid short ids to check membership during filtering.
  */
 const FULL_TO_SHORT: Record<string, LaunchModel | Set<LaunchModel>> = {
-  // A full explicit table id pins to its exact version: the canonical (first)
-  // short id is the PINNED alias, so a `claude-opus-5-5` row launches as
-  // `opus-5-5` and can NEVER silently advance if the generic `opus` alias later
-  // moves to a newer GA. The generic alias is listed as a secondary Set member
-  // only so a user model-filter of `opus` still matches this row; when it does,
+  // Shared alias rule for the opus/sonnet/fable families below: a full explicit
+  // table id (`claude-<model>`) whose generic alias tracks current GA maps to a
+  // Set whose canonical (first) member is the PINNED short id, so the row
+  // launches version-pinned (e.g. `claude-opus-5-5` -> `opus-5-5`) and can NEVER
+  // silently advance when the generic alias later moves to a newer GA. The
+  // generic alias (`opus`/`sonnet`/`fable`) is only a secondary Set member so a
+  // user model-filter of the generic still matches the row; when it does,
   // buildCandidates reports the user's requested alias (tracking current GA).
-  // `opus-4-8` stays pinned (and is the only ultracode-capable model).
+  // Explicit legacy/pinned ids map straight to their exact short id (never the
+  // generic): `opus-4-8` (the sole ultracode-capable model), `sonnet-4-6`, and
+  // `fable-5` can never be silently substituted forward.
   "claude-opus-5-5": new Set(["opus-5-5", "opus"]),
   "claude-opus-4-8": "opus-4-8",
-  "claude-sonnet-4-6": "sonnet",
+  "claude-sonnet-5-5": new Set(["sonnet-5-5", "sonnet"]),
+  "claude-sonnet-4-6": "sonnet-4-6",
   "claude-haiku-4-5": "haiku",
-  // `claude-fable-5-1` pins to short id `fable-5-1` (canonical), never generic
-  // `fable`, so an explicit Fable 5.1 row cannot silently follow the generic
-  // alias forward; `claude-fable-5` stays pinned to `fable-5`. A user filter of
-  // `fable` still matches the 5.1 row and reports `fable` (tracks current GA).
   "claude-fable-5-1": new Set(["fable-5-1", "fable"]),
   "claude-fable-5": "fable-5",
   "gpt-5.5": "gpt-5.5",
   "gpt-5.6-sol": "gpt-5.6",
   "gpt-5.6": "gpt-5.6",
   "gpt-6-astra": "gpt-6-astra",
+  "gpt-6-sol": "gpt-6-sol",
+  "gpt-6-luna": "gpt-6-luna",
   // Short ids may already appear in a hand-authored table; map them through.
   haiku: "haiku",
   sonnet: "sonnet",
+  "sonnet-5-5": "sonnet-5-5",
+  "sonnet-4-6": "sonnet-4-6",
   opus: "opus",
   "opus-4-8": "opus-4-8",
   "opus-5-5": "opus-5-5",
@@ -168,6 +179,8 @@ export function mapModelToProvider(model: string): Provider | null {
   if (
     model === "haiku" ||
     model === "sonnet" ||
+    model === "sonnet-5-5" ||
+    model === "sonnet-4-6" ||
     model === "opus" ||
     model === "opus-4-8" ||
     model === "opus-5-5" ||
@@ -197,8 +210,8 @@ export function mapModelToProvider(model: string): Provider | null {
  * - ultracode is Opus 4.8 only (CLI settings-file injection verified there);
  *   generic `opus` is GA Opus 5.5 and is NOT ultracode-capable -> null on any
  *   model other than opus-4-8 (no downgrade to xhigh).
- * - Codex `max` is valid only on gpt-6-astra; gpt-5.5/gpt-5.6 -> null (no
- *   downgrade to xhigh).
+ * - Codex `max` is valid only on the gpt-6 family (astra/sol/luna);
+ *   gpt-5.5/gpt-5.6 -> null (no downgrade to xhigh).
  *
  * `model` here is the SHORT launch id.
  */
@@ -225,8 +238,10 @@ export function normalizeEffort(
   }
 
   if (provider === "codex") {
-    // gpt-6-astra uniquely carries a `max` tier; gpt-5.5/gpt-5.6 do not.
-    if (effort === "max" && model !== "gpt-6-astra") return null;
+    // The gpt-6 family (astra/sol/luna) carries a `max` tier; gpt-5.5/gpt-5.6 do not.
+    if (effort === "max" && !CODEX_MAX_MODELS.has(model)) {
+      return null;
+    }
     return effort;
   }
 
@@ -419,17 +434,18 @@ export function validatePresence(p: {
   // provider+model must satisfy the explicit allow-list match rule. The lists
   // mirror the launch_agent zod enum exactly: an unknown same-family alias (e.g.
   // an unlisted opus-N-N) is rejected, never accepted by prefix. Generic `opus`
-  // tracks GA Opus 5.5 and `fable` tracks GA Fable 5.1; the pinned opus-4-8,
-  // opus-5-5, and fable-5-1 are also selectable.
+  // tracks GA Opus 5.5, `sonnet` tracks GA Sonnet 5.5, and `fable` tracks GA
+  // Fable 5.1; the pinned opus-4-8, opus-5-5, sonnet-5-5, sonnet-4-6, and
+  // fable-5-1 are also selectable.
   if (provider && model) {
     if (
       provider === "claude" &&
-      !["haiku", "sonnet", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5-1"].includes(model)
+      !["haiku", "sonnet", "sonnet-5-5", "sonnet-4-6", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5-1"].includes(model)
     ) {
-      return `Error: Claude provider only supports haiku, sonnet, opus, opus-4-8, opus-5-5, fable, or fable-5-1. Got: ${model}`;
+      return `Error: Claude provider only supports haiku, sonnet, sonnet-5-5, sonnet-4-6, opus, opus-4-8, opus-5-5, fable, or fable-5-1. Got: ${model}`;
     }
-    if (provider === "codex" && !["gpt-5.5", "gpt-5.6", "gpt-6-astra"].includes(model)) {
-      return `Error: Codex provider only supports gpt-5.5, gpt-5.6, or gpt-6-astra. Got: ${model}`;
+    if (provider === "codex" && !["gpt-5.5", "gpt-5.6", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna"].includes(model)) {
+      return `Error: Codex provider only supports gpt-5.5, gpt-5.6, gpt-6-astra, gpt-6-sol, or gpt-6-luna. Got: ${model}`;
     }
   }
 
@@ -442,8 +458,9 @@ export function validatePresence(p: {
     if (effort === "ultracode" && !(provider === "claude" && model === "opus-4-8")) {
       return `Error: ultracode effort is only available on Opus 4.8 (provider claude, model opus-4-8). Got: ${provider}/${model}. Use xhigh for other models.\n${AUTO_HINT}`;
     }
-    // Codex `max` is valid only on gpt-6-astra; gpt-5.5/gpt-5.6 have no max tier.
-    if (provider === "codex" && effort === "max" && model !== "gpt-6-astra") {
+    // Codex `max` is valid only on the gpt-6 family (astra/sol/luna);
+    // gpt-5.5/gpt-5.6 have no max tier.
+    if (provider === "codex" && effort === "max" && !CODEX_MAX_MODELS.has(model)) {
       return `Error: max effort is not valid for ${model} (Codex). Valid Codex efforts: medium, high, xhigh.\n${AUTO_HINT}`;
     }
   }

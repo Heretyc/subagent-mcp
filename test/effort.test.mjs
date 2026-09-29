@@ -36,8 +36,14 @@ test("mapModel fable-5-1 -> claude-fable-5-1", () => {
 test("mapModel fable-5 -> claude-fable-5", () => {
   assert.equal(mapModel("claude", "fable-5"), "claude-fable-5");
 });
-test("mapModel sonnet -> claude-sonnet-4-6", () => {
-  assert.equal(mapModel("claude", "sonnet"), "claude-sonnet-4-6");
+test("mapModel sonnet -> claude-sonnet-5-5 (generic tracks GA Sonnet 5.5)", () => {
+  assert.equal(mapModel("claude", "sonnet"), "claude-sonnet-5-5");
+});
+test("mapModel sonnet-5-5 -> claude-sonnet-5-5", () => {
+  assert.equal(mapModel("claude", "sonnet-5-5"), "claude-sonnet-5-5");
+});
+test("mapModel sonnet-4-6 -> claude-sonnet-4-6 (legacy pin, never advanced to 5.5)", () => {
+  assert.equal(mapModel("claude", "sonnet-4-6"), "claude-sonnet-4-6");
 });
 test("mapModel haiku -> claude-haiku-4-5", () => {
   assert.equal(mapModel("claude", "haiku"), "claude-haiku-4-5");
@@ -47,6 +53,12 @@ test("mapModel codex gpt-5.6 -> gpt-5.6-sol", () => {
 });
 test("mapModel codex gpt-6-astra -> gpt-6-astra", () => {
   assert.equal(mapModel("codex", "gpt-6-astra"), "gpt-6-astra");
+});
+test("mapModel codex gpt-6-sol -> gpt-6-sol (exact id, passthrough)", () => {
+  assert.equal(mapModel("codex", "gpt-6-sol"), "gpt-6-sol");
+});
+test("mapModel codex gpt-6-luna -> gpt-6-luna (exact id, passthrough)", () => {
+  assert.equal(mapModel("codex", "gpt-6-luna"), "gpt-6-luna");
 });
 
 // 2. generic opus resolves to Opus 5.5, which is not verified for ultracode -> throws
@@ -195,6 +207,40 @@ test("(codex,gpt-6-astra,low) throws (low banned)", () => {
 });
 test("(codex,gpt-6-astra,ultracode) throws (ultracode not on Astra)", () => {
   assert.throws(() => buildCommand("codex", "gpt-6-astra", "ultracode", "test", process.cwd()));
+});
+
+// GPT-6 Sol/Luna (Codex 0.158.0) support medium/high/xhigh/max; low is banned.
+test("(codex,gpt-6-sol,max) resolveEffort returns flag max", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-6-sol", "max"), { kind: "flag", value: "max" });
+});
+test("(codex,gpt-6-luna,max) resolveEffort returns flag max", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-6-luna", "max"), { kind: "flag", value: "max" });
+});
+test("(codex,gpt-6-sol,xhigh) resolveEffort returns flag xhigh", () => {
+  assert.deepEqual(resolveEffort("codex", "gpt-6-sol", "xhigh"), { kind: "flag", value: "xhigh" });
+});
+test("(codex,gpt-6-sol,low) throws (low banned)", () => {
+  assert.throws(() => buildCommand("codex", "gpt-6-sol", "low", "test", process.cwd()));
+});
+test("(codex,gpt-6-luna,ultracode) throws (ultracode not on Codex)", () => {
+  assert.throws(() => buildCommand("codex", "gpt-6-luna", "ultracode", "test", process.cwd()));
+});
+
+// Sonnet 5.5 (GA) and the pinned 4-6 legacy id resolve max like other Claude models.
+test("(claude,sonnet-5-5,max) --model is claude-sonnet-5-5 with --effort max", () => {
+  const result = buildCommand("claude", "sonnet-5-5", "max", "test", process.cwd());
+  const modelIdx = result.args.indexOf("--model");
+  const effortIdx = result.args.indexOf("--effort");
+  assert.equal(result.args[modelIdx + 1], "claude-sonnet-5-5");
+  assert.equal(result.args[effortIdx + 1], "max");
+});
+test("(claude,sonnet-4-6,high) --model is claude-sonnet-4-6 (legacy pin preserved)", () => {
+  const result = buildCommand("claude", "sonnet-4-6", "high", "test", process.cwd());
+  const modelIdx = result.args.indexOf("--model");
+  assert.equal(result.args[modelIdx + 1], "claude-sonnet-4-6");
+});
+test("(claude,sonnet-4-6,ultracode) throws (ultracode is Opus 4.8 only)", () => {
+  assert.throws(() => buildCommand("claude", "sonnet-4-6", "ultracode", "test", process.cwd()));
 });
 
 // 11. (claude, haiku, high): args do NOT include "--effort"

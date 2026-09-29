@@ -5,13 +5,25 @@ import { randomUUID } from "crypto";
 
 export type Provider = "claude" | "codex" | "api";
 
+/**
+ * Codex models that carry a `max` effort tier: the gpt-6 family (astra/sol/luna);
+ * gpt-5.5/gpt-5.6 do not. Single source of truth for this membership rule, shared
+ * by resolveEffort here and routing.ts (normalizeEffort/validatePresence).
+ */
+export const CODEX_MAX_MODELS: ReadonlySet<string> = new Set([
+  "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-luna",
+]);
+
 export function mapModel(provider: Provider, model: string): string {
   if (provider === "claude") {
-    // Generic `opus`/`fable` track the latest verified GA model; explicit
-    // version aliases are pinned to their exact CLI model IDs.
+    // Generic `opus`/`sonnet`/`fable` track the latest verified GA model;
+    // explicit version aliases are pinned to their exact CLI model IDs.
     if (model === "opus" || model === "opus-5-5") return "claude-opus-5-5";
     if (model === "opus-4-8") return "claude-opus-4-8";
-    if (model === "sonnet") return "claude-sonnet-4-6";
+    if (model === "sonnet" || model === "sonnet-5-5") return "claude-sonnet-5-5";
+    if (model === "sonnet-4-6") return "claude-sonnet-4-6";
     if (model === "haiku") return "claude-haiku-4-5";
     if (model === "fable" || model === "fable-5-1") return "claude-fable-5-1";
     if (model === "fable-5") return "claude-fable-5";
@@ -55,7 +67,7 @@ export function resolveEffort(
 
   if (
     provider === "claude" &&
-    ["sonnet", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5", "fable-5-1"].includes(model)
+    ["sonnet", "sonnet-5-5", "sonnet-4-6", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5", "fable-5-1"].includes(model)
   ) {
     if (["medium", "high", "xhigh", "max"].includes(effort)) {
       return { kind: "flag", value: effort };
@@ -63,9 +75,8 @@ export function resolveEffort(
   }
 
   if (provider === "codex") {
-    // gpt-6-astra supports max; gpt-5.5/gpt-5.6 do not.
-    const isAstra = model === "gpt-6-astra";
-    if (effort === "max" && !isAstra) {
+    const supportsMax = CODEX_MAX_MODELS.has(model);
+    if (effort === "max" && !supportsMax) {
       throw new Error(
         `max effort is not valid for gpt-5.5/gpt-5.6 (Codex). Valid: medium, high, xhigh.`
       );

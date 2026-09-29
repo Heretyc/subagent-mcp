@@ -545,7 +545,7 @@ await test("session-limit before the grace deadline fails over with transient_pr
     assert.equal(payload.effort, CE_RANK2.effort);
     assert.equal(payload.failover_occurred, true);
     assert.equal(payload.failover_from.length, 1, "only the limited candidate is skipped");
-    assertFailoverFrom(payload.failover_from[0], CE_RANK1, "transient_provider");
+    assertFailoverFrom(payload.failover_from[0], { ...CE_RANK1, model: "sonnet-4-6" }, "transient_provider");
     // The note must name the unavailable provider, WHY it was skipped, and the
     // winner it routed to — a limit refusal reads as "usage limit", not a
     // generic provider error.
@@ -558,7 +558,7 @@ await test("session-limit before the grace deadline fails over with transient_pr
     assert.equal(pollPayload.provider, CE_RANK2.provider);
     assert.equal(pollPayload.model, CE_RANK2.model);
     assert.equal(pollPayload.failover_occurred, true);
-    assertFailoverFrom(pollPayload.failover_from[0], CE_RANK1, "transient_provider");
+    assertFailoverFrom(pollPayload.failover_from[0], { ...CE_RANK1, model: "sonnet-4-6" }, "transient_provider");
 
     const killResp = await callTool(session, "kill_agent", { agent_id: payload.agent_id });
     assert.notEqual(killResp.result?.isError, true, "cleanup kill must succeed");

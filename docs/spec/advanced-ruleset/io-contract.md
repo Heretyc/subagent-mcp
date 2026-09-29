@@ -75,15 +75,16 @@ allowed). Template:
 
 Validation is against STATIC launch enums, NOT raw routing-table rows: the
 returned list is consumed verbatim by the attempt loop, so every entry must be
-launchable. Table ids like `gpt-5.5-pro` or `claude-fable-5` are NOT valid
-output; use short launch id `fable` for `claude-fable-5`.
+launchable. Full table ids like `gpt-5.5-pro` or `claude-fable-5` are NOT valid
+output; use the short launch id `fable-5` for `claude-fable-5` (or `fable` for the
+generic GA alias).
 
 | Rule | Detail |
 |---|---|
 | Top level | Bare JSON array. An object wrapper (e.g. `{"candidates": [...]}`) is INVALID. `[]` is VALID : see Veto below. |
 | Element | Object with string `provider`, `model`, `effort`. All other keys : including `rank` : are IGNORED on output. |
 | `provider` | `claude`, `codex`, or `api`. |
-| `model` | `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable` (claude); `gpt-5.5`, `gpt-5.6` (codex); or an `api` model present in the input candidates. CLI provider/model pairs must be legal. |
+| `model` | `haiku`, `sonnet`, `sonnet-5-5`, `sonnet-4-6`, `opus`, `opus-4-8`, `opus-5-5`, `fable`, `fable-5`, `fable-5-1` (claude); `gpt-5.5`, `gpt-5.6`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna` (codex); or an `api` model present in the input candidates. CLI provider/model pairs must be legal. |
 | `effort` | Per-model table below; the validator does its OWN membership checks. |
 | Duplicates | Allowed for CLI candidates. API candidates cannot exceed their input multiplicity because each requires attached dispatch metadata. |
 | Anything else | Ruleset failure -> hard fail. |
@@ -93,17 +94,20 @@ Per-model effort legality:
 | model | legal `effort` values |
 |---|---|
 | `haiku` | exactly `"none"` |
-| `sonnet` | `medium`, `high`, `xhigh`, `max` |
-| `fable` | `medium`, `high`, `xhigh`, `max` |
-| `opus`, `opus-4-8` | `medium`, `high`, `xhigh`, `max`, `ultracode` |
-| `gpt-5.5` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
-| `gpt-5.6` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
+| `sonnet`, `sonnet-5-5`, `sonnet-4-6` | `medium`, `high`, `xhigh`, `max` |
+| `fable`, `fable-5`, `fable-5-1` | `medium`, `high`, `xhigh`, `max` |
+| `opus`, `opus-5-5` | `medium`, `high`, `xhigh`, `max` (NO `ultracode`) |
+| `opus-4-8` | `medium`, `high`, `xhigh`, `max`, `ultracode` |
+| `gpt-5.5`, `gpt-5.6` | `medium`, `high`, `xhigh` (NO `max`, NO `ultracode`) |
+| `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna` | `medium`, `high`, `xhigh`, `max` (NO `ultracode`) |
 | `api` provider candidates | configured slot effort (currently `medium`) |
 
-HAZARD : the validator must not delegate effort checks to the launch path:
-`resolveEffort` has a lenient fallback that silently coerces
-unrecognized effort strings to `high`. Without own membership checks, junk
-like `"banana"` would launch instead of failing. The strict table above is the
+HAZARD : the validator must not delegate effort checks to the launch path.
+`resolveEffort` THROWS `unsupported model/effort combination` on any pair it
+does not recognize (no silent coercion to `high`), so junk like `"banana"`
+fails rather than launching. That throw is defense-in-depth at spawn time, not
+the output contract: the validator still runs its OWN membership checks so an
+illegal element is rejected here, up front. The strict table above is the
 contract; `buildCommand`/`resolveEffort` remain defense-in-depth only.
 
 ## Empty array = VETO (valid, not a malfunction)
@@ -151,11 +155,14 @@ subagent ruleset erroring. Please ask the system administrator to debug before c
   Diagnostics belong on stderr.
 - Output is `{"candidates": [...]}` -> not a bare array -> hard fail.
 - Output names `gpt-5.5-pro` or `claude-fable-5` -> not a launchable model id ->
-  hard fail (table ids are not launch ids; use `fable`).
+  hard fail (full table ids are not launch ids; use `fable-5`).
 - `{"provider":"codex","model":"gpt-5.5","effort":"max"}` -> illegal effort for
   codex -> hard fail. Same for sonnet + `ultracode`.
-- `{"provider":"claude","model":"sonnet","effort":"banana"}` -> hard fail (the
-  effort.ts fallback leniency would have coerced it; the validator must not).
+- `{"provider":"claude","model":"sonnet","effort":"banana"}` -> hard fail. The
+  validator rejects it here via its own membership checks; `resolveEffort`
+  (src/effort.ts) would ALSO throw `unsupported model/effort combination` at
+  spawn time (no lenient coercion to `high` remains), but that is
+  defense-in-depth only and the output contract must not rely on it.
 - A rule that calls a slow network API -> exceeds 120000 ms -> killed -> hard
   fail. Keep rules lean; they run inside EVERY launch.
 - `[]` -> NOT a hard fail: deliberate veto, exact veto text above.

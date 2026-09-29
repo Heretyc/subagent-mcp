@@ -25,13 +25,13 @@ function resolveEffort(provider, model, effort):
   if provider == "claude" AND model == "haiku":
     RETURN { kind: "none" }       # --> no effort option
 
-  if provider == "claude" AND model IN ["sonnet", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5", "fable-5-1"]:
+  if provider == "claude" AND model IN ["sonnet", "sonnet-5-5", "sonnet-4-6", "opus", "opus-4-8", "opus-5-5", "fable", "fable-5", "fable-5-1"]:
     if effort IN ["medium", "high", "xhigh", "max"]:
       RETURN { kind: "flag", value: effort }
 
   if provider == "codex":
-    # gpt-6-astra uniquely carries a max tier; gpt-5.5/gpt-5.6 do not.
-    if effort == "max" AND model != "gpt-6-astra":
+    # The gpt-6 family (astra/sol/luna) carries a max tier; gpt-5.5/gpt-5.6 do not.
+    if effort == "max" AND model NOT IN ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"]:
       THROW: "max effort is not valid for gpt-5.5/gpt-5.6 (Codex). Valid: medium, high, xhigh."
     if effort IN ["medium", "high", "xhigh", "max"]:
       RETURN { kind: "flag", value: effort }
@@ -46,7 +46,7 @@ Decision table:
 |----------|-------|--------|--------|
 | any | any | low | THROW error -- low is banned |
 | claude | haiku | any | `{ kind: "none" }` -- no effort option |
-| claude | sonnet | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
+| claude | sonnet (GA 5.5) / sonnet-5-5 / sonnet-4-6 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | opus (GA 5.5) / opus-5-5 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | opus-4-8 | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | claude | opus-4-8 | ultracode | `{ kind: "settings" }` -- temp file path |
@@ -54,7 +54,7 @@ Decision table:
 | claude | any non-opus-4-8 | ultracode | THROW error (Opus 4.8 only) |
 | codex | gpt-5.5 / gpt-5.6 | medium/high/xhigh | `{ kind: "flag", value: effort }` |
 | codex | gpt-5.5 / gpt-5.6 | max | THROW error |
-| codex | gpt-6-astra | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
+| codex | gpt-6-astra / gpt-6-sol / gpt-6-luna | medium/high/xhigh/max | `{ kind: "flag", value: effort }` |
 | codex | any | ultracode | THROW error (Opus 4.8 only) |
 
 ---

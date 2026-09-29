@@ -13,12 +13,18 @@
 // bare short-id aliases in that map are not table ids). If FULL_TO_SHORT gains
 // or loses a launchable model, update this set in lockstep.
 export const LAUNCHABLE_TABLE_MODELS = new Set([
+  "claude-opus-5-5",
   "claude-opus-4-8",
+  "claude-sonnet-5-5",
   "claude-sonnet-4-6",
   "claude-haiku-4-5",
+  "claude-fable-5-1",
   "claude-fable-5",
   "gpt-5.5",
   "gpt-5.6-sol",
+  "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-luna",
 ]);
 
 // Known benchmarked-but-non-launchable ids intentionally absent from the shipped

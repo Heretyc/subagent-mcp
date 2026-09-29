@@ -45,7 +45,9 @@ const AUTO_HINT =
 const VETO_ERROR = `Error: advanced ruleset returned zero candidates for task_category coding; launch vetoed by ruleset.\n${AUTO_HINT}`;
 
 // Fixture-table candidates as the server builds them (cost_efficiency/coding).
-const CE_RANK1 = { provider: "claude", model: "sonnet", effort: "medium" };
+// Fixture rank-1 is the full id claude-sonnet-4-6, which pins to short id
+// sonnet-4-6 (never the generic `sonnet`, which tracks GA Sonnet 5.5).
+const CE_RANK1 = { provider: "claude", model: "sonnet-4-6", effort: "medium" };
 const CE_RANK2 = { provider: "codex", model: "gpt-5.5", effort: "xhigh" };
 const PERF_RANK1 = { provider: "claude", model: "opus-4-8", effort: "high" };
 
@@ -468,7 +470,7 @@ await test("routing override: reorder honored verbatim; original vs final expose
       task_category: "coding",
       prompt: "reorder launch",
     });
-    // Fixture rank-1 is claude/sonnet/medium; the reversed list launches codex first.
+    // Fixture rank-1 is claude/sonnet-4-6/medium; the reversed list launches codex first.
     assert.equal(launchPayload.provider, CE_RANK2.provider,
       "the attempt loop must consume the ruleset's order — final selection is the ruleset's rank-1");
     assert.equal(launchPayload.model, CE_RANK2.model);

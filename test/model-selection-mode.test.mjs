@@ -215,6 +215,35 @@ test("(g) API-routed launch gets one session gate, then stays approved", (cwd) =
     "API gate approval is process-session scoped after the first approved API launch");
 });
 
+test("(h) API gate approval is scoped per project, not process-global", () => {
+  // Two independent, non-git project dirs -> distinct modelModeKeys.
+  const projectA = mkdtempSync(join(tmpdir(), "model-mode-a-"));
+  const projectB = mkdtempSync(join(tmpdir(), "model-mode-b-"));
+  try {
+    // Project A: obtain the first-use API approval via an explicit override.
+    setMode(projectA, "user-approved-overrides", t0);
+    const approvedA = gateLaunch(projectA, { dispatchSource: "api-provider" }, t0);
+    assert.equal(approvedA.allowed, true, "project A approval opens ITS API gate");
+
+    // Project B never approved: its API gate MUST stay closed in smart mode.
+    // If the latch leaked process-global, this launch would be wrongly allowed.
+    const leaked = gateLaunch(projectB, { dispatchSource: "api-provider" }, t0);
+    assert.equal(leaked.allowed, false,
+      "project A's approval must NOT open project B's API gate");
+    assert.equal(leaked.message, SELECTOR_REJECTION_MESSAGE,
+      "unapproved project B still gets the canonical gate message");
+
+    // Project A stays latched for the session even after reverting to smart.
+    setMode(projectA, "smart", t0 + 60_000);
+    const stillA = gateLaunch(projectA, { dispatchSource: "api-provider" }, t0 + WINDOW_MS + 1);
+    assert.equal(stillA.allowed, true,
+      "project A's own API gate stays session-approved after revert");
+  } finally {
+    rmSync(projectA, { recursive: true, force: true });
+    rmSync(projectB, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------

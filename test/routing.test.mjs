@@ -100,16 +100,16 @@ test("provider filter: codex returns only codex-provider pairings in rank order"
 //    WHY: the provider+model override must identify exactly the model the
 //    caller wants; other claude models must not bleed in.
 // ---------------------------------------------------------------------------
-test("provider_model filter: claude+sonnet returns only sonnet pairings", () => {
+test("provider_model filter: claude+sonnet-4-6 returns only sonnet-4-6 pairings", () => {
   const result = buildCandidates(fixtureTable, "architecture", {
     provider: "claude",
-    model: "sonnet",
+    model: "sonnet-4-6",
   }, "performance");
   assert.equal(result.mode, "provider_model", "mode must be 'provider_model'");
-  assert.ok(result.candidates.length > 0, "architecture has a sonnet pairing");
+  assert.ok(result.candidates.length > 0, "architecture has a sonnet-4-6 pairing");
   for (const c of result.candidates) {
-    assert.equal(c.model, "sonnet",
-      "every returned candidate must be model=sonnet");
+    assert.equal(c.model, "sonnet-4-6",
+      "every returned candidate must be model=sonnet-4-6");
     assert.equal(c.provider, "claude",
       "every returned candidate must have provider=claude");
   }
@@ -429,11 +429,11 @@ test("full model id claude-opus-4-8 maps to short launch id opus-4-8", () => {
     "claude-opus-4-8 in table must be mapped to short id opus-4-8 for buildCommand");
 });
 
-test("full model id claude-sonnet-4-6 maps to short launch id sonnet", () => {
+test("full model id claude-sonnet-4-6 maps to short launch id sonnet-4-6 (legacy pin)", () => {
   const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
-  const sonnetCandidate = result.candidates.find((c) => c.model === "sonnet");
+  const sonnetCandidate = result.candidates.find((c) => c.model === "sonnet-4-6");
   assert.ok(sonnetCandidate,
-    "claude-sonnet-4-6 in table must map to short id sonnet for buildCommand");
+    "claude-sonnet-4-6 in table must map to pinned short id sonnet-4-6 for buildCommand");
 });
 
 test("full model id claude-haiku-4-5 maps to short launch id haiku", () => {
