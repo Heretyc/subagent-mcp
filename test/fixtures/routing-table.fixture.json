@@ -14,7 +14,7 @@
       "gpt-5.5@max",
       "gpt-5.6-sol@high",
       "gpt-5.5-pro@high",
-      "claude-opus-4-7@high",
+      "claude-unlaunchable-xyz@high",
       "unknown-model-xyz@high"
     ],
     "formula_definitions": {
@@ -90,7 +90,7 @@
         "basis": ["[ASSUMPTION]"]
       },
       {
-        "model": "claude-opus-4-7",
+        "model": "claude-unlaunchable-xyz",
         "effort": "high",
         "rank": 6,
         "score": 0.55,
@@ -223,7 +223,7 @@
         "basis": ["[ASSUMPTION]"]
       },
       {
-        "model": "claude-opus-4-7",
+        "model": "claude-unlaunchable-xyz",
         "effort": "high",
         "rank": 2,
         "score": 0.60,
@@ -394,7 +394,7 @@
         "basis": ["[ASSUMPTION]"]
       },
       {
-        "model": "claude-opus-4-7",
+        "model": "claude-unlaunchable-xyz",
         "effort": "high",
         "rank": 6,
         "score": 0.30,
@@ -483,7 +483,7 @@
         "basis": ["[ASSUMPTION]"]
       },
       {
-        "model": "claude-opus-4-7",
+        "model": "claude-unlaunchable-xyz",
         "effort": "high",
         "rank": 2,
         "score": 0.55,

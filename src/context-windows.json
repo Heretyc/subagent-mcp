@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated": "2026-09-28",
   "notes": "Windows are harness-effective defaults. claude.default is the Claude Code standard tier; claude.long is the [1m] tier where available. codex defaults are effective usable windows matching rollout model_context_window when no per-turn harness value is present.",
-  "_comment": "Effective-basis rule: every codex window (default AND long) is stated as the effective usable window = raw_window * 0.95. codex.default 258400 = 272000*0.95; codex.long 950000 = 1000000*0.95. Pairing effective defaults with a raw 1000000 long previously under-stated ratcheted sessions ~5%; both tiers must share the effective basis so percentages stay consistent across a ratchet. gpt-6-astra long 997500 = 1050000*0.95 (raw window 1,050,000 per OpenAI model docs, verified 2026-09-28).",
+  "_comment": "Effective-basis rule: every codex window (default AND long) is stated as the effective usable window = raw_window * 0.95. codex.default 258400 = 272000*0.95; codex.long 950000 = 1000000*0.95. Pairing effective defaults with a raw 1000000 long previously under-stated ratcheted sessions ~5%; both tiers must share the effective basis so percentages stay consistent across a ratchet. gpt-6-astra long 997500 = 1050000*0.95 (raw window 1,050,000 per OpenAI model docs, verified 2026-09-28). gpt-5.6-terra/gpt-5.6-luna: default 258400 is the observed effective CLI context window (same effective basis as the other codex defaults); the installed codex app-server (codex-cli 0.158.0) reported a thread-bound modelContextWindow=258400 for a turn on each exact server-resolved model id, verified 2026-09-29 (both turns completed and both reported 258400, so the numeric context-window metadata is supported). This records only that observed effective window; it is NOT a claim of a clean full-smoke/clean-exit pass (one of the two models returned a policy halt) nor of any factory-default/no-config-override configuration. long 997500 = 1050000*0.95 is the opt-in 1M long-context tier from the primary OpenAI developer model docs (developers.openai.com/api/docs/models/gpt-5.6-terra and /gpt-5.6-luna both state '1,050,000 context window', '128,000 max output tokens') corroborated by the AWS Bedrock Sol/Terra/Luna 1M long-context announcement; it matches the existing gpt-5.6-sol / gpt-6-astra long. The codex app-server model/list catalogue object exposes no per-model context_window field, so the default came from the runtime turn (not the account list) and the long tier from the primary model docs.",
   "family_defaults": {
     "claude": { "default": 200000, "long": 1000000 }
   },
@@ -31,6 +31,8 @@
     "gpt-6-luna": { "default": 258400, "long": 997500 },
     "gpt-5.5": { "default": 258400, "long": null },
     "gpt-5.6-sol": { "default": 258400, "long": 997500 },
+    "gpt-5.6-terra": { "default": 258400, "long": 997500 },
+    "gpt-5.6-luna": { "default": 258400, "long": 997500 },
     "gpt-5.6": { "default": 258400, "long": 997500 },
     "gpt-5.4": { "default": 258400, "long": 950000 },
     "gpt-5.4-mini": { "default": 258400, "long": null },

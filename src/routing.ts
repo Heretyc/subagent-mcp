@@ -19,58 +19,21 @@ import type { ApiProvider } from "./providers/types.js";
 export { slotInsert } from "./providers/slot-router.js";
 
 /**
- * Launch model enum accepted by buildCommand (via mapModel in effort.ts).
- *
- * Generic aliases `opus`/`sonnet`/`fable` track the current GA model (Opus 5.5 /
- * Sonnet 5.5 / Fable 5.1); explicit version aliases stay pinned to their exact
- * CLI model IDs: `opus-4-8` (the sole ultracode-capable model), `opus-5-5`,
- * `sonnet-5-5`, `sonnet-4-6` (the pinned prior Sonnet — never silently swapped
- * to 5.5), `fable-5-1`, and `fable-5`. Codex adds the gpt-6 family
- * `gpt-6-astra`/`gpt-6-sol`/`gpt-6-luna` and the pinned gpt-5.6 trio
- * `gpt-5.6-sol`/`gpt-5.6-terra`/`gpt-5.6-luna` (the Codex models with a `max`
- * tier); the generic `gpt-5.6` alias also carries `max`, inherited from its
- * explicit pin to gpt-5.6-sol. Only gpt-5.5 tops out below `max` (at `xhigh`).
- */
-export const LAUNCH_MODELS = [
-  "haiku",
-  "sonnet",
-  "sonnet-5-5",
-  "sonnet-5",
-  "sonnet-4-6",
-  "sonnet-4-5",
-  "opus",
-  "opus-4-8",
-  "opus-5-5",
-  "opus-5",
-  "opus-4-7",
-  "opus-4-6",
-  "opus-4-5",
-  "fable",
-  "fable-5",
-  "fable-5-1",
-  "gpt-5.5",
-  "gpt-5.6",
-  "gpt-5.6-sol",
-  "gpt-5.6-terra",
-  "gpt-5.6-luna",
-  "gpt-6-astra",
-  "gpt-6-sol",
-  "gpt-6-luna",
-] as const;
-type LaunchModel = (typeof LAUNCH_MODELS)[number];
-
-/**
  * Claude-family models selectable in the PUBLIC launch schema and explicit
  * allow-list. Deliberately excludes the compatibility-only `fable-5`, which
  * stays in LAUNCH_MODELS (still routable/mappable) but is not publicly
  * selectable. This is the single source for the launch_agent `model` enum's
  * Claude half and the claude provider override allow-list.
  *
- * Full-GA refresh: the pinned Active-GA selectors opus-5, sonnet-5, opus-4-7,
- * opus-4-6, opus-4-5, and sonnet-4-5 are publicly selectable as EXPLICIT
- * overrides. They are deliberately NOT in FULL_TO_SHORT (below): they carry no
- * benchmark rows in the shipped routing table, so they are launchable only via
- * an explicit provider+model+effort triple, never auto-routed. Their per-model
+ * Full-GA refresh: of the pinned Active-GA selectors, only sonnet-5 is
+ * publicly selectable as an EXPLICIT override ALONE — it is
+ * unsupported/unreachable for account launches, so it is deliberately NOT in
+ * FULL_TO_SHORT (below): launchable only via an explicit provider+model+effort
+ * triple, never auto-routed. The remaining pinned selectors opus-5, opus-4-7,
+ * opus-4-6, opus-4-5, and sonnet-4-5 ARE account-launchable canonical table ids
+ * (verified explicit CLI aliases + successful account launches, ISS-325), so
+ * each IS in FULL_TO_SHORT (its benchmark rows survive the lean projection and
+ * it auto-routes) as well as selectable as an explicit override. Their per-model
  * effort ladders live in CLAUDE_EFFORT_LADDERS / CLAUDE_NO_EFFORT_MODELS.
  */
 export const CLAUDE_LAUNCH_MODELS = [
@@ -109,6 +72,33 @@ export const CODEX_LAUNCH_MODELS = [
   "gpt-6-luna",
 ] as const;
 
+/**
+ * Launch model enum accepted by buildCommand (via mapModel in effort.ts).
+ *
+ * Generic aliases `opus`/`sonnet`/`fable` track the current GA model (Opus 5.5 /
+ * Sonnet 5.5 / Fable 5.1); explicit version aliases stay pinned to their exact
+ * CLI model IDs: `opus-4-8` (the sole ultracode-capable model), `opus-5-5`,
+ * `sonnet-5-5`, `sonnet-4-6` (the pinned prior Sonnet — never silently swapped
+ * to 5.5), `fable-5-1`, and `fable-5`. Codex adds the gpt-6 family
+ * `gpt-6-astra`/`gpt-6-sol`/`gpt-6-luna` and the pinned gpt-5.6 trio
+ * `gpt-5.6-sol`/`gpt-5.6-terra`/`gpt-5.6-luna` (the Codex models with a `max`
+ * tier); the generic `gpt-5.6` alias also carries `max`, inherited from its
+ * explicit pin to gpt-5.6-sol. Only gpt-5.5 tops out below `max` (at `xhigh`).
+ *
+ * DERIVED (single source of truth): the launch roster is exactly the public
+ * CLAUDE_LAUNCH_MODELS roster + the compatibility-only `fable-5` (routable and
+ * mappable, but not publicly selectable — see above) + the public
+ * CODEX_LAUNCH_MODELS roster, so it can never drift from those two rosters.
+ * Only membership and the derived LaunchModel union are observed (ruleset
+ * candidate validation + the `[number]` type), never element order.
+ */
+export const LAUNCH_MODELS = [
+  ...CLAUDE_LAUNCH_MODELS,
+  "fable-5",
+  ...CODEX_LAUNCH_MODELS,
+] as const;
+type LaunchModel = (typeof LAUNCH_MODELS)[number];
+
 /** Launch effort enum accepted by buildCommand/resolveEffort. */
 export const LAUNCH_EFFORTS = ["medium", "high", "xhigh", "max", "ultracode"] as const;
 type LaunchEffort = (typeof LAUNCH_EFFORTS)[number];
@@ -138,8 +128,21 @@ const FULL_TO_SHORT: Record<string, LaunchModel | Set<LaunchModel>> = {
   // `fable-5` can never be silently substituted forward.
   "claude-opus-5-5": new Set(["opus-5-5", "opus"]),
   "claude-opus-4-8": "opus-4-8",
+  // ISS-325: account-verified pinned GA ids (verified explicit CLI aliases +
+  // successful account launches). Each maps STRAIGHT to its exact short id
+  // (never the generic `opus`/`sonnet`), so an explicit table row stays
+  // version-pinned and its benchmark rows survive build_routing_table's
+  // isLaunchableModel lean projection. The dated Opus/Sonnet 4.5 snapshots key
+  // on their exact dated CLI model ids (mirrors mapModel in effort.ts).
+  // NOTE: claude-sonnet-5 is intentionally NOT added — it is unsupported/
+  // unreachable for account launches (explicit-override-only selector).
+  "claude-opus-5": "opus-5",
+  "claude-opus-4-7": "opus-4-7",
+  "claude-opus-4-6": "opus-4-6",
+  "claude-opus-4-5-20251101": "opus-4-5",
   "claude-sonnet-5-5": new Set(["sonnet-5-5", "sonnet"]),
   "claude-sonnet-4-6": "sonnet-4-6",
+  "claude-sonnet-4-5-20250929": "sonnet-4-5",
   "claude-haiku-4-5": "haiku",
   "claude-fable-5-1": new Set(["fable-5-1", "fable"]),
   "claude-fable-5": "fable-5",
@@ -244,22 +247,10 @@ function readTable(path: string): RoutingTable | null {
  */
 export function mapModelToProvider(model: string): Provider | null {
   if (
-    model === "haiku" ||
-    model === "sonnet" ||
-    model === "sonnet-5-5" ||
-    model === "sonnet-5" ||
-    model === "sonnet-4-6" ||
-    model === "sonnet-4-5" ||
-    model === "opus" ||
-    model === "opus-4-8" ||
-    model === "opus-5-5" ||
-    model === "opus-5" ||
-    model === "opus-4-7" ||
-    model === "opus-4-6" ||
-    model === "opus-4-5" ||
-    model === "fable" ||
+    // Exactly the public Claude roster + the compatibility-only `fable-5`
+    // (short-id passthroughs), or any explicit `claude-<model>` table id.
+    (CLAUDE_LAUNCH_MODELS as readonly string[]).includes(model) ||
     model === "fable-5" ||
-    model === "fable-5-1" ||
     model.startsWith("claude-")
   ) {
     return "claude";

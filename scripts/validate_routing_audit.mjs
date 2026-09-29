@@ -29,8 +29,8 @@ const fail = (m) => { console.error(`validate_routing_audit: FAIL ${m}`); proces
 const warn = (m) => console.warn(`validate_routing_audit: WARN ${m}`);
 
 let audit, provider;
-try { audit = JSON.parse(readFileSync(AUDIT_PATH, "utf8").replace(/^﻿/, "")); } catch (e) { fail(`audit unparseable: ${e.message}`); }
-try { provider = JSON.parse(readFileSync(PROVIDER_PATH, "utf8").replace(/^﻿/, "")); } catch (e) { fail(`routing-table unparseable: ${e.message}`); }
+try { audit = JSON.parse(readFileSync(AUDIT_PATH, "utf8").replace(/^\uFEFF/, "")); } catch (e) { fail(`audit unparseable: ${e.message}`); }
+try { provider = JSON.parse(readFileSync(PROVIDER_PATH, "utf8").replace(/^\uFEFF/, "")); } catch (e) { fail(`routing-table unparseable: ${e.message}`); }
 
 const runManifest = audit.metadata?.run_manifest;
 const override = runManifest?.gap_stub_override;
@@ -59,7 +59,7 @@ for (const branch of BRANCHES) {
     if (!Array.isArray(auditPairingsFull)) { fail(`audit ${branch}.${category} not an array`); continue; }
     if (!Array.isArray(provPairings)) continue;
     // ISS-057: the audit carries the FULL benchmark universe (incl. non-launchable
-    // ids like claude-opus-4-7 / gpt-5.5-pro / gpt-5.4-mini), but the shipped table
+    // ids like gpt-5.5-pro / gpt-5.4-mini), but the shipped table
     // carries only launchable pairings. Project the audit down to the launchable
     // subset (SSOT: FULL_TO_SHORT via scripts/lib/launchable-models.mjs) so the
     // count + set-equality checks compare like-for-like instead of flagging the

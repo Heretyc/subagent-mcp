@@ -90,7 +90,7 @@ const _HARDCODED_LADDERS = new Map([
 function deriveRosterFromAudit() {
   if (!existsSync(auditPath)) return null;
   let auditData;
-  try { auditData = JSON.parse(readFileSync(auditPath, "utf8").replace(/^﻿/, "")); } catch { return null; }
+  try { auditData = JSON.parse(readFileSync(auditPath, "utf8").replace(/^\uFEFF/, "")); } catch { return null; }
   const universe = auditData && auditData.metadata && auditData.metadata.model_effort_universe;
   if (!Array.isArray(universe)) return null;
   const models = new Set();
@@ -122,7 +122,7 @@ function isObject(value) {
 function readJson(path, label, issues) {
   try {
     // Defensive UTF-8 BOM strip before parse.
-    return JSON.parse(readFileSync(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
   } catch (error) {
     issues.push(`${label} JSON parse error: ${error.message}`);
     return undefined;
@@ -320,7 +320,7 @@ function crossCheckAuditUniverse(derivedUniverse, issues) {
   }
   // ISS-057: project the FULL audit universe onto the launchable subset before every
   // cross-check below. The shipped table intentionally omits non-launchable ids
-  // (claude-opus-4-7 / gpt-5.5-pro / gpt-5.4-mini), so comparing the raw audit
+  // (gpt-5.5-pro / gpt-5.4-mini), so comparing the raw audit
   // universe against the table-derived universe would falsely report those ids as
   // drift. SSOT for launchability: scripts/lib/launchable-models.mjs (FULL_TO_SHORT).
   const universe = rawUniverse.filter((key) => {

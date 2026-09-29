@@ -47,7 +47,11 @@ function test(name, fn) {
 
 // ---------------------------------------------------------------------------
 // 1. auto ordering — all pairings sorted rank asc (best→worst); non-launchable
-//    pairings (gpt-5.5-pro, claude-opus-4-7, unknown-model-xyz) are SKIPPED.
+//    pairings (gpt-5.5-pro, claude-unlaunchable-xyz, unknown-model-xyz) are
+//    SKIPPED. (ISS-325: claude-opus-4-7 is now an account-launchable table id,
+//    so the obsolete Opus 4.7 sentinel was replaced by the synthetic
+//    claude-family-but-unmapped id claude-unlaunchable-xyz, which exercises the
+//    SAME skip path — recognised claude provider, absent from FULL_TO_SHORT.)
 //    WHY: the point of auto mode is to serve the best launchable candidate
 //    first; un-launchable ids must never reach the spawn path.
 // ---------------------------------------------------------------------------
@@ -57,13 +61,13 @@ test("auto mode: pairings ordered rank asc; non-launchable pairings skipped", ()
 
   const ids = result.candidates.map((c) => c.model);
   // Launchable models in rank order: opus-4-8(1), gpt-5.5(2), sonnet(3), haiku(4).
-  // gpt-5.5-pro(5), claude-opus-4-7(6), unknown-model-xyz(7) must be absent.
+  // gpt-5.5-pro(5), claude-unlaunchable-xyz(6), unknown-model-xyz(7) must be absent.
   assert.ok(ids.includes("opus-4-8") || ids.includes("claude-opus-4-8"),
     "opus-4-8 must appear (rank 1 launchable)");
   assert.ok(!ids.some(id => id === "gpt-5.5-pro"),
     "gpt-5.5-pro must be skipped — it is not in the launch enum");
-  assert.ok(!ids.some(id => id === "claude-opus-4-7"),
-    "claude-opus-4-7 must be skipped — it is not in the launch enum");
+  assert.ok(!ids.some(id => id === "claude-unlaunchable-xyz"),
+    "claude-unlaunchable-xyz must be skipped — claude-family id absent from FULL_TO_SHORT");
   assert.ok(!ids.some(id => id === "unknown-model-xyz"),
     "unknown-model-xyz must be skipped — completely unrecognised id");
 
@@ -378,7 +382,7 @@ test("explicit mode with codex: null table works, single candidate returned", ()
 //     confusing "not in launch enum" error rather than a clear ERR_NO_CANDIDATES.
 // ---------------------------------------------------------------------------
 test("all-non-launchable category: buildCandidates signals no-candidates", () => {
-  // 'only_nonlaunchable' contains only gpt-5.5-pro, claude-opus-4-7, unknown-model-xyz
+  // 'only_nonlaunchable' contains only gpt-5.5-pro, claude-unlaunchable-xyz, unknown-model-xyz
   const result = buildCandidates(fixtureTable, "only_nonlaunchable", {}, "performance");
   const hasNoCandidatesFlag = result && result.noCandidates === true;
   const hasEmptyArray = result && Array.isArray(result.candidates) && result.candidates.length === 0;
@@ -401,11 +405,11 @@ test("gpt-5.5-pro sibling is skipped in auto mode (not coerced to gpt-5.5)", () 
   }
 });
 
-test("claude-opus-4-7 sibling is skipped in auto mode (not coerced to opus-4-8)", () => {
+test("claude-unlaunchable-xyz sibling is skipped in auto mode (not coerced to a launchable claude id)", () => {
   const result = buildCandidates(fixtureTable, "architecture", { provider: "claude" }, "performance");
   for (const c of result.candidates) {
-    assert.notEqual(c.model, "claude-opus-4-7",
-      "claude-opus-4-7 must never appear; coercing it to opus-4-8 would misrepresent the ranked choice");
+    assert.notEqual(c.model, "claude-unlaunchable-xyz",
+      "claude-unlaunchable-xyz must never appear; coercing an unmapped claude id to a launchable model would misrepresent the ranked choice");
   }
 });
 
@@ -418,7 +422,7 @@ test("claude-opus-4-7 sibling is skipped in auto mode (not coerced to opus-4-8)"
 test("auto mode: returned candidate list has correct launchable count for architecture", () => {
   const result = buildCandidates(fixtureTable, "architecture", {}, "performance");
   // architecture has: opus-4-8(launchable), gpt-5.5(launchable), sonnet(launchable),
-  // haiku(launchable), gpt-5.5-pro(skip), claude-opus-4-7(skip), unknown-model-xyz(skip)
+  // haiku(launchable), gpt-5.5-pro(skip), claude-unlaunchable-xyz(skip), unknown-model-xyz(skip)
   assert.equal(result.candidates.length, 4,
     "must have exactly 4 launchable candidates; accurate count enables correct candidates_skipped in payload");
 });
