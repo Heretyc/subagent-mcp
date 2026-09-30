@@ -283,6 +283,24 @@ test("native-agent-suppression: warns for missing defense-in-depth layers", asyn
   assert.match(r.detail, /gemini missing policy/);
 }));
 
+test("native-agent-suppression: windowed doctrine treats an absent claude deny as intentional", async () => withRoot(async ({ home }) => {
+  writeJson(join(home, ".subagent-mcp", "settings.json"), { doctrine: "windowed" });
+  writeJson(join(home, ".claude", "settings.json"), { permissions: { deny: ["Write(secret)"] } });
+
+  const r = await checkNativeAgentSuppression({ home, isTTY: false });
+  assert.match(r.detail, /claude deny intentionally absent \(user\.doctrine=windowed\)/);
+  assert.doesNotMatch(r.detail, /claude missing permissions\.deny/);
+}));
+
+test("native-agent-suppression: windowed doctrine warns when the deny is still present", async () => withRoot(async ({ home }) => {
+  writeJson(join(home, ".subagent-mcp", "settings.json"), { doctrine: "windowed" });
+  writeJson(join(home, ".claude", "settings.json"), { permissions: { deny: ["Agent"] } });
+
+  const r = await checkNativeAgentSuppression({ home, isTTY: false });
+  assert.equal(r.status, "WARN");
+  assert.match(r.detail, /claude deny present under user\.doctrine=windowed/);
+}));
+
 test("native-agent-suppression: stale legacy deny rules warn", async () => withRoot(async ({ home }) => {
   writeJson(join(home, ".claude", "settings.json"), {
     permissions: { deny: ["Agent", ...LEGACY_CLAUDE_DENY] },

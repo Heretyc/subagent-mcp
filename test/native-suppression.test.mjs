@@ -21,6 +21,8 @@ import {
   reconcileClaudeNativeAgentDeny,
   reconcileCodexNativeAgentDisable,
   reconcileGeminiSettings,
+  removeClaudeNativeAgentDeny,
+  removeNativeAgentDenyFromClaudeSettings,
 } from "../dist/native-suppression.js";
 
 /** Rules earlier versions wrote that must now be actively removed. */
@@ -265,6 +267,92 @@ test("ensureNativeAgentSuppression: dry run reports the migration without touchi
   const r = ensureNativeAgentSuppression(home, ["claude"], { dryRun: true });
   assert.equal(r[0].changed, true);
   assert.equal(readFileSync(settings, "utf8"), before);
+}));
+
+// ---------------------------------------------------------------------------
+// Removal primitives (the windowed-doctrine deny toggle's other half). Removal
+// is the exact inverse of the reconciler: only smcp-owned rules go, and no
+// sidecar restore state is needed because smcp only ever appends its own rules.
+// ---------------------------------------------------------------------------
+
+test("removeClaudeNativeAgentDeny: drops only smcp-owned rules, keeps the rest", () => {
+  const json = {
+    permissions: { deny: ["custom-a", "Agent", "Task", "custom-b"], allow: ["Read(*)"] },
+    theme: "dark",
+  };
+  assert.equal(removeClaudeNativeAgentDeny(json), 2);
+  assert.deepEqual(json.permissions.deny, ["custom-a", "custom-b"]);
+  assert.deepEqual(json.permissions.allow, ["Read(*)"]);
+  assert.equal(json.theme, "dark");
+});
+
+test("removeClaudeNativeAgentDeny: deletes empty deny and permissions containers", () => {
+  const json = { permissions: { deny: ["Agent"] } };
+  assert.equal(removeClaudeNativeAgentDeny(json), 1);
+  assert.equal("permissions" in json, false);
+  assert.equal(removeClaudeNativeAgentDeny({ permissions: { deny: ["user-rule"] } }), 0);
+  assert.equal(removeClaudeNativeAgentDeny(null), 0);
+  assert.equal(removeClaudeNativeAgentDeny({}), 0);
+});
+
+test("removeNativeAgentDenyFromClaudeSettings: backup + surgical write; roundtrips with the reconciler", () => withHome((home) => {
+  const settings = join(home, ".claude", "settings.json");
+  writeJson(settings, { permissions: { deny: ["Agent", "user-rule"], allow: ["Bash(ls:*)"] }, theme: "dark" });
+
+  const removed = removeNativeAgentDenyFromClaudeSettings(home);
+  assert.equal(removed.changed, true);
+  assert.equal(removed.removed, 1);
+  const after = readJson(settings);
+  assert.deepEqual(after.permissions.deny, ["user-rule"]);
+  assert.deepEqual(after.permissions.allow, ["Bash(ls:*)"]);
+  assert.equal(after.theme, "dark");
+  assert.equal(
+    readdirSync(dirname(settings)).some((f) => f.startsWith("settings.json.bak-native-agent-")),
+    true,
+    "a timestamped backup precedes the removal"
+  );
+
+  // Idempotent: nothing left to remove.
+  const again = removeNativeAgentDenyFromClaudeSettings(home);
+  assert.equal(again.changed, false);
+  assert.equal(again.removed, 0);
+
+  // The reconciler restores the canonical entry exactly (the toggle's other direction).
+  ensureNativeAgentSuppression(home, ["claude"]);
+  const restored = readJson(settings);
+  assert.equal(restored.permissions.deny.includes("Agent"), true);
+  assert.equal(restored.permissions.deny.includes("user-rule"), true);
+}));
+
+test("ensureNativeAgentSuppression: windowed doctrine skips the claude deny unless forced", () => withHome((home) => {
+  const configHome = join(home, ".subagent-mcp");
+  mkdirSync(configHome, { recursive: true });
+  writeFileSync(join(configHome, "settings.json"), '{ "doctrine": "windowed" }\n', "utf8");
+  const settings = join(home, ".claude", "settings.json");
+
+  const skipped = ensureNativeAgentSuppression(home, ["claude"], { configHome });
+  assert.equal(skipped[0].status, "skipped");
+  assert.equal(skipped[0].changed, false);
+  assert.equal(existsSync(settings), false, "a skip writes nothing");
+
+  // force is the confirmed-transition escape hatch: the deny is written even
+  // while the doctrine files say windowed.
+  const forced = ensureNativeAgentSuppression(home, ["claude"], { configHome, force: true });
+  assert.equal(forced[0].changed, true);
+  assert.equal(readJson(settings).permissions.deny.includes("Agent"), true);
+}));
+
+test("removeNativeAgentDenyFromClaudeSettings: absent file and dryRun are no-ops", () => withHome((home) => {
+  const missing = removeNativeAgentDenyFromClaudeSettings(home);
+  assert.equal(missing.changed, false);
+  assert.equal(missing.removed, 0);
+
+  const settings = join(home, ".claude", "settings.json");
+  writeJson(settings, { permissions: { deny: ["Agent"] } });
+  const before = readFileSync(settings, "utf8");
+  const dry = removeNativeAgentDenyFromClaudeSettings(home, { dryRun: true });
+  assert.equal(dry.changed, true);
+  assert.equal(readFileSync(settings, "utf8"), before, "dryRun never writes");
 }));
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

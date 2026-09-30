@@ -10,6 +10,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createBackup } from "./backup.js";
+import { readDoctrine } from "./concurrency.js";
 import { getConfigHome } from "./config-home.js";
 import { parseJsoncFile, type JsonObj } from "./jsonc.js";
 import { askYesNo } from "./prompt.js";
@@ -37,6 +38,7 @@ import {
   codexNativeAgentDisableOk,
   ensureNativeAgentSuppression,
   geminiNativeAgentPolicyOk,
+  hasClaudeNativeAgentDeny,
 } from "./native-suppression.js";
 
 type Status = "PASS" | "WARN" | "FAIL" | "INFO";
@@ -541,13 +543,29 @@ export async function checkNativeAgentSuppression(opts: DoctorOptions = {}): Pro
   const parts: string[] = [];
   let ok = true;
 
+  // The doctrine governing this audit must come from the SAME installation
+  // being audited (opts.home/configHome), never the ambient environment.
+  const windowedDoctrine = readDoctrine({ configHome: configHome(opts) }) === "windowed";
   const claude = readJson(join(home, ".claude", "settings.json"));
   if (claude) {
     const deny = stringList((claude.permissions as JsonObj | undefined)?.deny);
     const missing = CLAUDE_NATIVE_AGENT_DENY.filter((rule) => !deny.includes(rule));
     // Only the known legacy names are stale; every other rule is user-authored.
     const stale = CLAUDE_NATIVE_AGENT_DENY_LEGACY.filter((rule) => deny.includes(rule));
-    if (missing.length || stale.length) {
+    if (windowedDoctrine) {
+      // The confirmed windowed transition removes the user-level deny on
+      // purpose; its absence is healthy and doctor never re-adds it here.
+      // Presence uses the same shared predicate as configure's confirmation
+      // gate so the two surfaces can never disagree about the same file.
+      if (!hasClaudeNativeAgentDeny(claude)) {
+        parts.push("claude deny intentionally absent (user.doctrine=windowed)");
+      } else {
+        ok = false;
+        parts.push(
+          "claude deny present under user.doctrine=windowed; re-run configure set user.doctrine=windowed (confirmation-gated) to lift it"
+        );
+      }
+    } else if (missing.length || stale.length) {
       ok = false;
       const detail = [
         ...(missing.length ? [`missing permissions.deny ${missing.join(", ")}`] : []),
@@ -556,7 +574,7 @@ export async function checkNativeAgentSuppression(opts: DoctorOptions = {}): Pro
       if (!(opts.isTTY ?? process.stdin.isTTY)) {
         parts.push(`claude ${detail}; non-TTY: no changes made`);
       } else if (await askYesNo(opts, "Fix Claude native-agent deny list? [Y/n] ")) {
-        ensureNativeAgentSuppression(home, ["claude"]);
+        ensureNativeAgentSuppression(home, ["claude"], { configHome: configHome(opts) });
         parts.push(`claude ${detail}; repaired after backup`);
       } else {
         parts.push(`claude ${detail}; repair skipped`);

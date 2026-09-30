@@ -14,9 +14,15 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
+  ensureNativeAgentSuppression,
+  hasClaudeNativeAgentDeny,
+  removeNativeAgentDenyFromClaudeSettings,
+} from "./native-suppression.js";
+import {
   DEFAULT_CAP,
   DEFAULT_CHECK_FOR_UPDATES,
   DEFAULT_CONTEXT_COACHING,
+  DEFAULT_DOCTRINE,
   DEFAULT_ESCALATION,
   DEFAULT_PERMISSIONS_CEILING,
   DEFAULT_SANDBOX_NETWORK,
@@ -24,6 +30,7 @@ import {
   USER_SETTINGS_FILENAME,
   USER_SETTINGS_LOCAL_FILENAME,
   applyContextCoachingSettings,
+  applyDoctrineSetting,
   defaultConfigPath,
   parseCheckForUpdatesConfig,
   parseConcurrencyConfig,
@@ -32,6 +39,7 @@ import {
   parseSandboxNetworkConfig,
   parseStrictReadParityConfig,
   readContextCoachingSettings,
+  readDoctrine,
   resolveGlobalConfigPath,
   stripJsoncComments,
 } from "./concurrency.js";
@@ -186,6 +194,7 @@ const CONFIG_KEYS: Record<string, KeyMeta> = {
   "global.strictReadParity": { scope: "global", type: "enum", settable: false, restart: false, def: DEFAULT_STRICT_READ_PARITY, valid: "warn, off" },
   "global.sandboxNetwork": { scope: "global", type: "boolean", settable: false, restart: false, def: DEFAULT_SANDBOX_NETWORK, valid: "true, false (parser fallback is true when missing/invalid; the shipped scaffold writes false)" },
   "user.contextCoaching": { scope: "user", type: "boolean", settable: true, restart: false, def: DEFAULT_CONTEXT_COACHING, valid: "true, false" },
+  "user.doctrine": { scope: "user", type: "enum", settable: true, restart: false, def: DEFAULT_DOCTRINE, valid: "always, windowed; windowed makes the orchestration OFF state dormant (minimal state tag only, no auto-latch, user-level native Agent deny lifted) while ON keeps full doctrine. set windowed returns confirmation_required; re-set with windowed:confirm after user approval" },
   "update.autoUpdate": { scope: "update", type: "boolean", settable: false, restart: true, def: false, valid: "true, false" },
   "mode.orchestration": { scope: "mode", type: "state", settable: false, restart: false, def: null, valid: "ON, disabled-this-session (plus session_scope); set via the orchestration-mode tool" },
   "mode.modelSelection": { scope: "mode", type: "state", settable: false, restart: false, def: "smart", valid: "smart, user-approved-overrides (plus window metadata); set via the model-selection-mode tool" },
@@ -295,6 +304,12 @@ function readStatic(key: string): Resolved {
         source: settingsLocalHas("contextCoaching") ? settingsLocalFile() : undefined,
       };
     }
+    case "user.doctrine":
+      return {
+        value: readDoctrine(),
+        path: settingsFile(),
+        source: settingsLocalHas("doctrine") ? settingsLocalFile() : undefined,
+      };
     case "update.autoUpdate":
       return {
         value: readInitRegistry(homedir()).autoUpdate,
@@ -521,7 +536,168 @@ function coached(key: string, message: string, path: string | null) {
 // set: user settings
 // ---------------------------------------------------------------------------
 
+function claudeSettingsFile(): string {
+  return join(homedir(), ".claude", "settings.json");
+}
+
+/** True when the user-level Claude settings carry any smcp-owned Agent deny rule. */
+function claudeAgentDenyPresent(): boolean {
+  try {
+    const file = claudeSettingsFile();
+    if (!existsSync(file)) return false;
+    // The owned-rule definition lives with the remover in native-suppression.ts
+    // so detector and remover can never drift apart.
+    return hasClaudeNativeAgentDeny(JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>);
+  } catch {
+    // Unreadable host settings: treat the deny as present so the flow stays on
+    // the confirmation path rather than skipping a removal that may be needed.
+    return true;
+  }
+}
+
+function doctrineConfirmationWarning(): string {
+  return (
+    `Setting user.doctrine=windowed removes the "Agent" entry from permissions.deny in ` +
+    `${claudeSettingsFile()} so harness-native sub-agent tools work while orchestration is OFF. ` +
+    `If an identical user-level "Agent" deny was added by you or anything else, it is ` +
+    `indistinguishable from the one subagent-mcp installs and will be removed too. ` +
+    `Project-level and managed-policy deny rules are not touched and continue to apply. ` +
+    `The windowed OFF state applies on EVERY host (Claude, Codex, Gemini): while OFF, the ` +
+    `per-turn injections reduce to a minimal state tag and the sole-channel rule is inactive. ` +
+    `Only the Claude user-level Agent deny is lifted; Codex and Gemini native-agent ` +
+    `configuration is not changed by this setting. ` +
+    `Setting user.doctrine=always restores the deny. A timestamped backup of settings.json ` +
+    `is written before any change. Ask the user for explicit approval via the ` +
+    `structured-question tool (AskUserQuestion / request-user-input); on approval call ` +
+    `configure again with action=set, key=user.doctrine, value="windowed:confirm".`
+  );
+}
+
+function setDoctrineSetting(key: string, raw: string) {
+  if (raw !== "always" && raw !== "windowed" && raw !== "windowed:confirm") {
+    return fail(
+      "set",
+      key,
+      `invalid value for ${key}; expected exactly "always" or "windowed" ("windowed:confirm" completes a confirmed windowed transition)`
+    );
+  }
+  const target = settingsFile();
+
+  // Phase 1 of the windowed transition: NON-mutating. Removing the user-level
+  // Agent deny is a permission change, so it requires a one-time explicit user
+  // confirmation; the agent relays the warning via the structured-question
+  // tool and re-calls with the confirm value.
+  if (raw === "windowed") {
+    // Already fully transitioned: the DURABLE file says windowed (not merely a
+    // settings.local.json overlay - phase 1 must never write anything), the
+    // effective value is windowed, and no deny remains. Only then is the
+    // delegated transition a guaranteed no-op, emitting the canonical
+    // unchanged envelope (incl. native_deny) instead of a bespoke shape.
+    if (
+      readDoctrine(target) === "windowed" &&
+      readDoctrine() === "windowed" &&
+      !claudeAgentDenyPresent()
+    ) {
+      return applyDoctrineTransition(key, "windowed", target);
+    }
+    return ok({
+      ok: true, action: "set", key, value: "windowed", status: "confirmation_required",
+      confirm_value: "windowed:confirm", path: target, claude_settings: claudeSettingsFile(),
+      backup: null, restart_required: false, warning: doctrineConfirmationWarning(),
+    });
+  }
+
+  return applyDoctrineTransition(key, raw === "windowed:confirm" ? "windowed" : "always", target);
+}
+
+function applyDoctrineTransition(key: string, value: "always" | "windowed", target: string) {
+  const existing = readIfExists(target);
+  const blank = existing === null || existing.trim() === ""; // trim() already drops a U+FEFF BOM
+  const base = blank ? "{}\n" : (existing as string);
+  let text: string;
+  try {
+    text = applyDoctrineSetting(base, value);
+  } catch (e) {
+    return fail("set", key, `could not update ${target}: ${sanitizeMessage(e)}`);
+  }
+  // Verify the rewrite actually landed on the real key. A malformed file (no
+  // top-level object, or the assignment reachable only inside a comment) makes
+  // the JSONC upsert a no-op or a comment edit; without this check that would
+  // be reported as success while the effective doctrine stays unchanged.
+  let applied: string | null = null;
+  try {
+    applied = String((JSON.parse(stripJsoncComments(text)) as Record<string, unknown>).doctrine);
+  } catch {
+    applied = null;
+  }
+  if (applied !== value) {
+    return fail("set", key, `could not update ${target}: the file has no top-level JSON object for the doctrine key`);
+  }
+
+  let backup: string | null = null;
+  const unchanged = existing !== null && text === existing;
+  if (!unchanged) {
+    try {
+      backup = backupAndWrite(target, text);
+    } catch (e) {
+      return fail("set", key, `could not write ${target}: ${sanitizeMessage(e)}`);
+    }
+  }
+
+  // The claude-settings deny mutation happens AFTER the smcp write, and only
+  // when the written value is actually effective (a settings.local.json
+  // override means the toggle must not fire off a value that is not live).
+  const effective = readDoctrine();
+  const overridden = settingsLocalHas("doctrine") && effective !== value;
+  let nativeDeny: Record<string, unknown>;
+  if (overridden) {
+    nativeDeny = { file: claudeSettingsFile(), action: "skipped_local_override" };
+  } else if (value === "windowed") {
+    try {
+      const r = removeNativeAgentDenyFromClaudeSettings(homedir());
+      nativeDeny = { file: r.file, action: r.changed ? "removed" : "none", removed: r.removed };
+    } catch (e) {
+      // Fail-safe direction: doctrine is windowed but the deny survived, so
+      // nothing is newly permitted. Report and let the user re-run.
+      nativeDeny = {
+        file: claudeSettingsFile(),
+        action: "failed",
+        detail: e instanceof SyntaxError
+          ? `${claudeSettingsFile()} is not valid JSON; repair it manually, then re-run configure set user.doctrine=windowed`
+          : `${sanitizeMessage(e)}; re-run configure set user.doctrine=windowed to retry the removal`,
+      };
+    }
+  } else {
+    try {
+      // force: the restore is part of the confirmed doctrine transition, the
+      // one caller allowed to write the deny regardless of the doctrine value
+      // the settings files report mid-transition.
+      const r = ensureNativeAgentSuppression(homedir(), ["claude"], { force: true }).find((entry) => entry.host === "claude");
+      nativeDeny = {
+        file: r?.file ?? claudeSettingsFile(),
+        action: r?.changed ? "restored" : "none",
+      };
+    } catch (e) {
+      // Unsafe direction: always is selected but the deny was not re-added.
+      nativeDeny = {
+        file: claudeSettingsFile(),
+        action: "failed",
+        detail: e instanceof SyntaxError
+          ? `${claudeSettingsFile()} is not valid JSON; repair it manually, then run subagent-mcp doctor`
+          : `${sanitizeMessage(e)}; run subagent-mcp doctor to repair the native Agent deny`,
+      };
+    }
+  }
+
+  return ok({
+    ok: true, action: "set", key, value: effective, status: unchanged ? "unchanged" : "updated",
+    path: target, backup, restart_required: false, native_deny: nativeDeny,
+    ...(overridden ? { message: `written to ${target}, but ${settingsLocalFile()} overrides this key; the effective value is unchanged.`, source: settingsLocalFile() } : {}),
+  });
+}
+
 function setUserSetting(key: string, raw: string) {
+  if (key === "user.doctrine") return setDoctrineSetting(key, raw);
   const merged = readContextCoachingSettings();
   const next = { ...merged };
   if (raw !== "true" && raw !== "false") return fail("set", key, `invalid value for ${key}; expected exactly "true" or "false"`);

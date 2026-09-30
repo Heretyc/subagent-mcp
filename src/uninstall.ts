@@ -7,9 +7,8 @@ import { atomicWriteFile } from "./orchestration/atomic-write.js";
 import { askYesNo } from "./prompt.js";
 import { clearInitRegistry } from "./init-registry.js";
 import {
-  CLAUDE_NATIVE_AGENT_DENY,
-  CLAUDE_NATIVE_AGENT_DENY_LEGACY,
   reconcileCodexNativeAgentDisable,
+  removeClaudeNativeAgentDeny,
 } from "./native-suppression.js";
 
 export interface UninstallOptions {
@@ -135,25 +134,6 @@ function findFreshCodexSidecar(file: string, current: string): string | null {
     }
   }
   return null;
-}
-
-/** Drop the Claude `permissions.deny` rules smcp writes; keep every other rule. */
-function removeClaudeNativeAgentDeny(json: JsonObj | null): number {
-  const permissions = json?.permissions;
-  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) return 0;
-  const perms = permissions as JsonObj;
-  if (!Array.isArray(perms.deny)) return 0;
-  const owned = new Set<string>([...CLAUDE_NATIVE_AGENT_DENY, ...CLAUDE_NATIVE_AGENT_DENY_LEGACY]);
-  const before = perms.deny as unknown[];
-  const kept = before.filter((rule) => !(typeof rule === "string" && owned.has(rule)));
-  if (kept.length === before.length) return 0;
-  if (kept.length > 0) {
-    perms.deny = kept;
-  } else {
-    delete perms.deny;
-    if (Object.keys(perms).length === 0) delete (json as JsonObj).permissions;
-  }
-  return before.length - kept.length;
 }
 
 /**
