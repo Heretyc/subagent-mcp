@@ -318,7 +318,9 @@ await test("Claude SDK driver launches, sends multiple turns, and kills", async 
 
 await test("Claude SDK driver maps Opus launch ids to the full SDK model id", async () => {
   // The Claude Agent SDK rejects the short launch ids "opus" / "opus-4-8" with
-  // model_not_found (404). The driver must hand the SDK full Claude ids.
+  // model_not_found (404). The driver must hand the SDK full Claude ids. Generic
+  // "opus"/"fable" track the latest verified GA id (Opus 5.5 / Fable 5.1); the
+  // pinned "opus-4-8" alias stays on Opus 4.8.
   async function openWith(model) {
     let sdkOptions;
     async function* query(params) {
@@ -336,10 +338,12 @@ await test("Claude SDK driver maps Opus launch ids to the full SDK model id", as
     return sdkOptions.model;
   }
 
-  assert.equal(await openWith("opus"), "claude-opus-4-8");
+  assert.equal(await openWith("opus"), "claude-opus-5-5");
   assert.equal(await openWith("opus-4-8"), "claude-opus-4-8");
-  assert.equal(await openWith("fable"), "claude-fable-5");
-  assert.equal(await openWith("sonnet"), "claude-sonnet-4-6");
+  assert.equal(await openWith("fable"), "claude-fable-5-1");
+  assert.equal(await openWith("sonnet"), "claude-sonnet-5-5");
+  assert.equal(await openWith("sonnet-5-5"), "claude-sonnet-5-5");
+  assert.equal(await openWith("sonnet-4-6"), "claude-sonnet-4-6");
   assert.equal(await openWith("haiku"), "claude-haiku-4-5");
 });
 

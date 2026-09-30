@@ -27,6 +27,9 @@ adversarial loop / validation.
 | `[ASSUMPTION]` | Mandated working premise (an interview decision); overrides inference | Binding steering |
 | `[SEED]` | A prior hypothesis (e.g., Blackburn seed) : treated as hypothesis; docs/benchmarks override | Lowest |
 | `[PRESS]` | Press/announcement-sourced, pending independent replication | Use with caution |
+| `[Tn]` | Emitter-added source-tier tag on a measured citation (when the row has a numeric tier and no provenance label); n is the `benchmark-sources.md` source tier (1 vendor docs ... 5 trackers) | Tracks source tier : T1 highest, T5 lowest |
+| `[SENTINEL]` | Emitted when a pairing has no measured rows / no URL : a data-free sentinel, or a data-missing category whose rank order is non-semantic (canonical universe order, not capability) | Non-capability placeholder; may never rank #1 (validator hard-fail) |
+| `[SOP-1]` | Score inherited via SOP-1 version-promotion from a predecessor model; the predecessor's cited rows carry the provenance | Inherited, not directly measured : traces to predecessor citations |
 
 **Authority chain:** Phase 1.5 interview decisions are binding > official vendor docs + verified
 benchmarks override seed > conflicts resolved by best-sourced evidence, never by blind averaging.

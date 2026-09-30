@@ -41,8 +41,10 @@ Validation order in the handler:
 3. If `effort` present and not (`provider` and `model`) -> `ERR_EFFORT_NEEDS_BOTH`.
 4. If `model` present and not `provider` -> `ERR_MODEL_NEEDS_PROVIDER`.
 5. (explicit mode only) provider+model must match the existing
-   provider<->model rule from `src/index.ts` (claude<->{haiku,sonnet,opus,opus-4-8,fable};
-   codex<->{gpt-5.5,gpt-5.6}); reuse that existing check and its message verbatim.
+   provider<->model rule in `validatePresence` (`src/routing.ts`)
+   (claude<->{haiku,sonnet,sonnet-5-5,sonnet-5,sonnet-4-6,sonnet-4-5,opus,opus-4-8,opus-5-5,opus-5,opus-4-7,opus-4-6,opus-4-5,fable,fable-5-1};
+   codex<->{gpt-5.5,gpt-5.6,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-6-astra,gpt-6-sol,gpt-6-luna}); reuse that existing
+   check and its message verbatim.
 6. If `task_category` is `fallback_default` and mode is not `explicit` ->
    `ERR_FALLBACK_DEFAULT`.
 6b. (Presence/mode validation complete.) If `sub-orchestrator: true`, check

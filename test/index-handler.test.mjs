@@ -476,7 +476,7 @@ await test("bare PATH executable is not rejected before spawn", async () => {
       arguments: {
         task_category: "coding",
         provider: "claude",
-        model: "sonnet",
+        model: "sonnet-4-6",
         prompt: "return compact JSON only",
       },
     });
@@ -487,7 +487,7 @@ await test("bare PATH executable is not rejected before spawn", async () => {
     assert.doesNotMatch(text, /CLI executable not found: claude/);
     const payload = JSON.parse(text);
     assert.equal(payload.provider, "claude");
-    assert.equal(payload.model, "sonnet");
+    assert.equal(payload.model, "sonnet-4-6");
     assert.equal(
       payload.candidates_skipped,
       undefined,
@@ -1146,6 +1146,31 @@ await test("launch schema keeps API providers internal to auto slot routing", as
   }
 });
 
+await test("launch schema model enum exposes GA aliases (Fable 5.1, Opus 5.5, GPT-6 Astra) and preserves versioned aliases", async () => {
+  // The zod model enum is the entrypoint gate: an alias absent here is rejected
+  // before it can reach validatePresence/buildCommand, so an explicit launch for
+  // that model can never reach its adapter. This asserts the model-refresh GA
+  // aliases are launchable AND that the pre-existing generic/versioned aliases
+  // are not dropped in the process (no silent narrowing of the launch surface).
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, { cwd: workDir, env });
+  try {
+    await session.initialize();
+    const listed = await session.request("tools/list", {});
+    const launchTool = listed.result.tools.find((tool) => tool.name === "launch_agent");
+    const modelEnum = launchTool.inputSchema.properties.model.enum;
+    for (const alias of ["opus-5-5", "fable-5-1", "gpt-6-astra"]) {
+      assert.ok(modelEnum.includes(alias), `model enum must accept GA alias ${alias}`);
+    }
+    for (const alias of ["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5", "gpt-5.6"]) {
+      assert.ok(modelEnum.includes(alias), `model enum must preserve existing alias ${alias}`);
+    }
+  } finally {
+    await session.close();
+    rmTempRoot(tempRoot);
+  }
+});
+
 await test("pure-auto launch: cost_efficiency selection, routing_tier is poll-only", async () => {
   const { tempRoot, workDir, env } = makeTempEnv();
   const session = createMcpSession(distIndex, { cwd: workDir, env });
@@ -1288,10 +1313,10 @@ await test("window walk: deadlock arms window; override does not consume; 3 pure
       task_category: "architecture",
       prompt: "override mid-window",
       provider: "claude",
-      model: "sonnet",
+      model: "sonnet-4-6",
     });
     assert.equal(r3.launchPayload.provider, "claude", "override launch provider");
-    assert.equal(r3.launchPayload.model, "sonnet", "override launch model");
+    assert.equal(r3.launchPayload.model, "sonnet-4-6", "override launch model");
     await killAgent(session, r3.agentId);
 
     // 4. pure-auto → consume(→0). Performance (3rd and final consume).
@@ -1506,6 +1531,80 @@ await test("explicit fable+xhigh launch succeeds under user-approved override mo
     });
     assertSelection(launchPayload, { provider: "claude", model: "fable", effort: "xhigh" },
       "explicit fable+xhigh launch");
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmTempRoot(tempRoot);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Model-refresh GA aliases: each named model must launch end-to-end from an
+// explicit (provider+model+effort) request and reach its adapter with the
+// requested triple preserved — no silent substitution. effort "high" is used
+// because it is a first-class tier for every provider/model here and is never
+// clamped, so these assertions isolate model-alias reachability from the
+// per-model effort edge cases (opus ultracode, astra max) covered elsewhere.
+// ---------------------------------------------------------------------------
+await test("explicit opus-5-5 launch: GA alias reaches the Claude adapter with the requested triple", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, { cwd: workDir, env });
+  try {
+    await session.initialize();
+    await enableManualSelection(session);
+    const { agentId, launchPayload } = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "explicit opus-5-5 launch",
+      provider: "claude",
+      model: "opus-5-5",
+      effort: "high",
+    });
+    assertSelection(launchPayload, { provider: "claude", model: "opus-5-5", effort: "high" },
+      "explicit opus-5-5 launch");
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmTempRoot(tempRoot);
+  }
+});
+
+await test("explicit fable-5-1 launch: versioned GA alias reaches the Claude adapter", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, { cwd: workDir, env });
+  try {
+    await session.initialize();
+    await enableManualSelection(session);
+    const { agentId, launchPayload } = await launchAndPoll(session, {
+      task_category: "debugging",
+      prompt: "explicit fable-5-1 launch",
+      provider: "claude",
+      model: "fable-5-1",
+      effort: "high",
+    });
+    assertSelection(launchPayload, { provider: "claude", model: "fable-5-1", effort: "high" },
+      "explicit fable-5-1 launch");
+    await killAgent(session, agentId);
+  } finally {
+    await session.close();
+    rmTempRoot(tempRoot);
+  }
+});
+
+await test("explicit gpt-6-astra launch: GA alias reaches the Codex adapter with the requested triple", async () => {
+  const { tempRoot, workDir, env } = makeTempEnv();
+  const session = createMcpSession(distIndex, { cwd: workDir, env });
+  try {
+    await session.initialize();
+    await enableManualSelection(session);
+    const { agentId, launchPayload } = await launchAndPoll(session, {
+      task_category: "coding",
+      prompt: "explicit gpt-6-astra launch",
+      provider: "codex",
+      model: "gpt-6-astra",
+      effort: "high",
+    });
+    assertSelection(launchPayload, { provider: "codex", model: "gpt-6-astra", effort: "high" },
+      "explicit gpt-6-astra launch");
     await killAgent(session, agentId);
   } finally {
     await session.close();

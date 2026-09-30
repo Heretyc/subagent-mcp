@@ -310,7 +310,10 @@ for (const { provider, model, effort } of MODEL_MATRIX) {
       await callTool(session, "kill_agent", { agent_id: payload.agent_id });
     } finally {
       await session.close();
-      rmSync(tempRoot, { recursive: true, force: true });
+      // On Windows, spawned mock provider/MCP handles may still be closing just
+      // after taskkill, so a bare rmSync races them and throws EPERM. Retry to
+      // let the OS release the handles before removing the temp tree.
+      rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 }
@@ -364,7 +367,10 @@ for (const { provider, model, effort } of [
       assert.equal(afterKill.isError, true, "send_message after kill must be an error");
     } finally {
       await session.close();
-      rmSync(tempRoot, { recursive: true, force: true });
+      // On Windows, spawned mock provider/MCP handles may still be closing just
+      // after taskkill, so a bare rmSync races them and throws EPERM. Retry to
+      // let the OS release the handles before removing the temp tree.
+      rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 }

@@ -22,7 +22,7 @@ import { cwdHash, hashKey, normalizeCwd, stateDir } from "./marker.js";
  */
 
 const WINDOW_MS = 30 * 60 * 1000;
-let sessionApiGateApproved = false;
+const sessionApiGateApprovedKeys = new Set<string>();
 
 type ModelModeState = {
   mode: "smart" | "user-approved-overrides";
@@ -164,11 +164,15 @@ export function gateLaunch(
   );
   if (r.mode === "user-approved-overrides") {
     if (selectors.dispatchSource === "api-provider") {
-      sessionApiGateApproved = true;
+      sessionApiGateApprovedKeys.add(modelModeKey(cwd));
     }
     return { allowed: true, mode: r.mode, reverted: r.reverted };
   }
-  if (supplied || (selectors.dispatchSource === "api-provider" && !sessionApiGateApproved)) {
+  if (
+    supplied ||
+    (selectors.dispatchSource === "api-provider" &&
+      !sessionApiGateApprovedKeys.has(modelModeKey(cwd)))
+  ) {
     return {
       allowed: false,
       mode: "smart",

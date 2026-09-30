@@ -1,16 +1,20 @@
 import { existsSync, readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { isLaunchableModel } from "./lib/launchable-models.mjs";
 
 const contextPath = new URL("../src/context-windows.json", import.meta.url);
 const routingAuditPath = new URL("../src/routing-table-audit.json", import.meta.url);
 
 const REQUIRED_CLAUDE = [
+  "claude-fable-5-1",
   "claude-fable-5",
   "claude-mythos-5",
   "claude-sonnet-5",
   "claude-sonnet-4-6",
   "claude-sonnet-4-5",
   "claude-sonnet-4-0",
+  "claude-opus-5-5",
+  "claude-opus-5",
   "claude-opus-4-8",
   "claude-opus-4-7",
   "claude-opus-4-6",
@@ -20,6 +24,9 @@ const REQUIRED_CLAUDE = [
   "claude-haiku-4-5",
 ];
 const REQUIRED_CODEX = [
+  "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-luna",
   "gpt-5.5",
   "gpt-5.6-sol",
   "gpt-5.6",
@@ -48,8 +55,29 @@ function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function normalizedKey(key) {
+export function normalizedKey(key) {
   return key.trim().toLowerCase().replace(/\[[^\]]+\]/g, "").replace(/-1m\b/g, "").replace(/-(20\d{6})$/, "");
+}
+
+// Project an audit-universe model id down to its canonical context-windows key
+// and report whether that key is present in the matching family map. The map
+// keys are canonical by construction (validateEntry forbids dated / [1m] / -1m
+// suffixes), while the audit universe carries account-verified DATED launchable
+// ids (ISS-325, e.g. claude-opus-4-5-20251101 / claude-sonnet-4-5-20250929).
+// Both resolve to the same canonical entry (claude-opus-4-5 / claude-sonnet-4-5,
+// 200000/1000000), so normalize before the lookup. Otherwise the exact dated id
+// could never satisfy coverage, contradicting the normalized-key rule at line 62.
+// Ids outside the claude/codex families are not owned here, so they count as
+// covered (nothing to gate).
+export function auditModelCovered(root, model) {
+  const canonical = normalizedKey(model);
+  if (model.startsWith("claude-")) {
+    return Object.hasOwn(root.claude ?? {}, canonical);
+  }
+  if (model.startsWith("gpt-") || model.startsWith("codex-")) {
+    return Object.hasOwn(root.codex ?? {}, canonical);
+  }
+  return true;
 }
 
 function validateEntry(section, key, entry, issues) {
@@ -111,48 +139,52 @@ function validateAuditCoverage(root, issues) {
     if (!isLaunchableModel(model) && !REQUIRED_CLAUDE.includes(model) && !REQUIRED_CODEX.includes(model)) {
       continue;
     }
-    if (model.startsWith("claude-") && !Object.hasOwn(root.claude ?? {}, model)) {
-      issues.push(`profiler coverage: context-windows claude map missing audit model ${model}`);
+    if (auditModelCovered(root, model)) {
+      continue;
     }
-    if (
-      (model.startsWith("gpt-") || model.startsWith("codex-")) &&
-      !Object.hasOwn(root.codex ?? {}, model)
-    ) {
-      issues.push(`profiler coverage: context-windows codex map missing audit model ${model}`);
-    }
+    const family = model.startsWith("claude-") ? "claude" : "codex";
+    issues.push(`profiler coverage: context-windows ${family} map missing audit model ${model}`);
   }
 }
 
-const issues = [];
-if (!existsSync(contextPath)) {
-  issues.push("src/context-windows.json is absent");
-} else {
-  const root = readJson(contextPath, "src/context-windows.json", issues);
-  if (root) {
-    if (root.schema_version !== 1) {
-      issues.push("schema_version must be 1");
-    }
-    const familyDefault = root.family_defaults?.claude;
-    if (!isObject(root.family_defaults) || !isObject(familyDefault)) {
-      issues.push("family_defaults.claude is required for profiler family-default refresh coverage");
-    } else {
-      validateEntry("family_defaults", "claude", familyDefault, issues);
-      if (familyDefault.default !== 200000 || familyDefault.long !== 1000000) {
-        issues.push("family_defaults.claude must be default=200000 and long=1000000");
+function main() {
+  const issues = [];
+  if (!existsSync(contextPath)) {
+    issues.push("src/context-windows.json is absent");
+  } else {
+    const root = readJson(contextPath, "src/context-windows.json", issues);
+    if (root) {
+      if (root.schema_version !== 1) {
+        issues.push("schema_version must be 1");
       }
+      const familyDefault = root.family_defaults?.claude;
+      if (!isObject(root.family_defaults) || !isObject(familyDefault)) {
+        issues.push("family_defaults.claude is required for profiler family-default refresh coverage");
+      } else {
+        validateEntry("family_defaults", "claude", familyDefault, issues);
+        if (familyDefault.default !== 200000 || familyDefault.long !== 1000000) {
+          issues.push("family_defaults.claude must be default=200000 and long=1000000");
+        }
+      }
+      validateSection(root, "claude", REQUIRED_CLAUDE, issues);
+      validateSection(root, "codex", REQUIRED_CODEX, issues);
+      validateAuditCoverage(root, issues);
     }
-    validateSection(root, "claude", REQUIRED_CLAUDE, issues);
-    validateSection(root, "codex", REQUIRED_CODEX, issues);
-    validateAuditCoverage(root, issues);
   }
+
+  if (issues.length > 0) {
+    console.log("FAIL src/context-windows.json validation");
+    for (const issue of issues) {
+      console.log(`- ${issue}`);
+    }
+    process.exit(1);
+  }
+
+  console.log("PASS src/context-windows.json validation");
 }
 
-if (issues.length > 0) {
-  console.log("FAIL src/context-windows.json validation");
-  for (const issue of issues) {
-    console.log(`- ${issue}`);
-  }
-  process.exit(1);
+// Run only when invoked directly (build_routing_table.mjs spawns this as the
+// process entry point); stay side-effect-free when imported by tests.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
 }
-
-console.log("PASS src/context-windows.json validation");

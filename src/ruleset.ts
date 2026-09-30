@@ -18,7 +18,8 @@ import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { Provider } from "./effort.js";
-import { type Candidate, LAUNCH_MODELS, LAUNCH_EFFORTS, HAIKU_EFFORT } from "./routing.js";
+import { CODEX_MAX_MODELS, CLAUDE_EFFORT_LADDERS, CLAUDE_NO_EFFORT_MODELS } from "./effort.js";
+import { type Candidate, LAUNCH_MODELS, CODEX_LAUNCH_MODELS, LAUNCH_EFFORTS, HAIKU_EFFORT } from "./routing.js";
 import { RULESET_SCAFFOLD } from "./ruleset-scaffold.js";
 
 /** Hardcoded per-execution timeout (2 minutes per the owner spec). Tests assert the value. */
@@ -228,23 +229,36 @@ function parseEnvCheck(stdout: string): { ready: boolean; loadRules: boolean } |
   return { ready, loadRules };
 }
 
-// Per-model effort legality, derived from the exported launch enums. Own
-// membership checks on purpose: resolveEffort (effort.ts) has a lenient default
-// that silently coerces unknown efforts to "high", so buildCommand throwing can
-// NOT be relied on to reject bad ruleset output.
-const SONNET_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter((e) => e !== "ultracode");
-const CODEX_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter(
+// Per-model effort legality, derived from the exported launch enums and kept in
+// lockstep with effort.ts's resolveEffort. Own membership checks on purpose:
+// resolveEffort has no lenient default anymore (it throws on unsupported combos),
+// but the validator must reject bad ruleset output BEFORE it reaches the attempt
+// loop, so it never depends on a downstream throw.
+//
+// FLAG_EFFORTS_WITH_MAX: medium/high/xhigh/max (every flag tier except the
+// settings-file-injected ultracode). CODEX_BASE_EFFORTS drops `max` too.
+const FLAG_EFFORTS_WITH_MAX: readonly string[] = LAUNCH_EFFORTS.filter((e) => e !== "ultracode");
+const CODEX_BASE_EFFORTS: readonly string[] = LAUNCH_EFFORTS.filter(
   (e) => e !== "ultracode" && e !== "max"
 );
 
 function effortAllowed(model: string, effort: string): boolean {
-  if (model === "haiku") return effort === HAIKU_EFFORT;
-  if (model === "sonnet" || model === "fable") return SONNET_EFFORTS.includes(effort);
-  if (model === "opus" || model === "opus-4-8") {
-    return (LAUNCH_EFFORTS as readonly string[]).includes(effort);
-  }
-  // Codex launch models.
-  return CODEX_EFFORTS.includes(effort);
+  // Haiku 4.5 / Sonnet 4.5 take no --effort flag; only the sentinel is legal.
+  if (CLAUDE_NO_EFFORT_MODELS.has(model)) return effort === HAIKU_EFFORT;
+  // Opus 4.8 is the sole ultracode-capable model (CLI settings-file injection);
+  // it also accepts every flag tier.
+  if (model === "opus-4-8") return (LAUNCH_EFFORTS as readonly string[]).includes(effort);
+  // Codex gpt-5.5 is the lone model without a `max` tier (xhigh ceiling).
+  if (model === "gpt-5.5") return CODEX_BASE_EFFORTS.includes(effort);
+  // CODEX_MAX_MODELS carries max: gpt-6 family, the gpt-5.6 trio sol/terra/luna,
+  // AND the generic gpt-5.6 alias (inherits max from its pin to gpt-5.6-sol).
+  if (CODEX_MAX_MODELS.has(model)) return FLAG_EFFORTS_WITH_MAX.includes(effort);
+  // Every other Claude launch model is gated by its per-model ladder (shared
+  // SSOT) so the ruleset validator rejects exactly what resolveEffort throws on
+  // — e.g. sonnet-4-6/opus-4-6 @ xhigh, opus-4-5 @ xhigh|max. An unknown model
+  // has no ladder -> reject (no permissive default).
+  const ladder = CLAUDE_EFFORT_LADDERS[model];
+  return ladder ? ladder.has(effort) : false;
 }
 
 /**
@@ -254,8 +268,12 @@ function effortAllowed(model: string, effort: string): boolean {
  * be launchable; explicit mode has no table at all).
  *
  * Per element: string provider/model/effort; provider ∈ {claude, codex};
- * model ∈ launch enum; provider↔model legality (claude↔{haiku,sonnet,opus,
- * opus-4-8,fable}, codex↔{gpt-5.5,gpt-5.6}); per-model effort legality incl. haiku→"none".
+ * model ∈ launch enum; provider↔model legality (claude↔{haiku,sonnet,sonnet-5-5,
+ * sonnet-4-6,opus,opus-4-8,opus-5-5,fable,fable-5,fable-5-1}, codex↔{gpt-5.5,
+ * gpt-5.6,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-6-astra,gpt-6-sol,
+ * gpt-6-luna}); per-model effort legality incl. haiku→"none", ultracode→opus-4-8
+ * only, max→CODEX_MAX_MODELS (gpt-6 family + gpt-5.6 sol/terra/luna + the generic
+ * gpt-5.6 alias via its pin) within Codex.
  * API candidates must match the input list (including multiplicity), because
  * only input API candidates have attached providers.jsonc dispatch metadata.
  * Extra keys (incl. rank) are ignored on output; duplicates are allowed (the
@@ -313,11 +331,11 @@ export function validateRulesetOutput(
     if (!(LAUNCH_MODELS as readonly string[]).includes(model)) {
       return { ok: false, error: `candidate ${i}: unknown model ${model}` };
     }
-    if (provider === "claude" && ["gpt-5.5", "gpt-5.6"].includes(model)) {
+    if (provider === "claude" && (CODEX_LAUNCH_MODELS as readonly string[]).includes(model)) {
       return { ok: false, error: `candidate ${i}: claude does not support ${model}` };
     }
-    if (provider === "codex" && !["gpt-5.5", "gpt-5.6"].includes(model)) {
-      return { ok: false, error: `candidate ${i}: codex only supports gpt-5.5 or gpt-5.6, got ${model}` };
+    if (provider === "codex" && !(CODEX_LAUNCH_MODELS as readonly string[]).includes(model)) {
+      return { ok: false, error: `candidate ${i}: codex only supports ${(CODEX_LAUNCH_MODELS as readonly string[]).join(", ")}, got ${model}` };
     }
     if (!effortAllowed(model, effort)) {
       return { ok: false, error: `candidate ${i}: effort ${effort} is not valid for ${provider}/${model}` };

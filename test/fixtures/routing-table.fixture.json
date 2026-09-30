@@ -14,7 +14,7 @@
       "gpt-5.5@max",
       "gpt-5.6-sol@high",
       "gpt-5.5-pro@high",
-      "claude-opus-4-7@high",
+      "claude-unlaunchable-xyz@high",
       "unknown-model-xyz@high"
     ],
     "formula_definitions": {
@@ -90,7 +90,7 @@
         "basis": ["[ASSUMPTION]"]
       },
       {
-        "model": "claude-opus-4-7",
+        "model": "claude-unlaunchable-xyz",
         "effort": "high",
         "rank": 6,
         "score": 0.55,
@@ -223,7 +223,7 @@
         "basis": ["[ASSUMPTION]"]
       },
       {
-        "model": "claude-opus-4-7",
+        "model": "claude-unlaunchable-xyz",
         "effort": "high",
         "rank": 2,
         "score": 0.60,
@@ -241,6 +241,72 @@
         "interpolated": true,
         "confidence": "low",
         "basis": ["[ASSUMPTION]"]
+      }
+    ],
+    "opus_family": [
+      {
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 1,
+        "score": 0.95,
+        "cost_figure_used": 0.000015,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 2,
+        "score": 0.90,
+        "cost_figure_used": 0.000015,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
+    "fable_family": [
+      {
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 1,
+        "score": 0.88,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "claude-fable-5",
+        "effort": "xhigh",
+        "rank": 2,
+        "score": 0.80,
+        "cost_figure_used": 0.000003,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      }
+    ],
+    "astra_family": [
+      {
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 1,
+        "score": 0.93,
+        "cost_figure_used": 0.000012,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
+      },
+      {
+        "model": "gpt-5.5",
+        "effort": "max",
+        "rank": 2,
+        "score": 0.70,
+        "cost_figure_used": 0.000010,
+        "interpolated": false,
+        "confidence": "measured",
+        "basis": ["[MEASURED]"]
       }
     ],
     "security_review": [],
@@ -328,7 +394,7 @@
         "basis": ["[ASSUMPTION]"]
       },
       {
-        "model": "claude-opus-4-7",
+        "model": "claude-unlaunchable-xyz",
         "effort": "high",
         "rank": 6,
         "score": 0.30,
@@ -417,7 +483,7 @@
         "basis": ["[ASSUMPTION]"]
       },
       {
-        "model": "claude-opus-4-7",
+        "model": "claude-unlaunchable-xyz",
         "effort": "high",
         "rank": 2,
         "score": 0.55,

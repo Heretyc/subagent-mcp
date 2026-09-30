@@ -2,1724 +2,5696 @@
   "metadata": {
     "author": "Lexi Blackburn",
     "author_url": "https://github.com/Heretyc/",
-    "generated": "2026-07",
+    "generated": "2026-09",
     "schema_version": "2",
     "version": "2.1.0"
   },
   "performance": {
     "math_proof": [
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
         "effort": "xhigh",
         "rank": 1
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
         "effort": "high",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "max",
         "rank": 3
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 5
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "xhigh",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "high",
         "rank": 7
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-5-5",
         "effort": "max",
         "rank": 8
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "effort": "max",
         "rank": 9
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-fable-5-1",
+        "effort": "max",
         "rank": 10
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 11
       },
       {
         "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 12
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 37
       }
     ],
     "security_review": [
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "xhigh",
         "rank": 3
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 4
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "max",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "xhigh",
         "rank": 7
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "high",
         "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 9
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 10
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 20
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 9
+        "rank": 21
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 10
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 29
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 11
+        "rank": 30
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 12
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ],
     "debugging": [
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 1
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 2
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "max",
         "rank": 4
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "xhigh",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
         "rank": 7
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
         "effort": "high",
         "rank": 8
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "max",
         "rank": 9
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
-        "effort": "high",
+        "effort": "max",
         "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 28
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 11
+        "rank": 29
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 12
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ],
     "quality_review": [
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 3
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 5
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 7
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
         "rank": 8
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
         "rank": 9
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
         "rank": 10
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 11
       },
       {
         "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 12
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 37
       }
     ],
     "architecture": [
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 3
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 4
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-5",
         "effort": "xhigh",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 6
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 7
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 9
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 10
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 11
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
         "effort": "max",
-        "rank": 7
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 18
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
-        "rank": 8
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 20
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 9
+        "rank": 21
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 10
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 29
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 11
+        "rank": 30
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 12
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ],
     "agentic_execution": [
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 1
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 2
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
         "rank": 3
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
         "rank": 4
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 5
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "max",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 7
       },
       {
         "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 9
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
+        "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 8
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 17
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
-        "rank": 9
+        "rank": 18
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 10
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 28
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 11
+        "rank": 29
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 12
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ],
     "data_analysis": [
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 3
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 5
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 7
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-opus-5-5",
+        "effort": "max",
         "rank": 8
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "high",
+        "effort": "max",
         "rank": 9
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
         "rank": 10
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
-        "effort": "high",
+        "effort": "max",
         "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 29
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
         "effort": "max",
-        "rank": 12
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 37
       }
     ],
     "coding": [
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 1
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 2
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "max",
         "rank": 4
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "xhigh",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
         "rank": 7
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
         "effort": "high",
         "rank": 8
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "max",
         "rank": 9
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
-        "effort": "high",
+        "effort": "max",
         "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 28
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 11
+        "rank": 29
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 12
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ],
     "knowledge_synthesis": [
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 3
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
+        "model": "gpt-6-astra",
         "effort": "xhigh",
         "rank": 4
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 5
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
         "effort": "high",
         "rank": 7
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-5-5",
         "effort": "max",
         "rank": 8
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
+        "model": "claude-opus-4-8",
+        "effort": "max",
         "rank": 9
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-fable-5-1",
         "effort": "max",
         "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 20
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
-        "rank": 11
+        "rank": 21
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 12
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 37
       }
     ],
     "mechanical": [
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 1
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 2
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "xhigh",
         "rank": 3
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
         "rank": 4
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 7
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 8
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "model": "claude-opus-5",
+        "effort": "max",
         "rank": 9
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
         "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 28
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 11
+        "rank": 29
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "effort": "high",
-        "rank": 12
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ],
     "prompt_engineering": [
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 1
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 4
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-5-5",
         "effort": "xhigh",
         "rank": 5
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-5-5",
         "effort": "high",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 7
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
         "effort": "max",
         "rank": 8
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
         "rank": 9
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 10
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
-        "effort": "high",
-        "rank": 10
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
         "effort": "max",
         "rank": 11
       },
       {
         "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 26
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 12
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ],
     "vulnerability_research": [
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 1
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 2
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 5
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-fable-5-1",
+        "effort": "max",
         "rank": 6
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 7
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 9
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 10
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 11
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
         "effort": "high",
-        "rank": 7
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 27
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 8
+        "rank": 28
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 9
+        "rank": 30
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 10
+        "rank": 31
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
-        "rank": 11
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
         "effort": "high",
-        "rank": 12
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ],
     "molecular_biology": [
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
         "effort": "xhigh",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 3
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 4
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 5
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 7
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "max",
         "rank": 8
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
-        "rank": 9
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
+        "rank": 9
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
         "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 20
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "xhigh",
-        "rank": 11
+        "rank": 21
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-4-7",
         "effort": "high",
-        "rank": 12
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 37
       }
     ],
     "ml_accelerator_design": [
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 1
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-5-5",
         "effort": "xhigh",
         "rank": 4
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 5
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "high",
         "rank": 7
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
         "effort": "max",
         "rank": 8
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
         "rank": 9
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
-        "effort": "high",
+        "effort": "max",
         "rank": 10
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-5-5",
         "effort": "max",
         "rank": 11
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 20
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 23
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 37
       }
     ]
   },
   "cost_efficiency": {
     "math_proof": [
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
         "effort": "high",
         "rank": 1
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
         "effort": "xhigh",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 4
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
+        "rank": 5
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
+        "rank": 6
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 7
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
         "effort": "max",
-        "rank": 4
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
-        "rank": 5
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
-        "rank": 6
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
-        "rank": 7
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
         "rank": 8
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-opus-4-6",
+        "effort": "high",
         "rank": 9
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "max",
         "rank": 10
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 11
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-4-8",
         "effort": "max",
         "rank": 12
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
+        "model": "claude-opus-4-6",
+        "effort": "max",
         "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 20
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-5-20250929",
+        "effort": null,
+        "rank": 25
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 38
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 41
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 42
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 45
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 51
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 52
       }
     ],
     "security_review": [
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
         "effort": "high",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 2
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-opus-5",
+        "effort": "high",
         "rank": 4
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 5
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "xhigh",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "max",
         "rank": 7
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
+        "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 9
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
+        "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 13
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 19
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 8
+        "rank": 20
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-4-7",
         "effort": "xhigh",
-        "rank": 9
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 22
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-4-7",
         "effort": "max",
-        "rank": 10
+        "rank": 23
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 24
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 25
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 27
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 33
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 11
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 38
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 41
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 42
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 12
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 44
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 45
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 47
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 51
       }
     ],
     "debugging": [
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-5",
         "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 5
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
+        "rank": 6
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 7
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 8
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
+        "rank": 9
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 12
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 15
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 6
+        "rank": 16
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
-        "rank": 7
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 17
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
         "effort": "xhigh",
-        "rank": 8
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
-        "rank": 9
+        "rank": 19
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
-        "rank": 10
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 25
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 11
+        "rank": 26
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 32
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 34
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 12
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 37
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 38
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 41
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 42
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 45
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 51
       }
     ],
     "quality_review": [
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-5-5",
         "effort": "high",
         "rank": 1
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "max",
         "rank": 4
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 6
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 7
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
         "effort": "max",
-        "rank": 7
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
         "rank": 8
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
         "rank": 9
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "max",
         "rank": 10
       },
       {
         "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 20
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 27
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 11
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 33
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 34
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 37
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 38
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 12
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 40
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 41
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
+        "rank": 42
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 44
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 45
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 51
       }
     ],
     "architecture": [
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
         "effort": "high",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 2
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-opus-5",
+        "effort": "medium",
         "rank": 3
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 5
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-opus-5-5",
         "effort": "max",
         "rank": 7
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 8
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
         "rank": 9
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
         "effort": "max",
         "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 13
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 15
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 23
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 24
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 25
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 27
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 33
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 11
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 36
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 38
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 41
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 42
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 12
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 44
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 45
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 47
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 51
       }
     ],
     "agentic_execution": [
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
-        "rank": 5
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "high",
-        "rank": 6
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
-        "rank": 7
+        "rank": 5
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
         "effort": "max",
-        "rank": 8
+        "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 7
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 8
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "xhigh",
         "rank": 9
       },
       {
         "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 12
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 10
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 24
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 25
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 11
+        "rank": 26
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 32
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 34
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 12
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 37
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 38
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 41
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 42
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 45
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 51
       }
     ],
     "data_analysis": [
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-5-5",
         "effort": "high",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "max",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 7
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
         "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 9
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 10
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 11
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
-        "rank": 9
+        "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 20
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-5-20250929",
+        "effort": null,
+        "rank": 25
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 38
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 41
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 42
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 45
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "high",
-        "rank": 10
+        "rank": 46
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
-        "rank": 11
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "model": "claude-opus-5",
         "effort": "high",
-        "rank": 12
+        "rank": 47
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
-        "rank": 13
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 51
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 52
       }
     ],
     "coding": [
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-5",
+        "effort": "medium",
         "rank": 1
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 2
       },
       {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "medium",
+        "rank": 3
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 4
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
+        "rank": 5
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
+        "rank": 6
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 7
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 8
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
+        "rank": 9
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
+        "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 12
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 15
+      },
+      {
         "provider": "claude",
         "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
         "effort": "xhigh",
-        "rank": 3
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-5-20250929",
+        "effort": null,
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 27
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 32
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 33
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 38
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 41
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 42
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 45
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 46
       },
       {
         "provider": "codex",
         "model": "gpt-5.5",
         "effort": "xhigh",
-        "rank": 4
+        "rank": 47
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
-        "rank": 5
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 48
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
-        "effort": "max",
-        "rank": 6
-      },
-      {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
-        "rank": 7
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
         "effort": "xhigh",
-        "rank": 8
+        "rank": 49
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
         "effort": "max",
-        "rank": 9
+        "rank": 51
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-opus-4-7",
         "effort": "max",
-        "rank": 10
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
-        "rank": 11
-      },
-      {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
-        "rank": 12
-      },
-      {
-        "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
-        "rank": 13
+        "rank": 52
       }
     ],
     "knowledge_synthesis": [
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-5-5",
         "effort": "high",
         "rank": 1
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 5
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
+        "model": "gpt-6-astra",
         "effort": "xhigh",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-fable-5-1",
         "effort": "high",
         "rank": 7
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
-        "rank": 8
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
-        "rank": 9
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
         "effort": "max",
+        "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 9
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 10
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 11
       },
       {
@@ -1727,313 +5699,1249 @@
         "model": "claude-opus-4-8",
         "effort": "max",
         "rank": 12
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 20
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 27
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 33
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 34
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 37
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 38
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 40
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 41
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
+        "rank": 42
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 44
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 45
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 51
       }
     ],
     "mechanical": [
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
         "rank": 1
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
         "rank": 7
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-opus-5",
+        "effort": "max",
         "rank": 8
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "xhigh",
         "rank": 9
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 12
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-5-20250929",
+        "effort": null,
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 26
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 11
+        "rank": 27
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 32
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 33
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 34
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 35
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 12
+        "rank": 36
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
-        "rank": 13
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 38
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 41
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 42
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 45
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 46
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 51
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 52
       }
     ],
     "prompt_engineering": [
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 1
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 3
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "max",
         "rank": 4
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 5
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
-        "rank": 7
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-fable-5-1",
         "effort": "xhigh",
-        "rank": 8
+        "rank": 7
       },
       {
         "provider": "claude",
         "model": "claude-opus-4-8",
         "effort": "max",
+        "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 9
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-5",
         "effort": "max",
         "rank": 10
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
         "effort": "max",
         "rank": 11
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 12
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
+        "model": "claude-opus-4-6",
+        "effort": "high",
         "rank": 13
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 14
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-5-20250929",
+        "effort": null,
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 20
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 27
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 33
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 34
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 38
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 41
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 42
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 45
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 48
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 51
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 52
       }
     ],
     "vulnerability_research": [
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "high",
+        "model": "claude-opus-5",
+        "effort": "medium",
         "rank": 1
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "high",
         "rank": 2
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
+        "provider": "claude",
+        "model": "claude-opus-5",
         "effort": "xhigh",
         "rank": 4
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 5
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
-        "rank": 6
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
-        "rank": 7
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
-        "rank": 8
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
         "effort": "max",
+        "rank": 6
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 7
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
+        "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 9
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
+        "model": "claude-opus-5",
         "effort": "max",
         "rank": 10
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 11
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
+        "rank": 12
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 19
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-5-20250929",
+        "effort": null,
+        "rank": 20
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 21
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 28
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "high",
-        "rank": 11
+        "rank": 29
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 33
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 34
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 38
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 40
       },
       {
         "provider": "claude",
         "model": "claude-sonnet-4-6",
         "effort": "max",
-        "rank": 12
+        "rank": 41
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 42
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
-        "rank": 13
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 44
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 45
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 48
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 51
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 52
       }
     ],
     "molecular_biology": [
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 1
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 2
       },
       {
         "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 3
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "model": "claude-opus-5-5",
+        "effort": "max",
         "rank": 4
       },
       {
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "max",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "high",
         "rank": 5
       },
       {
         "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high",
+        "model": "gpt-6-astra",
+        "effort": "xhigh",
         "rank": 6
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
-        "rank": 7
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "model": "claude-fable-5-1",
         "effort": "high",
-        "rank": 8
-      },
-      {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "xhigh",
-        "rank": 9
-      },
-      {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
-        "rank": 10
+        "rank": 7
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
         "effort": "max",
+        "rank": 8
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 9
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
+        "rank": 10
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 11
       },
       {
@@ -2044,89 +6952,557 @@
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
+        "model": "claude-opus-4-6",
+        "effort": "max",
         "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "max",
+        "rank": 15
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "max",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 18
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 20
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 22
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 24
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-5-20250929",
+        "effort": null,
+        "rank": 25
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 27
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 28
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 30
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 31
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 33
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 34
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 35
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 37
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 38
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 41
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 42
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "medium",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 45
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 48
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 51
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 52
       }
     ],
     "ml_accelerator_design": [
       {
         "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
+        "model": "gpt-6-astra",
+        "effort": "medium",
         "rank": 1
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "high",
         "rank": 2
       },
       {
         "provider": "codex",
         "model": "gpt-5.6-sol",
-        "effort": "high",
+        "effort": "max",
         "rank": 3
       },
       {
-        "provider": "claude",
-        "model": "claude-opus-4-8",
+        "provider": "codex",
+        "model": "gpt-6-astra",
         "effort": "xhigh",
         "rank": 4
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "xhigh",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "high",
         "rank": 5
       },
       {
-        "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "high",
+        "provider": "codex",
+        "model": "gpt-6-astra",
+        "effort": "max",
         "rank": 6
       },
       {
-        "provider": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "max",
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "xhigh",
         "rank": 7
       },
       {
         "provider": "claude",
-        "model": "claude-opus-4-8",
-        "effort": "max",
+        "model": "claude-opus-5-5",
+        "effort": "high",
         "rank": 8
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "xhigh",
+        "model": "claude-opus-5",
+        "effort": "max",
         "rank": 9
       },
       {
         "provider": "claude",
-        "model": "claude-fable-5",
-        "effort": "max",
+        "model": "claude-opus-5",
+        "effort": "medium",
         "rank": 10
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
-        "effort": "high",
+        "model": "claude-fable-5-1",
+        "effort": "max",
         "rank": 11
       },
       {
         "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-opus-4-8",
         "effort": "max",
         "rank": 12
       },
       {
         "provider": "claude",
-        "model": "claude-haiku-4-5",
-        "effort": null,
+        "model": "claude-opus-5-5",
+        "effort": "xhigh",
         "rank": 13
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "rank": 14
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "high",
+        "rank": 15
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "max",
+        "rank": 16
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "rank": 17
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "medium",
+        "rank": 18
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "max",
+        "rank": 19
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "max",
+        "rank": 20
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "high",
+        "rank": 21
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "effort": "xhigh",
+        "rank": 22
+      },
+      {
+        "provider": "claude",
+        "model": "claude-fable-5-1",
+        "effort": "medium",
+        "rank": 23
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-5-20250929",
+        "effort": null,
+        "rank": 24
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "medium",
+        "rank": 25
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "rank": 26
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "max",
+        "rank": 27
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high",
+        "rank": 28
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "medium",
+        "rank": 29
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "xhigh",
+        "rank": 30
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "high",
+        "rank": 31
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "xhigh",
+        "rank": 32
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "xhigh",
+        "rank": 33
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "max",
+        "rank": 34
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "high",
+        "rank": 35
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "medium",
+        "rank": 36
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "xhigh",
+        "rank": 37
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "high",
+        "rank": 38
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-6",
+        "effort": "medium",
+        "rank": 39
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "medium",
+        "rank": 40
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "rank": 41
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-5-5",
+        "effort": "max",
+        "rank": 42
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "medium",
+        "rank": 43
+      },
+      {
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "effort": "max",
+        "rank": 44
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-5-20251101",
+        "effort": "high",
+        "rank": 45
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol",
+        "effort": "xhigh",
+        "rank": 46
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "medium",
+        "rank": 47
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "medium",
+        "rank": 48
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "rank": 49
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "high",
+        "rank": 50
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-7",
+        "effort": "high",
+        "rank": 51
+      },
+      {
+        "provider": "claude",
+        "model": "claude-opus-4-8",
+        "effort": "xhigh",
+        "rank": 52
       }
     ]
   }

@@ -249,43 +249,77 @@ test("ERR_FALLBACK_DEFAULT: provider+model override -> exact text", () => {
     "fallback_default provider_model mode must return ERR_FALLBACK_DEFAULT even when provider/model would otherwise mismatch");
 });
 
-test("explicit mismatch: claude + gpt-5.5 -> Claude constraint message", () => {
+// The provider↔model constraint messages enumerate the launchable roster, which
+// grows as GA models are added; these assertions pin the stable contract (a
+// cross-provider pair is rejected with the provider-scoped message that echoes
+// the offending model) rather than the exact roster text, so adding a model to
+// the allow-list never regresses the rejection guarantee.
+test("explicit mismatch: claude + gpt-5.5 -> Claude constraint message rejects the codex model", () => {
   const msg = validatePresence({
     task_category: "coding",
     provider: "claude",
     model: "gpt-5.5",
     effort: "high",
   });
-  assert.equal(
-    msg,
-    "Error: Claude provider only supports haiku, sonnet, opus, opus-4-8, or fable. Got: gpt-5.5",
-    "claude+gpt-5.5 returns the existing Claude-constraint message verbatim");
+  assert.ok(msg, "claude+gpt-5.5 must be rejected");
+  assert.ok(
+    msg.startsWith("Error: Claude provider only supports"),
+    "claude+gpt-5.5 must return the Claude-constraint message");
+  assert.ok(msg.includes("Got: gpt-5.5"), "message must echo the offending model");
 });
 
-test("explicit mismatch: codex + fable -> Codex constraint message", () => {
+test("explicit mismatch: codex + fable -> Codex constraint message rejects the claude model", () => {
   const msg = validatePresence({
     task_category: "coding",
     provider: "codex",
     model: "fable",
     effort: "high",
   });
-  assert.equal(
-    msg,
-    "Error: Codex provider only supports gpt-5.5 or gpt-5.6. Got: fable",
-    "codex+fable must be rejected because fable is Claude-only");
+  assert.ok(msg, "codex+fable must be rejected because fable is Claude-only");
+  assert.ok(
+    msg.startsWith("Error: Codex provider only supports"),
+    "codex+fable must return the Codex-constraint message");
+  assert.ok(msg.includes("Got: fable"), "message must echo the offending model");
 });
 
-test("explicit mismatch: codex + sonnet -> Codex constraint message", () => {
+test("explicit mismatch: codex + sonnet -> Codex constraint message rejects the claude model", () => {
   const msg = validatePresence({
     task_category: "coding",
     provider: "codex",
     model: "sonnet",
     effort: "high",
   });
+  assert.ok(msg, "codex+sonnet must be rejected");
+  assert.ok(
+    msg.startsWith("Error: Codex provider only supports"),
+    "codex+sonnet must return the Codex-constraint message");
+  assert.ok(msg.includes("Got: sonnet"), "message must echo the offending model");
+});
+
+// Model-refresh GA aliases: the named models must PASS the provider↔model match
+// rule so an explicit launch is not rejected at the presence-validation boundary
+// before it can reach buildCommand/the adapter. Pairs mirror src/effort.ts's
+// mapModel/resolveEffort support (opus-5-5 + fable-5-1 => Claude; gpt-6-astra =>
+// Codex).
+test("GA alias accepted: claude + opus-5-5 + high -> null", () => {
   assert.equal(
-    msg,
-    "Error: Codex provider only supports gpt-5.5 or gpt-5.6. Got: sonnet",
-    "codex+sonnet returns the existing Codex-constraint message verbatim");
+    validatePresence({ task_category: "coding", provider: "claude", model: "opus-5-5", effort: "high" }),
+    null,
+    "opus-5-5 is a first-class Claude launch model and must pass presence validation");
+});
+
+test("GA alias accepted: claude + fable-5-1 + high -> null", () => {
+  assert.equal(
+    validatePresence({ task_category: "debugging", provider: "claude", model: "fable-5-1", effort: "high" }),
+    null,
+    "fable-5-1 is a first-class Claude launch model and must pass presence validation");
+});
+
+test("GA alias accepted: codex + gpt-6-astra + high -> null", () => {
+  assert.equal(
+    validatePresence({ task_category: "coding", provider: "codex", model: "gpt-6-astra", effort: "high" }),
+    null,
+    "gpt-6-astra is a first-class Codex launch model and must pass presence validation");
 });
 
 // ---------------------------------------------------------------------------

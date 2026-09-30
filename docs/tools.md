@@ -15,7 +15,7 @@ Start a new always-interactive sub-agent session.
 | `task_category` | one of `math_proof`, `security_review`, `debugging`, `quality_review`, `architecture`, `agentic_execution`, `data_analysis`, `coding`, `knowledge_synthesis`, `mechanical`, `prompt_engineering`, `vulnerability_research`, `molecular_biology`, `ml_accelerator_design`, `fallback_default` | Yes | Task shape; routes to the best provider/model/effort for that category |
 | `prompt` | string | Yes | Initial prompt text |
 | `provider` | `"claude" \| "codex"` | No | Override; omit to auto-select |
-| `model` | `"haiku" \| "sonnet" \| "opus" \| "opus-4-8" \| "fable" \| "gpt-5.5" \| "gpt-5.6"` | No | Override; omit to auto-select |
+| `model` | `"haiku" \| "sonnet" \| "sonnet-5-5" \| "sonnet-5" \| "sonnet-4-6" \| "sonnet-4-5" \| "opus" \| "opus-4-8" \| "opus-5-5" \| "opus-5" \| "opus-4-7" \| "opus-4-6" \| "opus-4-5" \| "fable" \| "fable-5-1" \| "gpt-5.5" \| "gpt-5.6" \| "gpt-5.6-sol" \| "gpt-5.6-terra" \| "gpt-5.6-luna" \| "gpt-6-astra" \| "gpt-6-sol" \| "gpt-6-luna"` | No | Override; omit to auto-select |
 | `effort` | `"medium" \| "high" \| "xhigh" \| "max" \| "ultracode"` | No | Override; omit to auto-select. See haiku note.[^haiku-effort] |
 | `deadlock` | boolean | No | MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory - the 3rd attempt onward. Re-wording or splitting unchanged work does NOT reset attempts. Auto mode only: cannot be combined with provider/model/effort; from the 3rd attempt, drop those params. Passing false is identical to omitting it. |
 | `sub-orchestrator` | boolean | No | Launch this child as a delegate-only sub-orchestrator for one disjoint plan section (swarm dispatch stage). The server injects an orchestration directive into the prompt and marks the child's env. The child's own sub-agents are normal workers and never inherit the flag. Available to the main orchestrator only (depth 0); rejected at greater depth. Omitting or `false` = normal sub-agent. |
@@ -31,7 +31,7 @@ Returns: `{ agent_id, status, provider, model, effort, task_category }`, plus `r
 
 **Overrides:** `provider`/`model`/`effort` are optional and usually unnecessary. A provider-only override tries its matching candidates first, then de-duplicated auto fallbacks. Adding `model` pins the rank-1 matching candidate to one attempt; adding `effort` pins that exact triple. Pinned failures are loud and never substitute another candidate. `model` requires `provider`; `effort` requires both.
 
-Provider/model constraints: Claude accepts `haiku`, `sonnet`, `opus`, `opus-4-8`, `fable`. Codex accepts `gpt-5.5` or `gpt-5.6`.
+Provider/model constraints: Claude accepts `haiku`, `sonnet`, `sonnet-5-5`, `sonnet-5`, `sonnet-4-6`, `sonnet-4-5`, `opus`, `opus-4-8`, `opus-5-5`, `opus-5`, `opus-4-7`, `opus-4-6`, `opus-4-5`, `fable`, or `fable-5-1`. Codex accepts `gpt-5.5`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-6-astra`, `gpt-6-sol`, or `gpt-6-luna`. Generic `opus` tracks GA Opus 5.5, `sonnet` tracks GA Sonnet 5.5, and `fable` tracks GA Fable 5.1; `opus-4-8`, `opus-5-5`, `opus-5`, `opus-4-7`, `opus-4-6`, `opus-4-5`, `sonnet-5-5`, `sonnet-5`, `sonnet-4-6`, `sonnet-4-5`, and `fable-5-1` are explicit version pins.
 
 Spec: [docs/spec/auto-mode/_INDEX.md](spec/auto-mode/_INDEX.md) (param contract, presence→behavior matrix, exact error text).
 

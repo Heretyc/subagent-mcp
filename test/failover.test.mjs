@@ -35,7 +35,7 @@ const AUTO_HINT =
   "Tip: omit provider/model/effort entirely and the server auto-selects the best provider/model/effort for this task_category, with automatic silent fallback.";
 
 const GRACE_MS = 600;
-const CE_RANK1 = { provider: "claude", model: "sonnet", effort: "medium" };
+const CE_RANK1 = { provider: "claude", model: "sonnet-4-6", effort: "medium" };
 const CE_RANK2 = { provider: "codex", model: "gpt-5.5", effort: "xhigh" };
 
 let passed = 0;
@@ -411,7 +411,7 @@ await test("exhaustion: ALL candidates die in the window -> ERR_ALL_FAILED with 
     assert.equal(response.result.isError, true, "only full exhaustion may fail the launch");
     const text = textOf(response);
     assert.ok(text.startsWith("Error: all 2 candidate launches failed for task_category coding:"));
-    assert.match(text, new RegExp(`  1\\. sonnet@medium \\(claude\\) \\[permanent\\]: process exited \\(code \\d+\\) within ${GRACE_MS}ms of spawn`));
+    assert.match(text, new RegExp(`  1\\. sonnet-4-6@medium \\(claude\\) \\[permanent\\]: process exited \\(code \\d+\\) within ${GRACE_MS}ms of spawn`));
     assert.match(text, new RegExp(`  2\\. gpt-5\\.5@xhigh \\(codex\\) \\[permanent\\]: process exited \\(code \\d+\\) within ${GRACE_MS}ms of spawn`));
     assert.doesNotMatch(text, /failover_occurred/);
     assert.ok(text.includes(AUTO_HINT));
@@ -438,7 +438,7 @@ await test("transient pre-start hook: quota/429 class failure fails over with tr
     assert.equal(payload.failover_occurred, true);
     assertFailoverFrom(payload.failover_from[0], CE_RANK1, "transient_provider");
     // Non-limit provider failures keep the generic "provider error" cause.
-    assert.match(payload.failover_note, /sonnet@medium \(claude\) unavailable \(provider error\)/);
+    assert.match(payload.failover_note, /sonnet-4-6@medium \(claude\) unavailable \(provider error\)/);
     await killAgent(session, payload.agent_id);
   });
 });
@@ -580,12 +580,12 @@ await test("pinned provider+model gets exactly one attempt and no auto tail", as
       task_category: "coding",
       prompt: "provider-model override transient failure",
       provider: "claude",
-      model: "sonnet",
+      model: "sonnet-4-6",
     });
     const text = textOf(response);
     assert.equal(response.result.isError, true);
     assert.ok(text.startsWith("Error: all 1 candidate launches failed for task_category coding:"));
-    assert.match(text, /  1\. sonnet@medium \(claude\) \[transient_provider\]:/);
+    assert.match(text, /  1\. sonnet-4-6@medium \(claude\) \[transient_provider\]:/);
     assert.doesNotMatch(text, /  2\. /, "the auto tail must not be appended to a pinned model");
   });
 });
@@ -644,11 +644,11 @@ await test("all candidates exhausted on transient failures -> ERR_ALL_FAILED lis
     // Exhaustion is the ONLY loud case: it must report the full ranking in
     // order, with a non-empty reason for every candidate that was tried.
     assert.ok(text.startsWith("Error: all 2 candidate launches failed for task_category coding:"));
-    assert.match(text, /  1\. sonnet@medium \(claude\) \[transient_provider\]: \S+/);
+    assert.match(text, /  1\. sonnet-4-6@medium \(claude\) \[transient_provider\]: \S+/);
     assert.match(text, /  2\. gpt-5\.5@xhigh \(codex\) \[transient_provider\]: \S+/);
     assert.doesNotMatch(text, /  3\. /, "auto candidate list is exactly the two ranked pairings");
     assert.ok(
-      text.indexOf("1. sonnet@medium") < text.indexOf("2. gpt-5.5@xhigh"),
+      text.indexOf("1. sonnet-4-6@medium") < text.indexOf("2. gpt-5.5@xhigh"),
       "reasons are listed in rank order"
     );
     assert.doesNotMatch(text, /failover_occurred/);

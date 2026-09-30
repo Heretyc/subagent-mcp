@@ -35,6 +35,19 @@ For this gate, a selector is supplied when its value is not `undefined`. An
 empty string still counts as supplied and is rejected in `smart` before any
 override path can honor it.
 
+## Configured API provider approval latch
+
+A `launch_agent` dispatch from a configured API provider
+(`dispatchSource: "api-provider"`) carries an approval separate from the
+selector gate. Its first use must land while the project is in
+`user-approved-overrides`; that first honored dispatch latches approval for the
+project, scoped to `modelModeKey(cwd)`. The latch is held in memory for the
+process session only and is never written to the state file, so it persists
+across mode-window expiry within that project: once latched, api-provider
+dispatches for that project stay honored even after the window reverts to
+`smart`. Different projects do not share the latch; each `modelModeKey(cwd)` is
+approved independently, and the set is empty again after a server restart.
+
 ## Smart-mode rejection and fallback ladder
 
 On a smart-mode rejection the agent is instructed: if it has a specific scoped

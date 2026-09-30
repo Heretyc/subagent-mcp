@@ -1,38 +1,43 @@
 # Release Publishing SOP : npm registries
 
-Status: normative. Read before publishing any package version, refreshing npm
-registry auth, or diagnosing a publish failure. Lessons encoded from the
-v2.8.0 release (2026-06-11).
+Status: normative. Read before cutting a release or diagnosing a publish
+failure. Release publishing is performed by the owner-approved GitHub release
+workflow `.github/workflows/npm-publish.yml`, not by hand. Lessons encoded from
+the v2.8.0 release (2026-06-11) and the move to OIDC Trusted Publishing.
 
-## Registry contract (npmjs primary, GitHub Packages optional)
+## Registry contract (npmjs primary, GitHub Packages secondary)
 
 | Registry | Role | Routed by |
 |---|---|---|
 | Public npmjs.com (`registry.npmjs.org`) | DEFAULT publish target | `package.json` `publishConfig` |
-| GitHub Packages (`npm.pkg.github.com`) | OPTIONAL secondary channel, same version | explicit `--registry` flag (below) |
+| GitHub Packages (`npm.pkg.github.com`) | Secondary channel, same version and dist-tag | explicit `--registry` flag in the `github-packages` job |
 
-`publishConfig` now points at npmjs, so a bare `npm publish` goes to npmjs by
+`publishConfig` points at npmjs, so a bare `npm publish` routes to npmjs by
 default : that is the primary, required channel. A stable release is **NOT
-complete** until npmjs `dist-tags.latest` equals the new tag. A prerelease is
-**NOT complete** until its intended prerelease dist-tag (currently `beta`) equals
-the new tag and `latest` remains on the prior stable version. GitHub Packages is
-an OPTIONAL mirror: publish there only when you want the `@heretyc` scope to
-resolve through GitHub Packages too, and do it with an explicit
-`--registry=https://npm.pkg.github.com`. When you publish both, verify each
-registry directly; never infer one from the other.
+complete** until npmjs `dist-tags.latest` equals the new version. A prerelease is
+**NOT complete** until its prerelease dist-tag (currently `beta`) equals the new
+version and `latest` remains on the prior stable version. GitHub Packages is a
+secondary channel that the workflow's `github-packages` job publishes on every
+release with the SAME version and dist-tag, routed explicitly with
+`--registry=https://npm.pkg.github.com`. Each job builds independently, so verify
+each registry directly; never infer one from the other.
 
 ## Procedure
 
+Publishing is triggered by **publishing a GitHub release** on the version tag :
+the workflow runs `on: release: [published]`, and its jobs publish to both
+registries.
+
 The owner-approved GitHub release workflow `.github/workflows/npm-publish.yml`
-uses one shared `build` job per release tag as a fail-fast gate. Its
-concurrency group is the release tag, with cancellation disabled. The build job
-checks versions, builds, and tests; if it fails, neither publish job runs.
-Both publish jobs `needs: build`, then each checks out the full release tree
-(`actions/checkout`) and runs `npm ci`, so npm's own lifecycle rebuilds and
-retests from complete sources: `prepare` runs `npm run build` (which needs
-`scripts/`), and `prepublishOnly` runs `npm test` at publish time. The publish
-jobs deliberately do not `--ignore-scripts`; they need the full repo, not a
-packed artifact subset, which is why the earlier artifact handoff was dropped.
+uses one shared `build` job per release tag as a fail-fast gate. Its concurrency
+group is `npm-publish-<tag>`, with cancellation disabled. The build job runs
+`npm ci`, `npm run check:versions`, `npm run build`, and `npm test`; if it fails,
+neither publish job runs. Both publish jobs `needs: build`, then each checks out
+the full release tree (`actions/checkout`) at the tagged commit and runs
+`npm ci`, so npm's own lifecycle rebuilds and retests from complete sources:
+`prepare` runs `npm run build` (which needs `scripts/`), and `prepublishOnly`
+runs `npm test` at publish time. The publish jobs deliberately do not
+`--ignore-scripts`; they need the full repo, not a packed artifact subset.
 
 0. **Version-sync gate:** before commit, tag, release, or publish, all package
    version surfaces MUST match exactly:
@@ -48,39 +53,47 @@ packed artifact subset, which is why the earlier artifact handoff was dropped.
    `npm version <patch|minor|major> --no-git-tag-version` for package manifests,
    then update the MCP server version in `src/index.ts` to the same value.
 
-1. **npmjs (default, required):** from the merged release tree, run `npm publish`
-   (`prepublishOnly` runs the full suite). `publishConfig` routes it to npmjs.
-   Stable publishes use `--tag latest`; prerelease publishes use `--tag beta`.
-   `--auth-type=web` is REQUIRED for the per-publish 2FA flow (below) and the
-   command must run in the operator's **interactive shell** : not a
-   captured/CI shell:
+1. **npmjs (default, required) : automated, OIDC Trusted Publishing.** The
+   `npm-public` job runs in the `release` environment with `id-token: write`,
+   pins npm to `11.5.1` (the OIDC minimum with a working sigstore), and publishes
+   with **provenance** and **no npm token**:
 
    ```sh
-   npm publish --tag latest --access public --auth-type=web
-   npm publish --tag beta --access public --auth-type=web  # prereleases only
+   npm publish --tag "$NPM_DIST_TAG" --provenance --access public \
+     --registry=https://registry.npmjs.org --@heretyc:registry=https://registry.npmjs.org
    ```
 
-   Record the tarball `shasum` from the publish log.
+   The dist-tag is computed from the version string, not passed by hand:
+   `NPM_DIST_TAG` is `beta` when `package.json` `version` contains `-` (a
+   prerelease), otherwise `latest`. After publish the job runs
+   `npm run verify:npmjs-release` (see step 3).
 
-2. **GitHub Packages (optional secondary):** to also serve the SAME artifact
-   from GitHub Packages, publish it explicitly (never rebuild : the mirror must
-   be byte-identical):
+2. **GitHub Packages (secondary) : automated.** The `github-packages` job checks
+   out the same tagged tree, runs `npm ci` (so the lifecycle builds and tests
+   before publish), and publishes the same version and dist-tag to GitHub
+   Packages using the automatic `GITHUB_TOKEN` (`packages: write`):
 
    ```sh
-   npm pack @heretyc/subagent-mcp@<ver>   # from npmjs, the default registry
-   # confirm the .tgz shasum matches step 1's publish log : on mismatch STOP;
-   # do not publish a divergent artifact, diagnose the pack source first
-   npm publish ./heretyc-subagent-mcp-<ver>.tgz \
-     --registry=https://npm.pkg.github.com --access public
+   npm publish --tag "$NPM_DIST_TAG" --registry=https://npm.pkg.github.com
    ```
+
+   `publishConfig` defaults to npmjs, so this job routes to GitHub Packages
+   explicitly with `--registry`. Because each job builds independently, treat the
+   two registries as separate publishes and verify each directly; do not assume
+   one from the other.
 
 3. **Verify REGISTRY-DIRECT**, never through npm config:
-   - npmjs: `GET https://registry.npmjs.org/@heretyc%2Fsubagent-mcp` →
+   - npmjs: `GET https://registry.npmjs.org/@heretyc%2Fsubagent-mcp` :
      for stable versions, `dist-tags.latest == <ver>`; for prereleases,
      `dist-tags.beta == <ver>` AND `dist-tags.latest` still points at the prior
-     stable version. In all cases, `versions.<ver>.dist.shasum` equals the
-     step-1 publish-log shasum.
-   - GitHub Packages (only if you published there): authed
+     stable version; in all cases `versions.<ver>` is present with a recorded
+     `dist.shasum`. The dist-tag and presence assertions are exactly what the
+     `npm-public` job runs via `npm run verify:npmjs-release`
+     (`scripts/verify_npmjs_release.mjs`, which retries registry propagation and
+     rejects `latest` moving onto a prerelease). Re-run that script or the HTTP
+     GET to confirm; the `--provenance` publish also attaches a provenance
+     attestation to the published version.
+   - GitHub Packages (published every release by the workflow): authed
      `npm view @heretyc/subagent-mcp dist-tags --@heretyc:registry=https://npm.pkg.github.com`
      (scope-specific flag for consistency with the traps below).
 
@@ -123,7 +136,7 @@ the 2026-06-14 prep run; route around them, never retry the command verbatim.
   passed inline as one argument to a native exe (`gh`, `git`, `npm`) is
   re-split by PowerShell when it contains `"`, `->`, `[]`, or backticks. Real
   failure: `gh pr create --body "...packages[""]... -> green"` exits with
-  `unknown shorthand flag: '>' in ->`. NEVER inline a PR/commit/publish body.
+  `unknown shorthand flag: '>' in ->`. NEVER inline a PR/commit/release body.
   - Write the body to a file (the agent's file-writer, or
     `[System.IO.File]::WriteAllText($path,$text)` : NOT `Out-File -Encoding
     utf8`, which prepends a BOM the tool then ingests), then pass it by file:
@@ -153,28 +166,25 @@ the 2026-06-14 prep run; route around them, never retry the command verbatim.
   means routing **fell through to the wrong registry** (where the version
   already exists). Fix the routing; do not bump the version.
 
-## npmjs auth : passkeys, no TOTP (confirmed working flow, 2026-06-11 v2.8.0)
+## npmjs auth : OIDC Trusted Publishing (no token, no interactive 2FA)
 
-- npmjs authentication is **passkey-based**. There is no TOTP / authenticator
-  app code. An `EOTP` / "one-time password" error from `npm publish` is NOT a
-  prompt to supply a 6-digit code : none exists. It means either the session
-  token is stale, or (the common case) the per-publish 2FA web flow could not
-  run (non-interactive shell, see below).
-- **Session refresh (when login is stale):**
-  `npm login --registry=https://registry.npmjs.org` in an interactive shell →
-  browser opens → authenticate with the **passkey** → CLI stores a fresh token.
-- **Login alone is NOT sufficient.** npmjs enforces **per-publish 2FA**: even
-  with a fresh session, a plain `npm publish` fails `EOTP`. Pass
-  `--auth-type=web` so the publish itself opens the browser passkey prompt.
-- **Interactive shell required.** `--auth-type=web` only works on a TTY. In a
-  captured/redirected/CI/agent shell, npm silently falls back to the legacy
-  OTP path and fails `EOTP` even with fresh auth : hand the exact publish
-  command to the operator's own terminal and have them run it there.
-- **Unattended alternative:** a granular npmjs automation token with publish
-  rights (bypasses per-publish 2FA) configured for `registry.npmjs.org` in
-  `~/.npmrc`. Never echo tokens into chat, logs, or commits.
+- Release publishing to npmjs uses **OIDC Trusted Publishing**, configured on
+  npm for this package and gated by the workflow's `release` environment. The
+  `npm-public` job requests `id-token: write` and publishes with `--provenance`;
+  it carries **no npm token** and performs **no interactive 2FA**.
+- The publishing identity is the workflow's OIDC token, so the npmjs release
+  publish runs only inside the `npm-public` job; a workstation has no OIDC
+  identity and cannot produce the same provenance-attested publish. Re-run the
+  workflow to (re)publish a release.
+- OIDC Trusted Publishing requires Node >= 22.14 and npm >= 11.5.1; the job pins
+  `npm@11.5.1` because npm@latest has shipped a broken `sigstore` dependency that
+  makes `npm publish --provenance` fail with `MODULE_NOT_FOUND: Cannot find
+  module 'sigstore'`.
 
-## GitHub Packages auth (only when publishing the optional secondary)
+## GitHub Packages auth
 
-`~/.npmrc` `//npm.pkg.github.com/:_authToken=<PAT>` with `write:packages` :
-see `docs/registration.md` for the consumer-side setup.
+The `github-packages` job authenticates with the automatic `GITHUB_TOKEN`
+(`permissions: packages: write`); no personal access token is used or needed for
+the release publish itself. The `~/.npmrc`
+`//npm.pkg.github.com/:_authToken=<PAT>` with `write:packages` is the
+CONSUMER-side setup : see `docs/registration.md`.

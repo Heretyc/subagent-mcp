@@ -144,6 +144,99 @@ Pairings within a category are ALREADY ordered best→worst by `rank` per the
 emission contract; the resolver sorts by `rank` ascending defensively rather
 than assuming array order.
 
+## Cross-category inference provenance (audit)
+
+The resolver consumes only `rank`. The fields below shape how the profiler and
+`scripts/validate_routing_audit.mjs` record score provenance; they are
+audit-visible in `src/routing-table-audit.json`, not resolver inputs.
+
+Most pairings carry a directly measured capability score for their category. A
+directly benchmarked parent category can, in a given run, have no admissible
+comparative evidence. When that happens the profiler MAY opt in to
+cross-category inference: it fills only the null cells of that one target
+category from sibling categories so the category stays rankable instead of
+dropping out. This is a profiler composition step, distinct from the
+composite-inferred tiles (`../task-taxonomy/composite-inferred-tiles.md`, always
+inferred by construction) and from same-model effort interpolation and version
+promotion. All of these remain separate provenance kinds and are never collapsed
+into one "inferred" tag.
+
+Invariants the audit enforces when cross-category inference is present:
+
+- Frozen direct snapshot. Inference reads a direct capability snapshot taken
+  before any fill. A proxy output, and any composite descendant, is never a
+  parent input: no recursion.
+- Exact pairing join. A fill joins only the same model at the same effort. No
+  second effort interpolation, no version promotion, and no downward effort copy
+  is applied to the synthesized cell.
+- Equal-weight mean of available parents. The synthesized value is the equal
+  mean of the available parent capability composites for that exact pairing.
+  Availability is `score !== null`: a finite `0` is valid low evidence and
+  counts; a `null` parent contributes no value and is not backfilled. If every
+  parent is null the cell stays the null sentinel, never a synthetic `0`.
+- Direct wins. Only null direct cells are filled; a real direct score is never
+  overwritten.
+- Cost once. Cost is excluded from the synthesis; parents are pre-cost
+  capability composites, and cost enters exactly once downstream through the
+  existing branch scorer.
+- `inferred_low` provenance. Every synthesized cell is labeled `inferred_low`
+  (uncalibrated) and its basis carries `[INFERRED]`; the audit rejects any such
+  row that claims `confidence: "measured"`. Per pairing it records method,
+  formula id, parent set, `coverage_weight`, source and missing categories, and
+  per-parent id, score, and status.
+- Separate coverage states. Measured coverage counts direct admissible evidence
+  only; inferred (cross-category) pairings are counted apart. A category state is
+  `measured`, `mixed`, `inferred`, or `DATA_MISSING`. Inferred coverage can make
+  a category rankable but never raises a measured ratio or satisfies a measured
+  evidence floor. A composite inherits an `inferred_parent` marker when any
+  contributing parent is inferred.
+- Fixed set preserved. The 14 categories, `fallback_default` at precedence 99,
+  and the composite parent map are unchanged. `fallback_default` keeps its
+  existing sentinel algorithm and is not part of proxy synthesis.
+- Disconnected comparison components. Where a category's evidence comes from
+  scaffolds with no measured bridge between them, ordering holds only within a
+  component. There is no measured cross-scaffold scalar; the between-component
+  order is nonsemantic, is not counted as measured discrimination, and is never
+  created by cost.
+
+A single dataset opt-in (`dataset.proxy_synthesis.enabled`) governs synthesis
+(issue #325): with it off no category synthesizes and the coverage gate is
+unchanged; with it on all eight declared targets synthesize: `security_review`,
+`quality_review`, `architecture`, `data_analysis`, `coding`,
+`knowledge_synthesis`, `mechanical`, and `debugging`. There is no per-target
+opt-in. `coding` fills null cells from the equal mean of its available original
+direct parents `debugging` + `agentic_execution`; when `debugging` carries no
+admissible direct signal for a pairing (its frozen snapshot is null) the
+available mean is `agentic_execution` alone. It never uses `debugging`'s own
+proxy fill, since parents are read from the frozen pre-fill snapshot (no
+proxy-to-proxy). `debugging` fills its own null cells from `agentic_execution`;
+its lone thin direct cell is a non-discriminating neutral, excluded as a proxy
+parent, and `debugging` as a parent of `security_review`/`quality_review`/
+`coding` is still read at its original direct value so its fill never propagates
+upstream. Under the opt-in, cross-model version-promotion (SOP-1) is disabled
+before base and proxy composition, so proxy anchors rest only on same-model
+measured or upward-effort-interpolated values; no unsupported cross-model
+capability copy enters the direct snapshot.
+
+Coverage gate. The default (no opt-in, or opt-in without owner authorization)
+gate is measured-only: a run blocks when any category is `DATA_MISSING` or the
+overall measured pairing ratio is below the 0.30 minimum. When the opt-in is on
+AND the dataset carries an explicit
+`dataset.proxy_synthesis.owner_authorized_inferred_ranking === true` record, a
+distinct owner-authorized inferred-ranking gate applies: direct measured
+coverage is still reported honestly (`thin_coverage`; never relabeled measured;
+never satisfied by a `gap_stub_override`), but the run may proceed when the
+signal coverage clears the SAME 0.30 minimum, with admissible direct measured
+plus audited cross-category inferred counted apart, AND every required base
+category carries a non-null direct-or-inferred signal. Inferred is never counted
+as measured and the measured floor is not weakened; the unmeasured tail stays
+honestly null. The audit records the gate's method, authorization, threshold,
+and actual measured/inferred/signal ratios under
+`metadata.cross_category_inference.coverage_gate`, and
+`scripts/validate_routing_audit.mjs` rejects a missing authorization or any
+mislabel (inferred-as-measured, gap-stub misuse, `signal < measured`, or a
+`full` state that hides thin measured coverage).
+
 ## model → provider map and effort normalization
 
 The `model` → provider map and the `effort` tier → launch-enum normalization

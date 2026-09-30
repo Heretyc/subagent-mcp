@@ -49,6 +49,8 @@ import {
   buildCandidates,
   validatePresence,
   TASK_CATEGORIES,
+  CLAUDE_LAUNCH_MODELS,
+  CODEX_LAUNCH_MODELS,
   AUTO_HINT,
   SPLIT_HINT,
   type Candidate,
@@ -884,7 +886,7 @@ export function pickInstructions(env: NodeJS.ProcessEnv): string {
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.2.3",
+    version: "3.2.4-beta.0",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
@@ -1499,12 +1501,12 @@ function reattachCandidateMetadata(original: Candidate[], returned: Candidate[])
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent session. CONTRACT: `prompt` states objective + output format + tools/sources + boundaries; the server auto-upserts \"<this is a request from a parent process>\" as true first line (idempotent), so you need not add it. SCALE: ~1 agent for a simple fact-find, 2-4 for comparisons; split multi-phase work into atomic steps, one task_category each. AUTO MODE (mandatory first attempt unless override is licensed): pass only `prompt` + `task_category`; server picks provider/model/effort. FAILOVER: launch-time failure (incl. provider usage/rate-limit refusal before output) quietly cascades down ranking and reports `failover_note`; if all fail, one loud error lists every candidate + reason. Provider+model override is PINNED: one attempt, no substitute. `provider`/`model`/`effort` are OVERRIDES, licensed on 1st/2nd attempt only when task verifiably needs a specific capability: STATE it; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8+ only. SOLE CHANNEL: while connected this is the only sanctioned sub-agent launch path in BOTH orchestration states; harness-native Task/Agent tools forbidden. Children get SUBAGENT_MCP_SUBAGENT=1 so hooks skip them. Launch returns `processing` (alive); later `stalled` is alive-but-quiet, NOT dead: wait/re-poll, don't kill. DEADLOCK: set `deadlock=true` only after 2 failed/unsatisfactory attempts for the SAME atomic task; from 3rd attempt deadlock outranks overrides, so drop provider/model/effort. SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches a delegate-only orchestrator for one disjoint plan section, used by swarm dispatch; server injects directive + env marker; the child's own sub-agents run as normal workers (flag never inherits).",
+  "Spawn a sub-agent session. CONTRACT: `prompt` states objective + output format + tools/sources + boundaries; the server auto-upserts \"<this is a request from a parent process>\" as true first line (idempotent), so you need not add it. SCALE: ~1 agent for a simple fact-find, 2-4 for comparisons; split multi-phase work into atomic steps, one task_category each. AUTO MODE (mandatory first attempt unless override is licensed): pass only `prompt` + `task_category`; server picks provider/model/effort. FAILOVER: launch-time failure (incl. provider usage/rate-limit refusal before output) quietly cascades down ranking and reports `failover_note`; if all fail, one loud error lists every candidate + reason. Provider+model override is PINNED: one attempt, no substitute. `provider`/`model`/`effort` are OVERRIDES, licensed on 1st/2nd attempt only when task verifiably needs a specific capability: STATE it; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8 only (not Opus 5.5 or any other model). SOLE CHANNEL: while connected this is the only sanctioned sub-agent launch path in BOTH orchestration states; harness-native Task/Agent tools forbidden. Children get SUBAGENT_MCP_SUBAGENT=1 so hooks skip them. Launch returns `processing` (alive); later `stalled` is alive-but-quiet, NOT dead: wait/re-poll, don't kill. DEADLOCK: set `deadlock=true` only after 2 failed/unsatisfactory attempts for the SAME atomic task; from 3rd attempt deadlock outranks overrides, so drop provider/model/effort. SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches a delegate-only orchestrator for one disjoint plan section, used by swarm dispatch; server injects directive + env marker; the child's own sub-agents run as normal workers (flag never inherits).",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
     provider: z.enum(["claude", "codex"]).optional(),
-    model: z.enum(["haiku", "sonnet", "opus", "opus-4-8", "fable", "gpt-5.5", "gpt-5.6"]).optional(),
+    model: z.enum([...CLAUDE_LAUNCH_MODELS, ...CODEX_LAUNCH_MODELS]).optional(),
     effort: z.enum(["medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
     deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
