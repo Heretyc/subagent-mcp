@@ -3,15 +3,15 @@
     "author": "Lexi Blackburn",
     "author_url": "https://github.com/Heretyc/",
     "schema_version": "1",
-    "generated": "2026-06",
-    "last_run_at": "2026-06-09T00:00:00Z",
-    "run_id": "run-2026-06-09",
-    "site_count": 39,
+    "generated": "2026-09",
+    "last_run_at": "2026-09-30T13:47:47.575Z",
+    "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+    "site_count": 47,
     "corpus_skew": {
       "by_tier": {
         "0": 11,
-        "2": 13,
-        "3": 9,
+        "2": 20,
+        "3": 10,
         "5": 6
       },
       "by_domain": {
@@ -20,11 +20,13 @@
         "bird-bench.github.io": 1,
         "buildfast.io": 1,
         "dev.to": 1,
+        "epoch.ai": 6,
         "gorilla.cs.berkeley.edu": 1,
         "interestingengineering.com": 1,
         "kingy.ai": 1,
         "labs.scale.com": 1,
         "llm-stats.com": 2,
+        "matharena.ai": 1,
         "morphllm.com": 1,
         "spider2-sql.github.io": 1,
         "thezvi.wordpress.com": 1,
@@ -37,15 +39,15 @@
         "hackerone.com": 1,
         "marc0.dev": 1,
         "mindstudio.ai": 1,
-        "tbench.ai": 1,
+        "tbench.ai": 2,
         "vals.ai": 1,
         "vellum.ai": 1
       },
       "by_provider_family": {
-        "claude": 21,
-        "codex": 16
+        "claude": 26,
+        "codex": 20
       },
-      "demoted_count": 25
+      "demoted_count": 33
     }
   },
   "sites": [
@@ -1264,6 +1266,942 @@
       }
     },
     {
+      "url": "https://epoch.ai/models/claude-fable-5-1",
+      "domain": "epoch.ai",
+      "tier": 2,
+      "categories": [
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
+      ],
+      "benchmarks": [
+        "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-09-30",
+      "last_seen": "2026-09-30",
+      "times_seen": 5,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.289Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.289Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.289Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.289Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.289Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 5
+          },
+          "category_counts": {
+            "math_proof": 5,
+            "ml_accelerator_design": 5,
+            "molecular_biology": 5
+          },
+          "total_runs": 5
+        }
+      },
+      "label": "[T2]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://epoch.ai/models/claude-opus-5",
+      "domain": "epoch.ai",
+      "tier": 2,
+      "categories": [
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
+      ],
+      "benchmarks": [],
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "first_seen": "2026-09-30",
+      "last_seen": "2026-09-30",
+      "times_seen": 5,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:19.847Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:19.847Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:19.847Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:19.847Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:19.847Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 5
+          },
+          "category_counts": {
+            "math_proof": 5,
+            "ml_accelerator_design": 5,
+            "molecular_biology": 5
+          },
+          "total_runs": 5
+        }
+      },
+      "label": "[T2]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://epoch.ai/models/claude-opus-5-5",
+      "domain": "epoch.ai",
+      "tier": 2,
+      "categories": [
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
+      ],
+      "benchmarks": [],
+      "source_classes": [
+        "pairing_citation"
+      ],
+      "first_seen": "2026-09-30",
+      "last_seen": "2026-09-30",
+      "times_seen": 5,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.035Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.035Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.035Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.035Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:04:20.035Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation"
+            ],
+            "benchmark_names": [],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 5
+          },
+          "category_counts": {
+            "math_proof": 5,
+            "ml_accelerator_design": 5,
+            "molecular_biology": 5
+          },
+          "total_runs": 5
+        }
+      },
+      "label": "[T2]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://epoch.ai/models/gpt-5-5",
+      "domain": "epoch.ai",
+      "tier": 2,
+      "categories": [
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
+      ],
+      "benchmarks": [
+        "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+        "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+        "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-09-30",
+      "last_seen": "2026-09-30",
+      "times_seen": 5,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.524Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.524Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.524Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.524Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.524Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 5
+          },
+          "category_counts": {
+            "math_proof": 5,
+            "ml_accelerator_design": 5,
+            "molecular_biology": 5
+          },
+          "total_runs": 5
+        }
+      },
+      "label": "[T2]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://epoch.ai/models/gpt-5-6-sol",
+      "domain": "epoch.ai",
+      "tier": 2,
+      "categories": [
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
+      ],
+      "benchmarks": [
+        "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-09-30",
+      "last_seen": "2026-09-30",
+      "times_seen": 5,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.208Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.208Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.208Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.208Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:05:04.208Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 5
+          },
+          "category_counts": {
+            "math_proof": 5,
+            "ml_accelerator_design": 5,
+            "molecular_biology": 5
+          },
+          "total_runs": 5
+        }
+      },
+      "label": "[T2]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
+      "url": "https://epoch.ai/models/gpt-6-astra",
+      "domain": "epoch.ai",
+      "tier": 2,
+      "categories": [
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
+      ],
+      "benchmarks": [
+        "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+        "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+        "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-09-30",
+      "last_seen": "2026-09-30",
+      "times_seen": 5,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:00:22.944Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:00:22.944Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:00:22.944Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:00:22.944Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:00:22.944Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "codex"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "FrontierMath|erdos|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tier-4-v2|epoch-ai|accuracy-fraction|test",
+              "FrontierMath|tiers-1-3-v2|epoch-ai|accuracy-fraction|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "codex": 5
+          },
+          "category_counts": {
+            "math_proof": 5,
+            "ml_accelerator_design": 5,
+            "molecular_biology": 5
+          },
+          "total_runs": 5
+        }
+      },
+      "label": "[T2]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
+      }
+    },
+    {
       "url": "https://gorilla.cs.berkeley.edu/leaderboard.html",
       "domain": "gorilla.cs.berkeley.edu",
       "tier": 2,
@@ -1982,6 +2920,164 @@
         "health": "demoted",
         "demote_reasons": [
           "low_health_tier0"
+        ]
+      }
+    },
+    {
+      "url": "https://matharena.ai",
+      "domain": "matharena.ai",
+      "tier": 2,
+      "categories": [
+        "math_proof",
+        "ml_accelerator_design",
+        "molecular_biology"
+      ],
+      "benchmarks": [
+        "MathArena|leaderboard-home|all-competitions-blend|capability|overall"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-09-30",
+      "last_seen": "2026-09-30",
+      "times_seen": 5,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T22:53:38.056Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "MathArena|leaderboard-home|all-competitions-blend|capability|overall"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T22:53:38.056Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "MathArena|leaderboard-home|all-competitions-blend|capability|overall"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T22:53:38.056Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "MathArena|leaderboard-home|all-competitions-blend|capability|overall"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T22:53:38.056Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "MathArena|leaderboard-home|all-competitions-blend|capability|overall"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T22:53:38.056Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude"
+            ],
+            "categories": [
+              "math_proof",
+              "ml_accelerator_design",
+              "molecular_biology"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "MathArena|leaderboard-home|all-competitions-blend|capability|overall"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 5
+          },
+          "category_counts": {
+            "math_proof": 5,
+            "ml_accelerator_design": 5,
+            "molecular_biology": 5
+          },
+          "total_runs": 5
+        }
+      },
+      "label": "[T2]",
+      "selection": {
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
         ]
       }
     },
@@ -3995,6 +5091,160 @@
       }
     },
     {
+      "url": "https://www.tbench.ai/leaderboard",
+      "domain": "tbench.ai",
+      "tier": 3,
+      "categories": [
+        "agentic_execution"
+      ],
+      "benchmarks": [
+        "TB4|official-leaderboard|scaffold:Claude Code|resolved-pct|test",
+        "TB4|official-leaderboard|scaffold:Codex|resolved-pct|test"
+      ],
+      "source_classes": [
+        "pairing_citation",
+        "scale_anchor"
+      ],
+      "first_seen": "2026-09-30",
+      "last_seen": "2026-09-30",
+      "times_seen": 5,
+      "attempt_ledger": {
+        "runs": [
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:23:44.888Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "TB4|official-leaderboard|scaffold:Claude Code|resolved-pct|test",
+              "TB4|official-leaderboard|scaffold:Codex|resolved-pct|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:23:44.888Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "TB4|official-leaderboard|scaffold:Claude Code|resolved-pct|test",
+              "TB4|official-leaderboard|scaffold:Codex|resolved-pct|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:23:44.888Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "TB4|official-leaderboard|scaffold:Claude Code|resolved-pct|test",
+              "TB4|official-leaderboard|scaffold:Codex|resolved-pct|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:23:44.888Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "TB4|official-leaderboard|scaffold:Claude Code|resolved-pct|test",
+              "TB4|official-leaderboard|scaffold:Codex|resolved-pct|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          },
+          {
+            "run_id": "20260929T221337846Z-full-e4d0e9208d2b",
+            "attempted_at": "2026-09-29T23:23:44.888Z",
+            "outcome": "harvested",
+            "provider_family": [
+              "claude",
+              "codex"
+            ],
+            "categories": [
+              "agentic_execution"
+            ],
+            "source_class": [
+              "pairing_citation",
+              "scale_anchor"
+            ],
+            "benchmark_names": [
+              "TB4|official-leaderboard|scaffold:Claude Code|resolved-pct|test",
+              "TB4|official-leaderboard|scaffold:Codex|resolved-pct|test"
+            ],
+            "rejection_reason": null,
+            "http_status": null,
+            "last_checked": null
+          }
+        ],
+        "accumulated": {
+          "provider_family_counts": {
+            "claude": 5,
+            "codex": 5
+          },
+          "category_counts": {
+            "agentic_execution": 5
+          },
+          "total_runs": 5
+        }
+      },
+      "label": "[T3] official_tb4",
+      "selection": {
+        "demoted": false,
+        "health": "healthy",
+        "demote_reasons": []
+      }
+    },
+    {
       "url": "https://www.tbench.ai/leaderboard/terminal-bench/2.0",
       "domain": "tbench.ai",
       "tier": 3,
@@ -4115,9 +5365,11 @@
       },
       "label": "primary-confirmed",
       "selection": {
-        "demoted": false,
-        "health": "healthy",
-        "demote_reasons": []
+        "demoted": true,
+        "health": "demoted",
+        "demote_reasons": [
+          "over_source_class_cap"
+        ]
       }
     },
     {
