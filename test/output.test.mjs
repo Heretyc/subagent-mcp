@@ -136,6 +136,46 @@ test("codex app-server JSON-RPC returns final turn/completed agent message", () 
   assert.equal(extractFinalTurn("codex", stdout), "the app-server final");
 });
 
+test("codex app-server selects the active turn final_answer instead of commentary", () => {
+  const events = [
+    JSON.stringify({ method: "turn/started", params: { turn: { id: "turn-a" } } }),
+    JSON.stringify({
+      method: "turn/completed",
+      params: {
+        turn: {
+          id: "turn-a",
+          items: [{ type: "agentMessage", text: "A final", phase: "final_answer" }],
+        },
+      },
+    }),
+    JSON.stringify({ method: "turn/started", params: { turn: { id: "turn-b" } } }),
+    JSON.stringify({
+      method: "item/completed",
+      params: {
+        turnId: "turn-b",
+        item: { type: "agentMessage", text: "B commentary", phase: "commentary" },
+      },
+    }),
+    JSON.stringify({ method: "turn/completed", params: { turn: { id: "turn-a", items: [] } } }),
+    JSON.stringify({
+      method: "turn/completed",
+      params: {
+        turn: {
+          id: "turn-b",
+          items: [
+            { type: "agentMessage", text: "B final", phase: "final_answer" },
+            { type: "agentMessage", text: "late commentary", phase: "commentary" },
+          ],
+        },
+      },
+    }),
+  ];
+  assert.equal(extractFinalTurn("codex", events.slice(0, 3).join("\n")), "");
+  assert.equal(extractFinalTurn("codex", events.slice(0, 4).join("\n")), "");
+  assert.equal(extractFinalTurn("codex", events.slice(0, 5).join("\n")), "");
+  assert.equal(extractFinalTurn("codex", events.join("\n")), "B final");
+});
+
 test("codex agent_message envelope shape is matched", () => {
   const stdout = [
     JSON.stringify({ type: "task_started" }),

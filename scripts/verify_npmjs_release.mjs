@@ -55,6 +55,13 @@ export async function runVerifier({
   log = console.log,
   errorLog = console.error,
 }) {
+  if (!Number.isSafeInteger(attempts) || attempts < 1) {
+    throw new TypeError("attempts must be a positive safe integer");
+  }
+  if (!Number.isSafeInteger(baseDelayMs) || baseDelayMs < 0) {
+    throw new TypeError("baseDelayMs must be a non-negative safe integer");
+  }
+
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {

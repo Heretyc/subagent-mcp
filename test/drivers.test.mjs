@@ -13,6 +13,10 @@ import {
   providerChildSpawnOptions,
   resolveCodexLaunchValues,
 } from "../dist/drivers.js";
+import { extractFinalTurn } from "../dist/output-helpers.js";
+import { pendingPermissionManager } from "../dist/pending-permissions.js";
+import { buildLivenessFields, reconcilePermissionStatus } from "../dist/status-helpers.js";
+import { selectUnreported } from "../dist/wait-helpers.js";
 
 // Explicit per-launch permission snapshot (#373). Ambient config is absent in
 // the test env (defaults to ceiling "auto"), so passing an explicit snapshot
@@ -84,6 +88,8 @@ import readline from "node:readline";
 
 const logFile = process.env.APP_SERVER_LOG;
 const holdFirstMs = Number(process.env.HOLD_FIRST_MS || "0");
+const followupRace = process.env.FOLLOWUP_RACE === "1";
+const turnStartRace = process.env.TURN_START_RACE || "";
 let turn = 0;
 let pendingElicitation = null;
 
@@ -100,6 +106,23 @@ rl.on("line", (line) => {
   if (!line.trim()) return;
   const msg = JSON.parse(line);
   log(msg);
+  if (followupRace && msg.id === 701 && msg.result) {
+    send({
+      method: "item/completed",
+      params: {
+        turnId: "turn-2",
+        item: { type: "agentMessage", text: "actual B final", phase: "final_answer" },
+      },
+    });
+    send({
+      method: "turn/completed",
+      params: { turn: { id: "turn-2", items: [] } },
+    });
+    send({ method: "turn/completed", params: { turn: { id: "turn-1", items: [] } } });
+    send({ method: "turn/completed", params: { turn: { items: [] } } });
+    send({ method: "test/postBInvalidCompletionsSent" });
+    return;
+  }
   if (pendingElicitation && msg.id === pendingElicitation.requestId && msg.result) {
     send({
       method: "turn/completed",
@@ -131,8 +154,66 @@ rl.on("line", (line) => {
     turn += 1;
     const turnId = "turn-" + turn;
     const text = msg.params?.input?.[0]?.text || "";
+    if (turnStartRace && turn === 1) {
+      send({ method: "turn/started", params: { turn: { id: turnId } } });
+      const completionDelay = turnStartRace === "failure" ? 25 : 0;
+      setTimeout(() => {
+        send({
+          method: "turn/completed",
+          params: { turn: { id: turnId, items: [{ type: "agentMessage", text: "done:" + text }] } },
+        });
+      }, completionDelay);
+      setTimeout(() => {
+        if (turnStartRace === "failure") {
+          send({ id: msg.id, error: { message: "stale turn/start failure" } });
+        } else {
+          send({ id: msg.id, result: { turn: { id: turnId } } });
+        }
+      }, turnStartRace === "failure" ? 60 : 15);
+      return;
+    }
+    if (turnStartRace && turn === 2) {
+      send({ method: "turn/completed", params: { turn: { id: "turn-1", items: [] } } });
+      send({ method: "turn/started", params: { turn: { id: turnId } } });
+      setTimeout(() => {
+        send({ id: msg.id, result: { turn: { id: turnId } } });
+        send({
+          method: "item/completed",
+          params: {
+            turnId,
+            item: { type: "agentMessage", text: "actual B final", phase: "final_answer" },
+          },
+        });
+        send({ method: "turn/completed", params: { turn: { id: turnId, items: [] } } });
+      }, turnStartRace === "failure" ? 60 : 0);
+      return;
+    }
+    if (followupRace && turn === 2) {
+      send({ method: "turn/completed", params: { turn: { id: "turn-1", items: [] } } });
+      send({ method: "turn/completed", params: { turn: { items: [] } } });
+      send({ method: "test/preIdInvalidCompletionsSent" });
+    }
     send({ id: msg.id, result: { turn: { id: turnId } } });
     send({ method: "turn/started", params: { turn: { id: turnId } } });
+    if (followupRace && turn === 2) {
+      send({
+        method: "item/completed",
+        params: {
+          turnId,
+          item: { type: "agentMessage", text: "B commentary", phase: "commentary" },
+        },
+      });
+      send({ id: 701, method: "execCommandApproval", params: { turnId, command: "echo guarded" } });
+      setTimeout(() => {
+        send({
+          method: "turn/completed",
+          params: { turn: { id: "turn-1", items: [] } },
+        });
+        send({ method: "turn/completed", params: { turn: { items: [] } } });
+        send({ method: "test/lateCompletionSent" });
+      }, 25);
+      return;
+    }
     send({ method: "item/agentMessage/delta", params: { delta: "ack:" + text } });
     if (process.env.ELICIT_AFTER_FIRST_TURN === "1" && turn === 1) {
       pendingElicitation = { requestId: 900, turnId };
@@ -453,6 +534,125 @@ await test("Codex send enqueues behind an active turn without blocking for outpu
     await waitFor(() => stdout().includes("done:second"), "queued second completion");
     driver.kill();
   } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+async function runTurnStartResponseRace(responseKind) {
+  const tempRoot = mkdtempSync(join(tmpdir(), `subagent-driver-codex-start-${responseKind}-`));
+  let driver;
+  try {
+    const logFile = join(tempRoot, "app-server.log");
+    const script = writeFakeAppServer(tempRoot, logFile);
+    const child = spawnFakeAppServer(script, { APP_SERVER_LOG: logFile, TURN_START_RACE: responseKind });
+    driver = new CodexAppServerDriver(child, options("codex"));
+    const stdout = collect(driver.process.stdout);
+    await once(driver.process, "spawn");
+
+    const firstStart = driver.start("first").then(() => null, (error) => error);
+    if (responseKind === "failure") {
+      await waitFor(() => readTurnStarts(logFile).length === 1, "first Codex turn/start");
+      await driver.send("second");
+      assert.equal(readTurnStarts(logFile).length, 1, "queued B must not overlap A");
+    } else {
+      assert.equal(await firstStart, null);
+      await driver.send("second");
+    }
+
+    await waitFor(() => stdout().includes("actual B final"), "real B final");
+    await waitFor(() => readTurnStarts(logFile).length === 2, "exactly one queued B start");
+    assert.equal(await firstStart, null, "a completed start must ignore its stale failure response");
+    assert.deepEqual(readTurnStarts(logFile).map((msg) => msg.params.input[0].text), ["first", "second"]);
+    const completionIds = stdout()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line))
+      .filter((message) => message.method === "turn/completed")
+      .map((message) => message.params.turn.id);
+    assert.deepEqual(completionIds, ["turn-1", "turn-2"], "forward one completion for A and real B");
+    assert.equal(extractFinalTurn("codex", stdout()), "actual B final");
+  } finally {
+    driver?.kill();
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+await test("Codex queued follow-up survives notification-before-response ordering", async () => {
+  await runTurnStartResponseRace("success");
+});
+
+await test("Codex queued follow-up survives a stale prior turn/start failure", async () => {
+  await runTurnStartResponseRace("failure");
+});
+
+await test("Codex follow-up ignores a late prior completion while approval is pending", async () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "subagent-driver-codex-followup-"));
+  const agentId = "followup-lifecycle-agent";
+  try {
+    const logFile = join(tempRoot, "app-server.log");
+    const script = writeFakeAppServer(tempRoot, logFile);
+    const child = spawnFakeAppServer(script, { APP_SERVER_LOG: logFile, FOLLOWUP_RACE: "1" });
+    const driver = new CodexAppServerDriver(child, {
+      ...options("codex"),
+      agentId,
+      permissionSnapshot: permissionSnapshot({
+        rules: { allow: [], deny: [], ask: ["Bash"] },
+      }),
+    });
+    const stdout = collect(driver.process.stdout);
+    await once(driver.process, "spawn");
+
+    await driver.start("first");
+    await waitFor(() => stdout().includes("done:first"), "first turn completion");
+    const secondTurnOffset = stdout().length;
+    await driver.send("second");
+    await waitFor(
+      () => pendingPermissionManager.pendingCount(agentId) === 1,
+      "second turn permission request"
+    );
+    await waitFor(
+      () => stdout().slice(secondTurnOffset).includes('"method":"test/lateCompletionSent"'),
+      "late first-turn completion marker"
+    );
+
+    const forwardedSecondTurn = stdout().slice(secondTurnOffset);
+    const completionsBeforeB = forwardedSecondTurn
+      .split("\n")
+      .filter((line) => line.includes('"method":"turn/completed"'));
+    assert.equal(completionsBeforeB.length, 0, "invalid completions must not finish B");
+    const parked = reconcilePermissionStatus(
+      "processing",
+      pendingPermissionManager.pendingCount(agentId),
+      driver.closed
+    );
+    const waiting = selectUnreported([{
+      id: agentId,
+      status: parked.status,
+      waitReported: false,
+      exitedAt: null,
+    }]);
+
+    assert.equal(parked.status, "permission_requested");
+    assert.equal(buildLivenessFields(parked.status, null, Date.now(), Date.now(), true, driver.closed).alive, true);
+    assert.equal(waiting.length, 0, "wait must not report B while its approval is pending");
+    assert.notEqual(extractFinalTurn("codex", stdout()), "B commentary");
+
+    const request = pendingPermissionManager.pendingForAgent(agentId)[0];
+    await pendingPermissionManager.respond(agentId, request.request_id, "allow", "test approval");
+    await waitFor(() => stdout().includes("actual B final"), "second turn completion");
+    await waitFor(
+      () => stdout().includes('"method":"test/postBInvalidCompletionsSent"'),
+      "post-B invalid completion marker"
+    );
+    const completionsAfterB = stdout()
+      .slice(secondTurnOffset)
+      .split("\n")
+      .filter((line) => line.includes('"method":"turn/completed"'));
+    assert.equal(completionsAfterB.length, 1, "only B's exact completion may be forwarded");
+    assert.equal(extractFinalTurn("codex", stdout()), "actual B final");
+    driver.kill();
+  } finally {
+    await pendingPermissionManager.closeAgent(agentId, "test cleanup");
     rmSync(tempRoot, { recursive: true, force: true });
   }
 });
