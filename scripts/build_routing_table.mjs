@@ -87,7 +87,7 @@ const RUN_ID_PATH = resolve(tmpdir(), "model-profiler", "run-id");
 function resolveRunId() {
   if (process.env.RUN_ID) return process.env.RUN_ID;
   if (existsSync(RUN_ID_PATH)) {
-    const fromFile = readFileSync(RUN_ID_PATH, "utf8").replace(/^﻿/, "").trim();
+    const fromFile = readFileSync(RUN_ID_PATH, "utf8").replace(/^\uFEFF/, "").trim();
     if (fromFile) {
       // #13: ignore a stale run-id whose date doesn't match DATASET_DATE (cross-run contamination).
       const match = /^run-(\d{4}-\d{2}-\d{2})-/.exec(fromFile);
@@ -134,6 +134,28 @@ const ASSUMED_EFFORTS = new Set(["null", "min", "light", "pro", "ultracode"]);
 // Tokenizer inflation: 1.35x worst-case (SOP-2) for opus 4-7/4-8; 1.4x DEPRECATED.
 const DEPRECATED_INFLATION = 1.4;
 const OPUS_INFLATION = 1.35;
+// Current official tokenizer fact (ops-evidence/pricing-extract.json `tokenizer_fact`):
+// Anthropic documents an approximately 30 percent (~1.30x) token increase for Claude 4.7+.
+// The fixed 1.35 boolean is a worst-case [ASSUMPTION], NOT the current official figure; a fresh
+// dataset should carry the precise multiplier as a NUMBER (see resolveTokenizerInflation).
+const CURRENT_OFFICIAL_INFLATION_NOTE = 1.30; // documentation-only reference; value comes from dataset
+// Resolve the per-model tokenizer inflation multiplier (SOP-2). Precedence:
+//   1. NUMBER  -> exact per-model multiplier from the dataset (finite, > 0). This is how a fresh
+//      dataset explicitly encodes the current official ~1.30 (or any precise per-model figure).
+//   2. boolean true -> legacy back-compat: worst-case OPUS_INFLATION (1.35), clearly labeled an
+//      [ASSUMPTION] (not the current official fact) so existing datasets keep prior outputs.
+//   3. anything falsy (false/undefined/null) -> 1.0 (no inflation).
+// A non-finite or non-positive number is a hard error (fail loud, never silently coerce).
+function resolveTokenizerInflation(model, tf) {
+  if (typeof tf === "number") {
+    if (!Number.isFinite(tf) || tf <= 0) {
+      throw new Error(`tokenizer_inflation must be a finite positive number for '${model}'; got ${tf}`);
+    }
+    return { value: tf, basis: "dataset_numeric" };
+  }
+  if (tf === true) return { value: OPUS_INFLATION, basis: "legacy_boolean_assumption" }; // [ASSUMPTION] 1.35
+  return { value: 1.0, basis: "none" };
+}
 // #19: above-cliff rates for G_CTX_272 (gpt-5.5 ≥272K context; SOP-2 §74-76).
 // These are hardcoded from public OpenAI pricing; recorded audit-only in cost_blend.above_cliff_cost_figure.
 const G_CTX_272_CLIFF_INPUT_PER_MTOK = 10;  // $/MTok above 272K (post-cliff input rate)
@@ -309,7 +331,7 @@ const NORMALIZATION = {
 
 // ---- IO helpers -------------------------------------------------------------------
 function readJsonStripBom(path) {
-  const raw = readFileSync(path, "utf8").replace(/^﻿/, "");
+  const raw = readFileSync(path, "utf8").replace(/^\uFEFF/, "");
   return JSON.parse(raw);
 }
 
@@ -343,7 +365,7 @@ function pairingId(model, effortK) {
 // #12/#13: compute SHA-256 hash of the raw dataset bytes for content-addressed run-id
 // and replay audit. Hash is computed from the raw bytes (BOM-stripped, UTF-8) so the
 // same dataset always hashes identically regardless of JSON key ordering.
-const _rawDataset = readFileSync(DATASET_PATH, "utf8").replace(/^﻿/, "");
+const _rawDataset = readFileSync(DATASET_PATH, "utf8").replace(/^\uFEFF/, "");
 const DATASET_HASH_SHORT = createHash("sha256").update(_rawDataset).digest("hex").slice(0, 12);
 const DATASET_SHA256 = createHash("sha256").update(_rawDataset).digest("hex");
 const dataset = JSON.parse(_rawDataset);
@@ -623,14 +645,14 @@ function costFigureUsed(model, effortK) {
   const inRate = spec.pricing.input_per_mtok;
   const outRate = spec.pricing.output_per_mtok;
   const hiddenMult = HIDDEN_MULT[effortK];
-  const tokInflation = spec.tokenizer_inflation ? OPUS_INFLATION : 1.0;
+  const { value: tokInflation, basis: tokInflationBasis } = resolveTokenizerInflation(model, spec.tokenizer_inflation);
   const inputFrac = INPUT_TOK / 1e6; // 0.1
   const visibleOutFrac = VISIBLE_OUT_TOK / 1e6; // 0.02
   const hiddenOutFrac = visibleOutFrac * hiddenMult;
   const perMTok = (inRate * inputFrac + outRate * (visibleOutFrac + hiddenOutFrac)) * tokInflation;
   const perToken = perMTok / 1e6;
   const cliffSide = cliff ? "below" : "n/a"; // 100K blend certainly sub-cliff
-  return { perToken, cliffSide, inRate, outRate, hiddenMult, tokInflation, hasCliff: Boolean(cliff) };
+  return { perToken, cliffSide, inRate, outRate, hiddenMult, tokInflation, tokInflationBasis, hasCliff: Boolean(cliff) };
 }
 
 const COST = new Map(); // pairingId -> cost detail
@@ -1008,6 +1030,21 @@ function enforceEffortMonotonicity(scores) {
   return scores;
 }
 
+// XCAT-PROXY-1 opt-in flag (hoisted, issue #325 F2): the explicit dataset opt-in is resolved
+// BEFORE the per-category perfScores build so the same switch that gates proxy synthesis (below)
+// also decides the cross-model version-promotion policy applied during composition.
+const PROXY_SYNTHESIS = (dataset.proxy_synthesis && typeof dataset.proxy_synthesis === "object")
+  ? dataset.proxy_synthesis
+  : null;
+const PROXY_SYNTHESIS_ENABLED = PROXY_SYNTHESIS?.enabled === true; // explicit dataset opt-in (required)
+// Owner authorization for INFERRED (cross-category proxy) ranking coverage (issue #325). Distinct
+// from the opt-in switch: synthesis may be enabled while the run is still gated measured-only. The
+// owner-authorized-inferred-ranking coverage gate (below, at COVERAGE_GATE) applies ONLY when BOTH
+// the opt-in is on AND this explicit record is present. It NEVER relabels inferred as measured and
+// NEVER sets a gap_stub_override; the default (non-opt-in / unauthorized) gate stays measured-only.
+const OWNER_AUTHORIZED_INFERRED_RANKING = PROXY_SYNTHESIS?.owner_authorized_inferred_ranking === true;
+const INFERRED_RANKING_POLICY_ACTIVE = PROXY_SYNTHESIS_ENABLED && OWNER_AUTHORIZED_INFERRED_RANKING;
+
 // ---- per-category capability composites (drive both branch power-law scores) -------
 // Both branches score by perf_norm^a / cost_norm^b; the perf_norm composite is built once
 // here (benchmark normalization + §A effort-interpolation + SOP-1 + monotonicity clamp).
@@ -1023,11 +1060,221 @@ for (const category of BASE_SPINE) {
   } else {
     scores = buildCategoryScores(category);
     scores = applyEffortInterpolation(scores); // §A: same-model upward fill (before SOP-1)
-    scores = applyVersionPromotion(category, scores); // SOP-1: whole absent version
+    // F2 (opt-in provenance): under the explicit proxy_synthesis opt-in, cross-model SOP-1
+    // version-promotion is DISABLED before any base/proxy composition, so a cross-model predecessor
+    // value can neither win a direct cell NOR seed a proxy anchor. Proxy anchors are then SAME-model
+    // measured or upward-effort-interpolated only (no unsupported cross-model copy, and no thin
+    // predecessor can be promoted forward to bypass the admissibility filter). Legacy (non-opt-in)
+    // behavior is preserved verbatim: version-promotion still runs when synthesis is off.
+    if (!PROXY_SYNTHESIS_ENABLED) {
+      scores = applyVersionPromotion(category, scores); // SOP-1: whole absent version
+    }
     scores = enforceEffortMonotonicity(scores);
   }
   perfScores.set(category, scores);
 }
+
+// ---- XCAT-PROXY-1: generalized cross-category proxy synthesis (issue #325) -----------
+// Several taxonomy categories can have ZERO admissible DIRECT benchmark anchors in a given
+// run (a run-local collection gap, not a global absence), yet the owner requires all 14
+// categories ranked from available evidence. When the DATASET EXPLICITLY OPTS IN
+// (dataset.proxy_synthesis.enabled === true) we fill ONLY null direct cells of each declared
+// target category with the equal-weight mean of its AVAILABLE declared direct-parent
+// capability composites at the SAME model@effort pairing. Runs AFTER the direct parent
+// perfScores are finalized (buildCategoryScores + §A effort-interpolation + SOP-1 +
+// monotonicity) and BEFORE the DATA_MISSING gate and composite build, so composites consume
+// inferred branches without a cycle. Opt-in is REQUIRED: without it there is no synthesis and
+// the DATA_MISSING coverage gate is unchanged (no unconditional new policy, no silent weakening).
+//
+// Invariants (independently reviewed — proxy-method-review.md / proxy-coverage-plan.md):
+//  - One declarative target -> DIRECT parent map (PROXY_PARENTS); no composite is ever a
+//    parent (would be circular). A parent MAY itself be a target (e.g. quality_review names
+//    security_review + knowledge_synthesis) — resolved below via a frozen snapshot.
+//  - directCap0 is an IMMUTABLE pre-proxy snapshot frozen BEFORE any fill. The single fill loop
+//    reads every parent value from directCap0, never from the live (being-filled) perfScores, so
+//    proxy output is NEVER a proxy input: NO proxy-to-proxy recursion, and the result is
+//    independent of target iteration order (a target sees a parent-target's ORIGINAL direct null).
+//  - Availability is `score !== null` AND finite: a finite normalized 0 (or the epsilon floor)
+//    is VALID low evidence and counts in the mean and coverage_weight — never a truthiness filter.
+//    Weights renormalize over present parents only; a missing parent gets NO synthetic value.
+//    If ALL parents are absent the pairing stays a null sentinel — never a fabricated 0.
+//  - A real direct score always wins: only null cells are filled.
+//  - Same model@effort join only: no cross-effort/cross-model inference, no downward inference
+//    from a max-only parent; the synthesized branch is NOT re-interpolated/re-promoted.
+//  - Cost stays out of the proxy: parent inputs are pre-cost capability composites; cost enters
+//    exactly once downstream via the existing rankBranch/powerScore power law.
+//  - Every filled row is labeled `inferred_low` (uncalibrated); provenance is auditable below.
+// PROXY_SYNTHESIS / PROXY_SYNTHESIS_ENABLED are hoisted above the perfScores build (F2) so the
+// same opt-in switch also disables cross-model SOP-1 version-promotion before base/proxy composition.
+// Declarative target -> direct-parent map (proxy-coverage-plan.md "Exact minimal addition").
+// Every target and every parent is a DIRECT base (non-composite) taxonomy category.
+const PROXY_PARENTS = Object.freeze({
+  security_review: ["debugging", "math_proof", "agentic_execution"],
+  quality_review: ["debugging", "knowledge_synthesis", "math_proof", "security_review"],
+  architecture: ["math_proof", "agentic_execution"],
+  data_analysis: ["math_proof"],
+  // issue #325 final reconciliation: coding fills null cells from ORIGINAL direct debugging +
+  // agentic_execution (equal mean of AVAILABLE parents). When debugging carries no admissible direct
+  // signal for a pairing (its frozen directCap0 is null), the available mean is agentic_execution
+  // alone — never debugging's OWN proxy fill (no proxy-to-proxy: parents read the frozen snapshot).
+  coding: ["debugging", "agentic_execution"],
+  knowledge_synthesis: ["math_proof", "data_analysis"],
+  mechanical: ["agentic_execution"],
+  // debugging fills its remaining null cells from ORIGINAL direct agentic_execution only. Its lone
+  // thin direct cell stays a non-discriminating neutral (excluded from directCap0 as a proxy parent);
+  // debugging as a parent of security_review/quality_review/coding is still read at its ORIGINAL
+  // direct value from the frozen snapshot, so its fill never propagates upstream.
+  debugging: ["agentic_execution"],
+});
+const PROXY_METHOD = "equal_weight_mean_of_available_direct_parent_capability_composites";
+const PROXY_FORMULA_ID = "XCAT-PROXY-1";
+function parentInputStatus(pd) {
+  if (pd.versionPromoted) return "version_promoted";
+  if (pd.interpolated) return "effort_interpolated";
+  return "measured";
+}
+// Fail-loud structural guards on the constant map (independent of opt-in): targets/parents must
+// be direct base categories; a composite parent would be circular.
+for (const [target, parents] of Object.entries(PROXY_PARENTS)) {
+  if (!BASE_SPINE.includes(target) || COMPOSITE_CATEGORIES.has(target)) {
+    throw new Error(`proxy synthesis: target '${target}' is not a direct base category`);
+  }
+  for (const parent of parents) {
+    if (!BASE_SPINE.includes(parent) || COMPOSITE_CATEGORIES.has(parent)) {
+      throw new Error(`proxy synthesis: target '${target}' has an invalid parent '${parent}'`);
+    }
+  }
+}
+const PROXY_INFERENCE_BY_TARGET = {}; // target -> {target_category, parent_categories, counts, pairings}
+if (PROXY_SYNTHESIS_ENABLED) {
+  // IMMUTABLE pre-proxy snapshot (score + provenance status) of every category a parent map
+  // references. Frozen BEFORE any fill so no proxy fill can leak into another target's inputs.
+  //
+  // Admissibility filter (proxy-coverage-independent-review §2): only an ELIGIBLE comparison value
+  // enters the snapshot as a parent capability. A null / non-finite score, OR a pairing resting
+  // ENTIRELY on neutralized single-observation evidence (`thinBasis` — the 0.5 placeholder /
+  // one-row / disconnected non-ranking case) is frozen as ABSENT (score:null) so it can NEVER
+  // become a parent numeric value or be miscounted as ranking evidence. Pre-snapshot same-model
+  // upward effort-interpolation / version-promotion IS admissible (invariant 3) and keeps its
+  // provenance status. Cross-scaffold agentic_execution ordering is a disconnected component: this
+  // filter does not invent a bridge — such fills stay inferred_low, never a measured cross-scalar.
+  const PROXY_PARENT_CATS = new Set(Object.values(PROXY_PARENTS).flat());
+  const directCap0 = new Map(); // category -> Map(pairingId -> {score, status, ineligible_reason})
+  for (const category of PROXY_PARENT_CATS) {
+    const src = perfScores.get(category);
+    const snap = new Map();
+    if (src) {
+      for (const [id, d] of src) {
+        const eligible = d && d.score !== null && Number.isFinite(d.score) && d.thinBasis !== true;
+        snap.set(id, {
+          score: eligible ? d.score : null,
+          status: d ? parentInputStatus(d) : "measured",
+          ineligible_reason: eligible
+            ? null
+            : (d && d.thinBasis === true ? "non_ranking_thin_or_single_observation" : "no_direct_score"),
+        });
+      }
+    }
+    directCap0.set(category, snap);
+  }
+  // Single fill-null loop over declared targets; each reads parents from the frozen snapshot.
+  for (const [target, parents] of Object.entries(PROXY_PARENTS)) {
+    const scores = perfScores.get(target);
+    const pairings = [];
+    let directMeasured = 0, inferred = 0, unresolved = 0;
+    if (scores) {
+      for (const p of categoryUniverse(target)) {
+        const cur = scores.get(p.id);
+        // Direct precedence: a real (non-null) direct score is never overwritten.
+        if (cur && cur.score !== null) { directMeasured++; continue; }
+        const available = [];
+        const missing = [];
+        for (const parent of parents) {
+          const pd = directCap0.get(parent)?.get(p.id); // frozen snapshot; same model@effort only
+          if (pd && pd.score !== null && Number.isFinite(pd.score)) {
+            available.push({ category: parent, pairing_id: p.id, score: pd.score, status: pd.status });
+          } else {
+            missing.push(parent); // null / non-finite / absent = no synthetic value injected
+          }
+        }
+        if (available.length === 0) { unresolved++; continue; } // all parents absent -> null sentinel
+        // equal weight over AVAILABLE parents (renormalized) == arithmetic mean of present scores.
+        const mean = available.reduce((sum, a) => sum + a.score, 0) / available.length;
+        const coverageWeight = Math.round((available.length / parents.length) * 10000) / 10000;
+        const sourceCategories = available.map((a) => a.category);
+        const inference = {
+          method: PROXY_METHOD,
+          formula_id: PROXY_FORMULA_ID,
+          target_category: target,
+          parent_set: parents,
+          source_categories: sourceCategories,
+          missing_categories: missing,
+          coverage_weight: coverageWeight,
+          uncalibrated: true,
+          parents: available,
+        };
+        scores.set(p.id, {
+          score: mean,
+          rows: [], // no direct target rows; provenance is the parent capability composites
+          confidence: "inferred_low", // uncalibrated cross-category proxy (owner directive)
+          tierFloor: null,
+          crossCategoryInference: inference,
+          basis: new Set([
+            `[INFERRED] ${target} cross-category proxy (${PROXY_FORMULA_ID}): equal-weight mean of ` +
+              `available direct parents [${sourceCategories.join(", ")}]; coverage_weight ${coverageWeight}; ` +
+              `missing [${missing.join(", ") || "none"}]; uncalibrated (inferred_low)`,
+            ...available.map((a) => `parent ${a.category}@${p.id} score ${a.score.toFixed(4)} (${a.status})`),
+          ]),
+        });
+        inferred++;
+        pairings.push({
+          pairing_id: p.id,
+          model: p.model,
+          effort: p.effort,
+          score: mean,
+          coverage_weight: coverageWeight,
+          source_categories: sourceCategories,
+          missing_categories: missing,
+          parents: available,
+        });
+      }
+    }
+    PROXY_INFERENCE_BY_TARGET[target] = {
+      target_category: target,
+      parent_categories: parents,
+      counts: {
+        eligible_pairings: categoryUniverse(target).length,
+        direct_measured: directMeasured,
+        inferred,
+        unresolved_null: unresolved,
+      },
+      pairings,
+    };
+  }
+}
+const CROSS_CATEGORY_INFERENCE = {
+  enabled: PROXY_SYNTHESIS_ENABLED,
+  method: PROXY_METHOD,
+  formula_id: PROXY_FORMULA_ID,
+  parent_map: PROXY_PARENTS,
+  excluded_parents: [...Object.keys(COMPOSITE_PARENT_CATEGORIES)],
+  snapshot: "directCap0 — immutable pre-proxy direct capability composites (no proxy-to-proxy recursion)",
+  admissibility_filter: "directCap0 excludes null/non-finite scores and thinBasis pairings (neutralized single-observation / one-row / non-ranking); pre-snapshot upward effort-interpolation and version-promotion remain eligible and carry status",
+  disconnected_components: "cross-scaffold agentic_execution ordering is non-semantic; no measured cross-component bridge is invented — architecture/security_review/mechanical fills from it are inferred_low only",
+  weighting: "equal weight over AVAILABLE parents (renormalized); a missing parent receives no synthetic value",
+  availability_rule: "parent capability composite score !== null and finite (a normalized 0 is valid low evidence)",
+  confidence_policy: "every filled row labeled inferred_low (uncalibrated); coverage recorded for later calibration",
+  applied_stage: "after direct parent perfScores finalized (interpolation + SOP-1 + monotonicity); before DATA_MISSING gate and composites",
+  cost_policy: "cost excluded from the proxy; applied exactly once downstream via rankBranch/powerScore",
+  direct_precedence: "only null direct cells filled; a real direct score always wins",
+  reinterpolation: "none — synthesized branches are not re-interpolated or re-promoted (no downward inference)",
+  version_promotion_policy: PROXY_SYNTHESIS_ENABLED
+    ? "disabled_under_opt_in: cross-model SOP-1 version-promotion is not applied to any category before base/proxy composition; proxy anchors are same-model measured or upward-effort-interpolated only (no unsupported cross-model copy; no thin predecessor promoted forward to bypass the admissibility filter)"
+    : "legacy: SOP-1 version-promotion applied to direct perfScores (no proxy synthesis without opt-in)",
+  opt_in: "dataset.proxy_synthesis.enabled === true (required; no synthesis and no gap-gate change without it)",
+  targets: Object.keys(PROXY_PARENTS),
+  by_target: PROXY_INFERENCE_BY_TARGET,
+};
 
 // ---- refinements #1/#2/#9: data-missing coverage floor + non-semantic order + gaps --
 // AUDIT-ONLY transparency (plus a sentinel-ORDER change within still-dense categories).
@@ -1038,7 +1285,12 @@ for (const category of BASE_SPINE) {
 // never makes the lean table sparse (every category stays dense 1..N).
 function categoryHasMeasuredSignal(category) {
   if (COMPOSITE_CATEGORIES.has(category)) return true;
-  return categoryMeasuredStats(category).measured_pairings > 0;
+  const s = categoryMeasuredStats(category); // F3: compute once (was recomputed twice)
+  // Direct measured coverage is always signal. Authorized cross-category inference counts as
+  // signal ONLY under the explicit dataset opt-in (PROXY_SYNTHESIS_ENABLED) — it never SILENTLY
+  // weakens the DATA_MISSING gate nor auto-enables a gap stub (proxy-coverage-independent-review
+  // §3.4: proxy coverage may make a category rankable but must not satisfy a measured floor).
+  return s.measured_pairings > 0 || (PROXY_SYNTHESIS_ENABLED && s.inferred_pairings > 0);
 }
 function categoryMeasuredStats(category) {
   const scores = perfScores.get(category);
@@ -1046,16 +1298,23 @@ function categoryMeasuredStats(category) {
     return {
       total_pairings: 0,
       measured_pairings: 0,
+      inferred_pairings: 0,
       positive_score_pairings: 0,
       measured_pairing_ratio: 0,
+      inferred_pairing_ratio: 0,
       positive_score_pairing_ratio: 0,
     };
   }
   const catUniverse = categoryUniverse(category);
-  let measured = 0, positive = 0;
+  // measured/positive count DIRECT (non-null, non-inferred) pairings only, so direct coverage
+  // ratios stay unchanged by XCAT-PROXY-1; inferred (cross-category) pairings are counted apart.
+  let measured = 0, positive = 0, inferred = 0;
   for (const p of catUniverse) {
     const s = scores.get(p.id);
-    if (s && s.score !== null) {
+    if (!s || s.score === null) continue;
+    if (s.crossCategoryInference) {
+      inferred++;
+    } else {
       measured++;
       if (s.score > 0) positive++;
     }
@@ -1064,8 +1323,10 @@ function categoryMeasuredStats(category) {
   return {
     total_pairings: total,
     measured_pairings: measured,
+    inferred_pairings: inferred,
     positive_score_pairings: positive,
     measured_pairing_ratio: total > 0 ? measured / total : 0,
+    inferred_pairing_ratio: total > 0 ? inferred / total : 0,
     positive_score_pairing_ratio: total > 0 ? positive / total : 0,
   };
 }
@@ -1075,9 +1336,32 @@ const DATA_MISSING_CATEGORIES = new Set(
 // audit.metadata.category_completeness: per-category build-time coverage state.
 const CATEGORY_COMPLETENESS = {};
 for (const category of SPINE) {
-  CATEGORY_COMPLETENESS[category] = DATA_MISSING_CATEGORIES.has(category)
-    ? "DATA_MISSING"
-    : "measured";
+  if (DATA_MISSING_CATEGORIES.has(category)) {
+    CATEGORY_COMPLETENESS[category] = "DATA_MISSING";
+    continue;
+  }
+  const stats = categoryMeasuredStats(category);
+  if (stats.inferred_pairings > 0 && stats.measured_pairings === 0) {
+    CATEGORY_COMPLETENESS[category] = "inferred"; // authorized cross-category proxy (XCAT-PROXY-1)
+  } else if (stats.inferred_pairings > 0) {
+    CATEGORY_COMPLETENESS[category] = "mixed"; // some direct, some inferred
+  } else {
+    CATEGORY_COMPLETENESS[category] = "measured";
+  }
+}
+// Propagate inferred-parent uncertainty to composites consuming ANY inferred/mixed proxy target
+// branch (proxy-coverage-independent-review §3.7): ranked, not blocked, but flagged so the audit
+// is honest. A composite whose fixed parent set includes a target that ended up inferred/mixed is
+// marked `inferred_parent`.
+const INFERRED_TARGET_CATEGORIES = new Set(
+  Object.keys(PROXY_PARENTS).filter(
+    (t) => CATEGORY_COMPLETENESS[t] === "inferred" || CATEGORY_COMPLETENESS[t] === "mixed"
+  )
+);
+for (const [composite, parents] of Object.entries(COMPOSITE_PARENT_CATEGORIES)) {
+  if (parents.some((parent) => INFERRED_TARGET_CATEGORIES.has(parent))) {
+    CATEGORY_COMPLETENESS[composite] = "inferred_parent";
+  }
 }
 
 // #9 gaps: the dataset carries dataset.gaps (reason + affected model + remediation) that
@@ -1096,17 +1380,24 @@ const DATA_FREE_GAP_RE = /\b(data[- ]?free|all[- ]sentinels?|sentinel[- ]only|no
 function gapEntryWithCoverage(category, gap) {
   const stats = categoryMeasuredStats(category);
   const measured = stats.measured_pairings;
+  const inferred = stats.inferred_pairings;
   const total = stats.total_pairings;
   const out = {
     ...gap,
     measured_pairings: measured,
+    inferred_pairings: inferred,
     measured_pairing_ratio: Math.round(stats.measured_pairing_ratio * 10000) / 10000,
   };
   const reason = String(gap.reason || "");
   if (measured > 0 && DATA_FREE_GAP_RE.test(reason)) {
     out.original_reason = reason;
     out.reason = `Measured coverage present (${measured}/${total}); gap retained as pairing-specific coverage note.`;
-  } else if (measured === 0 && !DATA_FREE_GAP_RE.test(reason)) {
+  } else if (measured === 0 && inferred > 0) {
+    // Cross-category proxy coverage present but ZERO direct measured coverage. Do NOT rewrite this
+    // as measured (proxy-coverage-independent-review §3.6): state inferred coverage honestly.
+    out.original_reason = reason;
+    out.reason = `Inferred coverage present (${inferred}/${total} cross-category proxy); measured coverage is zero; ${reason}`;
+  } else if (measured === 0 && inferred === 0 && !DATA_FREE_GAP_RE.test(reason)) {
     out.original_reason = reason;
     out.reason = `DATA_MISSING: all emitted pairings are data-free sentinels (${measured}/${total}); ${reason}`;
   }
@@ -1221,8 +1512,17 @@ function buildFullPairingObject(item, category) {
   if (ASSUMED_EFFORTS.has(p.effortK)) {
     basis.push(`[ASSUMPTION] effort '${p.effortK}' hidden-mult via nearest-lower documented tier`);
   }
-  if (COST.get(p.id).tokInflation === OPUS_INFLATION) {
-    basis.push(`[ASSUMPTION] tokenizer_inflation 1.35x worst-case (SOP-2; 1.4x deprecated)`);
+  // Record the ACTUAL applied tokenizer-inflation multiplier so the audit basis matches the figure
+  // used in cost (not a stale hardcoded literal). A dataset NUMBER (e.g. the fresh 1.30 official
+  // figure) is reported verbatim; the legacy boolean path still records the worst-case OPUS_INFLATION
+  // (1.35) [ASSUMPTION] unchanged. Non-inflating pairings (basis "none") add no line.
+  {
+    const _tok = COST.get(p.id);
+    if (_tok.tokInflationBasis === "legacy_boolean_assumption") {
+      basis.push(`[ASSUMPTION] tokenizer_inflation ${OPUS_INFLATION}x worst-case legacy boolean (SOP-2; 1.4x deprecated)`);
+    } else if (_tok.tokInflationBasis === "dataset_numeric") {
+      basis.push(`[ASSUMPTION] tokenizer_inflation ${_tok.tokInflation}x (dataset numeric multiplier; SOP-2; 1.4x deprecated)`);
+    }
   }
   if (ASSUMED_COST_PAIRINGS.has(p.id)) {
     basis.push(ASSUMED_COST_PAIRINGS.get(p.id));
@@ -1269,7 +1569,7 @@ const COVERAGE_WARN_THRESHOLD = 0.50;
 const COVERAGE_BLOCK_THRESHOLD = 0.30;
 function computePairingCoverageRatios() {
   const perCategory = {};
-  let totalPairings = 0, totalMeasured = 0, totalPositive = 0;
+  let totalPairings = 0, totalMeasured = 0, totalPositive = 0, totalInferred = 0;
   for (const category of SPINE) {
     if (category === "fallback_default") continue;
     if (COMPOSITE_CATEGORIES.has(category)) {
@@ -1283,14 +1583,21 @@ function computePairingCoverageRatios() {
       continue;
     }
     const stats = categoryMeasuredStats(category);
-    const { total_pairings: total, measured_pairings: measured, positive_score_pairings: positive } = stats;
+    const { total_pairings: total, measured_pairings: measured, positive_score_pairings: positive, inferred_pairings: inferred } = stats;
     const mRatio = stats.measured_pairing_ratio;
     const pRatio = stats.positive_score_pairing_ratio;
+    // signal = admissible direct measured + audited cross-category inferred, counted APART (inferred
+    // is NEVER folded into the measured count/ratio). Used only by the owner-authorized gate below.
+    const signal = measured + inferred;
     perCategory[category] = {
       total_pairings: total,
       measured_pairings: measured,
       positive_score_pairings: positive,
+      inferred_pairings: inferred,
+      signal_pairings: signal,
       measured_pairing_ratio: Math.round(mRatio * 10000) / 10000,
+      inferred_pairing_ratio: Math.round(stats.inferred_pairing_ratio * 10000) / 10000,
+      signal_pairing_ratio: total > 0 ? Math.round((signal / total) * 10000) / 10000 : 0,
       positive_score_pairing_ratio: Math.round(pRatio * 10000) / 10000,
     };
     if (!DATA_MISSING_CATEGORIES.has(category) && mRatio < COVERAGE_WARN_THRESHOLD) {
@@ -1301,17 +1608,24 @@ function computePairingCoverageRatios() {
     totalPairings += total;
     totalMeasured += measured;
     totalPositive += positive;
+    totalInferred += inferred;
   }
   const oMRatio = totalPairings > 0 ? totalMeasured / totalPairings : 0;
   const oPRatio = totalPairings > 0 ? totalPositive / totalPairings : 0;
+  const oSignalRatio = totalPairings > 0 ? (totalMeasured + totalInferred) / totalPairings : 0;
   return {
     warn_threshold: COVERAGE_WARN_THRESHOLD,
     block_threshold: COVERAGE_BLOCK_THRESHOLD,
     overall: {
       total_pairings: totalPairings,
       measured_pairings: totalMeasured,
+      inferred_pairings: totalInferred,
+      signal_pairings: totalMeasured + totalInferred,
       positive_score_pairings: totalPositive,
       measured_pairing_ratio: Math.round(oMRatio * 10000) / 10000,
+      inferred_pairing_ratio: totalPairings > 0 ? Math.round((totalInferred / totalPairings) * 10000) / 10000 : 0,
+      // signal_pairing_ratio = (measured + inferred)/total; inferred counted APART, never as measured.
+      signal_pairing_ratio: Math.round(oSignalRatio * 10000) / 10000,
       positive_score_pairing_ratio: Math.round(oPRatio * 10000) / 10000,
     },
     per_category: perCategory,
@@ -1338,10 +1652,13 @@ const GAPS_AUDIT = _gapCatOrder.map((category) => {
 for (const gap of GAPS_AUDIT) {
   for (const entry of gap.entries) {
     const dataFreeClaim = DATA_FREE_GAP_RE.test(entry.reason || "");
+    const inferredPresent = (entry.inferred_pairings || 0) > 0;
     if (entry.measured_pairings > 0 && dataFreeClaim) {
       throw new Error(`gap narrative mismatch: ${gap.category} has measured pairings but claims data-free/all sentinels`);
     }
-    if (entry.measured_pairings === 0 && !dataFreeClaim) {
+    // A category with inferred (cross-category proxy) coverage is NOT data-free even when measured
+    // coverage is zero — it must not be forced into the data-free/sentinel narrative (review §3.6).
+    if (entry.measured_pairings === 0 && !inferredPresent && !dataFreeClaim) {
       throw new Error(`gap narrative mismatch: ${gap.category} is DATA_MISSING but lacks data-free/all-sentinel narrative`);
     }
   }
@@ -1623,6 +1940,24 @@ function citationsFor(detail, category) {
       label: "[SOP-1]",
     });
   }
+  // issue #325 XCAT-PROXY-1: an inferred cross-category target pairing has no direct rows; cite the
+  // synthesis method + the exact parent pairing ids/scores it was averaged from so the inference is
+  // traceable to the parent categories' own citations (never a "measured" claim).
+  if (detail.crossCategoryInference) {
+    const inf = detail.crossCategoryInference;
+    const parentTrace = inf.parents
+      .map((a) => `${a.category}@${a.pairing_id}=${a.score.toFixed(4)}(${a.status})`)
+      .join("; ");
+    cites.push({
+      url: "",
+      retrieved_at: DEFAULT_RETRIEVED_AT,
+      annotation:
+        `Inferred (uncalibrated) via ${inf.method} [${inf.formula_id}]: equal-weight mean of available ` +
+        `direct parents [${inf.source_categories.join(", ")}]; coverage_weight ${inf.coverage_weight}; ` +
+        `missing [${inf.missing_categories.join(", ") || "none"}]; parents ${parentTrace}.`,
+      label: "[INFERRED]",
+    });
+  }
   if (cites.length === 0) {
     // refinement #9: for a DATA_MISSING category, cite the SPECIFIC dataset gap reason and
     // flag the non-semantic ordering, instead of the generic "no measured benchmark rows".
@@ -1894,23 +2229,56 @@ const DROPPED_PAIRINGS = {
 // chosen HONESTLY: gap_stubbed when any DATA_MISSING category; thin_coverage when no DATA_MISSING
 // but overall measured_pairing_ratio < COVERAGE_BLOCK_THRESHOLD (0.30); otherwise "full".
 // "full" now requires BOTH category-level and pairing-level coverage. (#2 honest coverage fix)
+// The completeness_state is derived from MEASURED coverage ONLY — the owner-authorized inferred
+// gate below never upgrades it to "full" (thin direct coverage is always reported honestly).
 const _overallMeasuredRatio = PAIRING_COVERAGE_RATIOS.overall.measured_pairing_ratio;
+const _overallSignalRatio = PAIRING_COVERAGE_RATIOS.overall.signal_pairing_ratio;
 const COMPLETENESS_STATE =
   _dataMissingCats.length > 0
     ? "gap_stubbed"
     : _overallMeasuredRatio < COVERAGE_BLOCK_THRESHOLD
     ? "thin_coverage"
     : "full";
+// Every required (directly-benchmarked base) category must carry a non-null direct-or-inferred
+// signal. DATA_MISSING_CATEGORIES already counts inferred coverage as signal ONLY under the opt-in
+// (categoryHasMeasuredSignal), so an empty list == every required category has a non-null signal.
+const _requiredCategoriesAllNonNull = _dataMissingCats.length === 0;
+// ---- coverage gate policy (issue #325 owner-authorized inferred ranking) --------------------
+// DEFAULT (no opt-in, or opt-in without owner authorization): measured-only floor, UNCHANGED. A run
+// blocks when any category is DATA_MISSING or the overall MEASURED ratio is below the 0.30 minimum.
+// OWNER-AUTHORIZED INFERRED RANKING (opt-in AND dataset.proxy_synthesis.owner_authorized_inferred_
+// ranking === true): direct measured coverage is still reported honestly (thin_coverage; never
+// relabeled measured; never a gap_stub_override), but the run may proceed when the SIGNAL coverage
+// (admissible direct measured + audited cross-category inferred, counted apart) clears the SAME 0.30
+// minimum AND every required base category carries a non-null signal. Inferred is NEVER counted as
+// measured and the measured floor itself is not weakened; only the *distinct* authorized decision
+// is applied. Signal counts only admissible original-direct or validated same-pairing proxy lineage
+// (thinBasis / cross-model version-promoted anchors are excluded upstream); the unmeasured tail
+// stays honestly null.
 const COVERAGE_BLOCK_REASONS = [];
-if (_dataMissingCats.length > 0) {
-  COVERAGE_BLOCK_REASONS.push(
-    `${_dataMissingCats.length} DATA_MISSING categor${_dataMissingCats.length === 1 ? "y" : "ies"}: ${_dataMissingCats.join(", ")}`
-  );
-}
-if (_overallMeasuredRatio < COVERAGE_BLOCK_THRESHOLD) {
-  COVERAGE_BLOCK_REASONS.push(
-    `overall measured_pairing_ratio=${_overallMeasuredRatio.toFixed(3)} < block threshold ${COVERAGE_BLOCK_THRESHOLD}`
-  );
+if (INFERRED_RANKING_POLICY_ACTIVE) {
+  if (!_requiredCategoriesAllNonNull) {
+    COVERAGE_BLOCK_REASONS.push(
+      `${_dataMissingCats.length} required categor${_dataMissingCats.length === 1 ? "y" : "ies"} without direct-or-inferred signal: ${_dataMissingCats.join(", ")}`
+    );
+  }
+  if (_overallSignalRatio < COVERAGE_BLOCK_THRESHOLD) {
+    COVERAGE_BLOCK_REASONS.push(
+      `overall signal_pairing_ratio=${_overallSignalRatio.toFixed(3)} < block threshold ${COVERAGE_BLOCK_THRESHOLD} ` +
+      `(owner-authorized inferred-ranking gate; measured_pairing_ratio=${_overallMeasuredRatio.toFixed(3)} reported honestly and NOT counted as measured)`
+    );
+  }
+} else {
+  if (_dataMissingCats.length > 0) {
+    COVERAGE_BLOCK_REASONS.push(
+      `${_dataMissingCats.length} DATA_MISSING categor${_dataMissingCats.length === 1 ? "y" : "ies"}: ${_dataMissingCats.join(", ")}`
+    );
+  }
+  if (_overallMeasuredRatio < COVERAGE_BLOCK_THRESHOLD) {
+    COVERAGE_BLOCK_REASONS.push(
+      `overall measured_pairing_ratio=${_overallMeasuredRatio.toFixed(3)} < block threshold ${COVERAGE_BLOCK_THRESHOLD}`
+    );
+  }
 }
 const GAP_STUB_OVERRIDE = {
   override_used: ALLOW_GAP_STUBBED,
@@ -1923,6 +2291,26 @@ const GAP_STUB_OVERRIDE = {
     ? (process.argv.includes("--allow-gap-stubbed") ? "--allow-gap-stubbed" : "SUBAGENT_MCP_ALLOW_GAP_STUBBED=1")
     : null,
 };
+// Audit record: method / authorization / threshold / actual ratios, unambiguous. The validator
+// rejects a missing authorization or any mislabel (inferred-as-measured, gap-stub misuse, or a
+// "full" state hiding thin measured coverage). Attached to CROSS_CATEGORY_INFERENCE below.
+const COVERAGE_GATE = {
+  policy: INFERRED_RANKING_POLICY_ACTIVE ? "owner_authorized_inferred_ranking" : "measured_only_default",
+  method: "measured-only floor by default; under opt-in + owner authorization the SAME 0.30 minimum is applied to signal coverage (measured + audited inferred, counted apart)",
+  proxy_synthesis_enabled: PROXY_SYNTHESIS_ENABLED,
+  owner_authorized_inferred_ranking: OWNER_AUTHORIZED_INFERRED_RANKING,
+  threshold: COVERAGE_BLOCK_THRESHOLD,
+  measured_pairing_ratio: _overallMeasuredRatio,
+  inferred_pairing_ratio: PAIRING_COVERAGE_RATIOS.overall.inferred_pairing_ratio,
+  signal_pairing_ratio: _overallSignalRatio,
+  inferred_counted_as_measured: false,
+  gap_stub_override_used: GAP_STUB_OVERRIDE.override_used,
+  required_categories_all_nonnull: _requiredCategoriesAllNonNull,
+  completeness_state: COMPLETENESS_STATE,
+  blocked: COVERAGE_BLOCK_REASONS.length > 0 && !ALLOW_GAP_STUBBED,
+  block_reasons: COVERAGE_BLOCK_REASONS.slice(),
+};
+CROSS_CATEGORY_INFERENCE.coverage_gate = COVERAGE_GATE;
 if (COVERAGE_BLOCK_REASONS.length > 0) {
   const message =
     `coverage block: ${COVERAGE_BLOCK_REASONS.join("; ")}. ` +
@@ -1956,7 +2344,7 @@ function priorAuditDrift() {
   try {
     const r = spawnSync("git", ["show", `HEAD:${relPath}`], { cwd: ROOT, encoding: "buffer" });
     if (r.status === 0 && r.stdout && r.stdout.length > 0) {
-      priorRaw = r.stdout.toString("utf8").replace(/^﻿/, "");
+      priorRaw = r.stdout.toString("utf8").replace(/^\uFEFF/, "");
       priorGitRef = "HEAD";
     } else {
       return { status: "no_committed_baseline", note: "HEAD does not contain src/routing-table-audit.json" };
@@ -2066,6 +2454,12 @@ const auditTable = {
       method: "simple_mean_of_available_parent_ranks_per_branch",
       parent_categories: COMPOSITE_PARENT_CATEGORIES,
     },
+    // issue #325 XCAT-PROXY-1: generalized cross-category synthesis (distinct provenance from
+    // same-model effort interpolation, recorded per-parent as `effort_interpolated`). Records the
+    // opt-in state, method, formula id, declarative parent map, admissibility filter, and per
+    // TARGET: parent set, per-pairing coverage_weight, source/missing categories, per-parent
+    // id+score+status, and measured-vs-inferred counts.
+    cross_category_inference: CROSS_CATEGORY_INFERENCE,
     // refinement #9: dataset.gaps surfaced into the audit (reason + affected model +
     // remediation), grouped per category with each DATA_MISSING category's coverage state.
     gaps: GAPS_AUDIT,
