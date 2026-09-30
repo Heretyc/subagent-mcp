@@ -73,6 +73,12 @@ and any supplied `value` is ignored.
   one-based priority slot for the category, `<1` disables it there. The
   categories mirror `launch_agent` `task_category` values; `fallback_default`
   is intentionally not a routing key.
+- `user.personaMode` gates the `launch_agent` persona parameters (`agent`,
+  `agent_definition`); those params are rejected until
+  it is set to `enabled`. Personas are inline-only (`agent` always requires
+  `agent_definition`), and child filesystem isolation is unchanged. Re-read on
+  every launch, so no restart. Semantics:
+  `docs/spec/persona-mode/_INDEX.md`.
 - `env.<ENV_NAME>` writes are shape-checked only (non-empty, single line: no
   CR, LF, or NUL). They preserve comments, blank lines, and unrelated
   assignments, replace the first matching assignment, drop later duplicates of

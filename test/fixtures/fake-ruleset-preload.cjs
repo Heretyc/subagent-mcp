@@ -92,6 +92,12 @@ if (argv1.toLowerCase().endsWith(".py")) {
     emit(JSON.stringify([{ provider: "claude", model: "opus", effort: "medium", rank: 1 }]), 0);
   }
   if (mode === "ok-enabled-reorder") emit(JSON.stringify([...candidates].reverse()), 0);
+  if (mode === "ok-enabled-codex") {
+    // Returns a launchable CODEX triple regardless of input - exercises the
+    // persona claude-only re-filter on ruleset OUTPUT (validateRulesetOutput
+    // accepts launchable claude/codex candidates not present in the input).
+    emit(JSON.stringify([{ provider: "codex", model: "gpt-5.5", effort: "high", rank: 1 }]), 0);
+  }
   // ok-enabled-passthrough (and any other ok-*): echo unchanged.
   emit(JSON.stringify(candidates), 0);
 }
