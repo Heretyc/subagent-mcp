@@ -53,7 +53,11 @@ Before install:
 - Missing or empty registries (`entries=[]` and `globalInit=false`) run the
   same init-scope menu as `setup`: project init runs `runInit([])`, and global
   init runs `runInit(["--global"])`. Non-TTY and `--unattended` update default
-  to global without prompting.
+  to global without prompting. When this path selects global initialization,
+  `init --global` also reconciles native-agent suppression before npm install.
+  For Claude, it removes only the stale smcp-owned `Task`, `Explore`, and
+  `Agent(Explore)` deny entries, ensures `"Agent"`, preserves unrelated entries
+  and settings, and backs up the file before changing it.
 - Stale registered roots prompt on a TTY: `Keep or remove? [K/r]`. Non-TTY keeps
   stale entries and logs a warning.
 - Unless `--quiet` is set, update prints registered project dirs, or `(none)`.
@@ -63,15 +67,17 @@ After install succeeds:
 - If `globalInit` is true, global target files are re-initialized.
 - `--force` re-initializes global target files and every existing registered
   project entry.
-- Successful update silently removes legacy Claude `permissions.deny` entries
-  (`Task`, `Explore`, `Agent(Explore)`) from smcp-managed settings files,
-  leaving only the canonical `"Agent"` deny entry.
 - Successful update prunes `~/.subagent-mcp/backups` timestamp snapshots to the
   most recent directory only.
 - Successful update prunes temp update backups matching `*.bak-update-*` to the
   most recent file per basename.
 
 `--force`, `--quiet`, and `--unattended` are the only accepted update flags.
+
+`subagent-mcp update` does not otherwise modify Claude `permissions.deny`.
+`subagent-mcp upgrade` separately invokes the same Claude reconciler after its
+package update. Reconciliation errors appear in the upgrade summary and do not
+fail the upgrade.
 
 ## Auto-Update
 
