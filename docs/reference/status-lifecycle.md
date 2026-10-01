@@ -32,7 +32,7 @@ Launch time is the **initial heartbeat**: a freshly spawned agent starts with
 | `permission_requested` | Gated sub-agent parked on a permission request; awaiting `respond_permission` (or a 5-minute auto-deny). Recovers to `processing` once answered. Holds its slot and is exempt from the stalled flip | no (live) |
 
 `alive === true` for `processing`/`stalled`/`permission_requested`, and also for
-`finished` when the driver remains open (`exitCode === null`). A turn-finished but
+`finished` when the driver reports that it remains open. A turn-finished but
 alive agent can accept `send_message`, which moves it back to `processing` for the
 next turn (`send_message` is rejected while any permission request is pending).
 `stopped`/`errored`/`zombie_killed` are closed terminal states. See
@@ -57,19 +57,24 @@ its slot until driver close, exactly like a `processing` one.
 ## Health Monitor
 
 The status-transition decision is a pure, unit-tested function
-`computeStatusTransition({ status, exitCode, lastActivity, now, exitedAt }) ->
+`computeStatusTransition({ status, exitCode, driverClosed, lastActivity, now, exitedAt }) ->
 { status, exitedAt }` in `src/status-helpers.ts`, with the idle boundary
 exported as `HEARTBEAT_TIMEOUT_MS = 600000` (10 minutes). Its order is:
 
-1. If status is live (`processing`/`stalled`) and `exitCode !== null` ->
-   `finished` (code 0) or `errored`; stamp `exitedAt` to `now` if unset (exit
+1. If status is live (`processing`/`stalled`/`permission_requested`) and the
+   driver is closed, transition to `finished` for exit code 0 or `errored` for
+   any other or unavailable exit code. Stamp `exitedAt` to `now` if unset (exit
    reconciliation is first and authoritative).
 2. Else if `stalled` and `now - lastActivity <= HEARTBEAT_TIMEOUT_MS` -> `processing` (visible
    stream resumed).
 3. Else if `processing` and `now - lastActivity > HEARTBEAT_TIMEOUT_MS` -> `stalled` (alive
    but quiet).
 4. Otherwise unchanged. Provider turn-completion markers (`result` for Claude,
-   `turn/completed` for Codex app-server) set `finished` in the stdout handler.
+   matching `turn/completed` for Codex app-server) set `finished` in the stdout
+   handler. A Codex completion for another turn is not forwarded into that handler.
+   Final-output extraction follows the matching completed turn, prefers an
+   `agentMessage` with phase `final_answer`, and excludes phase `commentary`.
+   Phase-less provider messages remain valid compatibility candidates.
    Claude background wake is marker-only: `task_notification` with
    `background-complete` resumes the turn; unrecognized post-turn JSONL is only
    captured and does not trigger resume.

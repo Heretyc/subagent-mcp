@@ -35,6 +35,7 @@ export type AgentStatus =
 export interface StatusTransitionInput {
   status: AgentStatus;
   exitCode: number | null;
+  driverClosed?: boolean;
   lastActivity: number;
   now: number;
   exitedAt: number | null;
@@ -45,8 +46,8 @@ export interface StatusTransitionResult {
   exitedAt: number | null;
 }
 
-// Exit reconciliation is FIRST and authoritative: a live agent whose process
-// has exited becomes finished/errored regardless of heartbeat age. Otherwise a
+// Exit reconciliation is first and authoritative: a live agent whose driver
+// has closed becomes finished/errored regardless of heartbeat age. Otherwise a
 // live agent toggles between `processing` (recent visible activity) and
 // `stalled` (heartbeat older than the window).
 export function computeStatusTransition(
@@ -56,7 +57,7 @@ export function computeStatusTransition(
   const isLive =
     status === "processing" || status === "permission_requested" || status === "stalled";
 
-  if (isLive && exitCode !== null) {
+  if (isLive && (exitCode !== null || input.driverClosed === true)) {
     return {
       status: exitCode === 0 ? "finished" : "errored",
       exitedAt: input.exitedAt ?? now,
@@ -86,9 +87,15 @@ export function computeStatusTransition(
 // queue event; re-running this after registration recovers the flip.
 export function reconcilePermissionStatus(
   status: AgentStatus,
-  pendingCount: number
+  pendingCount: number,
+  driverClosed?: boolean
 ): { status: AgentStatus; changed: boolean } {
-  if (pendingCount > 0 && (status === "processing" || status === "stalled")) {
+  if (
+    pendingCount > 0 &&
+    (status === "processing" ||
+      status === "stalled" ||
+      (status === "finished" && driverClosed === false))
+  ) {
     return { status: "permission_requested", changed: true };
   }
   if (pendingCount === 0 && status === "permission_requested") {
@@ -104,21 +111,25 @@ export interface LivenessFields {
 }
 
 // Pure formatter for the per-agent liveness fields shared by poll_agent and
-// list_agents. `hint` is present ONLY when status === "stalled" AND the caller
-// opts in (poll_agent does; list_agents omits it to stay token-efficient).
+// list_agents. The optional driver state distinguishes an open finished turn
+// from a closed process with a null exit code.
 export function buildLivenessFields(
   status: AgentStatus,
   exitCode: number | null,
   lastActivity: number,
   now: number,
-  includeHint = true
+  includeHint = true,
+  driverClosed?: boolean
 ): LivenessFields {
   const idle_seconds = Math.floor((now - lastActivity) / 1000);
+  const driverOpen = driverClosed === undefined ? exitCode === null : !driverClosed;
   const alive =
+    driverOpen &&
     exitCode === null &&
     (status === "processing" ||
       status === "permission_requested" ||
-      status === "stalled");
+      status === "stalled" ||
+      status === "finished");
   const fields: LivenessFields = { alive, idle_seconds };
   if (status === "stalled" && includeHint) {
     fields.hint =

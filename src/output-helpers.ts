@@ -30,53 +30,61 @@ export function envelopeUntrustedOutput(text: string): string {
   return `${UNTRUSTED_OUTPUT_OPENER}\n${neutralized}\n${UNTRUSTED_OUTPUT_CLOSER}`;
 }
 
-// Pull a final assistant-message string out of one parsed Codex event. Codex
-// app-server emits JSON-RPC notifications, while older CLI JSONL used top-level
-// event objects, so match tolerantly.
-function codexEventText(evt: unknown): string | null {
+interface CodexMessageText {
+  text: string;
+  phase: string | null;
+  turnId: string | null;
+}
+
+function stringField(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function codexItemText(item: Record<string, unknown>, turnId: string | null): CodexMessageText | null {
+  if (item.type !== "agentMessage" && item.item_type !== "agent_message") return null;
+  const text = stringField(item.text) ?? stringField(item.message);
+  if (text === null) return null;
+  return { text, phase: stringField(item.phase), turnId };
+}
+
+// Pull an assistant-message string plus its lifecycle metadata out of one
+// Codex event. App-server JSON-RPC and older CLI JSONL shapes are both kept.
+function codexEventText(evt: unknown): CodexMessageText | null {
   if (!evt || typeof evt !== "object") return null;
   const e = evt as Record<string, unknown>;
 
   if (typeof e.method === "string" && e.params && typeof e.params === "object") {
     const params = e.params as Record<string, unknown>;
+    const turnId = stringField(params.turnId);
     if (e.method === "item/agentMessage/delta" && typeof params.delta === "string") {
-      return params.delta;
+      return { text: params.delta, phase: stringField(params.phase), turnId };
     }
     if (e.method === "item/completed" && params.item && typeof params.item === "object") {
       const item = params.item as Record<string, unknown>;
-      if (item.type === "agentMessage" && typeof item.text === "string") return item.text;
-    }
-    if (e.method === "turn/completed" && params.turn && typeof params.turn === "object") {
-      const turn = params.turn as Record<string, unknown>;
-      const items = Array.isArray(turn.items) ? turn.items : [];
-      for (let i = items.length - 1; i >= 0; i--) {
-        const item = items[i];
-        if (item && typeof item === "object") {
-          const obj = item as Record<string, unknown>;
-          if (obj.type === "agentMessage" && typeof obj.text === "string") return obj.text;
-        }
-      }
+      return codexItemText(item, turnId);
     }
   }
 
   // Shape A: { type: "agent_message", message: "..." }
   if (e.type === "agent_message" && typeof e.message === "string") {
-    return e.message;
+    return { text: e.message, phase: stringField(e.phase), turnId: stringField(e.turn_id) };
   }
 
   // Shape B: { type: "item.completed", item: { item_type: "agent_message", text: "..." } }
   if (e.type === "item.completed" && e.item && typeof e.item === "object") {
     const item = e.item as Record<string, unknown>;
-    if (item.item_type === "agent_message" && typeof item.text === "string") {
-      return item.text;
-    }
+    return codexItemText(item, stringField(e.turn_id));
   }
 
   // Shape C: { msg: { type: "agent_message", message: "..." } }
   if (e.msg && typeof e.msg === "object") {
     const msg = e.msg as Record<string, unknown>;
     if (msg.type === "agent_message" && typeof msg.message === "string") {
-      return msg.message;
+      return {
+        text: msg.message,
+        phase: stringField(msg.phase),
+        turnId: stringField(msg.turn_id),
+      };
     }
   }
 
@@ -157,20 +165,69 @@ export function extractFinalTurn(provider: string, stdout: string): string {
   }
 
   if (provider === "codex") {
-    let last: string | null = null;
+    let activeTurnId: string | null = null;
+    let turnOpen = false;
+    let completedText: string | null = null;
+    let finalText: string | null = null;
+    let unphasedText: string | null = null;
     const lines = stdout.split("\n");
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       try {
         const evt = JSON.parse(trimmed);
-        const text = codexEventText(evt);
-        if (text !== null) last = text;
+        if (evt && typeof evt === "object") {
+          const event = evt as Record<string, unknown>;
+          const params = event.params && typeof event.params === "object"
+            ? event.params as Record<string, unknown>
+            : null;
+          if (event.method === "turn/started" && params?.turn && typeof params.turn === "object") {
+            activeTurnId = stringField((params.turn as Record<string, unknown>).id);
+            turnOpen = true;
+            completedText = null;
+            finalText = null;
+            unphasedText = null;
+            continue;
+          }
+          if (event.method === "turn/completed" && params?.turn && typeof params.turn === "object") {
+            const turn = params.turn as Record<string, unknown>;
+            const completedTurnId = stringField(turn.id);
+            if ((!turnOpen && completedText !== null) || (activeTurnId && completedTurnId !== activeTurnId)) {
+              continue;
+            }
+            let completedFinalText: string | null = null;
+            let completedUnphasedText: string | null = null;
+            const items = Array.isArray(turn.items) ? turn.items : [];
+            for (const item of items) {
+              if (!item || typeof item !== "object") continue;
+              const message = codexItemText(item as Record<string, unknown>, completedTurnId);
+              if (!message || message.phase === "commentary") continue;
+              if (message.phase === "final_answer") completedFinalText = message.text;
+              else completedUnphasedText = message.text;
+            }
+            completedText = completedFinalText ?? finalText ?? completedUnphasedText ?? unphasedText ?? "";
+            activeTurnId = null;
+            turnOpen = false;
+            finalText = null;
+            unphasedText = null;
+            continue;
+          }
+        }
+        const message = codexEventText(evt);
+        if (message === null || message.phase === "commentary") continue;
+        if ((!turnOpen && completedText !== null) || (activeTurnId && message.turnId && message.turnId !== activeTurnId)) {
+          continue;
+        }
+        if (message.phase === "final_answer") finalText = message.text;
+        else unphasedText = message.text;
       } catch {
         // skip non-JSON lines
       }
     }
-    if (last !== null) return last;
+    if (turnOpen) return "";
+    if (completedText !== null) return completedText;
+    if (finalText !== null) return finalText;
+    if (unphasedText !== null) return unphasedText;
     return rawFallback(stdout);
   }
 

@@ -15,8 +15,8 @@
  */
 
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,10 +102,12 @@ function writeMockDriverScript(tempRoot) {
   writeFileSync(
     script,
     `
+import { writeFileSync } from "node:fs";
 import readline from "node:readline";
 
 const provider = process.argv[2] || "claude";
 let turn = 0;
+writeFileSync(process.env.SUBAGENT_MOCK_DRIVER_PID_FILE, String(process.pid));
 const rl = readline.createInterface({ input: process.stdin });
 
 function send(obj) {
@@ -137,6 +139,7 @@ function makeTempEnv() {
   const fakeBin = join(tempRoot, "bin");
   const workDir = join(tempRoot, "work");
   const fakePrefix = join(tempRoot, "empty-prefix");
+  const mockDriverPidFile = join(tempRoot, "mock-provider.pid");
   mkdirSync(fakeBin);
   mkdirSync(workDir);
   mkdirSync(fakePrefix);
@@ -156,6 +159,7 @@ function makeTempEnv() {
       SUBAGENT_MOCK_CODEX_DRIVER: "jsonl",
       SUBAGENT_MCP_ENABLE_TEST_SEAMS: "1",
       SUBAGENT_MOCK_DRIVER_SCRIPT: mockDriverScript,
+      SUBAGENT_MOCK_DRIVER_PID_FILE: mockDriverPidFile,
       SUBAGENT_RULESET_PYTHON: process.execPath,
       NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require "${preloadPath.replace(/\\/g, "/")}"`]
         .filter(Boolean)
@@ -164,7 +168,7 @@ function makeTempEnv() {
     },
     fakeBin
   );
-  return { tempRoot, workDir, env };
+  return { tempRoot, workDir, env, mockDriverPidFile };
 }
 
 function createMcpSession(entrypoint, options = {}) {
@@ -174,6 +178,7 @@ function createMcpSession(entrypoint, options = {}) {
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
   });
+  const closed = new Promise((resolveClose) => child.once("close", resolveClose));
 
   let nextId = 1;
   let stdout = "";
@@ -233,23 +238,37 @@ function createMcpSession(entrypoint, options = {}) {
   }
 
   async function close() {
-    if (process.platform === "win32" && child.pid) {
-      spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
-        stdio: "ignore",
-        windowsHide: true,
-      });
-    } else {
+    if (child.exitCode === null && child.signalCode === null) {
       child.kill();
     }
     await withTimeout(
-      new Promise((resolveClose) => child.once("exit", resolveClose)),
+      closed,
       2000,
       "server close",
       () => `stderr=${stderr}`
-    ).catch(() => {});
+    );
   }
 
   return { request, initialize, close };
+}
+
+async function waitForRecordedProcessExit(pidFile) {
+  if (!existsSync(pidFile)) return;
+  const pid = Number(readFileSync(pidFile, "utf8"));
+  assert.ok(Number.isSafeInteger(pid) && pid > 0, `invalid mock provider pid: ${pid}`);
+  const deadline = Date.now() + 2000;
+  while (true) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") return;
+      throw error;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(`mock provider ${pid} did not exit before temp cleanup`);
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+  }
 }
 
 async function callTool(session, name, args) {
@@ -288,7 +307,7 @@ async function waitForOutput(session, agentId, needle, label) {
 // 1. Model matrix: every registered model launches and pings -> pongs.
 for (const { provider, model, effort } of MODEL_MATRIX) {
   await test(`model ${model} (${provider}) launches at ${effort} effort and ping->pong`, async () => {
-    const { tempRoot, workDir, env } = makeTempEnv();
+    const { tempRoot, workDir, env, mockDriverPidFile } = makeTempEnv();
     const session = createMcpSession(distIndex, { cwd: workDir, env });
     try {
       await session.initialize();
@@ -310,9 +329,8 @@ for (const { provider, model, effort } of MODEL_MATRIX) {
       await callTool(session, "kill_agent", { agent_id: payload.agent_id });
     } finally {
       await session.close();
-      // On Windows, spawned mock provider/MCP handles may still be closing just
-      // after taskkill, so a bare rmSync races them and throws EPERM. Retry to
-      // let the OS release the handles before removing the temp tree.
+      await waitForRecordedProcessExit(mockDriverPidFile);
+      // Bounded native retries cover handle release after the owned child exits.
       rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
@@ -324,7 +342,7 @@ for (const { provider, model, effort } of [
   { provider: "codex", model: "gpt-5.5", effort: "medium" },
 ]) {
   await test(`${provider}: send_message mid-session then kill_agent force-terminates`, async () => {
-    const { tempRoot, workDir, env } = makeTempEnv();
+    const { tempRoot, workDir, env, mockDriverPidFile } = makeTempEnv();
     const session = createMcpSession(distIndex, { cwd: workDir, env });
     try {
       await session.initialize();
@@ -367,9 +385,8 @@ for (const { provider, model, effort } of [
       assert.equal(afterKill.isError, true, "send_message after kill must be an error");
     } finally {
       await session.close();
-      // On Windows, spawned mock provider/MCP handles may still be closing just
-      // after taskkill, so a bare rmSync races them and throws EPERM. Retry to
-      // let the OS release the handles before removing the temp tree.
+      await waitForRecordedProcessExit(mockDriverPidFile);
+      // Bounded native retries cover handle release after the owned child exits.
       rmSync(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });

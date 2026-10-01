@@ -737,6 +737,7 @@ export class CodexAppServerDriver implements ProviderDriver {
   private drainActive = false;
   private initialized = false;
   private turnInFlight = false;
+  private turnStartGeneration = 0;
   private readonly maxQueueDepth = 32;
   private readonly maxPendingApprovals = 16;
   private readonly permissionSnapshot: PermissionSnapshot;
@@ -830,7 +831,9 @@ export class CodexAppServerDriver implements ProviderDriver {
   private async startTurn(message: string): Promise<void> {
     if (this.closed) throw new Error("provider driver is closed");
     if (!this.threadId) throw new Error("codex app-server thread is not initialized");
+    const generation = ++this.turnStartGeneration;
     this.turnInFlight = true;
+    this.activeTurnId = null;
     const inputText = this.consumeDenyNotice(message);
     try {
       const response = await this.request("turn/start", {
@@ -842,9 +845,12 @@ export class CodexAppServerDriver implements ProviderDriver {
         approvalPolicy: this.codexLaunchValues.approvalPolicy,
         sandboxPolicy: this.codexLaunchValues.turnSandboxPolicy,
       });
+      if (generation !== this.turnStartGeneration) return;
       const turn = (response.result as JsonObject | undefined)?.turn as JsonObject | undefined;
-      this.activeTurnId = typeof turn?.id === "string" ? turn.id : this.activeTurnId;
+      if (!this.activeTurnId && typeof turn?.id === "string") this.activeTurnId = turn.id;
     } catch (error) {
+      if (generation !== this.turnStartGeneration) return;
+      this.activeTurnId = null;
       this.turnInFlight = false;
       throw error;
     }
@@ -880,17 +886,18 @@ export class CodexAppServerDriver implements ProviderDriver {
     this.stdoutBuf = lines.pop() ?? "";
     for (const line of lines) {
       if (!line.trim()) continue;
-      this.process.stdout.write(line.replace(/\r$/, "") + "\n");
-      this.handleProtocolLine(line);
+      if (this.handleProtocolLine(line)) {
+        this.process.stdout.write(line.replace(/\r$/, "") + "\n");
+      }
     }
   }
 
-  private handleProtocolLine(line: string): void {
+  private handleProtocolLine(line: string): boolean {
     let message: JsonObject;
     try {
       message = JSON.parse(line) as JsonObject;
     } catch {
-      return;
+      return true;
     }
 
     if (typeof message.id === "number" && this.pending.has(message.id)) {
@@ -924,10 +931,22 @@ export class CodexAppServerDriver implements ProviderDriver {
       this._definitelyStartedResolve();
     }
     if (message.method === "turn/completed") {
+      const params = message.params && typeof message.params === "object"
+        ? message.params as JsonObject
+        : {};
+      const turn = params.turn && typeof params.turn === "object"
+        ? params.turn as JsonObject
+        : {};
+      const completedTurnId = typeof turn.id === "string" ? turn.id : null;
+      if (!this.turnInFlight || !this.activeTurnId || completedTurnId !== this.activeTurnId) {
+        return false;
+      }
       this.activeTurnId = null;
       this.turnInFlight = false;
+      this.turnStartGeneration++;
       void this.drainQueuedTurns();
     }
+    return true;
   }
 
   private async handleCodexApproval(

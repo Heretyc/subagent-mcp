@@ -279,9 +279,11 @@ function reconcileAgentPermissionStatus(agent: AgentState): void {
   if (agent.exitCode !== null) return;
   const { status, changed } = reconcilePermissionStatus(
     agent.status,
-    pendingPermissionManager.pendingCount(agent.id)
+    pendingPermissionManager.pendingCount(agent.id),
+    agent.driver.closed
   );
   if (!changed) return;
+  if (agent.status === "finished") agent.exitedAt = null;
   agent.status = status;
   agent.waitReported = false;
   if (status === "processing") agent.lastActivity = Date.now();
@@ -817,7 +819,9 @@ function cleanupUcSettings(agentState: AgentState): void {
 // exited process is reported as completed/failed immediately (no monitor lag).
 function reconcileAgent(agent: AgentState, now: number): void {
   if (
-    (agent.status === "processing" || agent.status === "stalled") &&
+    (agent.status === "processing" ||
+      agent.status === "permission_requested" ||
+      agent.status === "stalled") &&
     agent.process.exitCode !== null
   ) {
     agent.exitCode = agent.process.exitCode;
@@ -825,6 +829,7 @@ function reconcileAgent(agent: AgentState, now: number): void {
   const next = computeStatusTransition({
     status: agent.status,
     exitCode: agent.exitCode,
+    driverClosed: agent.driver.closed,
     lastActivity: agent.lastActivity,
     now,
     exitedAt: agent.exitedAt,
@@ -886,7 +891,7 @@ export function pickInstructions(env: NodeJS.ProcessEnv): string {
 const server = new McpServer(
   {
     name: "subagent-mcp",
-    version: "3.2.4-beta.0",
+    version: "3.2.4-beta.1",
     description:
       "Launches local Claude and Codex sub-agent sessions and can route configured tasks to direct Claude Messages or OpenAI-compatible API providers.",
   },
@@ -1895,7 +1900,9 @@ server.tool(
       agent.status,
       agent.exitCode,
       agent.lastActivity,
-      now
+      now,
+      true,
+      agent.driver.closed
     );
 
     return {
@@ -2236,7 +2243,8 @@ server.tool(
           agent.exitCode,
           agent.lastActivity,
           now,
-          false
+          false,
+          agent.driver.closed
         ),
       };
     });

@@ -6,6 +6,7 @@ import {
   HEARTBEAT_TIMEOUT_MS,
   computeStatusTransition,
   buildLivenessFields,
+  reconcilePermissionStatus,
 } from "../dist/status-helpers.js";
 import {
   getStatus,
@@ -140,6 +141,30 @@ test("stalled -> errored when exitCode != 0", () => {
   assert.equal(r.status, "errored");
 });
 
+test("open finished turn with pending approval returns to permission_requested", () => {
+  assert.deepEqual(reconcilePermissionStatus("finished", 1, false), {
+    status: "permission_requested",
+    changed: true,
+  });
+  assert.deepEqual(reconcilePermissionStatus("finished", 1, true), {
+    status: "finished",
+    changed: false,
+  });
+});
+
+test("closed driver with null exit code is errored", () => {
+  const r = computeStatusTransition({
+    status: "permission_requested",
+    exitCode: null,
+    driverClosed: true,
+    lastActivity: NOW,
+    now: NOW,
+    exitedAt: null,
+  });
+  assert.equal(r.status, "errored");
+  assert.equal(r.exitedAt, NOW);
+});
+
 test("existing exitedAt is preserved, not overwritten with now", () => {
   const earlier = NOW - 50000;
   const r = computeStatusTransition({
@@ -209,6 +234,12 @@ test("buildLivenessFields: finished has alive=false and no hint", () => {
   const f = buildLivenessFields("finished", 0, NOW - 1000, NOW);
   assert.equal(f.alive, false);
   assert.equal(f.hint, undefined);
+});
+
+test("buildLivenessFields: finished follows actual driver state", () => {
+  assert.equal(buildLivenessFields("finished", null, NOW, NOW, true, false).alive, true);
+  assert.equal(buildLivenessFields("finished", null, NOW, NOW, true, true).alive, false);
+  assert.equal(buildLivenessFields("processing", null, NOW, NOW, true, true).alive, false);
 });
 
 test("buildLivenessFields: errored has alive=false and no hint", () => {
