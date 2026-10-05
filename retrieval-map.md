@@ -6,8 +6,7 @@ a row plausibly matches, load the target. Every path below was verified to exist
 When nothing matches or the source you have is insufficient, **stop and ask for
 more context** (see final section).
 
-Canonical instruction file: `AGENTS.md` (always loaded). This map routes to
-everything else.
+Canonical instruction file: `AGENTS.md` (always loaded); this map routes to the rest.
 
 ## 1. Direct topic index
 
@@ -55,6 +54,7 @@ everything else.
 | Installer skill | `skills/subagent-mcp-installer/SKILL.md` (+ `references/`) |
 | Config skill (`/smcp:config`) | `skills/smcp-config/SKILL.md` |
 | Nested RAG map (skill) | `skills/mcp-builder/references/retrieval-map.md`, `.spec/references/retrieval-map.md` |
+| Project board (explicit board requests only) | `repo-skills/project-board/SKILL.md` (+ `references/board-laws.md`); conditional load, never for an ordinary contribution |
 
 ## 2. Alias / synonym index
 
@@ -190,11 +190,11 @@ everything else.
 - `skills/model-profiler/SKILL.md` : re-profiling the fleet / routing-table regen.
 - `skills/subagent-mcp-installer/SKILL.md` : installing the addon globally.
 - `skills/smcp-config/SKILL.md` : listing, reading, or updating config via the `configure` tool.
+- `repo-skills/project-board/SKILL.md` : an explicit project-board request (planning, status, maintenance, management); never for an ordinary contribution.
 
 ## 11. When to stop and ask for more context
 
-Stop and request more source context (do NOT guess) when: no index row matches
-the prompt with reasonable confidence; two docs give conflicting answers (spec
-vs code : halt & clarify per Spec-First); the answer depends on a file not
-indexed here; or the task requires a credential, irreversible action, or
-authorization decision (route to `docs/spec/safety-scope.md` first).
+Stop and request more source context (do NOT guess) when: no index row matches the prompt
+with reasonable confidence; two docs give conflicting answers (spec vs code : halt &
+clarify per Spec-First); the answer depends on a file not indexed here; or the task
+requires a credential, irreversible action, or authorization decision (route to `docs/spec/safety-scope.md` first).

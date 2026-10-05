@@ -114,6 +114,16 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
 41. Before opening any PR, ask the owner using the provider-appropriate
     interactive question tool (AskUserQuestion on Claude, request-user-input on
     Codex) whether they wish to increment the package version number.
+42. Every PR must have a GitHub issue filed before the PR is opened and linked
+    from the PR body. Reuse a suitable existing issue when one already captures
+    the work; otherwise file one first. Issue linkage is required independently
+    of project-board membership or board field completeness.
+43. Ordinary contributions require no project-board access, board attachment,
+    board fields, board sweep, board queue drain, or board-specific approval.
+    Board sweeps and board reviews are maintainer operations reserved for
+    applicable CODEOWNERS (or agents explicitly acting on their behalf) through
+    the optional `project-board` skill, and never gate an ordinary PR, its
+    review, or its merge.
 
 ## SOP
 
@@ -129,8 +139,9 @@ in `AGENTS.md`. Agent execution details live in `agents/GIT_COLLABORATION.md`.
    scripts/check_mcp_compliance.mjs` (vendor metadata limits; FAIL blocks) and
    the pre-commit contradiction-checker : then commit the smallest coherent unit
    only when requested or workflow-required.
-5. PR: open draft PRs for early feedback and ready PRs only after self-review,
-   validation, description, risks, and blockers are complete.
+5. PR: confirm the issue exists and link it; open draft PRs for early feedback
+   and ready PRs only after self-review, validation, description, risks, and
+   blockers are complete.
 6. Review: review purpose, correctness, tests, security, dependencies,
    ownership, docs, generated files, migration impact, and rollback path before
    style nits.

@@ -91,12 +91,22 @@ They require `NODE_ENV=test` or `SUBAGENT_MCP_ENABLE_TEST_SEAMS=1`.
 
 1. Inspect `git status --short --branch` before work.
 2. Read `AGENTS.md`, `docs/spec/dev-loop/git-collaboration.md`, and `agents/GIT_COLLABORATION.md`.
-3. Work on a short-lived policy-named topic branch; never directly on protected or default branches.
-4. Keep changes scoped to the active task and preserve user/unowned work.
-5. Run `npm run build && npm test` before staging; stage only inspected diffs as small logical units.
-6. Open a PR for non-trivial changes; the PR must include summary, validation steps, risk, rollback plan, and reviewer notes.
-7. Validate docs, JSON, local scripts, Claude routine CI/CD mapping, and generated artifacts before commit.
-8. Do not add AI attribution or co-author lines to commits.
+3. **File or identify the issue first.** Every PR requires a GitHub issue that is
+   filed before the PR is opened and linked from it. Reuse a suitable existing
+   issue when one already captures the work; otherwise create one first.
+4. Work on a short-lived policy-named topic branch; never directly on protected or default branches.
+5. Keep changes scoped to the active task and preserve user/unowned work.
+6. Run `npm run build && npm test` before staging; stage only inspected diffs as small logical units.
+7. Open a PR for non-trivial changes; the PR must link its issue and include summary, validation steps, risk, rollback plan, and reviewer notes.
+8. Validate docs, JSON, local scripts, Claude routine CI/CD mapping, and generated artifacts before commit.
+9. Do not add AI attribution or co-author lines to commits.
+
+Linked-issue is the only tracking prerequisite. An ordinary contribution needs
+**no** project-board access, board attachment, board fields, board sweep, or
+board queue drain : just the linked issue plus the normal code review, required
+checks, and security gates. Board sweeps and board reviews are maintainer
+operations reserved for applicable CODEOWNERS via the optional `project-board`
+skill; they never gate an ordinary PR.
 
 See [docs/spec/dev-loop/git-collaboration.md](docs/spec/dev-loop/git-collaboration.md) for the extended git-collaboration rules.
 
@@ -122,7 +132,7 @@ See [docs/spec/dev-loop/git-collaboration.md](docs/spec/dev-loop/git-collaborati
   suite and the standalone `check:prose` ASCII prose gate on every PR; a
   failure blocks merge.
 - `.github/workflows/worktree-guard.yml` enforces the worktree-isolation mandate.
-- PRs must pass required checks, independent review, CODEOWNER review when applicable, and resolved conversations before merge.
+- PRs must link a pre-filed issue and pass required checks, independent review, CODEOWNER review when applicable, and resolved conversations before merge.
 - Agent-authored PRs use the same CI, review, and merge gates as human PRs.
 - Workflow changes are executable code and require owner/CODEOWNER review.
 
@@ -165,7 +175,7 @@ duplicate the content in the "Must NOT be duplicated in" column.
 | From-source build steps (clone/install/build/run) | CONTRIBUTING section  Local Setup | README; any other CONTRIBUTING section |
 | MCP host wiring (per-platform) | docs/registration.md | README; CONTRIBUTING prose |
 | MCP-only server registration vs orchestration-hook install | docs/registration.md owns MCP server registration steps only; docs/install/* owns orchestration-hook install, plugin/npm/manual wiring, and per-host hook verification | Do not put orchestration-hook install steps in docs/registration.md; do not duplicate MCP-only server config steps in docs/install/* |
-| Contribution workflow (8 steps) | CONTRIBUTING section  Contribution Workflow | docs/CONTRIBUTING.md (redirect stub only); README |
+| Contribution workflow (9 steps) | CONTRIBUTING section  Contribution Workflow | docs/CONTRIBUTING.md (redirect stub only); README |
 | GitHub CI/CD gates | CONTRIBUTING section  GitHub Gates (CI/CD) | README; any other doc |
 | Release / publish SOP | docs/spec/dev-loop/release-publishing.md | README; CONTRIBUTING section  Local Setup |
 | Install commands (npmjs + GitHub Packages) | README section  Install | CONTRIBUTING section  Publishing (brief context only; no install commands) |
