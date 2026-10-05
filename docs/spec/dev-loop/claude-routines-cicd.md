@@ -50,6 +50,9 @@ citations, or wrapper text.
 - prepend `<You are the primary agent in an automated workflow>` to the routine
   API text body
 - send workflow SHA, target SHA, PR head/base SHA, and merge-group metadata
+- state in its routine contract text that PR issue linkage is enforced and that
+  project board findings are advisory only, without loading the project-board
+  skill, contacting the project board, or running a board sweep
 - fail if the routine cannot be dispatched
 - require version sync by running `npm run check:versions` or `npm run build`
   before reporting pass
@@ -75,6 +78,7 @@ Target SHA: <sha checked out for validation>
 - JSON syntax: pass|fail|blocked
 - Python syntax: pass|fail|blocked
 - Branch and PR policy: pass|fail|blocked
+- Issue linkage: pass|fail|blocked|not-applicable
 - GitHub governance: pass|fail|blocked
 - Claude CI/CD mapping: pass|fail|blocked
 - Security: pass|fail|blocked
@@ -85,9 +89,46 @@ Target SHA: <sha checked out for validation>
 ### Findings
 - <file or PR field>: <problem and required fix>
 
+### Advisory (non-blocking)
+- <board or other advisory observation>: <note; never affects Status or merge>
+
 ### Validation Notes
 - <commands, limitations, skipped checks, or routine API limitations>
 ```
+
+## Issue Linkage And Advisory Board Findings
+
+- Every PR must have a filed issue linked in its body before merge. The routine
+  reports this as the `Issue linkage` check, and that check can fail or block.
+- The check is evaluated against the pull requests the run identifies: the PR of
+  a `pull_request` event, or the pull requests GitHub reports as associated with
+  the target SHA of a `merge_group`, push, or `workflow_dispatch` run. Those
+  associated PRs, including already-merged ones, are evaluated exactly like
+  `merge_group` PRs. `not-applicable` applies only when the association query on
+  the target SHA completed successfully and returned no pull request; such runs
+  report `not-applicable` rather than fail, and must not assume a PR body. A
+  `pull_request` event must always identify an actual PR or report `blocked`, and
+  is never `not-applicable`. If the pull-request association lookup for a
+  `merge_group`, push, or `workflow_dispatch` run fails or is unavailable, PR
+  metadata cannot be established and the check reports `blocked`, never
+  `not-applicable`. An identified PR whose body or issue metadata is
+  inaccessible also reports `blocked`. Each `blocked` here is a non-board
+  access limitation.
+- Issue linkage is required independently of project board membership,
+  issue-to-board mappings, board fields, board sweeps, and board review queues.
+- Board evaluation is advisory whenever it happens at all. Normal CI must not
+  load the project-board skill, contact the project board, or run a board sweep
+  just to check a PR. No new board checker is added and no new mandatory
+  evaluation is introduced.
+- Board-only findings, absent issue-to-board mappings, incomplete board fields,
+  stale board sweeps, board review queues, unavailable project permissions, and
+  board API failures must never cause a CI failure, a fail or blocked routine
+  status, or a merge rejection.
+- Advisory items belong in the report's `Advisory (non-blocking)` section and
+  must stay distinguishable from `Findings`, which carries failing or blocking
+  non-board problems only.
+- Every unrelated check stays fail-closed. Do not add blanket
+  `continue-on-error` and do not make the Claude routine nonblocking.
 
 ## Enforcement
 

@@ -95,7 +95,7 @@ jobs:
                   "base_ref": mg.get("base_ref"),
                   "base_sha": mg.get("base_sha"),
               },
-              "routine_contract": "Run the canonical Claude CI/CD routine defined in docs/spec/dev-loop/claude-routines-cicd.md. Validate repository policy, line limits, JSON syntax, branch/PR hygiene, GitHub governance, security, attribution, artifacts, and directive/SOP 8-perspective gate. Post results to the PR or routine session. Do not merge or approve.",
+              "routine_contract": "Run the canonical Claude CI/CD routine defined in docs/spec/dev-loop/claude-routines-cicd.md. Validate repository policy, line limits, JSON syntax, branch/PR hygiene, PR issue linkage (a run whose pull-request lookup fails reports blocked, never not-applicable), GitHub governance, security, attribution, artifacts, and directive/SOP 8-perspective gate. Project board findings are advisory only and never change pass/fail/blocked status or any merge decision; do not load the project-board skill, contact the project board, or run a board sweep. Post results to the PR or routine session. Do not merge or approve.",
           }
 
           routine_text = "<You are the primary agent in an automated workflow>\n" + json.dumps(payload, ensure_ascii=True, indent=2)
