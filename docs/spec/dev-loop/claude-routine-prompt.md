@@ -9,10 +9,11 @@ rules are relevant.
 Task:
 1. Identify the triggering event, ref, head SHA, branch, and PR if present.
 2. Resolve target SHA from dispatch payload: PR head SHA, merge-group head SHA,
-   else workflow SHA. For a PR, verify its base and head SHAs against GitHub
-   before using them. If they differ from the dispatch payload, set Status to
-   blocked and report the mismatch. Fetch and checkout that exact target before
-   validation. If checkout fails or HEAD differs, set Status to blocked.
+   else workflow SHA. For a `pull_request` event PR, verify its base and head
+   SHAs against GitHub before using them. If they differ from the dispatch
+   payload, set Status to blocked and report the mismatch. Fetch and checkout
+   that exact target before validation. If checkout fails or HEAD differs, set
+   Status to blocked.
 3. Validate the checked-out branch or PR against repository policy.
 4. Post a concise pass/fail/blocked report to the PR when a PR exists. If no PR
    exists, preserve the report in the Claude session.
@@ -30,6 +31,25 @@ Required checks:
   without repo-local pycache.
 - Branch and PR policy: branch names, PR body, draft state, merge readiness,
   review expectations, and changed-file scope must satisfy repository policy.
+- Issue linkage: evaluate this check only for pull requests identified in step 1.
+  For a `pull_request` event, use the verified PR. For a `merge_group`, push, or
+  `workflow_dispatch` event, run GitHub's pull-request association query on the
+  target SHA and evaluate every returned pull request exactly as a `merge_group`
+  PR, including pull requests that are already merged. An identified PR's body
+  must link at least one issue that exists in this repository, for example
+  `Closes #123` or `Refs #123`. Verify the referenced issue exists before passing
+  this check. A missing, unparseable, or nonexistent issue link on an identified
+  PR is a fail. Report `not-applicable` only when the association query on the
+  target SHA completed successfully and returned no pull request. Never infer,
+  reconstruct, or assume a PR body, and never fail for the absence of one. A
+  `pull_request` event must always identify an actual PR; if it cannot, report
+  `blocked` and never `not-applicable`. If the association query for a
+  `merge_group`, push, or `workflow_dispatch` run fails or is unavailable, PR
+  metadata cannot be established, linkage is blocked, and you must report
+  `blocked` rather than `not-applicable`. If an identified PR's body or issue
+  metadata is inaccessible, report `blocked`. Every `blocked` here is a
+  non-board access limitation, not an advisory board finding. This is independent of
+  project board membership, board fields, board sweeps, and board review queues.
 - GitHub governance: .github/workflows/**, CODEOWNERS, CI-invoked scripts, and
   secret-handling paths must receive owner/CODEOWNER attention.
 - Claude CI/CD mapping: GitHub Actions must only dispatch or bridge to Claude
@@ -40,6 +60,17 @@ Required checks:
   lines may be introduced.
 - Artifact hygiene: generated, large, binary, cached, build, or pycache artifacts
   must be absent or explicitly justified.
+
+Project board findings are advisory only:
+- Do not load the project-board skill, contact the project board, or run a board
+  sweep in order to check a PR. No board evaluation is required here.
+- Board-only defects, absent issue-to-board mappings, incomplete board fields,
+  stale board sweeps, board review queues, unavailable project permissions, and
+  board API failures never change any check result, the overall Status, or a
+  merge decision.
+- Report any board observation you already have under Advisory (non-blocking).
+  Keep Findings reserved for failing or blocking non-board problems.
+- Every other check in this prompt stays fail-closed.
 
 8-perspective gate for directive/SOP changes:
 If a change creates or updates durable prompts, directives, SOPs, skills, or
@@ -75,6 +106,7 @@ Target SHA: <sha checked out for validation>
 - JSON syntax: pass|fail|blocked
 - Python syntax: pass|fail|blocked
 - Branch and PR policy: pass|fail|blocked
+- Issue linkage: pass|fail|blocked|not-applicable
 - GitHub governance: pass|fail|blocked
 - Claude CI/CD mapping: pass|fail|blocked
 - Security: pass|fail|blocked
@@ -84,6 +116,9 @@ Target SHA: <sha checked out for validation>
 
 ### Findings
 - <file, PR field, or check>: <problem and required fix>
+
+### Advisory (non-blocking)
+- <board or other advisory observation>: <note; never affects Status or merge>
 
 ### Validation Notes
 - <commands run, limitations, skipped checks, routine API limitations, or owner

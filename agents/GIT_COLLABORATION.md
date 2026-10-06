@@ -11,7 +11,10 @@ Use this checklist for repository work. The normative policy is
 3. Follow `docs/spec/safety-scope.md` for interactive cascades, automated
    declarations, credential handling, and sub-agent prompts.
 4. Read the task scope and name the owned files or directories.
-5. Use a topic branch for non-trivial work unless the owner explicitly directed
+5. Confirm a GitHub issue covers the work, or file one, before opening a PR.
+   Reuse a suitable existing issue when one fits. Branch names may reference the
+   issue but are not required to contain its number.
+6. Use a topic branch for non-trivial work unless the owner explicitly directed
    a different workflow that still respects protected/default-branch rules.
 
 ## Branches
@@ -47,6 +50,10 @@ Use this checklist for repository work. The normative policy is
 
 ## Pull Requests
 
+- Every PR must link a pre-filed issue (`Closes #<n>` or `Refs #<n>`).
+- No project-board access, board fields, board sweep, or board queue drain is
+  needed for an ordinary contribution : linked issue plus the normal review,
+  required checks, and security gates is the whole tracking requirement.
 - Use draft PRs for early visibility or CI signal.
 - Mark ready only after self-review, validation, completed description, and
   blocker disclosure.
