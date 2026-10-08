@@ -37,6 +37,7 @@ export const DEFAULT_ESCALATION = "irreversible-only" as const;
 export const DEFAULT_STRICT_READ_PARITY = "warn" as const;
 export const DEFAULT_SANDBOX_NETWORK: boolean = true;
 export const DEFAULT_CONTEXT_COACHING: boolean = true;
+export const DEFAULT_DOCTRINE: DoctrineMode = "always";
 export const CONFIG_FILENAME: string = "global-subagent-mcp-config.jsonc";
 export const LEGACY_CONFIG_FILENAME: string = "global-concurrency.jsonc";
 export const USER_SETTINGS_FILENAME: string = "settings.json";
@@ -87,6 +88,15 @@ export interface MergedPermissionConfig extends PermissionRulesConfig {
 export interface ContextCoachingSettings {
   contextCoaching: boolean;
 }
+
+/**
+ * Doctrine posture for the orchestration hooks. "always" applies the full
+ * doctrine surface in both marker states. "windowed" keeps the ON state
+ * intact and makes the OFF state dormant: no per-prompt emissions, no
+ * latch/metering force-ON, no native-Agent deny. Read per hook invocation;
+ * no restart semantics.
+ */
+export type DoctrineMode = "always" | "windowed";
 
 export interface GlobalConfig {
   globalConcurrentSubagents: number;
@@ -408,6 +418,16 @@ export function applyContextCoachingSettings(text: string, settings: ContextCoac
   return upsertJsoncScalar(text, "contextCoaching", String(clean.contextCoaching));
 }
 
+/** Exact-match sanitizer: anything but the literal "windowed" is the default. */
+export function sanitizeDoctrine(raw: unknown): DoctrineMode {
+  return raw === "windowed" ? "windowed" : DEFAULT_DOCTRINE;
+}
+
+/** Rewrites the doctrine key in JSONC settings text, preserving other keys. */
+export function applyDoctrineSetting(text: string, value: DoctrineMode): string {
+  return upsertJsoncScalar(text, "doctrine", JSON.stringify(sanitizeDoctrine(value)));
+}
+
 /**
  * Persists the coaching key, preserving every other key and comment already in
  * the file. A missing or blank file is seeded from the shipped scaffold so the
@@ -550,6 +570,27 @@ export function readContextCoachingSettings(
     }
   }
   return settings;
+}
+
+/**
+ * The doctrine setting in one read. An absent key, an unparseable file, and an
+ * absent file all resolve SILENTLY to the default ("always"): the hooks and
+ * pretool gate must never change behavior because a settings file is broken.
+ */
+export function readDoctrine(path: UserSettingsPathInput = undefined): DoctrineMode {
+  let doctrine: DoctrineMode = DEFAULT_DOCTRINE;
+  for (const file of [userSettingsPath(path), userSettingsLocalPath(path)].filter(Boolean)) {
+    if (!existsSync(file)) continue;
+    try {
+      const parsed = parseJsonObject(readFileSync(file, "utf8"));
+      if (Object.prototype.hasOwnProperty.call(parsed, "doctrine")) {
+        doctrine = sanitizeDoctrine(parsed.doctrine);
+      }
+    } catch {
+      // Broken or blank user settings must not crash hooks.
+    }
+  }
+  return doctrine;
 }
 
 let legacyConfigDeprecationPending = false;
