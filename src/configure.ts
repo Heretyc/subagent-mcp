@@ -19,11 +19,13 @@ import {
   DEFAULT_CONTEXT_COACHING,
   DEFAULT_ESCALATION,
   DEFAULT_PERMISSIONS_CEILING,
+  DEFAULT_PERSONA_MODE,
   DEFAULT_SANDBOX_NETWORK,
   DEFAULT_STRICT_READ_PARITY,
   USER_SETTINGS_FILENAME,
   USER_SETTINGS_LOCAL_FILENAME,
   applyContextCoachingSettings,
+  applyPersonaSettings,
   defaultConfigPath,
   parseCheckForUpdatesConfig,
   parseConcurrencyConfig,
@@ -32,6 +34,7 @@ import {
   parseSandboxNetworkConfig,
   parseStrictReadParityConfig,
   readContextCoachingSettings,
+  readPersonaSettings,
   resolveGlobalConfigPath,
   stripJsoncComments,
 } from "./concurrency.js";
@@ -186,6 +189,7 @@ const CONFIG_KEYS: Record<string, KeyMeta> = {
   "global.strictReadParity": { scope: "global", type: "enum", settable: false, restart: false, def: DEFAULT_STRICT_READ_PARITY, valid: "warn, off" },
   "global.sandboxNetwork": { scope: "global", type: "boolean", settable: false, restart: false, def: DEFAULT_SANDBOX_NETWORK, valid: "true, false (parser fallback is true when missing/invalid; the shipped scaffold writes false)" },
   "user.contextCoaching": { scope: "user", type: "boolean", settable: true, restart: false, def: DEFAULT_CONTEXT_COACHING, valid: "true, false" },
+  "user.personaMode": { scope: "user", type: "enum", settable: true, restart: false, def: DEFAULT_PERSONA_MODE, valid: "off, enabled; gates the launch_agent persona parameters (agent, agent_definition); set only with explicit user approval obtained via the structured-question tool" },
   "update.autoUpdate": { scope: "update", type: "boolean", settable: false, restart: true, def: false, valid: "true, false" },
   "mode.orchestration": { scope: "mode", type: "state", settable: false, restart: false, def: null, valid: "ON, disabled-this-session (plus session_scope); set via the orchestration-mode tool" },
   "mode.modelSelection": { scope: "mode", type: "state", settable: false, restart: false, def: "smart", valid: "smart, user-approved-overrides (plus window metadata); set via the model-selection-mode tool" },
@@ -295,6 +299,12 @@ function readStatic(key: string): Resolved {
         source: settingsLocalHas("contextCoaching") ? settingsLocalFile() : undefined,
       };
     }
+    case "user.personaMode":
+      return {
+        value: readPersonaSettings().personaMode,
+        path: settingsFile(),
+        source: settingsLocalHas("personaMode") ? settingsLocalFile() : undefined,
+      };
     case "update.autoUpdate":
       return {
         value: readInitRegistry(homedir()).autoUpdate,
@@ -521,7 +531,61 @@ function coached(key: string, message: string, path: string | null) {
 // set: user settings
 // ---------------------------------------------------------------------------
 
+function setPersonaSetting(key: string, raw: string) {
+  const prop = "personaMode" as const;
+  if (raw !== "off" && raw !== "enabled") {
+    return fail("set", key, `invalid value for ${key}; expected exactly "off" or "enabled"`);
+  }
+  // Seed from the DURABLE file only (never the settings.local.json overlay),
+  // so a local-only override is never promoted into the shared file.
+  const next = { ...readPersonaSettings(settingsFile()), personaMode: raw as "off" | "enabled" };
+
+  const target = settingsFile();
+  const existing = readIfExists(target);
+  const blank = existing === null || existing.trim() === ""; // trim() already drops a U+FEFF BOM
+  const base = blank ? "{}\n" : (existing as string);
+  let text: string;
+  try {
+    text = applyPersonaSettings(base, next);
+  } catch (e) {
+    return fail("set", key, `could not update ${target}: ${sanitizeMessage(e)}`);
+  }
+  // Verify the rewrite landed on the real key: a malformed file, or an
+  // assignment reachable only inside a comment or nested object, would
+  // otherwise be reported as success while the effective value stays stale.
+  let applied: string | null = null;
+  try {
+    applied = String((JSON.parse(stripJsoncComments(text)) as Record<string, unknown>).personaMode);
+  } catch {
+    applied = null;
+  }
+  if (applied !== raw) {
+    return fail("set", key, `could not update ${target}: the file has no top-level JSON object for the personaMode key`);
+  }
+  if (existing !== null && text === existing) {
+    const effectiveNow = readPersonaSettings()[prop];
+    const overriddenNow = settingsLocalHas(prop) && effectiveNow !== next[prop];
+    return ok({
+      ok: true, action: "set", key, value: effectiveNow, status: "unchanged", path: target, backup: null, restart_required: false,
+      ...(overriddenNow ? { message: `written to ${target}, but ${settingsLocalFile()} overrides this key; the effective value is unchanged.`, source: settingsLocalFile() } : {}),
+    });
+  }
+  let backup: string | null;
+  try {
+    backup = backupAndWrite(target, text);
+  } catch (e) {
+    return fail("set", key, `could not write ${target}: ${sanitizeMessage(e)}`);
+  }
+  const effective = readPersonaSettings()[prop];
+  const overridden = settingsLocalHas(prop) && effective !== next[prop];
+  return ok({
+    ok: true, action: "set", key, value: effective, status: "updated", path: target, backup, restart_required: false,
+    ...(overridden ? { message: `written to ${target}, but ${settingsLocalFile()} overrides this key; the effective value is unchanged.`, source: settingsLocalFile() } : {}),
+  });
+}
+
 function setUserSetting(key: string, raw: string) {
+  if (key === "user.personaMode") return setPersonaSetting(key, raw);
   const merged = readContextCoachingSettings();
   const next = { ...merged };
   if (raw !== "true" && raw !== "false") return fail("set", key, `invalid value for ${key}; expected exactly "true" or "false"`);

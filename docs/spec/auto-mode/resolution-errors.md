@@ -125,6 +125,28 @@ Error: sub-orchestrator: true is only available to the main orchestrator (depth 
 Interpolate the actual `currentLaunchDepth()` value for `<depth>`. This error carries no
 `AUTO_HINT` (it is a structural depth violation, not a mode/category error).
 
+## Persona candidate errors (persona params present; auto routing)
+
+Both set `isError: true` and carry `<AUTO_HINT>`. Persona params constrain the
+candidate list to the Claude SDK path (gating and the full validation matrix:
+`../persona-mode/_INDEX.md`). Verbatim text from `src/index.ts`:
+
+No launchable claude pairing before the attempt loop:
+
+```
+Error: persona parameters require a Claude candidate, but the routing table has no launchable claude pairing for <task_category>. Drop the persona parameters, or pick a task_category with a claude route.
+<AUTO_HINT>
+```
+
+Advanced ruleset output re-checked after it runs (the ruleset may return
+claude/codex candidates not present in its input, so the constraint is
+re-established on its output):
+
+```
+Error: advanced ruleset returned no claude candidate for a persona launch of <task_category>; persona parameters require the Claude SDK path.
+<AUTO_HINT>
+```
+
 ## Anti-examples (what must NOT happen)
 
 - Do NOT silently substitute `effort:"high"` when `effort` is omitted : that is

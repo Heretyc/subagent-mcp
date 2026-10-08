@@ -95,6 +95,7 @@ import {
   readPermissionsCeiling,
   ensureFirstRunPermissionCeiling,
   readGlobalCap,
+  readPersonaSettings,
   releaseSlot,
   reserveSlot,
   slotDir,
@@ -103,6 +104,12 @@ import {
   type ZombieRecord,
 } from "./concurrency.js";
 import { configure } from "./configure.js";
+import {
+  hasPersonaParams,
+  validatePersonaParams,
+  wireAgentDefinitionSchema,
+  type WireAgentDefinition,
+} from "./persona.js";
 import { shouldReapTerminalButAlive } from "./zombie.js";
 import * as orchestrationMarker from "./orchestration/marker.js";
 import * as modelMode from "./orchestration/model-mode.js";
@@ -1030,7 +1037,11 @@ async function tryLaunchCandidate(
     applied: true;
     originalSelection: { provider: string; model: string; effort: string };
   },
-  subOrchestrator?: boolean
+  subOrchestrator?: boolean,
+  persona: {
+    agent?: string;
+    agentDefinition?: WireAgentDefinition;
+  } = {}
 ): Promise<{ agentId: string } | { reason: string; failure_type: FailureType }> {
   if (candidate.provider === "api") {
     if (!candidate.apiProvider) {
@@ -1134,6 +1145,7 @@ async function tryLaunchCandidate(
       ucSettingsDir: buildResult.ucSettingsDir,
       agentId,
       permissionSnapshot,
+      ...persona,
     });
   } catch (error) {
     // Synchronous spawn throw (rare) — clean up and report as a launch failure.
@@ -1506,7 +1518,7 @@ function reattachCandidateMetadata(original: Candidate[], returned: Candidate[])
 // Tool 1: launch_agent
 server.tool(
   "launch_agent",
-  "Spawn a sub-agent session. CONTRACT: `prompt` states objective + output format + tools/sources + boundaries; the server auto-upserts \"<this is a request from a parent process>\" as true first line (idempotent), so you need not add it. SCALE: ~1 agent for a simple fact-find, 2-4 for comparisons; split multi-phase work into atomic steps, one task_category each. AUTO MODE (mandatory first attempt unless override is licensed): pass only `prompt` + `task_category`; server picks provider/model/effort. FAILOVER: launch-time failure (incl. provider usage/rate-limit refusal before output) quietly cascades down ranking and reports `failover_note`; if all fail, one loud error lists every candidate + reason. Provider+model override is PINNED: one attempt, no substitute. `provider`/`model`/`effort` are OVERRIDES, licensed on 1st/2nd attempt only when task verifiably needs a specific capability: STATE it; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8 only (not Opus 5.5 or any other model). SOLE CHANNEL: while connected this is the only sanctioned sub-agent launch path in BOTH orchestration states; harness-native Task/Agent tools forbidden. Children get SUBAGENT_MCP_SUBAGENT=1 so hooks skip them. Launch returns `processing` (alive); later `stalled` is alive-but-quiet, NOT dead: wait/re-poll, don't kill. DEADLOCK: set `deadlock=true` only after 2 failed/unsatisfactory attempts for the SAME atomic task; from 3rd attempt deadlock outranks overrides, so drop provider/model/effort. SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches a delegate-only orchestrator for one disjoint plan section, used by swarm dispatch; server injects directive + env marker; the child's own sub-agents run as normal workers (flag never inherits).",
+  "Spawn a sub-agent session. CONTRACT: `prompt` states objective + output format + tools/sources + boundaries; the server auto-upserts \"<this is a request from a parent process>\" as true first line (idempotent), so you need not add it. SCALE: ~1 agent for a simple fact-find, 2-4 for comparisons; split multi-phase work into atomic steps, one task_category each. AUTO MODE (mandatory first attempt unless override is licensed): pass only `prompt` + `task_category`; server picks provider/model/effort. FAILOVER: launch-time failure (incl. provider usage/rate-limit refusal before output) quietly cascades down ranking and reports `failover_note`; if all fail, one loud error lists every candidate + reason. Provider+model override is PINNED: one attempt, no substitute. `provider`/`model`/`effort` are OVERRIDES, licensed on 1st/2nd attempt only when task verifiably needs a specific capability: STATE it; `model` requires `provider`, `effort` requires `provider`+`model`; ultracode effort is Opus 4.8 only (not Opus 5.5 or any other model). SOLE CHANNEL: while connected this is the only sanctioned sub-agent launch path in BOTH orchestration states; harness-native Task/Agent tools forbidden. PERSONA: opt-in via configure user.personaMode; see agent/agent_definition params. Children get SUBAGENT_MCP_SUBAGENT=1 so hooks skip them. Launch returns `processing` (alive); later `stalled` is alive-but-quiet, NOT dead: wait/re-poll, don't kill. DEADLOCK: set `deadlock=true` only after 2 failed/unsatisfactory attempts for the SAME atomic task; from 3rd attempt deadlock outranks overrides, so drop provider/model/effort. SUB-ORCHESTRATOR: `sub-orchestrator: true` (main orchestrator only, depth 0) launches a delegate-only orchestrator for one disjoint plan section, used by swarm dispatch; server injects directive + env marker; the child's own sub-agents run as normal workers (flag never inherits).",
   {
     task_category: z.enum(TASK_CATEGORIES).describe(TASK_CATEGORY_GLOSS),
     prompt: z.string().min(1),
@@ -1514,6 +1526,10 @@ server.tool(
     model: z.enum([...CLAUDE_LAUNCH_MODELS, ...CODEX_LAUNCH_MODELS]).optional(),
     effort: z.enum(["medium", "high", "xhigh", "max", "ultracode"]).optional(),
     cwd: z.string().optional(),
+    agent: z.string().min(1).optional().describe("PERSONA (opt-in; requires configure user.personaMode=enabled; Claude provider only): agent name applied to the sub-agent's main thread; requires an inline agent_definition registered under this name."),
+    agent_definition: wireAgentDefinitionSchema
+      .optional()
+      .describe("PERSONA: inline definition registered under `agent` — system prompt and optional tool allow/deny lists. Deliberately has NO model field: routing keeps sole ownership of model choice."),
     deadlock: z.boolean().optional().describe("MANDATE: ALWAYS set deadlock=true when, and ONLY when, 2 launch attempts for the SAME atomic task have already failed or been unsatisfactory — the 3rd attempt onward. Re-wording the prompt does NOT make it a different task; splitting a failed task does NOT reset attempts for its unchanged parts; re-launching for the same deliverable means the prior attempt COUNTS as failed/unsatisfactory ('partial progress' is not an exemption). NEVER set it on a 1st or 2nd attempt, NEVER for a different task, NEVER speculatively. Auto mode only: cannot be combined with provider/model/effort — from the 3rd attempt deadlock outranks any capability override, so drop those params. Passing false is identical to omitting it."),
     "sub-orchestrator": z.boolean().optional().describe(SUB_ORCH_PARAM_GLOSS),
   },
@@ -1547,6 +1563,29 @@ server.tool(
     if (presenceError) {
       return errorResult(presenceError);
     }
+
+    // Persona gate (docs/spec/persona-mode/). Settings are re-read per launch,
+    // matching the config-file re-read ethos; while user.personaMode is off the
+    // three persona params are rejected outright, so default behavior is
+    // untouched. Runs before the model gate: persona params are not model
+    // selectors and must not depend on model-selection-mode state.
+    const personaSettings = readPersonaSettings();
+    const personaParams = {
+      provider,
+      agent: params.agent as string | undefined,
+      agentDefinition: params.agent_definition as WireAgentDefinition | undefined,
+    };
+    const personaError = validatePersonaParams(personaSettings, personaParams);
+    if (personaError) {
+      return errorResult(personaError);
+    }
+    const personaRequested = hasPersonaParams(personaParams);
+    // The persona fields are undefined unless supplied, which the driver
+    // treats identically to absent.
+    const persona = {
+      agent: personaParams.agent,
+      agentDefinition: personaParams.agentDefinition,
+    };
 
     // Depth-0 gate: only the MAIN orchestrator may create a sub-orchestrator.
     // From depth 1 the child's own workers would sit at depth 2 and could not
@@ -1621,8 +1660,20 @@ server.tool(
 
     const requestedCandidates = mode === "provider_model" ? result.candidates.slice(0, 1) : result.candidates;
     let candidates = appendDedupedCandidates(requestedCandidates, autoCandidates);
+    if (personaRequested) {
+      // Only the Claude SDK path can apply a persona; codex/api candidates
+      // would silently drop it, so they are excluded rather than attempted
+      // (the api slotInsert below is skipped for the same reason).
+      candidates = candidates.filter((c) => c.provider === "claude");
+      if (candidates.length === 0) {
+        return errorResult(
+          `Error: persona parameters require a Claude candidate, but the routing table has no launchable claude pairing for ${task_category}. Drop the persona parameters, or pick a task_category with a claude route.\n${AUTO_HINT}`
+        );
+      }
+    }
     if (
       pureAuto &&
+      !personaRequested &&
       branch === "cost_efficiency" &&
       launchInputs.allowApiSlotInsert &&
       process.env.SUBAGENT_MCP_DISABLE_API_PROVIDERS !== "1"
@@ -1672,6 +1723,18 @@ server.tool(
         };
       }
       candidates = reattachCandidateMetadata(candidates, applied.candidates);
+      // The ruleset may return launchable claude/codex candidates that were
+      // not in its input (only api candidates are constrained to the input
+      // list), so the persona constraint must be re-established on its output:
+      // a codex or api candidate would silently drop the persona.
+      if (personaRequested) {
+        candidates = candidates.filter((c) => c.provider === "claude");
+        if (candidates.length === 0) {
+          return errorResult(
+            `Error: advanced ruleset returned no claude candidate for a persona launch of ${task_category}; persona parameters require the Claude SDK path.\n${AUTO_HINT}`
+          );
+        }
+      }
     }
 
     // 6. Attempt loop: best→worst. Register on first successful driver start; silently
@@ -1713,7 +1776,8 @@ server.tool(
           rulesetApplied && rulesetOriginalSelection !== undefined
             ? { applied: true, originalSelection: rulesetOriginalSelection }
             : undefined,
-          subOrchestrator
+          subOrchestrator,
+          persona
         );
         if (
           candidate.provider === "api" &&
@@ -1729,7 +1793,8 @@ server.tool(
             rulesetApplied && rulesetOriginalSelection !== undefined
               ? { applied: true, originalSelection: rulesetOriginalSelection }
               : undefined,
-            subOrchestrator
+            subOrchestrator,
+            persona
           );
         }
         if ("agentId" in outcome) {
